@@ -19,14 +19,10 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include "common.hpp"
-
-#include <jsonifier>
-#include <filesystem>
-#include <fstream>
 
 namespace uint_validation_tests {
 
@@ -39,12 +35,24 @@ namespace uint_validation_tests {
 	constexpr jsonifier::internal::array<std::string_view, 11> failValues{ { "18446744073709551616", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
 		"null", "{}" } };
 
-	inline static void uintTests() {
-		std::cout << "Uint Pass Tests: " << std::endl;
-		pass_test_runner<uint64_t, uint64_t, inputValues, outputValues, pass_tests_runner, std::make_integer_sequence<uint64_t, inputValues.size()>>::impl();
-		std::cout << "Uint Fail Tests: " << std::endl;
-		fail_test_runner<uint64_t, failValues, fail_tests_runner, std::make_integer_sequence<uint64_t, failValues.size()>>::impl();
+	template<bool partial, bool knownOrder, bool nullTerminated> inline static void uintTestsImpl() {
+		std::cout << "Uint Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<uint64_t, uint64_t, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		std::cout << "Uint Fail Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		fail_test_runner<uint64_t, failValues, partial, knownOrder, nullTerminated, fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
 		return;
+	}
+
+	inline static void runTests() {
+		uintTestsImpl<false, false, false>();
+		uintTestsImpl<false, true, false>();
+		uintTestsImpl<true, false, false>();
+		uintTestsImpl<true, true, false>();
+		uintTestsImpl<false, false, true>();
+		uintTestsImpl<false, true, true>();
+		uintTestsImpl<true, false, true>();
+		uintTestsImpl<true, true, true>();
 	}
 
 }

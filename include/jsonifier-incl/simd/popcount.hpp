@@ -19,37 +19,59 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/utilities/type_entities.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 
 namespace jsonifier::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
-
-	#define popcnt(value) _mm_popcnt_u64(value)
-
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
-
-	#define popcnt(value) __builtin_popcountll(value)
-
+	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+		return static_cast<value_type>(__builtin_popcount(value));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
+		return static_cast<value_type>(__popcnt16(static_cast<uint16_t>(value)));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+		return static_cast<value_type>(_CountOneBits(value));
+	#else
+		return static_cast<value_type>(std::popcount(value));
+	#endif
 #else
-
-	template<concepts::unsigned_t value_type> JSONIFIER_INLINE static value_type popcnt(value_type value) noexcept {
-		value_type count{};
-
-		while (value > 0) {
-			count += value & 1;
-			value >>= 1;
-		}
-
-		return count;
+		return static_cast<value_type>(std::popcount(value));
+#endif
 	}
 
-	#define popcnt(value) simd::popcnt(value)
-
+	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+		return static_cast<value_type>(__builtin_popcount(value));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
+		return static_cast<value_type>(__popcnt(value));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+		return static_cast<value_type>(_CountOneBits(value));
+	#else
+		return static_cast<value_type>(std::popcount(value));
+	#endif
+#else
+		return static_cast<value_type>(std::popcount(value));
 #endif
+	}
+
+	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+		return static_cast<value_type>(__builtin_popcountll(value));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
+		return static_cast<value_type>(__popcnt64(value));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+		return static_cast<value_type>(_CountOneBits64(value));
+	#else
+		return static_cast<value_type>(std::popcount(value));
+	#endif
+#else
+		return static_cast<value_type>(std::popcount(value));
+#endif
+	}
 
 }

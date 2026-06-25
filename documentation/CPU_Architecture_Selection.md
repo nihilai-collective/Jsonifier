@@ -1,42 +1,137 @@
-### CPU Architecture Detection Configuration
-----
-The CPU architecture detection and configuration in Jsonifier's CMakeLists.txt file are designed to support the following architectures: x64, AVX, AVX2, AVX-512, and ARM-NEON. Let's explore each architecture in detail:
+# CPU Architecture Selection
 
-#### x64 Architecture
-----
-The x64 architecture, also known as x86-64 or AMD64, is a 64-bit extension of the x86 instruction set architecture. It provides increased memory addressability and larger general-purpose registers, enabling more efficient processing of 64-bit data. The x64 architecture is widely used in modern CPUs, offering improved performance and expanded capabilities compared to its 32-bit predecessor.
+Jsonifier is a SIMD-heavy library, and getting the right SIMD backend selected for your target CPU is what separates near-peak performance from a slow fallback path. By default, everything is automatic — Jsonifier detects your CPU features at configure time and generates a binary specialized for exactly what your machine supports. When automatic detection isn't the right choice (cross-compilation, portable binaries, deployment mismatches), you can override the detection with a single CMake variable.
 
-#### ARM-NEON
-----
-ARM-NEON (ARM Advanced SIMD) is a set of SIMD (Single Instruction, Multiple Data) instructions for ARM processors, providing similar capabilities to x86's SSE and AVX. NEON offers parallel processing of 64-bit and 128-bit data types, enabling efficient multimedia and signal processing operations on ARM-based devices. Jsonifier leverages ARM-NEON instructions to optimize performance on ARM architectures.
+## How Auto-Detection Works
 
-#### AVX (Advanced Vector Extensions)
-----
-AVX, short for Advanced Vector Extensions, is an extension to the x86 instruction set architecture. AVX provides SIMD (Single Instruction, Multiple Data) instructions for performing parallel processing on vectors of data. It introduces 128-bit vector registers (XMM registers) and new instructions to accelerate floating-point and integer calculations. AVX is supported by many modern CPUs and offers significant performance benefits for applications that can utilize parallel processing.
+At configure time, Jsonifier's CMake build script builds and runs a small standalone helper program (`FeatureCheck/main.cpp`) on the host machine. The program calls `cpuid` (on x64) or reports NEON support (on ARM64), then prints a bitfield summarizing which instruction set extensions are available.
 
-#### AVX2 (Advanced Vector Extensions 2)
-----
-AVX2 is an extension of the AVX instruction set architecture. It builds upon the foundation of AVX and introduces additional instructions and capabilities for SIMD processing. AVX2 expands the vector register size to 256 bits (YMM registers) and introduces new integer and floating-point operations, enabling further optimization of vectorized code. CPUs that support AVX2 offer enhanced performance for applications that leverage these advanced instructions.
+CMake captures the printed value, translates it into the appropriate compiler flags (`/arch:AVX2` on MSVC, `-mavx2 -mbmi -mpopcnt` and friends on GCC/Clang), and writes the final bitfield into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` as `#define JSONIFIER_CPU_INSTRUCTIONS <value>`.
 
-#### AVX-512 (Advanced Vector Extensions 512-bit)
-----
-AVX-512 is an extension of the AVX instruction set architecture, designed to provide even higher levels of vector parallelism. AVX-512 introduces 512-bit vector registers (ZMM registers) and a broad range of new instructions for both floating-point and integer operations. With AVX-512, CPUs can process larger amounts of data in parallel, offering significant performance improvements for applications that can effectively utilize these capabilities.
+At compile time, Jsonifier's SIMD backend and bit-manipulation helpers select the fastest available implementation via `if constexpr` on the `JSONIFIER_CPU_INSTRUCTIONS` value. There is no runtime dispatch overhead — the correct code path is baked into the binary.
 
-### Manual Configuration
-----
-In addition to automatic CPU architecture detection, Jsonifier's CMake configuration also allows for manual control over specific CPU instructions. You can manually set the `JSONIFIER_CPU_FLAGS` variable in the CMake configuration to fine-tune the instruction sets used. This variable can be set to one of the following options, or combined for optimal performance:
+## The Feature Bits
 
-#### Setting `JSONIFIER_CPU_FLAGS`
-You can configure the instruction sets by specifying the `JSONIFIER_CPU_FLAGS` in your CMake build configuration:
+| Feature | Bit | Value | Macro |
+|---------|-----|-------|-------|
+| POPCNT   | 0 | 1  | `JSONIFIER_POPCNT` |
+| LZCNT    | 1 | 2  | `JSONIFIER_LZCNT` |
+| BMI      | 2 | 4  | `JSONIFIER_BMI` |
+| NEON     | 3 | 8  | `JSONIFIER_NEON` |
+| AVX      | 4 | 16 | `JSONIFIER_AVX` |
+| AVX2     | 5 | 32 | `JSONIFIER_AVX2` |
+| AVX-512  | 6 | 64 | `JSONIFIER_AVX512` |
 
-- **For AVX-512**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=/arch:AVX512`  OR `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-march=avx512`
-- **For AVX2**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=/arch:AVX2`  OR `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-march=avx2`
-- **For AVX**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=/arch:AVX`  OR `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-march=avx`
-- **For ARM-NEON**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-mfpu=neon`
-- **For BMI1**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-mbmi`
-- **For LZCNT**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-mlzcnt`
-- **For POPCNT**: Set `JSONIFIER_CPU_FLAGS=-DJSONIFIER_CPU_FLAGS=-mpopcnt`
+**Important detail:** the three AVX bits are mutually exclusive in the final bitfield. Auto-detection picks the highest supported tier (AVX-512 → AVX2 → AVX → none) and sets only that single bit. The compiler flags for lower tiers are still applied (an AVX2 build gets `-mavx -mavx2` under GCC), but the runtime bitfield only records the SIMD tier that was selected.
 
-NOTE: BMI1, LZCNT, and POPCNT can be combined with any of themselves or the other flags here, however, AVX, AVX2, and AVX512 cannot be combined with NEON.
+The bit-manipulation features (POPCNT, LZCNT, BMI) are independent and can co-exist with any SIMD tier. NEON is exclusive to ARM64.
 
-This configuration allows you to manually or automatically optimize Jsonifier for your specific CPU architecture, ensuring that the code generated will make the best use of the available hardware features for maximum performance.
+## OS-Level Requirements
+
+On x64, having AVX/AVX2/AVX-512 available in the CPU is not enough — the operating system also has to enable state-saving for those register sets. Jsonifier's detector checks this via `xgetbv`:
+
+- **AVX/AVX2** require the OS to have XMM and YMM state enabled
+- **AVX-512** additionally requires ZMM and OpMask state enabled
+
+If a CPU supports AVX-512 but the OS hasn't enabled the state (common on some older Windows configurations, hypervisors, or containerized environments), the detector correctly reports it as unavailable and falls back to AVX2 or lower. This prevents illegal-instruction crashes at runtime.
+
+## Overriding the Auto-Detected Value
+
+When automatic detection isn't right for your use case, set `JSONIFIER_CPU_INSTRUCTIONS` explicitly at CMake configure time. Two forms are accepted.
+
+**Pipe-separated flags (readable):**
+
+```bash
+cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS="1|2|4|32"
+```
+
+**Or the numeric OR of the values:**
+
+```bash
+cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS=39
+```
+
+Both produce identical results. The pipe form is self-documenting — pass it into your CI or build scripts and future-you will thank present-you.
+
+Common override values:
+
+| Target | Pipe form | Numeric |
+|--------|-----------|---------|
+| ARM64 with NEON | `8` | `8` |
+| x64 with AVX-512 | `1\|2\|4\|64` | `71` |
+| x64 with AVX2 | `1\|2\|4\|32` | `39` |
+| x64 with AVX only | `1\|2\|4\|16` | `23` |
+| x64 with bit-ops only (no SIMD) | `1\|2\|4` | `7` |
+| Pure scalar fallback | `0` | `0` |
+
+Remember that only one AVX tier bit is set at a time — a target of "AVX2" is just bit 5, not bits 4 and 5 together.
+
+## The Pure-Scalar Fallback (`JSONIFIER_CPU_INSTRUCTIONS = 0`)
+
+Setting the value to `0` produces a fully portable build with no SIMD and no hardware bit-manipulation intrinsics. Every operation falls back to `std::countl_zero`, `std::popcount`, and scalar C++20 stdlib equivalents.
+
+This mode is slower than any SIMD-enabled build, but it is **fully supported** — every code path has an `#else` branch that reaches for the stdlib scalar version. Use it when:
+
+- You're producing a maximally portable binary for unknown-CPU deployment
+- You're building for a target where the intrinsics aren't available
+- You want to verify Jsonifier's correctness independent of any SIMD-specific code
+
+## When to Override Detection
+
+**Cross-compiling.** You're building on machine A for machine B. Auto-detection would tell you about A's CPU; the binary needs to run on B. Set `JSONIFIER_CPU_INSTRUCTIONS` to B's feature set.
+
+**Portable binaries.** You're building a binary that will be distributed to machines with different CPU generations. Pick the lowest common denominator across your target audience (often AVX2, sometimes just AVX for maximum compatibility) and override to that.
+
+**Testing lower-tier code paths.** You want to benchmark or debug Jsonifier's AVX2 backend on a machine that has AVX-512. Override to `1|2|4|32` (AVX2 tier) instead of the auto-detected `1|2|4|64` to force the AVX2 code path.
+
+**Rare OS/CPU mismatches.** The host CPU has AVX-512 but the OS doesn't have ZMM state enabled — some older Windows configurations, older hypervisors. Auto-detection handles this correctly, but if you're overriding for another reason, remember to match reality.
+
+## ⚠️ Skipping the CMake Build
+
+If you drop Jsonifier's headers into a project without running its CMake configure step — hand-rolled Makefile, non-CMake build system, or copying headers into a monorepo — the `jsonifier_cpu_instructions.hpp` file will be empty, stale, or wrong, and you'll get one of:
+
+- Compilation failures because the SIMD detection macros aren't defined
+- A silently-selected fallback backend (much slower than expected)
+- A binary that uses instructions your CPU doesn't support (crashes at runtime with `SIGILL`)
+
+If you're bypassing CMake, **you must manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp`** and set `JSONIFIER_CPU_INSTRUCTIONS` to a valid value. See [Installation](Installation.md) for the details on this footgun.
+
+## Verifying What Got Selected
+
+After configuring, check the generated header:
+
+```bash
+cat include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp
+```
+
+You'll see something like:
+
+```cpp
+#define JSONIFIER_CPU_INSTRUCTIONS 39
+```
+
+You can also verify the compiler flags Jsonifier is passing by looking at the CMake configure output — the detection script prints each `Instruction Set Found: <name>` line as it walks the bit table.
+
+## The Check Macros
+
+For internal code paths (and for anyone extending Jsonifier), the header exposes compile-time predicates:
+
+```cpp
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT)
+    // POPCNT is available
+#endif
+```
+
+`JSONIFIER_CHECK_FOR_INSTRUCTION` is a bitwise AND against a specific feature bit.
+
+Convenience masks for common groups:
+
+- `JSONIFIER_ANY_AVX` — any AVX tier (AVX, AVX2, or AVX-512)
+- `JSONIFIER_ANY_SIMD` — any SIMD backend (NEON, AVX, AVX2, or AVX-512)
+
+## What's Next
+
+- **[Installation](Installation.md)** — includes the ⚠️ warning about the `jsonifier_cpu_instructions.hpp` header when bypassing CMake
+- **[Serializing & Parsing](Usage_Serializing_Parsing.md)** — the runtime API that benefits from correct SIMD selection
+
+---

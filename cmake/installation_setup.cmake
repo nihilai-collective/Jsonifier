@@ -1,4 +1,4 @@
-# installation_setup.cmake - Script for detecting the CPU architecture.
+# cmake/installation_setup.cmake - Script for detecting the CPU architecture.
 # MIT License
 # Copyright (c) 2026 RealTimeChris
 

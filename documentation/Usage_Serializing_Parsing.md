@@ -1,210 +1,246 @@
-## Serialization/parsing with Jsonifier
-----
-- Create a specialization of the `jsonifier::core` class template for whichever data structure you would like to parse/serialize, within the jsonifier namespace as follows...
-- 
-#### IMPORTANT NOTE:
-In order to maximize performance, try to order the members inside the call to `createValue` as they are ordered in the json-data.
+# Serializing & Parsing
 
-----
+This page covers everything you can do with `parseJson` and `serializeJson`. If you haven't registered your types yet, see [Reflection](Reflection.md) first.
+
+## The Parser
+
+All operations go through a `jsonifier::jsonifier_core<>` instance:
+
 ```cpp
-namespace TestNS {
+jsonifier::jsonifier_core<> parser;
+```
 
-	struct fixed_object_t {
-		std::vector<int32_t> int_array;
-		std::vector<float> float_array;
-		std::vector<double> double_array;
-	};
+Create it once and reuse it across many operations. The instance holds internal scratch buffers and the error list, so reusing it avoids repeated allocation.
 
-	struct fixed_name_object_t {
-		jsonifier::string name0{};
-		jsonifier::string name1{};
-		jsonifier::string name2{};
-		jsonifier::string name3{};
-		jsonifier::string name4{};
-	};
+## Parsing
 
-	struct nested_object_t {
-		std::vector<array<double, 3>> v3s{};
-		jsonifier::string id{};
-	};
+The basic form takes a destination object and a source buffer:
 
-	struct another_object_t {
-		jsonifier::string string{};
-		jsonifier::string another_string{};
-		bool boolean{};
-		nested_object_t nested_object{};
-	};
+```cpp
+catalog data;
+std::string json = R"({"events":{}, "schema-version":"1.0"})";
+bool ok = parser.parseJson(data, json);
+```
 
-	struct obj_t {
-		fixed_object_t fixed_object{};
-		fixed_name_object_t fixed_name_object{};
-		another_object_t another_object{};
-		std::vector<jsonifier::string> string_array{};
-		jsonifier::string string{};
-		double Number{};
-		bool boolean{};
-		bool another_bool{};
-	};
+`parseJson` returns `true` on success, `false` if any errors were encountered. The destination is populated in place — whatever was there before gets overwritten.
+
+Both arguments are flexible. The destination can be any registered type, and the source can be any contiguous buffer of characters (`std::string`, `std::string_view`, `std::vector<char>`, raw pointers, etc.).
+
+### Parse Options
+
+Every option lives in `jsonifier::parse_options`, passed as a template argument:
+
+```cpp
+parser.parseJson<jsonifier::parse_options{ .partialRead = true }>(data, json);
+```
+
+The full set:
+
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Enables handling of unordered or partial JSON structures. See [Partial Reading](PartialReading.md). |
+| `knownOrder` | `false` | Enables adaptive memoization of field ordering, so repeated parses of the same shape hit a fast path. See [Known Order Parsing](Known_Order.md). |
+| `minified` | `false` | Tells the parser the input has no whitespace, eliminating all whitespace-skipping logic in the value walker. See [Optimizing For Minified JSON](Optimizing_For_Minified_Json.md). |
+| `validateUtf8` | `false` | Turns on UTF-8 validation during string parsing. See [UTF-8 Validation](UTF8_Validation.md). |
+| `nullTerminated` | `true` | Whether the input buffer has a trailing null byte. **See the warning below.** |
+| `maxDepth` | `1024` | Maximum JSON nesting depth. Enforced at runtime — inputs exceeding this depth are rejected with `parse_statuses::exceeded_max_depth`. Guards against stack exhaustion on adversarial input. |
+
+Options compose — you can turn any combination on simultaneously:
+
+```cpp
+parser.parseJson<jsonifier::parse_options{
+    .partialRead = true,
+    .knownOrder = false,
+    .minified = true,
+    .validateUtf8 = true
+}>(data, json);
+```
+
+The template argument is evaluated at compile time, so different option sets produce different specialized code paths. There's no runtime branch cost for options you don't use.
+
+### ⚠️ The `nullTerminated` Footgun
+
+`nullTerminated` defaults to **`true`**. When it's `true`, the parser uses the null byte at the end of your buffer as a stop sentinel and skips explicit `iter < endIter` bounds checks on every character access. This is faster, but it's only correct if your buffer actually has a null byte at `buffer.data() + buffer.size()`.
+
+- **`std::string`** — safe. Its underlying storage is guaranteed to be null-terminated since C++11.
+- **`std::string_view` into a string literal or `std::string`** — safe for the same reason.
+- **`std::vector<char>`** — **not safe by default.** No trailing null guarantee.
+- **Raw `char*` from a file read, socket, or arbitrary source** — **only safe if you know it's null-terminated.**
+
+If your source doesn't have a trailing null, set `nullTerminated = false` explicitly:
+
+```cpp
+parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(data, my_char_buffer);
+```
+
+Passing a non-null-terminated buffer with `nullTerminated = true` is **undefined behavior** — the parser will read past the buffer end, likely producing a crash, silent data corruption, or a security vulnerability. When in doubt, set it to `false`.
+
+### Handling Errors
+
+`parseJson` returns `false` on failure. Detailed error information lives in `parser.getErrors()`:
+
+```cpp
+if (!parser.parseJson(data, json)) {
+    for (auto& error : parser.getErrors()) {
+        std::cout << "Parse error: " << error << std::endl;
+    }
 }
+```
 
-namespace jsonifier {
+Errors carry source location, the specific `parse_statuses` enum value that fired, and enough context to diagnose the input. See [Error Handling](Errors.md) for the full breakdown.
 
-	template<> struct core<TestNS::fixed_object_t> {
-		using value_type = TestNS::fixed_object_t;
-		constexpr auto parseValue = createValue("int_array", &value_type::int_array, "float_array", &value_type::float_array, "double_array", &value_type::double_array);
-	};
+The error list is reused across parse calls — `parseJson` clears it at the start of each call, so you should inspect errors before invoking the parser again.
 
-	template<> struct core<TestNS::fixed_name_object_t> {
-		using value_type = TestNS::fixed_name_object_t;
-		constexpr auto parseValue = createValue("name0", &value_type::name0, "name1", &value_type::name1, "name2", &value_type::name2, "name3", &value_type::name3, "name4", &value_type::name4);
-	};
+## Serializing
 
-	template<> struct core<TestNS::nested_object_t> {
-		using value_type = TestNS::nested_object_t;
-		constexpr auto parseValue = createValue("v3s", &value_type::v3s, "id", &value_type::id);
-	};
+The basic form takes a source object and a destination buffer:
 
-	template<> struct core<TestNS::another_object_t> {
-		using value_type = TestNS::another_object_t;
-		constexpr auto parseValue =
-			createValue("string", &value_type::string, "another_string", &value_type::another_string, "boolean", &value_type::boolean, "nested_object", &value_type::nested_object);
-	};
+```cpp
+std::string output;
+parser.serializeJson(data, output);
+```
 
-	template<> struct core<TestNS::obj_t> {
-		using value_type = TestNS::obj_t;
-		constexpr auto parseValue =
-			createValue("fixed_object", &value_type::fixed_object, "fixed_name_object", &value_type::fixed_name_object, "another_object", &value_type::another_object, "string_array",
-				&value_type::string_array, "string", &value_type::string, "Number", &value_type::Number, "boolean", &value_type::boolean, "another_bool", &value_type::another_bool);
-	};
+The destination is resized to fit the output. Any prior contents are overwritten.
+
+### Serialize Without a Buffer
+
+There's a second form that returns a `string_view` into the parser's internal buffer, skipping the copy into a user-provided destination:
+
+```cpp
+auto view = parser.serializeJson(data);
+std::cout << view << std::endl;
+```
+
+This is faster when you just need to inspect or write the JSON somewhere immediately. **The returned view is only valid until the next `parseJson` or `serializeJson` call on the same parser instance** — the internal buffer gets reused. If you need the JSON to outlive the next parser operation, use the buffer form instead.
+
+### Serialize Options
+
+Options live in `jsonifier::serialize_options`:
+
+```cpp
+parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, output);
+```
+
+The full set:
+
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `prettify` | `false` | Emit human-readable JSON with newlines and indentation instead of compact output. |
+| `indentSize` | `3` | Number of `indentChar` characters per indent level when `prettify` is on. |
+| `indentChar` | `' '` | Character used for indentation. Set to `'\t'` for tab-based indenting. |
+| `indent` | `0` | Starting indent depth. Useful when serializing a fragment into a larger pre-indented document. |
+
+Like parse options, these are template arguments — the compiler generates a specialized serializer for each option set with no runtime branching.
+
+Example with tab indentation:
+
+```cpp
+parser.serializeJson<jsonifier::serialize_options{
+    .prettify = true,
+    .indentSize = 1,
+    .indentChar = '\t'
+}>(data, output);
+```
+
+### Pretty vs. Minified
+
+By default, serialization is minified — no whitespace, smallest possible output. Turn on `prettify` for output intended for humans:
+
+```cpp
+parser.serializeJson(data, minified_output);
+
+parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, pretty_output);
+```
+
+For standalone pretty-printing or minification of existing JSON strings (without going through a typed object), see [Prettifying](Prettifying.md) and [Minifying](Minifying.md).
+
+## Reusing the Parser
+
+`jsonifier_core<>` is designed for reuse. Once created, it holds a scratch buffer and an error list that are reused across every call. The pattern is:
+
+```cpp
+jsonifier::jsonifier_core<> parser;
+
+catalog data1, data2, data3;
+
+parser.parseJson(data1, json_string_1);
+parser.parseJson(data2, json_string_2);
+parser.parseJson(data3, json_string_3);
+
+std::string output;
+parser.serializeJson(data1, output);
+parser.serializeJson(data2, output);
+```
+
+Each call clears the error list and reuses the scratch buffer. There's no hidden cost to creating a parser once and keeping it around for the lifetime of your program.
+
+## Full Example
+
+Parse, mutate, and re-serialize:
+
+```cpp
+#include <jsonifier>
+#include <iostream>
+
+struct event {
+    int64_t id{};
+    std::string name{};
+    std::optional<std::string> logo{};
+    std::vector<int64_t> topicIds{};
+};
+
+struct catalog {
+    std::unordered_map<std::string, event> events{};
+    std::string schema_version{};
+};
+
+template<> struct jsonifier::core<event> {
+    using value_type = event;
+    static constexpr auto parseValue = createValue
+        &value_type::id,
+        &value_type::name,
+        &value_type::logo,
+        &value_type::topicIds>();
+};
+
+template<> struct jsonifier::core<catalog> {
+    using value_type = catalog;
+    static constexpr auto parseValue = createValue
+        &value_type::events,
+        makeJsonEntity<&value_type::schema_version, "schema-version">()>();
+};
+
+int main() {
+    jsonifier::jsonifier_core<> parser;
+
+    std::string input = R"({"events":{"42":{"id":42,"name":"Concert","logo":null,"topicIds":[1,2,3]}},"schema-version":"1.0"})";
+    catalog data;
+
+    if (!parser.parseJson(data, input)) {
+        for (auto& error : parser.getErrors()) {
+            std::cout << "Parse error: " << error << std::endl;
+        }
+        return 1;
+    }
+
+    data.events["43"] = { 43, "New Event", std::nullopt, { 4, 5 } };
+    data.schema_version = "1.1";
+
+    std::string output;
+    parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, output);
+    std::cout << output << std::endl;
+
+    return 0;
 }
-
 ```
 
-### Usage - parsing
-----
-Jsonifier provides flexible JSON parsing capabilities through the `parseJson` function, which now supports two overloads.
+## What's Next
 
-#### Two Overloads
-The `parseJson` function now comes in two flavors:
+- **[Known Order Parsing](Known_Order.md)** — the biggest single parsing optimization when applicable
+- **[Partial Reading](PartialReading.md)** — for unordered or partial JSON structures
+- **[Optimizing For Minified JSON](Optimizing_For_Minified_Json.md)** — details on the `minified` option
+- **[UTF-8 Validation](UTF8_Validation.md)** — the `validateUtf8` option and how the validator works
+- **[Error Handling](Errors.md)** — full breakdown of the error type and `parse_statuses` enum
+- **[Prettifying](Prettifying.md)** and **[Minifying](Minifying.md)** — for reformatting JSON strings without going through typed objects
 
-```cpp
-template<jsonifier::parse_options options = jsonifier::parse_options{}, typename value_type, jsonifier::concepts::string_t buffer_type>
- bool parseJson(value_type&& object, buffer_type&& in);
-
-template<typename value_type, jsonifier::parse_options options = jsonifier::parse_options{}, jsonifier::concepts::string_t buffer_type>
- value_type parseJson(buffer_type&& in);
-```
-
-These overloads provide flexibility in parsing JSON data, allowing you to choose between parsing directly into an existing object or creating a new object and returning it.
-
-#### Example - parsing into an Existing Object
-Here's an example demonstrating how to use `parseJson` to parse JSON data directly into an existing object:
-
-```cpp
-#include "jsonifier-incl/Index.hpp"
-
-jsonifier::string buffer{ json_data };
-
-obj_t obj{};
-
-// Create an instance of the jsonifier_core class.
-jsonifier::jsonifier_core<> parser{};
-
-// Parse JSON data into obj.
-parser.parseJson(obj, buffer);
-```
-
-#### Example - parsing into a New Object
-Here's an example demonstrating how to use `parseJson` to parse JSON data into a new object:
-
-```cpp
-#include "jsonifier-incl/Index.hpp"
-
-jsonifier::string buffer{ json_data };
-
-// Parse JSON data and obtain the parsed object directly.
-static constexpr jsonifier::parse_options options{ .minified = true };
-obj_t parsedObject = jsonifier::parseJson<obj_t, options>(buffer);
-```
-
-#### Parse Options
-The `parse_options` struct allows customization of parsing behavior. Here's the structure of the `parse_options`:
-
-```cpp
-struct parse_options {
-	bool validateJson{ false };
-	bool partialRead{ false };
-	bool knownOrder{ false };
-	bool minified{ false };
-};
-```
-
-- `validateJson`: Indicates whether to call validateJson to validate the Json in compliance with RFC standards before parsing it.
-- `partialRead`: Indicates whether to the input is only being partially read from.
-- `knownOrder`: Indicates whether or not the registration core-tuple had its members set up in the order that the json data will be coming in as, which will significantly improve performance.
-- `minified`: Indicates whether the input JSON string is minified (default: `false`).
-
-You can customize parsing behavior by setting these options in `parse_options` when calling the `parseJson` function.
-
-### Usage - Serialization
-----
-Jsonifier offers flexibility in serializing JSON data through the `serializeJson` function, which now supports two overloads.
-
-#### Two Overloads
-The `serializeJson` function now comes in two flavors:
-
-```cpp
-template<jsonifier::serialize_options options = jsonifier::serialize_options{}, typename value_type, jsonifier::concepts::buffer_like buffer_type>
- bool serializeJson(value_type&& object, buffer_type&& out);
-
-template<jsonifier::serialize_options options = jsonifier::serialize_options{}, typename value_type>
- jsonifier::string serializeJson(value_type&& object);
-```
-
-These overloads provide flexibility in how you handle serialization output, allowing you to choose between directly serializing into a buffer or obtaining the serialized JSON string as a return value.
-
-#### Example - serializing into a Buffer
-Here's an example demonstrating how to use `serializeJson` to serialize data directly into a buffer:
-
-```cpp
-#include "jsonifier-incl/Index.hpp"
-
-obj_t obj{};
-
-// Create an instance of the jsonifier_core class.
-jsonifier::jsonifier_core<> serializer{};
-
-// Serialize obj into a buffer.
-jsonifier::string buffer{};
-serializer.serializeJson(obj, buffer);
-```
-
-#### Example - Obtaining Serialized JSON String
-Here's an example demonstrating how to use `serializeJson` to obtain the serialized JSON string:
-
-```cpp
-#include "jsonifier-incl/Index.hpp"
-
-obj_t obj{};
-
-// Serialize and obtain the serialized JSON string directly.
-static constexpr jsonifier::serialize_options options{ .indentSize = 2, .prettify = true }
-jsonifier::string serializedString = jsonifier::serializeJson<options>(obj);
-```
-
-#### Serialize Options
-The `serialize_options` struct allows customization of serialization behavior. Here's the structure of the `serialize_options`:
-
-```cpp
-struct serialize_options {
-	uint64_t indentSize{ 3 };
-	char indentChar{ ' ' };
-	bool prettify{ false };
-};
-```
-
-- `indentSize`: Specifies the number of indent characters appended for each of the indentations.
-- `indentChar`: Specifies which character to use when indenting prettified json data.
-- `prettify`: Indicates whether to prettify the JSON output (default: `false`).
-
-You can enable prettifying by setting `options.prettifyJson` to `true` and customize prettifyJson options as needed in `options.prettifyOptions`.
+---

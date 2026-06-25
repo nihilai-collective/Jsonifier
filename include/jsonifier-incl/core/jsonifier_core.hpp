@@ -19,8 +19,7 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 20, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include <jsonifier-incl/parsing/validate_impl.hpp>
@@ -28,18 +27,24 @@
 #include <jsonifier-incl/serializing/prettifier.hpp>
 #include <jsonifier-incl/parsing/parser.hpp>
 #include <jsonifier-incl/utilities/error.hpp>
-#include <jsonifier-incl/utilities/comparitor_impl.hpp>
+#include <jsonifier-incl/utilities/printer.hpp>
+
+namespace jsonifier::internal {
+
+	template<typename derived_type_new> class parser;
+
+}
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public internal::comparator<jsonifier_core<initialBufferSize>>,
+	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public internal::json_printer,
 																			  public internal::prettifier<jsonifier_core<initialBufferSize>>,
 																			  public internal::serializer<jsonifier_core<initialBufferSize>>,
 																			  public internal::validator<jsonifier_core<initialBufferSize>>,
 																			  public internal::minifier<jsonifier_core<initialBufferSize>>,
 																			  public internal::parser<jsonifier_core<initialBufferSize>> {
 	  public:
-		friend class internal::comparator<jsonifier_core<initialBufferSize>>;
+		friend struct internal::json_printer;
 		friend class internal::prettifier<jsonifier_core<initialBufferSize>>;
 		friend class internal::serializer<jsonifier_core<initialBufferSize>>;
 		friend class internal::validator<jsonifier_core<initialBufferSize>>;
@@ -49,8 +54,10 @@ namespace jsonifier {
 		jsonifier_core() noexcept = default;
 
 		jsonifier_core& operator=(jsonifier_core&& other) noexcept {
-			if JSONIFIER_LIKELY (this != &other) {
-				errors = internal::move(other.errors);
+			if (this != &other) [[likely]] {
+				stringBuffer = internal::move(other.stringBuffer);
+				section		 = internal::move(other.section);
+				errors		 = internal::move(other.errors);
 			}
 			return *this;
 		}
@@ -60,8 +67,10 @@ namespace jsonifier {
 		}
 
 		jsonifier_core& operator=(const jsonifier_core& other) noexcept {
-			if JSONIFIER_LIKELY (this != &other) {
-				errors = other.errors;
+			if (this != &other) [[likely]] {
+				stringBuffer = other.stringBuffer;
+				section		 = other.section;
+				errors		 = other.errors;
 			}
 			return *this;
 		}
@@ -70,14 +79,14 @@ namespace jsonifier {
 			*this = other;
 		}
 
-		const std::vector<internal::error>& getErrors() const noexcept {
+		std::vector<internal::error>& getErrors() noexcept {
 			return errors;
 		}
 
 		~jsonifier_core() noexcept = default;
 
 	  protected:
-		using comparator = internal::comparator<jsonifier_core<initialBufferSize>>;
+		using comparator = internal::json_printer;
 		using prettifier = internal::prettifier<jsonifier_core<initialBufferSize>>;
 		using serializer = internal::serializer<jsonifier_core<initialBufferSize>>;
 		using validator	 = internal::validator<jsonifier_core<initialBufferSize>>;
@@ -85,7 +94,7 @@ namespace jsonifier {
 		using parser	 = internal::parser<jsonifier_core<initialBufferSize>>;
 
 		internal::simd_string_reader<initialBufferSize> section{};
-		string_base<char, initialBufferSize> stringBuffer{};
+		string_base<initialBufferSize> stringBuffer{};
 		std::vector<internal::error> errors{};
 	};
 

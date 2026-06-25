@@ -1,8 +1,8 @@
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO realtimechris/jsonifier
+    REPO nihilai-collective/jsonifier
     REF "v${VERSION}"
-    SHA512 d417e8da4c4f64b7a37d70c85343daae46f52e72d5b0043b076fc5e18a0642cce7f5214aee7029b2acfb5953300977c5538f99098f0925fabc1199279408b820
+    SHA512 ce3695ee3ffda05c3f6876229d7643506f47297d9cf622b9cc1e2fb458d04ae2106f3f2fa931b12c713ee60f143367f982a441b95fa456cd20e5009b614f4640
     HEAD_REF main
 )
 

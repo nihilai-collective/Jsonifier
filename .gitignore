@@ -44,3 +44,6 @@ Json/Windows-MSVC/
 CMake/BuildFeatureTester.bat
 CMake/BuildFeatureTester.sh
 cmake/BuildFeatureTester.bat
+build-android/.ninja_deps
+.idea/
+build-android/

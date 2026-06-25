@@ -1,4 +1,4 @@
-# get_version.cmake - Script for collecting the current version of the library.
+# cmake/get_version.cmake - Script for collecting the current version of the library.
 # MIT License
 # Copyright (c) 2026 RealTimeChris
 set(auth_header "")
@@ -7,7 +7,7 @@ if(DEFINED ENV{GITHUB_TOKEN})
 endif()
 
 file(DOWNLOAD 
-    "https://api.github.com/repos/realtimechris/jsonifier/releases/latest" 
+    "https://api.github.com/repos/nihilai-collective/jsonifier/releases/latest" 
     "${CMAKE_CURRENT_BINARY_DIR}/jsonifier_latest.json"
     HTTPHEADER "User-Agent: CMake-Fetch-Script"
     HTTPHEADER "${auth_header}"

@@ -19,45 +19,45 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Updated: Sep 3, 2024
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #undef JSONIFIER_CPU_INSTRUCTIONS
-#define JSONIFIER_CPU_INSTRUCTIONS 38
+#define JSONIFIER_CPU_INSTRUCTIONS 111
+
+#undef JSONIFIER_SVE2_VECTOR_BITS
+#define JSONIFIER_SVE2_VECTOR_BITS 0
 
 #if !defined(JSONIFIER_CHECK_FOR_INSTRUCTION)
 	#define JSONIFIER_CHECK_FOR_INSTRUCTION(x) (JSONIFIER_CPU_INSTRUCTIONS & x)
 #endif
 
-#if !defined(JSONIFIER_CHECK_FOR_AVX)
-	#define JSONIFIER_CHECK_FOR_AVX(x) (JSONIFIER_CPU_INSTRUCTIONS >= x)
-#endif
-
-#if !defined(JSONIFIER_POPCNT)
-	#define JSONIFIER_POPCNT (1 << 0)
-#endif
 #if !defined(JSONIFIER_LZCNT)
-	#define JSONIFIER_LZCNT (1 << 1)
+	#define JSONIFIER_LZCNT (1 << 0)
+#endif
+#if !defined(JSONIFIER_POPCNT)
+	#define JSONIFIER_POPCNT (1 << 1)
 #endif
 #if !defined(JSONIFIER_BMI)
 	#define JSONIFIER_BMI (1 << 2)
 #endif
+#if !defined(JSONIFIER_CLMUL)
+	#define JSONIFIER_CLMUL (1 << 3)
+#endif
 #if !defined(JSONIFIER_NEON)
-	#define JSONIFIER_NEON (1 << 3)
+	#define JSONIFIER_NEON (1 << 4)
 #endif
 #if !defined(JSONIFIER_AVX)
-	#define JSONIFIER_AVX (1 << 4)
+	#define JSONIFIER_AVX (1 << 5)
 #endif
 #if !defined(JSONIFIER_AVX2)
-	#define JSONIFIER_AVX2 (1 << 5)
+	#define JSONIFIER_AVX2 (1 << 6)
 #endif
 #if !defined(JSONIFIER_AVX512)
-	#define JSONIFIER_AVX512 (1 << 6)
+	#define JSONIFIER_AVX512 (1 << 7)
 #endif
-
-#if !defined(JSONIFIER_ANY)
-	#define JSONIFIER_ANY (JSONIFIER_AVX | JSONIFIER_AVX2 | JSONIFIER_AVX512 | JSONIFIER_POPCNT | JSONIFIER_BMI | JSONIFIER_LZCNT)
+#if !defined(JSONIFIER_SVE2)
+	#define JSONIFIER_SVE2 (1 << 8)
 #endif
 
 #if !defined(JSONIFIER_ANY_AVX)
@@ -65,5 +65,13 @@
 #endif
 
 #if !defined(JSONIFIER_ANY_SIMD)
-	#define JSONIFIER_ANY_SIMD (JSONIFIER_AVX | JSONIFIER_AVX2 | JSONIFIER_AVX512 | JSONIFIER_NEON)
+	#define JSONIFIER_ANY_SIMD (JSONIFIER_AVX | JSONIFIER_AVX2 | JSONIFIER_AVX512 | JSONIFIER_NEON | JSONIFIER_SVE2)
+#endif
+
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#error "JSONIFIER_NEON and JSONIFIER_SVE2 are mutually exclusive backends - every SVE2 part also reports NEON, so exactly one must be selected."
+#endif
+
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2) && JSONIFIER_SVE2_VECTOR_BITS == 0
+	#error "JSONIFIER_SVE2 is selected but JSONIFIER_SVE2_VECTOR_BITS is 0 - the fixed-length SVE2 typedefs require a measured vector length."
 #endif

@@ -19,116 +19,524 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/simd/c_time_simd_types.hpp>
+#include <jsonifier-incl/simd/simd_x.hpp>
 #include <jsonifier-incl/simd/simd_types.hpp>
 #include <jsonifier-incl/simd/bmi.hpp>
 
 namespace jsonifier::simd {
 
 #if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) && \
-	!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+	!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
-	template<typename value_type> JSONIFIER_INLINE static value_type postCmpTzcnt(value_type value) noexcept {
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcnt(const value_type value) noexcept {
 		return tzcnt(value);
 	}
 
-	template<simd_int_128_type simd_int_type_new> JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
-		return gather_values<simd_int_type_new>(static_cast<const simd_x<simd_classes::x_128>*>(str));
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcntUnsafe(const value_type value) noexcept {
+		return tzcntUnsafe(value);
 	}
 
-	template<simd_int_128_type simd_int_type_new> JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str, void*) noexcept {
-		return gather_values_u<simd_int_type_new>(static_cast<const simd_x<simd_classes::x_128>*>(str));
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
+		simd_int_type_new result{};
+		std::memcpy(&result.values, str, 16);
+		return result;
+	}
+
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
+		simd_int_type_new result{};
+		std::memcpy(&result.values, str, 16);
+		return result;
 	}
 
 	template<simd_int_128_type simd_int_type_new, typename char_t>
 		requires(sizeof(char_t) == 8)
-	JSONIFIER_INLINE static simd_int_type_new gatherValue(char_t str) noexcept {
-		return op_set1_epi64<simd_int_type_new>(static_cast<int64_t>(str));
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValue(const char_t str) noexcept {
+		simd_int_type_new result{};
+		result.values.xUint64[0] = static_cast<uint64_t>(str);
+		result.values.xUint64[1] = static_cast<uint64_t>(str);
+		return result;
 	}
 
 	template<simd_int_128_type simd_int_type_new, typename char_t>
 		requires(sizeof(char_t) == 1)
-	JSONIFIER_INLINE static simd_int_type_new gatherValue(char_t str, std::source_location location = std::source_location::current()) noexcept {
-		return op_set1_epi8<simd_int_type_new>(static_cast<char>(str));
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValue(const char_t str) noexcept {
+		simd_int_type_new result{};
+		result.values.xUint8[0]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[1]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[2]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[3]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[4]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[5]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[6]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[7]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[8]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[9]	 = static_cast<uint8_t>(str);
+		result.values.xUint8[10] = static_cast<uint8_t>(str);
+		result.values.xUint8[11] = static_cast<uint8_t>(str);
+		result.values.xUint8[12] = static_cast<uint8_t>(str);
+		result.values.xUint8[13] = static_cast<uint8_t>(str);
+		result.values.xUint8[14] = static_cast<uint8_t>(str);
+		result.values.xUint8[15] = static_cast<uint8_t>(str);
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_type_new> JSONIFIER_INLINE static void store(const simd_int_type_new& value, void* storageLocation) noexcept {
-		store_values(value, storageLocation);
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
+		std::memcpy(storageLocation, &value.values, 16);
 	}
 
-	template<simd_int_128_type simd_int_type_new> JSONIFIER_INLINE static void storeU(const simd_int_type_new& value, void* storageLocation, void*) noexcept {
-		store_values_u(value, storageLocation);
-	}
-
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opCmpEq(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return static_cast<uint16_t>(op_cmp_eq_bitmask<simd_int_t01>(value, other));
-	}
-
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opCmpLt(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		static constexpr jsonifier_simd_int_128 offset = op_set1_epi8<simd_int_t01>(static_cast<char>(0x80));
-		return static_cast<uint32_t>(op_bitmask<simd_int_t01>(op_cmp_gt<simd_int_t01>(op_add<simd_int_t01>(other, offset), op_add<simd_int_t01>(value, offset))));
-	}
-
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	JSONIFIER_INLINE static auto opCmpEqRaw(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_cmp_eq_epi8<simd_int_t01>(value, other);
-	}
-
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	JSONIFIER_INLINE static auto opCmpLtRaw(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		static constexpr jsonifier_simd_int_128 offset = op_set1_epi8<simd_int_t01>(static_cast<char>(0x80));
-		return op_cmp_gt<simd_int_t01>(op_add<simd_int_t01>(other, offset), op_add<simd_int_t01>(value, offset));
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
+		std::memcpy(storageLocation, &value.values, 16);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	JSONIFIER_INLINE static auto opCmpEqBitMask(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return static_cast<uint16_t>(op_cmp_eq_bitmask<simd_int_t01>(value, other));
+	[[maybe_unused]] JSONIFIER_INLINE static uint16_t opCmpEq(simd_int_t01 value, simd_int_t02 other) noexcept {
+		uint16_t result{};
+		result |= static_cast<uint16_t>(value.values.xUint8[0] == other.values.xUint8[0]) << 0;
+		result |= static_cast<uint16_t>(value.values.xUint8[1] == other.values.xUint8[1]) << 1;
+		result |= static_cast<uint16_t>(value.values.xUint8[2] == other.values.xUint8[2]) << 2;
+		result |= static_cast<uint16_t>(value.values.xUint8[3] == other.values.xUint8[3]) << 3;
+		result |= static_cast<uint16_t>(value.values.xUint8[4] == other.values.xUint8[4]) << 4;
+		result |= static_cast<uint16_t>(value.values.xUint8[5] == other.values.xUint8[5]) << 5;
+		result |= static_cast<uint16_t>(value.values.xUint8[6] == other.values.xUint8[6]) << 6;
+		result |= static_cast<uint16_t>(value.values.xUint8[7] == other.values.xUint8[7]) << 7;
+		result |= static_cast<uint16_t>(value.values.xUint8[8] == other.values.xUint8[8]) << 8;
+		result |= static_cast<uint16_t>(value.values.xUint8[9] == other.values.xUint8[9]) << 9;
+		result |= static_cast<uint16_t>(value.values.xUint8[10] == other.values.xUint8[10]) << 10;
+		result |= static_cast<uint16_t>(value.values.xUint8[11] == other.values.xUint8[11]) << 11;
+		result |= static_cast<uint16_t>(value.values.xUint8[12] == other.values.xUint8[12]) << 12;
+		result |= static_cast<uint16_t>(value.values.xUint8[13] == other.values.xUint8[13]) << 13;
+		result |= static_cast<uint16_t>(value.values.xUint8[14] == other.values.xUint8[14]) << 14;
+		result |= static_cast<uint16_t>(value.values.xUint8[15] == other.values.xUint8[15]) << 15;
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01> JSONIFIER_INLINE static auto opBitMaskRaw(const simd_int_t01& value) noexcept {
-		return op_bitmask<simd_int_t01>(value);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static uint16_t opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
+		uint16_t result{};
+		result |= static_cast<uint16_t>(value.values.xUint8[0] < other.values.xUint8[0]) << 0;
+		result |= static_cast<uint16_t>(value.values.xUint8[1] < other.values.xUint8[1]) << 1;
+		result |= static_cast<uint16_t>(value.values.xUint8[2] < other.values.xUint8[2]) << 2;
+		result |= static_cast<uint16_t>(value.values.xUint8[3] < other.values.xUint8[3]) << 3;
+		result |= static_cast<uint16_t>(value.values.xUint8[4] < other.values.xUint8[4]) << 4;
+		result |= static_cast<uint16_t>(value.values.xUint8[5] < other.values.xUint8[5]) << 5;
+		result |= static_cast<uint16_t>(value.values.xUint8[6] < other.values.xUint8[6]) << 6;
+		result |= static_cast<uint16_t>(value.values.xUint8[7] < other.values.xUint8[7]) << 7;
+		result |= static_cast<uint16_t>(value.values.xUint8[8] < other.values.xUint8[8]) << 8;
+		result |= static_cast<uint16_t>(value.values.xUint8[9] < other.values.xUint8[9]) << 9;
+		result |= static_cast<uint16_t>(value.values.xUint8[10] < other.values.xUint8[10]) << 10;
+		result |= static_cast<uint16_t>(value.values.xUint8[11] < other.values.xUint8[11]) << 11;
+		result |= static_cast<uint16_t>(value.values.xUint8[12] < other.values.xUint8[12]) << 12;
+		result |= static_cast<uint16_t>(value.values.xUint8[13] < other.values.xUint8[13]) << 13;
+		result |= static_cast<uint16_t>(value.values.xUint8[14] < other.values.xUint8[14]) << 14;
+		result |= static_cast<uint16_t>(value.values.xUint8[15] < other.values.xUint8[15]) << 15;
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opShuffle(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_shuffle<simd_int_t01>(value, other);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint8[0]	 = (value.values.xUint8[0] == other.values.xUint8[0]) ? 0xFFu : 0x00u;
+		result.values.xUint8[1]	 = (value.values.xUint8[1] == other.values.xUint8[1]) ? 0xFFu : 0x00u;
+		result.values.xUint8[2]	 = (value.values.xUint8[2] == other.values.xUint8[2]) ? 0xFFu : 0x00u;
+		result.values.xUint8[3]	 = (value.values.xUint8[3] == other.values.xUint8[3]) ? 0xFFu : 0x00u;
+		result.values.xUint8[4]	 = (value.values.xUint8[4] == other.values.xUint8[4]) ? 0xFFu : 0x00u;
+		result.values.xUint8[5]	 = (value.values.xUint8[5] == other.values.xUint8[5]) ? 0xFFu : 0x00u;
+		result.values.xUint8[6]	 = (value.values.xUint8[6] == other.values.xUint8[6]) ? 0xFFu : 0x00u;
+		result.values.xUint8[7]	 = (value.values.xUint8[7] == other.values.xUint8[7]) ? 0xFFu : 0x00u;
+		result.values.xUint8[8]	 = (value.values.xUint8[8] == other.values.xUint8[8]) ? 0xFFu : 0x00u;
+		result.values.xUint8[9]	 = (value.values.xUint8[9] == other.values.xUint8[9]) ? 0xFFu : 0x00u;
+		result.values.xUint8[10] = (value.values.xUint8[10] == other.values.xUint8[10]) ? 0xFFu : 0x00u;
+		result.values.xUint8[11] = (value.values.xUint8[11] == other.values.xUint8[11]) ? 0xFFu : 0x00u;
+		result.values.xUint8[12] = (value.values.xUint8[12] == other.values.xUint8[12]) ? 0xFFu : 0x00u;
+		result.values.xUint8[13] = (value.values.xUint8[13] == other.values.xUint8[13]) ? 0xFFu : 0x00u;
+		result.values.xUint8[14] = (value.values.xUint8[14] == other.values.xUint8[14]) ? 0xFFu : 0x00u;
+		result.values.xUint8[15] = (value.values.xUint8[15] == other.values.xUint8[15]) ? 0xFFu : 0x00u;
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opXor(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_xor<simd_int_t01>(value, other);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint8[0]	 = (value.values.xUint8[0] < other.values.xUint8[0]) ? 0xFFu : 0x00u;
+		result.values.xUint8[1]	 = (value.values.xUint8[1] < other.values.xUint8[1]) ? 0xFFu : 0x00u;
+		result.values.xUint8[2]	 = (value.values.xUint8[2] < other.values.xUint8[2]) ? 0xFFu : 0x00u;
+		result.values.xUint8[3]	 = (value.values.xUint8[3] < other.values.xUint8[3]) ? 0xFFu : 0x00u;
+		result.values.xUint8[4]	 = (value.values.xUint8[4] < other.values.xUint8[4]) ? 0xFFu : 0x00u;
+		result.values.xUint8[5]	 = (value.values.xUint8[5] < other.values.xUint8[5]) ? 0xFFu : 0x00u;
+		result.values.xUint8[6]	 = (value.values.xUint8[6] < other.values.xUint8[6]) ? 0xFFu : 0x00u;
+		result.values.xUint8[7]	 = (value.values.xUint8[7] < other.values.xUint8[7]) ? 0xFFu : 0x00u;
+		result.values.xUint8[8]	 = (value.values.xUint8[8] < other.values.xUint8[8]) ? 0xFFu : 0x00u;
+		result.values.xUint8[9]	 = (value.values.xUint8[9] < other.values.xUint8[9]) ? 0xFFu : 0x00u;
+		result.values.xUint8[10] = (value.values.xUint8[10] < other.values.xUint8[10]) ? 0xFFu : 0x00u;
+		result.values.xUint8[11] = (value.values.xUint8[11] < other.values.xUint8[11]) ? 0xFFu : 0x00u;
+		result.values.xUint8[12] = (value.values.xUint8[12] < other.values.xUint8[12]) ? 0xFFu : 0x00u;
+		result.values.xUint8[13] = (value.values.xUint8[13] < other.values.xUint8[13]) ? 0xFFu : 0x00u;
+		result.values.xUint8[14] = (value.values.xUint8[14] < other.values.xUint8[14]) ? 0xFFu : 0x00u;
+		result.values.xUint8[15] = (value.values.xUint8[15] < other.values.xUint8[15]) ? 0xFFu : 0x00u;
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opAnd(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_and<simd_int_t01>(value, other);
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMask(simd_int_t01 value) noexcept {
+		uint64_t rawLo = value.values.xUint64[0];
+		uint64_t rawHi = value.values.xUint64[1];
+		if constexpr (std::endian::native == std::endian::big) {
+			rawLo = internal::byteswap(rawLo);
+			rawHi = internal::byteswap(rawHi);
+		}
+		uint64_t highBits0 = rawLo & 0x8080808080808080ull;
+		uint64_t highBits1 = rawHi & 0x8080808080808080ull;
+		uint16_t mask0	   = static_cast<uint16_t>((highBits0 * 0x0002040810204081ull) >> 56);
+		uint16_t mask1	   = static_cast<uint16_t>((highBits1 * 0x0002040810204081ull) >> 56);
+		return static_cast<uint16_t>(mask0 | (mask1 << 8));
 	}
 
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opOr(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_or<simd_int_t01>(value, other);
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMaskRaw(simd_int_t01 value) noexcept {
+		return opBitMask(value);
 	}
 
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02> JSONIFIER_INLINE static auto opAndNot(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return op_andnot<simd_int_t01>(other, value);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opShuffle(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		uint8_t idx				 = other.values.xUint8[0];
+		result.values.xUint8[0]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[1];
+		result.values.xUint8[1]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[2];
+		result.values.xUint8[2]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[3];
+		result.values.xUint8[3]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[4];
+		result.values.xUint8[4]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[5];
+		result.values.xUint8[5]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[6];
+		result.values.xUint8[6]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[7];
+		result.values.xUint8[7]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[8];
+		result.values.xUint8[8]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[9];
+		result.values.xUint8[9]	 = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[10];
+		result.values.xUint8[10] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[11];
+		result.values.xUint8[11] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[12];
+		result.values.xUint8[12] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[13];
+		result.values.xUint8[13] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[14];
+		result.values.xUint8[14] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		idx						 = other.values.xUint8[15];
+		result.values.xUint8[15] = (idx & 0x80u) ? 0x00u : value.values.xUint8[idx & 0x0Fu];
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01> JSONIFIER_INLINE static auto opTest(const simd_int_t01& value) noexcept {
-		return !op_test<simd_int_t01>(value);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opXor(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint64[0] = value.values.xUint64[0] ^ other.values.xUint64[0];
+		result.values.xUint64[1] = value.values.xUint64[1] ^ other.values.xUint64[1];
+		return result;
 	}
 
-	template<simd_int_128_type simd_int_t01> JSONIFIER_INLINE static auto opNot(const simd_int_t01& value) noexcept {
-		return op_xor<simd_int_t01>(value, op_set1_epi64<simd_int_t01>(0xFFFFFFFFFFFFFFFFll));
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opSubs(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		uint16_t a				 = value.values.xUint8[0];
+		uint16_t b				 = other.values.xUint8[0];
+		result.values.xUint8[0]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[1];
+		b						 = other.values.xUint8[1];
+		result.values.xUint8[1]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[2];
+		b						 = other.values.xUint8[2];
+		result.values.xUint8[2]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[3];
+		b						 = other.values.xUint8[3];
+		result.values.xUint8[3]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[4];
+		b						 = other.values.xUint8[4];
+		result.values.xUint8[4]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[5];
+		b						 = other.values.xUint8[5];
+		result.values.xUint8[5]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[6];
+		b						 = other.values.xUint8[6];
+		result.values.xUint8[6]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[7];
+		b						 = other.values.xUint8[7];
+		result.values.xUint8[7]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[8];
+		b						 = other.values.xUint8[8];
+		result.values.xUint8[8]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[9];
+		b						 = other.values.xUint8[9];
+		result.values.xUint8[9]	 = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[10];
+		b						 = other.values.xUint8[10];
+		result.values.xUint8[10] = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[11];
+		b						 = other.values.xUint8[11];
+		result.values.xUint8[11] = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[12];
+		b						 = other.values.xUint8[12];
+		result.values.xUint8[12] = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[13];
+		b						 = other.values.xUint8[13];
+		result.values.xUint8[13] = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[14];
+		b						 = other.values.xUint8[14];
+		result.values.xUint8[14] = static_cast<uint8_t>(a > b ? a - b : 0);
+		a						 = value.values.xUint8[15];
+		b						 = other.values.xUint8[15];
+		result.values.xUint8[15] = static_cast<uint8_t>(a > b ? a - b : 0);
+		return result;
 	}
 
-	template<simd_int_128_type simd_type> JSONIFIER_INLINE static jsonifier_simd_int_128 opSetLSB(const simd_type& value, bool valueNew) noexcept {
-		static constexpr jsonifier_simd_int_128 mask{ op_set_epi64<simd_type>(0x01uLL, 0ULL) };
-		return valueNew ? op_or<jsonifier_simd_int_128>(value, mask) : op_andnot<jsonifier_simd_int_128>(mask, value);
+	template<uint16_t permuteMask, simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opPermute(simd_int_t01 value, simd_int_t02) noexcept {
+		return value;
 	}
 
-	template<simd_int_128_type simd_type> JSONIFIER_INLINE static bool opGetMSB(const simd_type& value) noexcept {
-		const simd_type result = op_and<simd_type>(value, op_set_epi64<simd_type>(0x00ll, 0x8000000000000000ll));
-		return !op_test<simd_type>(result);
+	template<uint16_t alignment, simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opAlignR(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		{
+			constexpr int64_t src = static_cast<int64_t>(0) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[0] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[0] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[0] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(1) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[1] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[1] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[1] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(2) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[2] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[2] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[2] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(3) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[3] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[3] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[3] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(4) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[4] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[4] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[4] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(5) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[5] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[5] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[5] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(6) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[6] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[6] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[6] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(7) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[7] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[7] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[7] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(8) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[8] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[8] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[8] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(9) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[9] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[9] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[9] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(10) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[10] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[10] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[10] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(11) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[11] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[11] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[11] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(12) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[12] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[12] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[12] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(13) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[13] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[13] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[13] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(14) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[14] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[14] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[14] = 0;
+			}
+		}
+		{
+			constexpr int64_t src = static_cast<int64_t>(15) + static_cast<int64_t>(alignment);
+			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
+				result.values.xUint8[15] = other.values.xUint8[static_cast<uint64_t>(src)];
+			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
+				result.values.xUint8[15] = value.values.xUint8[static_cast<uint64_t>(src - static_cast<int64_t>(simd_int_t01::eightPer))];
+			} else {
+				result.values.xUint8[15] = 0;
+			}
+		}
+		return result;
+	}
+
+	template<uint16_t alignment, simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opSrLi(simd_int_t01 value) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint16[0] = static_cast<uint16_t>(value.values.xUint16[0] >> alignment);
+		result.values.xUint16[1] = static_cast<uint16_t>(value.values.xUint16[1] >> alignment);
+		result.values.xUint16[2] = static_cast<uint16_t>(value.values.xUint16[2] >> alignment);
+		result.values.xUint16[3] = static_cast<uint16_t>(value.values.xUint16[3] >> alignment);
+		result.values.xUint16[4] = static_cast<uint16_t>(value.values.xUint16[4] >> alignment);
+		result.values.xUint16[5] = static_cast<uint16_t>(value.values.xUint16[5] >> alignment);
+		result.values.xUint16[6] = static_cast<uint16_t>(value.values.xUint16[6] >> alignment);
+		result.values.xUint16[7] = static_cast<uint16_t>(value.values.xUint16[7] >> alignment);
+		return result;
+	}
+
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opAnd(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint64[0] = value.values.xUint64[0] & other.values.xUint64[0];
+		result.values.xUint64[1] = value.values.xUint64[1] & other.values.xUint64[1];
+		return result;
+	}
+
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opOr(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint64[0] = value.values.xUint64[0] | other.values.xUint64[0];
+		result.values.xUint64[1] = value.values.xUint64[1] | other.values.xUint64[1];
+		return result;
+	}
+
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint64[0] = value.values.xUint64[0] & ~other.values.xUint64[0];
+		result.values.xUint64[1] = value.values.xUint64[1] & ~other.values.xUint64[1];
+		return result;
+	}
+
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool opTest(simd_int_t01 value) noexcept {
+		if (value.values.xUint64[0] != 0) {
+			return false;
+		}
+		if (value.values.xUint64[1] != 0) {
+			return false;
+		}
+		return true;
+	}
+
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opNot(simd_int_t01 value) noexcept {
+		simd_int_t01 result{};
+		result.values.xUint64[0] = ~value.values.xUint64[0];
+		result.values.xUint64[1] = ~value.values.xUint64[1];
+		return result;
+	}
+
+	template<uint16_t N, simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static simd_int_t01 opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
+		return opAlignR<N>(current, previous);
+	}
+
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
+		return !opTest(value);
+	}
+
+	template<simd_int_128_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {
+		return opOr(chunks.template get<0>(), opOr(chunks.template get<1>(), opOr(chunks.template get<2>(), chunks.template get<3>())));
+	}
+
+	template<typename simd_type> JSONIFIER_INLINE bool isAscii(simd_type value) {
+		return opBitMask(value) == 0;
 	}
 
 #endif

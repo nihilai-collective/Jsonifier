@@ -19,40 +19,56 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <cstdint>
+#include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
+#include <jsonifier-incl/simd/jsonifier_cpu_properties.hpp>
+#include <source_location>
+#include <unordered_map>
+#include <algorithm>
+#include <iostream>
+#include <optional>
+#include <iomanip>
+#include <variant>
+#include <cstring>
+#include <sstream>
+#include <chrono>
+#include <cfloat>
 #include <atomic>
+#include <vector>
+#include <bit>
 
-#if JSONIFIER_COMPILER_MSVC
-	#define JSONIFIER_VISUAL_STUDIO 1
-	#if JSONIFIER_COMPILER_CLANG
-		#define JSONIFIER_CLANG_VISUAL_STUDIO 1
-	#else
-		#define JSONIFIER_REGULAR_VISUAL_STUDIO 1
-	#endif
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+	#include <immintrin.h>
+#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+	#include <arm_neon.h>
+#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#include <arm_sve.h>
 #endif
 
-#if defined(__has_builtin)
-	#define JSONIFIER_HAS_BUILTIN(x) __has_builtin(x)
-#else
-	#define JSONIFIER_HAS_BUILTIN(x) 0
+#if JSONIFIER_PLATFORM_WINDOWS
+	#include <windows.h>
+#elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC
+	#include <sys/mman.h>
 #endif
 
-#if !defined(JSONIFIER_LIKELY)
-	#define JSONIFIER_LIKELY(...) (__VA_ARGS__) [[likely]]
-#endif
+namespace jsonifier {
 
-#if !defined(JSONIFIER_UNLIKELY)
-	#define JSONIFIER_UNLIKELY(...) (__VA_ARGS__) [[unlikely]]
-#endif
+	struct serialize_options {
+		uint64_t indentSize{ 3 };
+		char indentChar{ ' ' };
+		uint64_t indent{};
+		bool prettify{};
+	};
 
-#if !defined(JSONIFIER_ELSE_UNLIKELY)
-	#define JSONIFIER_ELSE_UNLIKELY(...) __VA_ARGS__ [[unlikely]]
-#endif
+	struct parse_options {
+		bool partialRead{};
+		bool knownOrder{};
+		bool minified{};
+		bool validateUtf8{ true };
+		bool nullTerminated{ true };
+		uint64_t maxDepth{ 1024 };
+	};
 
-#if !defined JSONIFIER_ALIGN
-	#define JSONIFIER_ALIGN(b) alignas(b)
-#endif
+}

@@ -1,4 +1,4 @@
-# library_setup.cmake - Script for detecting the CPU architecture.
+# cmake/library_setup.cmake - Script for detecting the CPU architecture.
 # MIT License
 # Copyright (c) 2026 RealTimeChris
 
@@ -14,21 +14,13 @@ set(JSONIFIER_COMPILE_DEFINITIONS
     JSONIFIER_COMPILER_CLANG=$<IF:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>,1,0>
     JSONIFIER_COMPILER_MSVC=$<IF:$<CXX_COMPILER_ID:MSVC>,1,0>
     JSONIFIER_COMPILER_GCC=$<IF:$<CXX_COMPILER_ID:GNU>,1,0>
-    JSONIFIER_ASAN=$<IF:$<BOOL:${JSONIFIER_ASAN_EFFECTIVE}>,1,0>
-    JSONIFIER_UBSAN=$<IF:$<BOOL:${JSONIFIER_UBSAN_EFFECTIVE}>,1,0>
-    JSONIFIER_DEV=$<IF:$<BOOL:${JSONIFIER_DEV}>,1,0>
-    "JSONIFIER_DISPATCH_TABLE_COUNT=$<IF:$<PLATFORM_ID:Darwin>,6,12>"
-    "JSONIFIER_INLINE=$<IF:$<CONFIG:Release>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::forceinline]] inline,inline __attribute__((always_inline))>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::noinline]],__attribute__((noinline))>>"
-    "JSONIFIER_CLANG_INLINE=$<IF:$<CONFIG:Release>,$<IF:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>,inline __attribute__((always_inline)),$<IF:$<CXX_COMPILER_ID:MSVC>,inline,inline>>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::noinline]],__attribute__((noinline))>>"
+    "JSONIFIER_DISPATCH_TABLE_COUNT=$<IF:$<PLATFORM_ID:Darwin>,$<IF:$<CXX_COMPILER_ID:GNU>,4,0>,2>"
+    "JSONIFIER_INLINE=$<IF:$<CONFIG:Release>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::forceinline]] inline,inline __attribute__((always_inline))>,$<IF:$<CXX_COMPILER_ID:MSVC>,inline,inline>>"
     "JSONIFIER_LIFETIME_BOUND=$<IF:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>,[[clang::lifetimebound]],$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::lifetimebound]],>>"
     $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;WIN32_LEAN_AND_MEAN>
-    $<$<CONFIG:Release>:NDEBUG>
-    $<$<CONFIG:Debug>:DEBUG;_DEBUG>
 )
 
-if(NOT DEFINED JSONIFIER_CPU_INSTRUCTIONS)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/JsonifierDetectArchitecture.cmake)
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/jsonifier_detect_architecture.cmake)
 
 target_include_directories(${PROJECT_NAME}
     INTERFACE
@@ -37,7 +29,11 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_compile_options(${PROJECT_NAME}
-    INTERFACE ${JSONIFIER_SIMD_FLAGS}
+    INTERFACE
+        ${SIMD_FLAGS}
+        $<$<CXX_COMPILER_ID:MSVC>:/constexpr:steps100000000>
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fconstexpr-steps=100000000>
+        $<$<CXX_COMPILER_ID:GNU>:-fconstexpr-ops-limit=1000000000>
 )
 
 target_compile_definitions(${PROJECT_NAME}

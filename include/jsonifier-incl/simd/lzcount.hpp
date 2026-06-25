@@ -19,70 +19,63 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/utilities/type_entities.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 
 namespace jsonifier::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
-
-	[[maybe_unused]] JSONIFIER_INLINE static uint32_t lzcnt(const uint32_t value) noexcept {
-		return _lzcnt_u32(value);
-	}
-
-	[[maybe_unused]] JSONIFIER_INLINE static uint64_t lzcnt(const uint64_t value) noexcept {
-		return _lzcnt_u64(value);
-	}
-
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
-
-	template<concepts::uns32_t value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type lzcnt(const value_type value) noexcept {
-	#if defined(JSONIFIER_REGULAR_VISUAL_STUDIO)
-		uint64_t leading_zero = 0;
-		if (_BitScanReverse32(&leading_zero, value)) {
-			return 32 - leading_zero;
-		} else {
-			return 32;
-		}
+	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type lzcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+		return value == 0 ? static_cast<value_type>(16) : static_cast<value_type>(__builtin_clz(value) - 16);
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
+		return value == 0 ? static_cast<value_type>(16) : static_cast<value_type>(__lzcnt16(static_cast<uint16_t>(value)));
+	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+		return static_cast<value_type>(_CountLeadingZeros16(static_cast<unsigned short>(value)));
 	#else
-		return __builtin_clz(value);
+		return static_cast<value_type>(std::countl_zero(value));
 	#endif
-	}
-
-	template<concepts::uns64_t value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type lzcnt(const value_type value) noexcept {
-	#if defined(JSONIFIER_REGULAR_VISUAL_STUDIO)
-		uint64_t leading_zero = 0;
-		if (_BitScanReverse64(&leading_zero, value)) {
-			return 63 - leading_zero;
-		} else {
-			return 64;
-		}
-	#else
-		return static_cast<value_type>(__builtin_clzll(value));
-	#endif
-	}
-
 #else
-
-	template<concepts::unsigned_t value_type> [[maybe_unused]] JSONIFIER_INLINE static constexpr value_type lzcnt(const value_type value) noexcept {
-		if (value == 0) {
-			return sizeof(value_type) * 8;
-		}
-
-		value_type count{};
-		value_type mask{ static_cast<value_type>(1) << (std::numeric_limits<value_type>::digits - 1) };
-
-		while ((value & mask) == 0) {
-			++count;
-			mask >>= 1;
-		}
-
-		return count;
+		return static_cast<value_type>(std::countl_zero(value));
+#endif
 	}
 
+	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type lzcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
+		return static_cast<value_type>(_lzcnt_u32(value));
+	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
+		return static_cast<value_type>(__lzcnt(value));
+	#elif JSONIFIER_ARCH_ARM64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
+		return value == 0 ? static_cast<value_type>(32) : static_cast<value_type>(__builtin_clz(value));
+	#elif JSONIFIER_ARCH_ARM64 && JSONIFIER_COMPILER_MSVC
+		return static_cast<value_type>(_CountLeadingZeros(value));
+	#else
+		return static_cast<value_type>(std::countl_zero(value));
+	#endif
+#else
+		return static_cast<value_type>(std::countl_zero(value));
 #endif
+	}
+
+	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type lzcnt(value_type value) noexcept {
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
+		return static_cast<value_type>(_lzcnt_u64(value));
+	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
+		return static_cast<value_type>(__lzcnt64(value));
+	#elif JSONIFIER_ARCH_ARM64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
+		return value == 0 ? static_cast<value_type>(64) : static_cast<value_type>(__builtin_clzll(value));
+	#elif JSONIFIER_ARCH_ARM64 && JSONIFIER_COMPILER_MSVC
+		return static_cast<value_type>(_CountLeadingZeros64(value));
+	#else
+		return static_cast<value_type>(std::countl_zero(value));
+	#endif
+#else
+		return static_cast<value_type>(std::countl_zero(value));
+#endif
+	}
 
 }

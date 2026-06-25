@@ -19,90 +19,100 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/utilities/type_entities.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 #include <jsonifier-incl/utilities/string_utils.hpp>
-#include <jsonifier-incl/utilities/error.hpp>
+#include <jsonifier-incl/utilities/json_iterator.hpp>
 
 namespace jsonifier::internal {
+
+	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
+		return value + strLen(value);
+	}
+
+	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
+		return std::bit_cast<string_view_ptr>(value);
+	}
+
+	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
+		return std::bit_cast<string_view_ptr>(value.data() + value.size());
+	}
+
+	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
+		return std::bit_cast<string_view_ptr>(value.data());
+	}
 
 	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
 
 	template<typename derived_type> class validator {
 	  public:
-		template<json_structural_type typeNew, typename derived_type_new> friend struct validate_impl;
-
+		template<json_structural_type, typename derived_type_new> friend struct validate_impl;
 		validator& operator=(const validator& other) = delete;
 		validator(const validator& other)			 = delete;
 
 		template<concepts::string_t string_type> inline bool validateJson(string_type&& in) noexcept {
-			derivedRef.errors.clear();
-			derivedRef.section.template reset<false>(in.data(), in.size());
-			rootIter = in.data();
-			endIter	 = in.data() + in.size();
-			string_view_ptr* iter{ derivedRef.section.begin() };
-			string_view_ptr* end{ derivedRef.section.end() };
-			if (!iter) {
-				getErrors().emplace_back(error::constructError<status_classes::Validating, validate_status::No_Input>(0, 0, nullptr));
+			static constexpr parse_options validateOpts{};
+			auto rootIter = getBeginIter(in);
+			auto endIter  = getEndIter(in);
+			derivedRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(),
+				derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
+			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
+			if (getStringBuffer().size() < newSize) {
+				getStringBuffer().resize(newSize);
+			}
+			getErrors().clear();
+			if (context.anyInput()) {
+				if (!impl(context)) {
+					return false;
+				}
+				context.checkIfDone();
+				return getErrors().size() == 0;
+			} else {
 				return false;
 			}
-			auto result = impl(iter, end, *this);
-			if (((static_cast<uint64_t>(*iter - rootIter) < in.size()) || derivedRef.errors.size() > 0ull)) {
-				getErrors().emplace_back(error::constructError<status_classes::Validating, validate_status::No_Input>(*iter - rootIter, endIter - rootIter, rootIter));
-				result = false;
-			}
-			return result;
 		}
 
 	  protected:
 		derived_type& derivedRef{ initializeSelfRef() };
-		mutable string_view_ptr rootIter{};
-		mutable string_view_ptr endIter{};
 
 		validator() noexcept : derivedRef{ initializeSelfRef() } {
 		}
 
-		template<typename iterator, typename validator_type> inline static bool impl(iterator& iter, iterator& end, validator_type& validator) noexcept {
-			if (*iter && **iter == '{') {
-				return validate_impl<json_structural_type::object_start, derived_type>::impl(iter, end, validator);
+		template<typename context_type> inline static bool impl(context_type& context) noexcept {
+			if (!context.notAtEndPre()) {
+				return false;
+			}
+			const auto c = *context.currentPtr();
+			if (c == '{') {
+				return validate_impl<json_structural_type::object_start, derived_type>::impl(context);
+			} else if (c == '[') {
+				return validate_impl<json_structural_type::array_start, derived_type>::impl(context);
+			} else if (c == '"') {
+				return validate_impl<json_structural_type::string, derived_type>::impl(context);
+			} else if (numberTable[static_cast<uint8_t>(c)]) {
+				return validate_impl<json_structural_type::number, derived_type>::impl(context);
+			} else if (boolTable[static_cast<uint8_t>(c)]) {
+				return validate_impl<json_structural_type::boolean, derived_type>::impl(context);
+			} else if (c == 'n') {
+				return validate_impl<json_structural_type::null, derived_type>::impl(context);
 			} else {
-				if (*iter && **iter == '[') {
-					return validate_impl<json_structural_type::array_start, derived_type>::impl(iter, end, validator);
-				} else {
-					if (*iter && **iter == '"') {
-						return validate_impl<json_structural_type::string, derived_type>::impl(iter, validator);
-					} else {
-						if (*iter && numberTable[static_cast<uint8_t>(**iter)]) {
-							return validate_impl<json_structural_type::number, derived_type>::impl(iter, validator);
-						} else {
-							if (*iter && boolTable[static_cast<uint8_t>(**iter)]) {
-								return validate_impl<json_structural_type::boolean, derived_type>::impl(iter, validator);
-							} else {
-								if (*iter && **iter == 'n') {
-									return validate_impl<json_structural_type::null, derived_type>::impl(iter, validator);
-								} else {
-									return false;
-								}
-							}
-						}
-					}
-				}
+				return false;
 			}
 		}
 
-		inline auto& getStringBuffer() noexcept {
+		JSONIFIER_INLINE auto& getStringBuffer() noexcept {
 			return derivedRef.stringBuffer;
+		}
+
+		std::vector<error>& getErrors() noexcept {
+			return derivedRef.getErrors();
 		}
 
 		derived_type& initializeSelfRef() noexcept {
 			return *static_cast<derived_type*>(this);
-		}
-
-		std::vector<error>& getErrors() noexcept {
-			return derivedRef.errors;
 		}
 
 		~validator() noexcept = default;

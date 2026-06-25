@@ -60,7 +60,7 @@ class Vcpkg
             $tag = trim(shell_exec("{$this->git} config --get init.defaultBranch 2>/dev/null || echo main"));
         }
 
-        $repositoryUrl = 'https://' . urlencode($argv[1]) . ':' . urlencode($argv[2]) . '@github.com/realtimechris/Jsonifier';
+        $repositoryUrl = 'https://' . urlencode($argv[1]) . ':' . urlencode($argv[2]) . '@github.com/nihilai-collective/Jsonifier';
 
         echo GREEN . "Check out repository: $tag (user: " . $argv[1] . " branch: " . $tag . ")\n" . WHITE;
 
@@ -84,7 +84,7 @@ class Vcpkg
 
         $portFileContent = 'vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO realtimechris/jsonifier
+    REPO nihilai-collective/jsonifier
     REF "v${VERSION}"
     SHA512 ' . $sha512 . '
     HEAD_REF main
@@ -105,7 +105,7 @@ vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.md")
   "name": "jsonifier",
   "version": ' . json_encode($this->getVersion()) . ',
   "description": "A few classes for parsing and serializing json - very rapidly.",
-  "homepage": "https://github.com/realtimechris/jsonifier",
+  "homepage": "https://github.com/nihilai-collective/jsonifier",
   "license": "MIT",
   "supports": "(windows & x64 & !xbox) | (linux & x64) | (osx & x64)",
   "dependencies": [

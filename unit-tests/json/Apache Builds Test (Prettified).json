@@ -1,6 +1,5 @@
 {
-   "assignedLabels": [      
-   ],
+   "assignedLabels": [],
    "mode": "EXCLUSIVE",
    "nodeDescription": "the master Jenkins node",
    "nodeName": "",
@@ -1733,13 +1732,13 @@
          "color": "blue"
       },
       {
-         "name": "HttpComponents core",
-         "url": "https://builds.apache.org/job/HttpComponents%20core/",
+         "name": "HttpComponents Core",
+         "url": "https://builds.apache.org/job/HttpComponents%20Core/",
          "color": "blue"
       },
       {
-         "name": "HttpComponents core (4.2.x)",
-         "url": "https://builds.apache.org/job/HttpComponents%20core%20(4.2.x)/",
+         "name": "HttpComponents Core (4.2.x)",
+         "url": "https://builds.apache.org/job/HttpComponents%20Core%20(4.2.x)/",
          "color": "blue"
       },
       {
@@ -4003,33 +4002,33 @@
          "color": "disabled"
       },
       {
-         "name": "Trinidad core 1.0.x (sanity)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%201.0.x%20(sanity)/",
+         "name": "Trinidad Core 1.0.x (sanity)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%201.0.x%20(sanity)/",
          "color": "disabled"
       },
       {
-         "name": "Trinidad core 1.2.x (sanity)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%201.2.x%20(sanity)/",
+         "name": "Trinidad Core 1.2.x (sanity)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%201.2.x%20(sanity)/",
          "color": "blue"
       },
       {
-         "name": "Trinidad core 2.0.x (sanity)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%202.0.x%20(sanity)/",
+         "name": "Trinidad Core 2.0.x (sanity)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%202.0.x%20(sanity)/",
          "color": "blue"
       },
       {
-         "name": "Trinidad core 2.0.x (snapshot)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%202.0.x%20(snapshot)/",
+         "name": "Trinidad Core 2.0.x (snapshot)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%202.0.x%20(snapshot)/",
          "color": "blue"
       },
       {
-         "name": "Trinidad core Trunk (sanity)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%20Trunk%20(sanity)/",
+         "name": "Trinidad Core Trunk (sanity)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%20Trunk%20(sanity)/",
          "color": "blue"
       },
       {
-         "name": "Trinidad core Trunk (snapshot)",
-         "url": "https://builds.apache.org/job/Trinidad%20core%20Trunk%20(snapshot)/",
+         "name": "Trinidad Core Trunk (snapshot)",
+         "url": "https://builds.apache.org/job/Trinidad%20Core%20Trunk%20(snapshot)/",
          "color": "blue"
       },
       {
@@ -4048,8 +4047,8 @@
          "color": "disabled"
       },
       {
-         "name": "Turbine core",
-         "url": "https://builds.apache.org/job/Turbine%20core/",
+         "name": "Turbine Core",
+         "url": "https://builds.apache.org/job/Turbine%20Core/",
          "color": "aborted"
       },
       {

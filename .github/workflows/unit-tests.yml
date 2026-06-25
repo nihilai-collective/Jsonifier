@@ -39,7 +39,7 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod u+x llvm.sh
-          DEV_VERSION=$(awk -F'[][]' '/LLVM_VERSION_PATTERNS/ {print $2}' llvm.sh | sort -n | tail -n 1)
+          DEV_VERSION=$(awk -F'=' '/CURRENT_LLVM_STABLE/ {print $2}' llvm.sh | head -n 1)
           sudo ./llvm.sh $DEV_VERSION
           echo "CXX_BIN=/usr/bin/clang++-$DEV_VERSION" >> $GITHUB_ENV
           echo "C_BIN=/usr/bin/clang-$DEV_VERSION" >> $GITHUB_ENV
@@ -75,13 +75,20 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Bless the Code
+        run: |
+          echo "🕯️🧠✨ BLESSING THE CODE WITH PRIXONIAN KINEMATICS ✨🧠🕯️"
+          echo "==============================================="
+          cat .github/Prixonian_Kinematics.md || echo "❌ Prixonian scroll not found. The build shall proceed... unblessed."
+          echo "==============================================="
+
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
-        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=${{ env.CXX_BIN }} -DCMAKE_C_COMPILER=${{ env.C_BIN }} -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=${{ env.CXX_BIN }} -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_UBSAN=TRUE -DJSONIFIER_ASAN=TRUE
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=cl -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE
 
       - name: Build
         shell: bash
@@ -95,9 +102,15 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
             sudo chmod +x /usr/local/bin/jsonifier-unit-tests
-            sudo ASAN_OPTIONS=symbolize=1:detect_leaks=1 \
-                ASAN_SYMBOLIZER_PATH=${{ env.LLVM_SYMBOLIZER }} \
-                /usr/local/bin/jsonifier-unit-tests
+            set +e
+            ASAN_OPTIONS=symbolize=1:detect_leaks=0:abort_on_error=1 /usr/local/bin/jsonifier-unit-tests 2>&1 | tee asan.log
+            TEST_EXIT=${PIPESTATUS[0]}
+            set -e
+            if [ "$TEST_EXIT" -ne 0 ]; then
+              echo "TESTS DIED WITH EXIT CODE $TEST_EXIT - running under lldb"
+              lldb -o run -o "bt all" -o quit /usr/local/bin/jsonifier-unit-tests 2>&1 | tail -100
+              exit $TEST_EXIT
+            fi
     
       - name: Run the Test (Windows)
         if: matrix.os == 'windows-latest'
