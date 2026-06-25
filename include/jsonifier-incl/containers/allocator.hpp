@@ -19,32 +19,14 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
+
 #pragma once
 
 #include <jsonifier-incl/simd/simd_types.hpp>
-#include <memory_resource>
-#include <stdlib.h>
-
-#if JSONIFIER_PLATFORM_WINDOWS
-	#include <windows.h>
-#elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC
-	#include <sys/mman.h>
-#endif
+#include <jsonifier-incl/utilities/utility.hpp>
 
 namespace jsonifier::internal {
-
-	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
-		return static_cast<value_type&&>(t);
-	}
-
-	template<typename value_type>
-		requires(std::is_rvalue_reference_v<value_type>)
-	JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>&& t) noexcept {
-		static_assert(!std::is_lvalue_reference_v<value_type>, "value_type cannot be an lvalue reference (e.g., U&).");
-		return static_cast<value_type&&>(t);
-	}
 
 	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
 		if constexpr ((multiple & (multiple - 1)) == 0) {
@@ -66,6 +48,13 @@ namespace jsonifier::internal {
 		}
 	}
 
+	enum class allocated_memory_types {
+		huge_page,
+		mmap,
+		standard_page,
+		standard,
+	};
+
 	template<typename value_type_new> class alloc_wrapper {
 	  public:
 		using value_type	   = value_type_new;
@@ -74,12 +63,11 @@ namespace jsonifier::internal {
 		using size_type		   = uint64_t;
 		using difference_type  = ptrdiff_t;
 		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
-
 		template<typename U> struct rebind {
 			using other = alloc_wrapper<U>;
 		};
 
-		static constexpr uint64_t alignment = bytesPerStep;
+		static constexpr uint64_t alignment = simdBytesPerRegister;
 
 		alloc_wrapper() noexcept = default;
 
@@ -87,74 +75,93 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static pointer allocate(size_type count) noexcept {
-			if JSONIFIER_UNLIKELY (count == 0) {
+			if (count == 0) [[unlikely]] {
 				return nullptr;
 			}
-
-			const size_type bytes		  = count * sizeof(value_type);
-			const size_type aligned_bytes = roundUpToMultiple<alignment>(bytes);
-
-			if (aligned_bytes >= huge_page_threshold) {
-				const size_type hp_bytes = roundUpToMultiple<huge_page_size>(aligned_bytes);
-
+			const size_type bytes		 = count * sizeof(value_type) + headerSize;
+			const size_type alignedBytes = roundUpToMultiple<alignment>(bytes);
+			if (alignedBytes >= hugePageThreshold) {
+				[[maybe_unused]] const size_type hpBytes = roundUpToMultiple<hugePageSize>(alignedBytes);
 #if JSONIFIER_PLATFORM_WINDOWS
-				void* p = VirtualAlloc(nullptr, hp_bytes, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
-				if (!p) {
-					p = VirtualAlloc(nullptr, hp_bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-				}
+				void* p = VirtualAlloc(nullptr, hpBytes, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
 				if (p != nullptr) {
-					return static_cast<pointer>(p);
+					return finalize(p, allocated_memory_types::huge_page, hpBytes);
 				}
-
+				p = VirtualAlloc(nullptr, hpBytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+				if (p != nullptr) {
+					return finalize(p, allocated_memory_types::standard_page, hpBytes);
+				}
 #elif JSONIFIER_PLATFORM_LINUX
-				void* p = mmap(nullptr, hp_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+				void* p = mmap(nullptr, hpBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 				if (p != MAP_FAILED) {
-					return static_cast<pointer>(p);
+					return finalize(p, allocated_memory_types::huge_page, hpBytes);
 				}
-
-				p = mmap(nullptr, hp_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+				p = mmap(nullptr, hpBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				if (p != MAP_FAILED) {
-					madvise(p, hp_bytes, MADV_HUGEPAGE);
-					return static_cast<pointer>(p);
+					madvise(p, hpBytes, MADV_HUGEPAGE);
+					return finalize(p, allocated_memory_types::mmap, hpBytes);
 				}
-
 #elif JSONIFIER_PLATFORM_MAC
-				void* p = mmap(nullptr, hp_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+				void* p = mmap(nullptr, hpBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				if (p != MAP_FAILED) {
-					return static_cast<pointer>(p);
+					return finalize(p, allocated_memory_types::mmap, hpBytes);
 				}
 #endif
 			}
-
-#if JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX
-			void* p = _mm_malloc(aligned_bytes, alignment);
+#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+			void* p = _mm_malloc(alignedBytes, alignment);
+#elif JSONIFIER_PLATFORM_WINDOWS
+			void* p = _aligned_malloc(alignedBytes, alignment);
 #else
-			void* p = aligned_alloc(alignment, aligned_bytes);
+			void* p = aligned_alloc(alignment, alignedBytes);
 #endif
-
-			return static_cast<pointer>(p);
+			if (p == nullptr) [[unlikely]] {
+				return nullptr;
+			}
+			return finalize(p, allocated_memory_types::standard, alignedBytes);
 		}
 
-		JSONIFIER_INLINE void deallocate(pointer p, size_type count) noexcept {
-			if JSONIFIER_LIKELY (p) {
-				const size_type bytes		  = count * sizeof(value_type);
-				const size_type aligned_bytes = roundUpToMultiple<alignment>(bytes);
-
-				if (aligned_bytes >= huge_page_threshold) {
+		JSONIFIER_INLINE static void deallocate(pointer p, size_type) noexcept {
+			if (p) [[likely]] {
+				void* base							  = std::bit_cast<std::byte*>(p) - headerSize;
+				auto* header						  = static_cast<allocation_header*>(base);
+				[[maybe_unused]] size_type totalBytes = header->totalBytes;
+				switch (static_cast<uint64_t>(header->type)) {
+					case static_cast<uint64_t>(allocated_memory_types::huge_page): {
 #if JSONIFIER_PLATFORM_WINDOWS
-					VirtualFree(p, 0, MEM_RELEASE);
+						VirtualFree(base, 0, MEM_RELEASE);
+#elif JSONIFIER_PLATFORM_LINUX
+						munmap(base, totalBytes);
+#endif
+						break;
+					}
+					case static_cast<uint64_t>(allocated_memory_types::mmap): {
+#if JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC
+						munmap(base, totalBytes);
+#endif
+						break;
+					}
+					case static_cast<uint64_t>(allocated_memory_types::standard_page): {
+#if JSONIFIER_PLATFORM_WINDOWS
+						VirtualFree(base, 0, MEM_RELEASE);
 #elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC
-					const size_type hp_bytes = roundUpToMultiple<huge_page_size>(aligned_bytes);
-					munmap(p, hp_bytes);
-#else
-					free(p);
+						munmap(base, totalBytes);
 #endif
-				} else {
-#if JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX
-					_mm_free(p);
+						break;
+					}
+					case static_cast<uint64_t>(allocated_memory_types::standard): {
+#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+						_mm_free(base);
+#elif JSONIFIER_PLATFORM_WINDOWS
+						_aligned_free(base);
 #else
-					free(p);
+						free(base);
 #endif
+						break;
+					}
+					default: {
+						break;
+					}
 				}
 			}
 		}
@@ -163,8 +170,8 @@ namespace jsonifier::internal {
 			new (p) value_type(internal::forward<arg_types>(args)...);
 		}
 
-		JSONIFIER_INLINE static size_type maxSize() noexcept {
-			return allocator_traits::max_size(alloc_wrapper{});
+		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
+			return static_cast<size_type>(-1) / sizeof(value_type);
 		}
 
 		JSONIFIER_INLINE static void destroy(pointer p) noexcept {
@@ -182,8 +189,23 @@ namespace jsonifier::internal {
 		}
 
 	  private:
-		static constexpr uint64_t huge_page_size		= 2 * 1024 * 1024ULL;
-		static constexpr uint64_t huge_page_threshold = huge_page_size * 2;
+		struct allocation_header {
+			allocated_memory_types type{};
+			size_type totalBytes{};
+		};
+
+		static constexpr uint64_t headerSize		= roundUpToMultiple<alignment>(sizeof(allocation_header));
+		static constexpr uint64_t hugePageSize		= 2 * 1024 * 1024ULL;
+		static constexpr uint64_t hugePageThreshold = hugePageSize * 2;
+
+		static_assert(alignment >= alignof(allocation_header), "alignment must cover allocation_header's alignment requirement.");
+
+		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
+			allocation_header* header = static_cast<allocation_header*>(base);
+			header->totalBytes		  = totalBytes;
+			header->type			  = type;
+			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
+		}
 	};
 
 }// namespace internal

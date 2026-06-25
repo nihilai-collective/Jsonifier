@@ -19,8 +19,8 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
+
 #pragma once
 
 #include <jsonifier-incl/simd/simd_types.hpp>
@@ -29,20 +29,20 @@
 namespace jsonifier::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
-	static constexpr uint64_t typeListSize{ 1 };
-#endif
-
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 
 	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcnt(value_type value) noexcept {
 		return tzcnt(value) >> 2;
+	}
+
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcntUnsafe(value_type value) noexcept {
+		return tzcntUnsafe(value) >> 2;
 	}
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
 		return vld1q_u8(static_cast<const uint8_t*>(str));
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str, void*) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
 		return vld1q_u8(static_cast<const uint8_t*>(str));
 	}
 
@@ -58,41 +58,41 @@ namespace jsonifier::simd {
 		return vdupq_n_u8(static_cast<uint8_t>(str));
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(const simd_int_type_new& value, void* storageLocation) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
 		vst1q_u8(static_cast<uint8_t*>(storageLocation), value);
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(const simd_int_type_new& value, void* storageLocation, void*) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
 		vst1q_u8(static_cast<uint8_t*>(storageLocation), value);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpEq(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpEq(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vceqq_u8(value, other)), 4)), 0);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpLt(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vcgtq_u8(other, value)), 4)), 0);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpEqRaw(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vceqq_u8(value, other);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpLtRaw(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vcgtq_u8(other, value);
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint64_t opBitMaskRaw(const simd_int_t01& value) noexcept {
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint64_t opBitMaskRaw(simd_int_t01 value) noexcept {
 		return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(value), 4)), 0);
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMask(const simd_int_t01& value) noexcept {
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMask(simd_int_t01 value) noexcept {
 		constexpr uint8x16_t bit_mask{ 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80 };
-		const auto minput = value & bit_mask;
+		const auto minput = vandq_u8(value, bit_mask);
 		uint8x16_t tmp	  = vpaddq_u8(minput, minput);
 		tmp				  = vpaddq_u8(tmp, tmp);
 		tmp				  = vpaddq_u8(tmp, tmp);
@@ -100,51 +100,63 @@ namespace jsonifier::simd {
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opCmpEqBitMask(const simd_int_t01& value, const simd_int_t02& other) noexcept {
-		return opBitMask(vceqq_u8(value, other));
-	}
-
-	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static auto opShuffle(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static auto opShuffle(simd_int_t01 value, simd_int_t02 other) noexcept {
 		const auto bitMask{ vdupq_n_u8(0x0F) };
 		return vqtbl1q_u8(value, vandq_u8(other, bitMask));
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opXor(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opXor(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return veorq_u8(value, other);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opAnd(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opAnd(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vandq_u8(value, other);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opOr(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opOr(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vorrq_u8(value, other);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opAndNot(const simd_int_t01& value, const simd_int_t02& other) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vbicq_u8(value, other);
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool opTest(const simd_int_t01& value) noexcept {
-		return vmaxvq_u8(value) != 0;
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool opTest(simd_int_t01 value) noexcept {
+		return vmaxvq_u8(value) == 0;
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static auto opNot(const simd_int_t01& value) noexcept {
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static auto opNot(simd_int_t01 value) noexcept {
 		return vmvnq_u8(value);
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opSetLSB(const simd_int_t01& value, bool valueNew) noexcept {
-		constexpr uint8x16_t mask{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		return valueNew ? vorrq_u8(value, mask) : vbicq_u8(value, mask);
+	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_128 opSubs(simd_int_t01 value, simd_int_t02 other) noexcept {
+		return vqsubq_u8(value, other);
 	}
 
-	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool opGetMSB(const simd_int_t01& value) noexcept {
-		return (vgetq_lane_u8(value, 15) & 0x80) != 0;
+	template<int32_t alignment, simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static auto opSrLi(simd_int_t01 value) noexcept {
+		return vshrq_n_u8(value, alignment);
+	}
+
+	template<int32_t N, simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>
+	[[maybe_unused]] JSONIFIER_INLINE static auto opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
+		return vextq_u8(previous, current, N);
+	}
+
+	template<simd_int_128_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
+		return !opTest(value);
+	}
+
+	template<simd_int_128_type simd_int_t> JSONIFIER_INLINE bool isAscii(simd_int_t input) {
+		return vmaxvq_u8(input) < 0x80u;
+	}
+
+	template<simd_int_128_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {
+		return opOr(chunks.template get<0>(), opOr(chunks.template get<1>(), opOr(chunks.template get<2>(), chunks.template get<3>())));
 	}
 
 #endif

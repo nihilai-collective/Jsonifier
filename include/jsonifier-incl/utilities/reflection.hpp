@@ -19,15 +19,13 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/utilities/type_entities.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 #include <jsonifier-incl/utilities/string_literal.hpp>
 #include <jsonifier-incl/utilities/string_view.hpp>
 #include <jsonifier-incl/core/core.hpp>
-#include <source_location>
 
 namespace jsonifier::internal {
 
@@ -59,7 +57,7 @@ namespace jsonifier::internal {
 	constexpr auto pretty_function_tail = ";";
 #endif
 
-#if JSONIFIER_COMPILER_MSVC && !JSONIFIER_COMPILER_CLANG
+#if JSONIFIER_COMPILER_MSVC
 	template<typename value_type, auto p> static consteval string_view getNameImpl() noexcept {
 		string_view str = std::source_location::current().function_name();
 		str				= str.substr(str.find("->") + 2);
@@ -76,8 +74,8 @@ namespace jsonifier::internal {
 
 	template<auto p>
 		requires(std::is_member_pointer_v<decltype(p)>)
-	inline static constexpr string_view getName() noexcept {
-#if JSONIFIER_COMPILER_MSVC && !JSONIFIER_COMPILER_CLANG
+	static constexpr string_view getName() noexcept {
+#if JSONIFIER_COMPILER_MSVC
 		using value_type		 = remove_member_pointer_t<decltype(p)>;
 		constexpr auto pNew		 = p;
 		constexpr auto newString = getNameImpl<value_type, &(external<value_type>.*pNew)>();

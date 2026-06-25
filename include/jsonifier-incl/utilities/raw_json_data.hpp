@@ -19,16 +19,13 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 20, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include <jsonifier-incl/utilities/hash_map.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 
 namespace jsonifier {
-
-	class raw_json_data;
 
 	struct json_number {
 		inline json_number() noexcept = default;
@@ -48,15 +45,11 @@ namespace jsonifier {
 			return strToDouble(rawJson);
 		}
 
-		inline friend bool operator!=(const json_number& lhs, const json_number& rhs) {
-			return lhs.rawJson != rhs.rawJson;
-		}
-
 		inline friend bool operator==(const json_number& lhs, const json_number& rhs) {
 			return lhs.rawJson == rhs.rawJson;
 		}
 
-		string_view rawJson{};
+		string rawJson{};
 	};
 
 	class raw_json_data {
@@ -74,8 +67,10 @@ namespace jsonifier {
 			value = null_type{};
 		}
 
-		template<typename parser_type> inline raw_json_data(parser_type& parser, const string& jsonDataNew) noexcept {
-			value	 = constructValueFromRawJsonData(parser, jsonDataNew);
+		template<typename iterator_type> inline raw_json_data(iterator_type& iterator, const string& jsonDataNew) noexcept {
+			internal::json_iterator<parse_options{}, string_view_ptr, string_base<1024 * 1024>> localIterator{ &iterator.getStringBuffer(), &iterator.getErrors(),
+				jsonDataNew.data(), jsonDataNew.data() + jsonDataNew.size() };
+			value	 = constructValueFromRawJsonData(localIterator, jsonDataNew);
 			jsonData = jsonDataNew;
 		}
 
@@ -149,11 +144,11 @@ namespace jsonifier {
 			return std::get<bool_type>(value);
 		}
 
-		template<std::integral index_type> inline raw_json_data& operator[](index_type&& index) noexcept {
+		template<concepts::uint_types index_type> inline raw_json_data& operator[](index_type&& index) noexcept {
 			return (std::get<array_type>(value))[index];
 		}
 
-		template<std::integral index_type> inline const raw_json_data& operator[](index_type&& index) const noexcept {
+		template<concepts::uint_types index_type> inline const raw_json_data& operator[](index_type&& index) const noexcept {
 			return (std::get<array_type>(value))[index];
 		}
 
@@ -162,20 +157,23 @@ namespace jsonifier {
 				value = object_type{};
 			}
 			auto& object = std::get<object_type>(value);
-			return object[key];
+			using key_type_local = typename concepts::base_t<decltype(object)>::key_type;
+			return object[static_cast<key_type_local>(key)];
 		}
 
 		template<std::convertible_to<const string_view> key_type> inline const raw_json_data& operator[](key_type&& key) const noexcept {
-			const auto& object = std::get<object_type>(value);
-			return object.at(key);
+			const auto& object	 = std::get<object_type>(value);
+			using key_type_local = typename concepts::base_t<decltype(object)>::key_type;
+			return object.at(static_cast<key_type_local>(key));
 		}
 
 		template<std::convertible_to<string_view> key_type> inline bool contains(key_type&& key) const noexcept {
 			if (!std::holds_alternative<object_type>(value)) {
 				return false;
 			}
-			const auto& object = std::get<object_type>(value);
-			return object.contains(key);
+			const auto& object	 = std::get<object_type>(value);
+			using key_type_local = typename concepts::base_t<decltype(object)>::key_type;
+			return object.contains(static_cast<key_type_local>(key));
 		}
 
 		inline uint64_t size() const noexcept {
@@ -194,33 +192,22 @@ namespace jsonifier {
 			return jsonData;
 		}
 
-		inline const std::vector<internal::error>& getErrors() const noexcept {
-			return errors;
-		}
-
 		inline bool operator==(const raw_json_data& other) const noexcept {
 			return jsonData == other.jsonData && value == other.value;
 		}
 
 	  protected:
-		std::vector<internal::error> errors{};
-		string_view jsonData{};
 		value_type value{};
+		string jsonData{};
 
-		template<typename parser_type> inline auto constructValueFromRawJsonData(parser_type& parser, const string& jsonDataNew) noexcept {
+		template<typename json_iterator_type> inline value_type constructValueFromRawJsonData(json_iterator_type& iterator, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {
 						typename raw_json_data::object_type results{};
-						internal::parse_context<typename parser_type::derived_type, string_view_ptr> context{};
-						context.parserPtr = &parser;
-						context.rootIter  = jsonDataNew.data();
-						context.endIter	  = jsonDataNew.data() + jsonDataNew.size();
-						context.iter	  = jsonDataNew.data();
-						internal::parse_impl<typename raw_json_data::object_type, internal::parse_context<typename parser_type::derived_type, string_view_ptr>, optionsNew,
-							false>::impl(results, context);
-						if (parser.getErrors().size() == 0) {
+						internal::parse_impl<typename raw_json_data::object_type, json_iterator_type, optionsNew>::impl(results, iterator);
+						if (iterator.getErrors().size() == 0) {
 							return value_type{ results };
 						} else {
 							return value_type{ null_type{} };
@@ -228,14 +215,8 @@ namespace jsonifier {
 					}
 					case '[': {
 						typename raw_json_data::array_type results{};
-						internal::parse_context<typename parser_type::derived_type, string_view_ptr> context{};
-						context.parserPtr = &parser;
-						context.rootIter  = jsonDataNew.data();
-						context.endIter	  = jsonDataNew.data() + jsonDataNew.size();
-						context.iter	  = jsonDataNew.data();
-						internal::parse_impl<typename raw_json_data::array_type, internal::parse_context<typename parser_type::derived_type, string_view_ptr>, optionsNew,
-							false>::impl(results, context);
-						if (parser.getErrors().size() == 0) {
+						internal::parse_impl<typename raw_json_data::array_type, json_iterator_type, optionsNew>::impl(results, iterator);
+						if (iterator.getErrors().size() == 0) {
 							return value_type{ results };
 						} else {
 							return value_type{ null_type{} };
@@ -243,14 +224,8 @@ namespace jsonifier {
 					}
 					case '"': {
 						typename raw_json_data::string_type results{};
-						internal::parse_context<typename parser_type::derived_type, string_view_ptr> context{};
-						context.parserPtr = &parser;
-						context.rootIter  = jsonDataNew.data();
-						context.endIter	  = jsonDataNew.data() + jsonDataNew.size();
-						context.iter	  = jsonDataNew.data();
-						internal::parse_impl<typename raw_json_data::string_type, internal::parse_context<typename parser_type::derived_type, string_view_ptr>, optionsNew,
-							false>::impl(results, context);
-						if (parser.getErrors().size() == 0) {
+						internal::parse_impl<typename raw_json_data::string_type, json_iterator_type, optionsNew>::impl(results, iterator);
+						if (iterator.getErrors().size() == 0) {
 							return value_type{ results };
 						} else {
 							return value_type{ null_type{} };

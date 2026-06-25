@@ -1,33 +1,26 @@
-# get_version.cmake - Script for collecting the current version of the library.
+# cmake/get_version.cmake - Script for collecting the current version of the library.
 # MIT License
 # Copyright (c) 2026 RealTimeChris
-set(auth_header "")
-if(DEFINED ENV{GITHUB_TOKEN})
-    set(auth_header "Authorization: Bearer $ENV{GITHUB_TOKEN}")
+
+find_package(Git QUIET)
+
+if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --exact-match
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE git_tag
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE git_result
+    )
 endif()
 
-file(DOWNLOAD 
-    "https://api.github.com/repos/realtimechris/jsonifier/releases/latest" 
-    "${CMAKE_CURRENT_BINARY_DIR}/jsonifier_latest.json"
-    HTTPHEADER "User-Agent: CMake-Fetch-Script"
-    HTTPHEADER "${auth_header}"
-    TLS_VERIFY OFF
-    STATUS download_status
-)
-
-list(GET download_status 0 status_code)
-list(GET download_status 1 status_message)
-
-if(NOT status_code EQUAL 0)
-    message(WARNING "Failed to fetch version info from GitHub API (${status_message}). Falling back to default version.")
-    set(CLEAN_VERSION "0.0.0")
+if(git_result EQUAL 0 AND git_tag)
+    string(REGEX REPLACE "^v" "" CLEAN_VERSION "${git_tag}")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" CLEAN_VERSION)
+    string(STRIP "${CLEAN_VERSION}" CLEAN_VERSION)
 else()
-    file(READ "${CMAKE_CURRENT_BINARY_DIR}/jsonifier_latest.json" json_content)
-    if(json_content MATCHES "tag_name")
-        string(JSON raw_tag GET "${json_content}" "tag_name")
-        string(REGEX REPLACE "^v" "" CLEAN_VERSION "${raw_tag}")
-    else()
-        message(WARNING "GitHub API returned success but payload was invalid. Falling back.")
-        set(CLEAN_VERSION "0.0.0")
-    endif()
+    message(WARNING "Could not determine version from git tag or VERSION file. Falling back to default.")
+    set(CLEAN_VERSION "0.0.0")
 endif()

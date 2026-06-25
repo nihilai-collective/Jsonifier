@@ -107,6 +107,21 @@
       },
       "inherits": "Jsonifier-Windows-Base",
       "name": "Jsonifier-Windows-Debug-Asan"
+    },
+    {
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "JSONIFIER_ASAN": "TRUE",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "JSONIFIER_BENCHMARKS": "TRUE",
+        "JSONIFIER_UNIT_TESTS": "TRUE",
+        "JSONIFIER_CPU_PROPERTIES_CONSTRUCTED": "TRUE"
+      },
+      "inherits": "Jsonifier-Windows-Base",
+      "name": "Jsonifier-Windows-Debug-Asan-Fallback"
     }
   ],
   "buildPresets": [

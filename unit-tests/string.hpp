@@ -17,7 +17,7 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include "common.hpp"
@@ -25,7 +25,6 @@
 namespace string_validation_tests {
 
 	struct unit_test_string {
-
 		constexpr unit_test_string() noexcept = default;
 
 		template<uint64_t N> constexpr unit_test_string(const char (&string)[N]) : size_val(N - 1) {
@@ -57,7 +56,7 @@ namespace string_validation_tests {
 			return true;
 		}
 
-		template<typename string_type> constexpr friend bool operator==(const string_type& lhs, const unit_test_string&rhs)  {
+		template<typename string_type> constexpr friend bool operator==(const string_type& lhs, const unit_test_string& rhs) {
 			if (rhs.size_val != lhs.size()) {
 				return false;
 			}
@@ -73,7 +72,7 @@ namespace string_validation_tests {
 			return size_val;
 		}
 
-		constexpr const char* data() const {
+		constexpr jsonifier::string_view_ptr data() const {
 			return values;
 		}
 
@@ -106,11 +105,23 @@ namespace string_validation_tests {
 		"\"\\v\"", "\"\\q\"", "\"\\8\"", "\"\\9\"", "\"\\017\"", "\"\\uD800\"", "\"\\uDC00\"", "\"\\uD800\\uD800\"", "\"\\uDC00\\uDC00\"", "\"\\uD800A\"", "\"\\uD800\\uFFFF\"",
 		"\"\\uFFFF\\uD800\"", "\"\\uDBFF\"", "\"\\uD800\\uE000\"", "\"\\uDBFF\\uE000\"", "\"\\uD7FF\\uDC00\"", "\"abc", "\"abc\\" } };
 
-	inline static void stringTests() {
-		std::cout << "String Pass Tests: " << std::endl;
-		pass_test_runner<std::string_view, std::string, inputValues, outputValues, pass_tests_runner, std::make_integer_sequence<uint64_t, inputValues.size()>>::impl();
-		std::cout << "String Fail Tests: " << std::endl;
-		fail_test_runner<std::string, failValues, fail_tests_runner, std::make_integer_sequence<uint64_t, failValues.size()>>::impl();
+	template<bool partial, bool knownOrder, bool nullTerminated> inline static void stringTestsImpl() {
+		std::cout << "String Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<std::string_view, std::string, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		std::cout << "String Fail Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		fail_test_runner<std::string, failValues, partial, knownOrder, nullTerminated, fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+	}
+
+	inline static void runTests() {
+		stringTestsImpl<false, false, false>();
+		stringTestsImpl<false, true, false>();
+		stringTestsImpl<true, false, false>();
+		stringTestsImpl<true, true, false>();
+		stringTestsImpl<false, false, true>();
+		stringTestsImpl<false, true, true>();
+		stringTestsImpl<true, false, true>();
+		stringTestsImpl<true, true, true>();
 	}
 
 }

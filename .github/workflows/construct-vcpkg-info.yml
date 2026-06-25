@@ -1,0 +1,33 @@
+name: Prepare release for VCPKG
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+jobs:
+  Collect-vcpkg-Info:
+    runs-on: ubuntu-latest
+    steps:
+         - name: Setup PHP
+           uses: shivammathur/setup-php@v2
+           with:
+             php-version: '8.1'
+             tools: composer
+         - name: Checkout Jsonifier
+           uses: actions/checkout@v7
+           with:
+             submodules: recursive
+         - name: Install Composer dependencies
+           working-directory: build_tools
+           run: composer install --no-interaction --no-progress
+         - name: Update vcpkg and install other dependencies
+           run: sudo apt-get update &&
+                sudo apt-get install nasm linux-headers-$(uname -r) &&
+                cd /usr/local/share/vcpkg &&
+                sudo git stash &&
+                sudo git pull &&
+                sudo ./bootstrap-vcpkg.sh &&
+                sudo vcpkg update
+         - name: Run vcpkg release builder
+           run: git fetch -avt &&
+                cd build_tools &&
+                php make_vcpkg.php "${{ github.repository_owner }}" "${{ secrets.GITHUB_TOKEN }}"

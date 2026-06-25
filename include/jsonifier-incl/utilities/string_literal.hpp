@@ -19,12 +19,10 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Sep 1, 2024
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
-#include <string_view>
 
 namespace jsonifier::internal {
 
@@ -100,61 +98,46 @@ namespace jsonifier::internal {
 		}
 
 		template<typename string_type> JSONIFIER_INLINE constexpr operator string_type() const noexcept {
-			JSONIFIER_ALIGN(bytesPerStep) string_type returnValues{ values, length };
+			alignas(64) string_type returnValues{ values, length };
 			return returnValues;
 		}
 
-		JSONIFIER_ALIGN(bytesPerStep) value_type values[sizeVal] {};
+		alignas(64) value_type values[sizeVal]{};
 	};
 
 	template<uint64_t sizeVal> string_literal(const char (&)[sizeVal]) -> string_literal<sizeVal>;
 
 	template<uint64_t size> std::ostream& operator<<(std::ostream& os, const string_literal<size>& input) noexcept {
-		os << input.operator string_view();
+		os.write(input.data(), static_cast<std::streamsize>(input.size()));
 		return os;
 	}
 
-	inline static constexpr uint64_t countDigits(int64_t number) noexcept {
-		uint64_t count = 0;
-		if (number < 0) {
-			number *= -1;
-			++count;
+	template<string_literal literal> constexpr uint64_t escapedKeyLength() noexcept {
+		uint64_t newLength{};
+		for (uint64_t x = 0; x < literal.size(); ++x) {
+			const char c = literal[x];
+			newLength += (c == '"' || c == '\\') ? 2 : 1;
 		}
-		do {
-			++count;
-			number /= 10;
-		} while (number != 0);
-		return count;
+		return newLength;
 	}
 
-	template<int64_t number, uint64_t numDigits = countDigits(number)> inline static constexpr string_literal<numDigits + 1> toStringLiteral() noexcept {
-		char buffer[numDigits + 1]{};
-		string_buffer_ptr ptr = buffer + numDigits;
-		*ptr				  = '\0';
-		int64_t temp{};
-		if constexpr (number < 0) {
-			temp			   = number * -1;
-			*(ptr - numDigits) = '-';
-		} else {
-			temp = number;
+	template<string_literal literal> constexpr string_literal<escapedKeyLength<literal>() + 1> escapeKeyLiteral() noexcept {
+		constexpr uint64_t newLength{ escapedKeyLength<literal>() };
+		string_literal<newLength + 1> returnValues{};
+		uint64_t outIndex{};
+		for (uint64_t x = 0; x < literal.size(); ++x) {
+			const char c = literal[x];
+			if (c == '"' || c == '\\') {
+				returnValues[outIndex] = '\\';
+				++outIndex;
+			}
+			returnValues[outIndex] = c;
+			++outIndex;
 		}
-		do {
-			*--ptr = '0' + (temp % 10);
-			temp /= 10;
-		} while (temp != 0);
-		return string_literal<numDigits + 1>{ buffer };
+		returnValues[newLength] = '\0';
+		return returnValues;
 	}
 
-	constexpr char toLower(char input) noexcept {
-		return (input >= 'A' && input <= 'Z') ? (input + 32) : input;
-	}
-
-	template<uint64_t size, typename value_type> inline static constexpr auto toLower(string_literal<size> input) noexcept {
-		string_literal<size> output{};
-		for (uint64_t x = 0; x < size; ++x) {
-			output[x] = toLower(input[x]);
-		}
-		return output;
-	}
+	template<string_literal literal> static constexpr auto escapedKeyLiteral{ escapeKeyLiteral<literal>() };
 
 }

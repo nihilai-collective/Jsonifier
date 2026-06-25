@@ -19,14 +19,10 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
 #include "common.hpp"
-
-#include <jsonifier>
-#include <filesystem>
-#include <fstream>
 
 namespace float_validation_tests {
 
@@ -53,10 +49,22 @@ namespace float_validation_tests {
 		10141204801825834086073718800384.0, 10141204801825835211973625643008.0, 5708990770823838890407843763683279797179383808.0, 5708990770823839524233143877797980545530986496.0,
 		5708990770823839524233143877797980545530986496.0, 5708990770823838890407843763683279797179383808.0, 5708990770823839524233143877797980545530986496.0 } };
 
-	inline static void floatTests() {
-		std::cout << "Float Tests: " << std::endl;
-		pass_test_runner<double, double, inputValues, outputValues, pass_tests_runner, std::make_integer_sequence<uint64_t, inputValues.size()>>::impl();
-		return ;
+	template<bool partial, bool knownOrder, bool nullTerminated> inline static void floatTestsImpl() {
+		std::cout << "Float Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<double, double, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		return;
+	}
+
+	inline static void runTests() {
+		floatTestsImpl<false, false, false>();
+		floatTestsImpl<false, true, false>();
+		floatTestsImpl<true, false, false>();
+		floatTestsImpl<true, true, false>();
+		floatTestsImpl<false, false, true>();
+		floatTestsImpl<false, true, true>();
+		floatTestsImpl<true, false, true>();
+		floatTestsImpl<true, true, true>();
 	}
 
 }

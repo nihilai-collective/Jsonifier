@@ -1,0 +1,118 @@
+name: Fallback Unit Tests
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: clang
+            name: "Ubuntu Clang"
+          - os: ubuntu-latest
+            compiler: gcc
+            name: "Ubuntu GCC"
+          - os: macos-latest
+            compiler: clang
+            name: "macOS Clang"
+          - os: macos-latest
+            compiler: gcc
+            name: "macOS GCC"
+          - os: windows-latest
+            compiler: msvc
+            name: "Windows MSVC"
+
+    runs-on: ${{ matrix.os }}
+    name: Build on ${{ matrix.name }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Clang (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod u+x llvm.sh
+          DEV_VERSION=$(awk -F'=' '/CURRENT_LLVM_STABLE/ {print $2}' llvm.sh | head -n 1)
+          sudo ./llvm.sh $DEV_VERSION
+          echo "CXX_BIN=/usr/bin/clang++-$DEV_VERSION" >> $GITHUB_ENV
+          echo "C_BIN=/usr/bin/clang-$DEV_VERSION" >> $GITHUB_ENV
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup GCC (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc'
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          DEV_VERSION=$(apt-cache search '^g\+\+-[0-9]+$' | awk '{print $1}' | sort -V | tail -n 1 | sed 's/g++-//')
+          sudo apt-get install -y gcc-$DEV_VERSION g++-$DEV_VERSION
+          echo "CXX_BIN=/usr/bin/g++-$DEV_VERSION" >> $GITHUB_ENV
+          echo "C_BIN=/usr/bin/gcc-$DEV_VERSION" >> $GITHUB_ENV
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Clang (macOS)
+        if: matrix.os == 'macos-latest' && matrix.compiler == 'clang'
+        run: |
+          brew install llvm
+          echo "CXX_BIN=$(brew --prefix llvm)/bin/clang++" >> $GITHUB_ENV
+          echo "C_BIN=$(brew --prefix llvm)/bin/clang" >> $GITHUB_ENV
+
+      - name: Setup GCC (macOS)
+        if: matrix.os == 'macos-latest' && matrix.compiler == 'gcc'
+        run: |
+          brew install gcc
+          GCC_VERSION=$(brew list --versions gcc | awk '{print $2}' | cut -d. -f1)
+          echo "CXX_BIN=g++-$GCC_VERSION" >> $GITHUB_ENV
+          echo "C_BIN=gcc-$GCC_VERSION" >> $GITHUB_ENV
+
+      - name: Setup MSVC (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Bless the Code
+        run: |
+          echo "🕯️🧠✨ BLESSING THE CODE WITH PRIXONIAN KINEMATICS ✨🧠🕯️"
+          echo "==============================================="
+          cat .github/Prixonian_Kinematics.md || echo "❌ Prixonian scroll not found. The build shall proceed... unblessed."
+          echo "==============================================="
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=${{ env.CXX_BIN }} -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_UBSAN=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_CPU_INSTRUCTIONS=0
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=cl -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE -DJSONIFIER_CPU_INSTRUCTIONS=0
+
+      - name: Build
+        shell: bash
+        run: cmake --build ./Build --config=Debug -v 2>&1 | tee build.log
+
+      - name: Install
+        run: |
+          ${{ runner.os != 'Windows' && 'sudo' || '' }} cmake --install ./Build --config=Debug 
+    
+      - name: Run the Test (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+            sudo chmod +x /usr/local/bin/jsonifier-unit-tests
+            set +e
+            ASAN_OPTIONS=symbolize=1:detect_leaks=0:abort_on_error=1 /usr/local/bin/jsonifier-unit-tests 2>&1 | tee asan.log
+            TEST_EXIT=${PIPESTATUS[0]}
+            set -e
+            if [ "$TEST_EXIT" -ne 0 ]; then
+              echo "TESTS DIED WITH EXIT CODE $TEST_EXIT - running under lldb"
+              lldb -o run -o "bt all" -o quit /usr/local/bin/jsonifier-unit-tests 2>&1 | tail -100
+              exit $TEST_EXIT
+            fi
+    
+      - name: Run the Test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+            & "C:/Program Files (x86)/jsonifier/bin/jsonifier-unit-tests.exe"

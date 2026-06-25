@@ -19,11 +19,10 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
 #pragma once
 
-#include <jsonifier-incl/utilities/type_entities.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 #include <jsonifier-incl/utilities/string_view.hpp>
 #include <jsonifier-incl/containers/tuple.hpp>
 
@@ -45,7 +44,7 @@ namespace jsonifier::internal {
 	template<uint64_t maxIndex, uint64_t currentIndex = 0, typename tuple_type>
 	static constexpr array<tuple_reference, maxIndex> collectTupleRefsImpl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
 		if constexpr (currentIndex < maxIndex) {
-			auto potentialKey = internal::get_because_other_lib_authors_resolve<currentIndex>(tuple);
+			auto potentialKey = internal::getBecauseOtherLibAuthorsResolve<currentIndex>(tuple);
 			if constexpr (has_name<decltype(potentialKey)>) {
 				tupleRefsRaw[currentIndex].key = potentialKey.name.operator string_view();
 			}
@@ -98,15 +97,15 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename value_type> inline constexpr auto tupleRefs{ collectTupleRefs(core<value_type>::parseValue) };
-	template<typename value_type> inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
-	template<typename value_type> inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefsByLength(tupleRefs<value_type>) };
-	template<typename value_type> inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
-	template<typename value_type> inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefsByFirstByte(tupleRefs<value_type>) };
-	template<typename value_type> inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
+	template<typename value_type> static constexpr auto tupleRefs{ collectTupleRefs(core<value_type>::parseValue) };
+	template<typename value_type> static constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
+	template<typename value_type> static constexpr auto sortedTupleReferencesByLength{ sortTupleRefsByLength(tupleRefs<value_type>) };
+	template<typename value_type> static constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
+	template<typename value_type> static constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefsByFirstByte(tupleRefs<value_type>) };
+	template<typename value_type> static constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
-	template<typename value_type> using core_tuple_type				 = decltype(core<jsonifier::internal::remove_cvref_t<value_type>>::parseValue);
-	template<typename value_type> constexpr uint64_t core_tuple_size = tuple_size_v<core_tuple_type<value_type>>;
+	template<typename value_type> using core_tuple_type			   = decltype(core<jsonifier::internal::remove_cvref_t<value_type>>::parseValue);
+	template<typename value_type> constexpr uint64_t coreTupleSize = tuple_size_v<core_tuple_type<value_type>>;
 
 }// namespace internal

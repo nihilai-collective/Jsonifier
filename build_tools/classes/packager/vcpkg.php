@@ -60,7 +60,7 @@ class Vcpkg
             $tag = trim(shell_exec("{$this->git} config --get init.defaultBranch 2>/dev/null || echo main"));
         }
 
-        $repositoryUrl = 'https://' . urlencode($argv[1]) . ':' . urlencode($argv[2]) . '@github.com/realtimechris/Jsonifier';
+        $repositoryUrl = 'https://' . urlencode($argv[1]) . ':' . urlencode($argv[2]) . '@github.com/nihilai-collective/Jsonifier';
 
         echo GREEN . "Check out repository: $tag (user: " . $argv[1] . " branch: " . $tag . ")\n" . WHITE;
 
@@ -84,7 +84,7 @@ class Vcpkg
 
         $portFileContent = 'vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO realtimechris/jsonifier
+    REPO nihilai-collective/jsonifier
     REF "v${VERSION}"
     SHA512 ' . $sha512 . '
     HEAD_REF main
@@ -98,14 +98,14 @@ vcpkg_cmake_configure(
 
 vcpkg_cmake_install()
 
-vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.md")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.md" "${SOURCE_PATH}/Third_Party_Licenses.md")
 ';
 
         $versionFileContent = '{
   "name": "jsonifier",
   "version": ' . json_encode($this->getVersion()) . ',
   "description": "A few classes for parsing and serializing json - very rapidly.",
-  "homepage": "https://github.com/realtimechris/jsonifier",
+  "homepage": "https://github.com/nihilai-collective/jsonifier",
   "license": "MIT",
   "supports": "(windows & x64 & !xbox) | (linux & x64) | (osx & x64)",
   "dependencies": [
@@ -119,6 +119,13 @@ vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.md")
         echo GREEN . "Writing portfile...\n" . WHITE;
         file_put_contents('./vcpkg/ports/jsonifier/vcpkg.json', $versionFileContent);
         return $portFileContent;
+    }
+
+    public function updateVersionFile(): void
+    {
+        echo GREEN . "Updating VERSION file to " . $this->getVersion() . "\n" . WHITE;
+        chdir(getenv("HOME") . '/jsonifier');
+        file_put_contents('./VERSION', $this->getVersion() . "\n");
     }
 
     public function firstBuild(string $portFileContent): string
@@ -195,7 +202,9 @@ vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.md")
 
          echo GREEN . "Commit and push changes to main branch\n" . WHITE;
          $this->git('checkout -B main');
-     
+
+         $this->updateVersionFile();
+
          $this->normalizeDirectoryLineEndings('./vcpkg');
 
          $this->git('add .');

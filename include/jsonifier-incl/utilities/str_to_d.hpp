@@ -19,11 +19,12 @@
 	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 	DEALINGS IN THE SOFTWARE.
 */
-/// https://github.com/RealTimeChris/jsonifier
-/// Feb 3, 2023
+/// https://github.com/nihilai-collective/Jsonifier
+
 #pragma once
 
 #include <jsonifier-incl/utilities/fast_float.hpp>
+#include <jsonifier-incl/utilities/utility.hpp>
 
 namespace jsonifier::internal {
 
@@ -58,16 +59,16 @@ namespace jsonifier::internal {
 	static constexpr char plus{ '+' };
 	static constexpr char nine{ '9' };
 
-	template<typename value_type, typename char_t> JSONIFIER_INLINE static bool parseFloat(value_type& value, char_t const*& iter, char_t const* end = nullptr) noexcept {
-		using namespace jsonifier_fast_float;
-		span<const char_t> fraction;
+	template<typename value_type> JSONIFIER_INLINE static string_view_ptr parseFloat(value_type& value, string_view_ptr iter, string_view_ptr end = nullptr) noexcept {
+		using namespace jsonifier::internal;
+		span<char> fraction;
 
 		int64_t expNumber{};
 		int64_t exponent{};
 		uint64_t mantissa{};
 
 		if (iter >= end) {
-			return false;
+			return nullptr;
 		}
 
 		const bool negative{ *iter == minus };
@@ -76,12 +77,12 @@ namespace jsonifier::internal {
 		if (negative) {
 			++iter;
 
-			if JSONIFIER_UNLIKELY (!JSONIFIER_IS_DIGIT(*iter)) {
-				return false;
+			if (!JSONIFIER_IS_DIGIT(*iter)) [[unlikely]] {
+				return nullptr;
 			}
 		}
 
-		span<const char_t> integer{ iter };
+		span<char> integer{ iter };
 
 		if (uint64_t val; (end - iter) >= 2 && (static_cast<void>(val = read2_to_u64(iter) - 0x3030), is_made_of_two_digits_no_sub(val))) {
 			mantissa = mantissa * 100 + parse_two_digits_unrolled_no_sub(val);
@@ -93,14 +94,14 @@ namespace jsonifier::internal {
 			++iter;
 		}
 
-		int64_t digitCount = static_cast<int64_t>(iter - integer.ptr);
-		integer.end		   = integer.ptr + static_cast<uint64_t>(digitCount);
+		int64_t digitcount = static_cast<int64_t>(iter - integer.ptr);
+		integer.end		   = integer.ptr + static_cast<uint64_t>(digitcount);
 
-		if JSONIFIER_UNLIKELY (digitCount == 0 || (integer.ptr[0] == zero && digitCount > 1)) {
-			return false;
+		if (digitcount == 0 || (integer.ptr[0] == zero && digitcount > 1)) [[unlikely]] {
+			return nullptr;
 		}
 
-		char_t const* before;
+		char const* before;
 
 		if (*iter == decimal) {
 			++iter;
@@ -117,10 +118,10 @@ namespace jsonifier::internal {
 			exponent	 = before - iter;
 			fraction.ptr = before;
 			fraction.end = fraction.ptr + static_cast<uint64_t>(iter - before);
-			digitCount -= exponent;
+			digitcount -= exponent;
 
-			if JSONIFIER_UNLIKELY (exponent == 0) {
-				return false;
+			if (exponent == 0) [[unlikely]] {
+				return nullptr;
 			}
 		}
 
@@ -134,9 +135,7 @@ namespace jsonifier::internal {
 			} else if (plus == *iter) {
 				++iter;
 			}
-			if (!JSONIFIER_IS_DIGIT(*iter)) {
-				iter = before;
-			} else {
+			if (JSONIFIER_IS_DIGIT(*iter)) {
 				while (JSONIFIER_IS_DIGIT(*iter)) {
 					if (expNumber < 0x10000000) {
 						expNumber = 10 * expNumber + static_cast<uint8_t>(*iter - zero);
@@ -147,19 +146,21 @@ namespace jsonifier::internal {
 					expNumber = -expNumber;
 				}
 				exponent += expNumber;
+			} else {
+				return nullptr;
 			}
 		}
 
-		if (digitCount > 19) {
+		if (digitcount > 19) {
 			before = integer.ptr;
 			while ((*before == zero || *before == decimal)) {
 				if (*before == zero) {
-					--digitCount;
+					--digitcount;
 				}
 				++before;
 			}
 
-			if (digitCount > 19) {
+			if (digitcount > 19) {
 				tooManyDigits = true;
 				mantissa	  = 0;
 				before		  = integer.ptr;
@@ -193,21 +194,21 @@ namespace jsonifier::internal {
 					if (negative) {
 						value = -value;
 					}
-					return true;
+					return iter;
 				}
 			} else {
 				if (exponent >= 0 && mantissa <= binary_format<value_type>::max_mantissa_fast_path(exponent)) {
 #if defined(__clang__) || defined(JSONIFIER_FASTFLOAT_32BIT)
 					if (mantissa == 0) {
 						value = negative ? static_cast<value_type>(-0.) : static_cast<value_type>(0.);
-						return true;
+						return iter;
 					}
 #endif
 					value = static_cast<value_type>(mantissa) * binary_format<value_type>::exact_power_of_ten(exponent);
 					if (negative) {
 						value = -value;
 					}
-					return true;
+					return iter;
 				}
 			}
 		}
@@ -217,15 +218,15 @@ namespace jsonifier::internal {
 				am = compute_error<binary_format<value_type>>(exponent, mantissa);
 			}
 		}
-		if JSONIFIER_UNLIKELY (am.power2 < 0) {
+		if (am.power2 < 0) [[unlikely]] {
 			am = digit_comp<value_type>(integer, fraction, mantissa, exponent, am);
 		}
 
-		if JSONIFIER_UNLIKELY (am.power2 == binary_format<value_type>::infinite_power) {
-			return false;
+		if (am.power2 == binary_format<value_type>::infinite_power) [[unlikely]] {
+			return nullptr;
 		}
 
 		to_float(negative, am, value);
-		return true;
+		return iter;
 	}
 }
