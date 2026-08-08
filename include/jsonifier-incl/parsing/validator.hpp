@@ -78,7 +78,7 @@ namespace jsonifier::internal {
 	  protected:
 		derived_type& derivedRef{ initializeSelfRef() };
 
-		validator() noexcept : derivedRef{ initializeSelfRef() } {
+		validator() noexcept {
 		}
 
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {

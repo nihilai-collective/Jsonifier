@@ -146,7 +146,7 @@ namespace jsonifier::internal {
 
 		derived_type& derivedRef{ initializeSelfRef() };
 
-		parser() noexcept : derivedRef{ initializeSelfRef() } {
+		parser() noexcept {
 		}
 
 		derived_type& initializeSelfRef() noexcept {

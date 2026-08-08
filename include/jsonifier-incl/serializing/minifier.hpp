@@ -119,12 +119,12 @@ namespace jsonifier::internal {
 			return endIter - rootIter;
 		}
 
-		inline void skipWs(int64_t& currentDistance, string_view_ptr previousPtr) noexcept {
+		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, string_view_ptr previousPtr) noexcept {
 			while (whitespaceTable[static_cast<uint8_t>(previousPtr[--currentDistance])]) {
 			}
 		}
 
-		template<typename iterator_type> inline void backTrackWs(int64_t& currentDistance, string_view_ptr& previousPtr, iterator_type iter) noexcept {
+		template<typename iterator_type> JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, string_view_ptr& previousPtr, iterator_type iter) noexcept {
 			currentDistance = (rootIter + *iter) - previousPtr;
 			skipWs(currentDistance, previousPtr);
 			++currentDistance;
@@ -231,7 +231,7 @@ namespace jsonifier::internal {
 			return index;
 		}
 
-		inline minifier() noexcept : derivedRef{ initializeSelfRef() } {
+		inline minifier() noexcept {
 		}
 
 		inline derived_type& initializeSelfRef() noexcept {

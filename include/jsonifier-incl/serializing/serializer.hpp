@@ -36,12 +36,12 @@ namespace jsonifier::internal {
 		uint64_t indent{};
 	};
 
-	template<typename value_type, serialize_options optionsNew> struct size_getter_impl;
+	template<typename value_type, serialize_options optionsNew> struct get_size_impl;
 
 	template<serialize_options options> struct get_size {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, size_context& context) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
-			size_getter_impl<value_type, options>::impl(internal::forward<value_type_new>(value), context);
+			get_size_impl<value_type, options>::impl(internal::forward<value_type_new>(value), context);
 		}
 	};
 
@@ -53,8 +53,6 @@ namespace jsonifier::internal {
 	};
 
 	template<typename buffer_type> struct serialize_context {
-		inline serialize_context() noexcept = default;
-
 		inline serialize_context& operator=(const serialize_context&) noexcept = delete;
 		inline serialize_context(const serialize_context&) noexcept			   = delete;
 		inline serialize_context& operator=(serialize_context&&) noexcept	   = delete;
@@ -79,14 +77,13 @@ namespace jsonifier::internal {
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};
 			get_size<options>::impl(object, sizeContext);
-			if (derivedRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
-				derivedRef.stringBuffer.resize(sizeContext.requiredSize + 64);
+			if (buffer.size() < sizeContext.requiredSize + 64) {
+				buffer.resize(sizeContext.requiredSize + 64);
 			}
-			serialize_context<decltype(derivedRef.stringBuffer)> context{ derivedRef.stringBuffer.data(), derivedRef.stringBuffer };
+			serialize_context<decltype(buffer)> context{ buffer.data(), buffer };
 			serialize<options>::impl(object, context);
 			context.index = static_cast<uint64_t>(context.bufferPtr - context.buffer.data());
 			buffer.resize(context.index);
-			std::copy(derivedRef.stringBuffer.data(), derivedRef.stringBuffer.data() + context.index, buffer.data());
 			return true;
 		}
 
@@ -106,7 +103,7 @@ namespace jsonifier::internal {
 	  protected:
 		derived_type& derivedRef{ initializeSelfRef() };
 
-		serializer() noexcept : derivedRef{ initializeSelfRef() } {
+		serializer() noexcept {
 		}
 
 		derived_type& initializeSelfRef() noexcept {

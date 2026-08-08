@@ -105,7 +105,7 @@ namespace jsonifier::internal {
 		string_view_ptr rootIter{};
 		string_view_ptr endIter{};
 
-		inline prettifier() noexcept : derivedRef{ initializeSelfRef() } {
+		inline prettifier() noexcept {
 			state.resize(64);
 		}
 
