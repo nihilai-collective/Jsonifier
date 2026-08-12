@@ -1,6 +1,7 @@
-# cmake/get_version.cmake - Script for collecting the current version of the library.
-# MIT License
-# Copyright (c) 2026 RealTimeChris
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# cmake/get_version.cmake
 
 find_package(Git QUIET)
 

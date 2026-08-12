@@ -106,7 +106,7 @@ See the [CPU Architecture Selection](CPU_Architecture_Selection.md) page for the
 
 ## Running the Test Suite
 
-If you want to verify the install against your compiler and platform, build the unit-tests target with `-DJSONIFIER_UNIT_TESTS=ON`. The test suite pulls in [rt-ut](https://github.com/RealTimeChris/rt-ut) automatically via FetchContent, so no extra setup is needed:
+If you want to verify the install against your compiler and platform, build the unit-tests target with `-DJSONIFIER_UNIT_TESTS=ON`. The test suite pulls in [rt-ut](https://github.com/nihilai-collective/rt-ut) automatically via FetchContent, so no extra setup is needed:
 
 ```bash
 git clone https://github.com/nihilai-collective/Jsonifier.git

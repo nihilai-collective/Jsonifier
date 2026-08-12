@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included string1 all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/string_utils.hpp
 #pragma once
 
 #include <jsonifier-incl/simd/utf8_validation.hpp>
@@ -101,13 +83,13 @@ namespace jsonifier::internal {
 			0xFFFFFFFFu };
 	};
 
-	/// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(string_view_ptr string1) noexcept {
 		return digit_tables<>::digitToVal32[630ull + static_cast<uint64_t>(string1[0])] | digit_tables<>::digitToVal32[420ull + static_cast<uint64_t>(string1[1])] |
 			digit_tables<>::digitToVal32[210ull + static_cast<uint64_t>(string1[2])] | digit_tables<>::digitToVal32[0ull + static_cast<uint64_t>(string1[3])];
 	}
 
-	/// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, string_buffer_ptr c) noexcept {
 		if (cp <= 0x7F) {
 			c[0] = static_cast<char>(cp);
@@ -134,7 +116,7 @@ namespace jsonifier::internal {
 		return 0;
 	}
 
-	/// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
 	template<typename basic_iterator01, typename basic_iterator02>
 	JSONIFIER_INLINE static bool handleUnicodeCodePoint(basic_iterator01& srcPtr, basic_iterator02& dstPtr, basic_iterator01 srcEnd) noexcept {
 		static constexpr uint8_t bs{ '\\' };
@@ -206,7 +188,7 @@ namespace jsonifier::internal {
 		return static_cast<integer_type>(simd::tzcnt(next) >> 3u);
 	}
 
-	/// Sampled from Stephen Berry and his library, Glaze library: https://github.com/StephenBerry/Glaze
+	// Sampled from Stephen Berry and his library, Glaze library: https://github.com/StephenBerry/Glaze
 	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE static void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
 		if (static_cast<int64_t>(lengthNew) > 0) {
 			const auto endIter = string1 + lengthNew;

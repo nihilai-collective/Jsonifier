@@ -1,26 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/sve2.hpp
 #pragma once
 
 #include <jsonifier-incl/simd/simd_types.hpp>
@@ -68,12 +49,19 @@ namespace jsonifier::simd {
 
 	template<simd_int_sve2_type simd_int_t01, simd_int_sve2_type simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_t opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return svsel_u8(svcmpeq_u8(svptrue_b8(), value, other), svdup_n_u8(0xFF), svdup_n_u8(0x00));
+		return svdup_n_u8_z(svcmpeq_u8(svptrue_b8(), value, other), 0xFF);
 	}
 
 	template<simd_int_sve2_type simd_int_t01, simd_int_sve2_type simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_t opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return svsel_u8(svcmplt_u8(svptrue_b8(), value, other), svdup_n_u8(0xFF), svdup_n_u8(0x00));
+		return svdup_n_u8_z(svcmplt_u8(svptrue_b8(), value, other), 0xFF);
+	}
+
+	template<simd_int_sve2_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMask(simd_int_t01 value) noexcept {
+		static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "opBitMask returns uint16_t and therefore only covers a 128-bit vector.");
+		const uint8x16_t masked = vandq_u8(svget_neonq_u8(value), vreinterpretq_u8_u64(vdupq_n_u64(0x8040201008040201ULL)));
+		const uint64x2_t summed = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(masked)));
+		return static_cast<uint16_t>(vgetq_lane_u64(summed, 0) | (vgetq_lane_u64(summed, 1) << 8));
 	}
 
 	template<simd_int_sve2_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint64_t opBitMaskRaw(simd_int_t01 value) noexcept {
@@ -91,16 +79,6 @@ namespace jsonifier::simd {
 	template<simd_int_sve2_type simd_int_t01, simd_int_sve2_type simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE static uint64_t opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return opBitMaskRaw(opCmpLtRaw(value, other));
-	}
-
-	template<simd_int_sve2_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static uint16_t opBitMask(simd_int_t01 value) noexcept {
-		static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "opBitMask returns uint16_t and therefore only covers a 128-bit vector.");
-		constexpr uint8_t bit_mask_pattern[16]{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
-		const jsonifier_simd_int_t bit_mask = svld1_u8(svptrue_b8(), bit_mask_pattern);
-		const jsonifier_simd_int_t masked	= svand_u8_x(svptrue_b8(), value, bit_mask);
-		const uint64_t lo					= svaddv_u8(svptrue_pat_b8(SV_VL8), masked);
-		const uint64_t hi					= svaddv_u8(svnot_b_z(svptrue_b8(), svptrue_pat_b8(SV_VL8)), masked);
-		return static_cast<uint16_t>(lo | (hi << 8));
 	}
 
 	template<simd_int_sve2_type simd_int_t01, simd_int_sve2_type simd_int_t02>
@@ -130,7 +108,8 @@ namespace jsonifier::simd {
 	}
 
 	template<simd_int_sve2_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool opTest(simd_int_t01 value) noexcept {
-		return svmaxv_u8(svptrue_b8(), value) == 0;
+		const auto pg = svptrue_b8();
+		return !svptest_any(pg, svcmpne_n_u8(pg, value, 0));
 	}
 
 	template<simd_int_sve2_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static jsonifier_simd_int_t opNot(simd_int_t01 value) noexcept {
@@ -156,7 +135,8 @@ namespace jsonifier::simd {
 	}
 
 	template<simd_int_sve2_type simd_int_t> JSONIFIER_INLINE bool isAscii(simd_int_t input) {
-		return svmaxv_u8(svptrue_b8(), input) < 0x80u;
+		const auto pg = svptrue_b8();
+		return !svptest_any(pg, svcmpge_n_u8(pg, input, 0x80));
 	}
 
 	template<simd_int_sve2_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {

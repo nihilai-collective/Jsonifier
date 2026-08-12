@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2023 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/parsing/parse_impl.hpp
 #pragma once
 
 #include <jsonifier-incl/utilities/number_utils.hpp>
@@ -225,22 +207,31 @@ namespace jsonifier::internal {
 						return result == parse_result::active_member;
 					}
 				} else {
-					if (auto indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
-						if (auto result =
-								generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value, context, indexNew);
-							result != parse_result::inactive_member) {
-							return result == parse_result::active_member;
+					if constexpr (options.knownOrder) {
+						if (auto indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
+							if (auto result = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value,
+									context, indexNew);
+								result != parse_result::inactive_member) {
+								return result == parse_result::active_member;
+							}
+							const auto stringEnd = context.endPtr();
+							if (auto indexNew2 = hash_map<value_type, string_view_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
+								if (auto result2 = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value,
+										context, indexNew2);
+									result2 != parse_result::inactive_member) {
+									if (result2 == parse_result::active_member) {
+										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
+									}
+									return result2 == parse_result::active_member;
+								}
+							}
 						}
+					} else {
 						const auto stringEnd = context.endPtr();
 						if (auto indexNew2 = hash_map<value_type, string_view_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
 							if (auto result2 = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value,
 									context, indexNew2);
 								result2 != parse_result::inactive_member) {
-								if constexpr (options.knownOrder) {
-									if (result2 == parse_result::active_member) {
-										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
-									}
-								}
 								return result2 == parse_result::active_member;
 							}
 						}

@@ -1,3 +1,8 @@
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# unit-tests/CMakeLists.txt
+
 add_executable(jsonifier-unit-tests main.cpp)
 
 include(FetchContent)
@@ -18,6 +23,7 @@ target_link_libraries(jsonifier-unit-tests
 option(JSONIFIER_ASAN  "Enable AddressSanitizer"            OFF)
 option(JSONIFIER_UBSAN "Enable UndefinedBehaviorSanitizer"  OFF)
 
+set(JSONIFIER_TEST_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/" CACHE STRING "Root path the unit tests resolve their JSON data against")
 set(JSONIFIER_ASAN_EFFECTIVE  ${JSONIFIER_ASAN})
 set(JSONIFIER_UBSAN_EFFECTIVE ${JSONIFIER_UBSAN})
 
@@ -73,6 +79,7 @@ set(JSONIFIER_MSVC_COMPILER_OPTIONS
     /wd5045
     /wd4711
     /wd4686
+    /wd4865
     /Wall
     /W4
     /bigobj
@@ -147,7 +154,7 @@ target_link_options(jsonifier-unit-tests
 )
 
 target_compile_definitions(jsonifier-unit-tests PUBLIC 
-"BASE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/\"")
+"BASE_PATH=\"${JSONIFIER_TEST_BASE_PATH}\"")
 
 install(
     FILES

@@ -1,26 +1,8 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/sve2_stage1.hpp
+// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 
 #include <jsonifier-incl/simd/neon.hpp>
@@ -46,77 +28,71 @@ namespace jsonifier::simd {
 
 	alignas(16) static constexpr uint8_t sve2BitMaskPattern[16]{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 
+	struct prefix_xor_op {
+		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
+			const poly64_t allOnes = static_cast<poly64_t>(~0ull);
+			const poly128_t result = vmull_p64(static_cast<poly64_t>(bitmask), allOnes);
+			return static_cast<uint64_t>(vgetq_lane_u64(vreinterpretq_u64_p128(result), 0));
+		}
+	};
+
 	JSONIFIER_INLINE static jsonifier_simd_int_t sve2BitMask() noexcept {
-		return svld1_u8(svptrue_b8(), sve2BitMaskPattern);
+		return svreinterpret_u8_u64(svdup_n_u64(0x8040201008040201ULL));
 	}
 
-	JSONIFIER_INLINE static jsonifier_simd_int_t sve2Vpaddq(const jsonifier_simd_int_t a, const jsonifier_simd_int_t b) noexcept {
-		return svadd_u8_x(svptrue_b8(), svuzp1_u8(a, b), svuzp2_u8(a, b));
+	JSONIFIER_INLINE static uint64_t sve2CollapseMasked(const jsonifier_simd_int_t masked_0, const jsonifier_simd_int_t masked_1, const jsonifier_simd_int_t masked_2,
+		const jsonifier_simd_int_t masked_3) noexcept {
+		uint8x16_t sum0		  = vpaddq_u8(svget_neonq_u8(masked_0), svget_neonq_u8(masked_1));
+		const uint8x16_t sum1 = vpaddq_u8(svget_neonq_u8(masked_2), svget_neonq_u8(masked_3));
+		sum0				  = vpaddq_u8(sum0, sum1);
+		sum0				  = vpaddq_u8(sum0, sum0);
+		return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
 	}
 
 	JSONIFIER_INLINE static uint64_t sve2CollapseToBitmask(const jsonifier_simd_int_t match_0, const jsonifier_simd_int_t match_1, const jsonifier_simd_int_t match_2,
 		const jsonifier_simd_int_t match_3, const jsonifier_simd_int_t bitMask) noexcept {
-		const auto pg	= svptrue_b8();
-		auto sum0		= sve2Vpaddq(svand_u8_x(pg, match_0, bitMask), svand_u8_x(pg, match_1, bitMask));
-		const auto sum1 = sve2Vpaddq(svand_u8_x(pg, match_2, bitMask), svand_u8_x(pg, match_3, bitMask));
-		sum0			= sve2Vpaddq(sum0, sum1);
-		sum0			= sve2Vpaddq(sum0, sum0);
-		return svlastb_u64(svptrue_pat_b64(SV_VL1), svreinterpret_u64_u8(sum0));
+		const auto pg = svptrue_b8();
+		return sve2CollapseMasked(svand_u8_x(pg, match_0, bitMask), svand_u8_x(pg, match_1, bitMask), svand_u8_x(pg, match_2, bitMask), svand_u8_x(pg, match_3, bitMask));
 	}
 
-	struct prefix_xor_op {
-		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-			bitmask ^= bitmask << 1;
-			bitmask ^= bitmask << 2;
-			bitmask ^= bitmask << 4;
-			bitmask ^= bitmask << 8;
-			bitmask ^= bitmask << 16;
-			bitmask ^= bitmask << 32;
-			return bitmask;
+	JSONIFIER_INLINE static jsonifier_simd_int_t sve2WsChars() noexcept {
+		alignas(16) static constexpr uint8_t wsPattern[16]{ ' ', '\t', '\n', '\r', ' ', '\t', '\n', '\r', ' ', '\t', '\n', '\r', ' ', '\t', '\n', '\r' };
+		return svld1_u8(svptrue_b8(), wsPattern);
+	}
+
+	JSONIFIER_INLINE static jsonifier_simd_int_t sve2OpChars() noexcept {
+		alignas(16) static constexpr uint8_t opPattern[16]{ ',', ':', '[', ']', '{', '}', ',', ':', '[', ']', '{', '}', ',', ':', '[', ']' };
+		return svld1_u8(svptrue_b8(), opPattern);
+	}
+
+	struct ws_collector {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t) noexcept {
+			const auto pg	   = svptrue_b8();
+			const auto bitMask = sve2BitMask();
+			const auto wsChars = sve2WsChars();
+			return sve2CollapseMasked(svand_u8_z(svmatch_u8(pg, in_01.template get<0>(), wsChars), bitMask, bitMask),
+				svand_u8_z(svmatch_u8(pg, in_01.template get<1>(), wsChars), bitMask, bitMask), svand_u8_z(svmatch_u8(pg, in_01.template get<2>(), wsChars), bitMask, bitMask),
+				svand_u8_z(svmatch_u8(pg, in_01.template get<3>(), wsChars), bitMask, bitMask));
+		}
+	};
+
+	struct op_collector {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t, const jsonifier_simd_int_t) noexcept {
+			const auto pg	   = svptrue_b8();
+			const auto bitMask = sve2BitMask();
+			const auto opChars = sve2OpChars();
+			return sve2CollapseMasked(svand_u8_z(svmatch_u8(pg, in_01.template get<0>(), opChars), bitMask, bitMask),
+				svand_u8_z(svmatch_u8(pg, in_01.template get<1>(), opChars), bitMask, bitMask), svand_u8_z(svmatch_u8(pg, in_01.template get<2>(), opChars), bitMask, bitMask),
+				svand_u8_z(svmatch_u8(pg, in_01.template get<3>(), opChars), bitMask, bitMask));
 		}
 	};
 
 	struct unescaped_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
-			return sve2CollapseToBitmask(in_01.template get<0>(), in_01.template get<1>(), in_01.template get<2>(), in_01.template get<3>(), sve2BitMask());
-		}
-	};
-
-	struct ws_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t whitespaceTableLocal) noexcept {
-			const auto pg						= svptrue_b8();
-			const auto space					= svdup_n_u8(' ');
-			const jsonifier_simd_int_t d00		= in_01.template get<0>();
-			const jsonifier_simd_int_t d01		= in_01.template get<1>();
-			const jsonifier_simd_int_t d02		= in_01.template get<2>();
-			const jsonifier_simd_int_t d03		= in_01.template get<3>();
-			const jsonifier_simd_int_t matchWs0 = svtbx_u8(svsel_u8(svcmpeq_u8(pg, d00, space), svdup_n_u8(0xFF), svdup_n_u8(0x00)), whitespaceTableLocal, d00);
-			const jsonifier_simd_int_t matchWs1 = svtbx_u8(svsel_u8(svcmpeq_u8(pg, d01, space), svdup_n_u8(0xFF), svdup_n_u8(0x00)), whitespaceTableLocal, d01);
-			const jsonifier_simd_int_t matchWs2 = svtbx_u8(svsel_u8(svcmpeq_u8(pg, d02, space), svdup_n_u8(0xFF), svdup_n_u8(0x00)), whitespaceTableLocal, d02);
-			const jsonifier_simd_int_t matchWs3 = svtbx_u8(svsel_u8(svcmpeq_u8(pg, d03, space), svdup_n_u8(0xFF), svdup_n_u8(0x00)), whitespaceTableLocal, d03);
-			return sve2CollapseToBitmask(matchWs0, matchWs1, matchWs2, matchWs3, sve2BitMask());
-		}
-	};
-
-	struct op_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t) noexcept {
-			const auto pg						= svptrue_b8();
-			const auto three					= svdup_n_u8(3);
-			const jsonifier_simd_int_t d00		= in_01.template get<0>();
-			const jsonifier_simd_int_t d01		= in_01.template get<1>();
-			const jsonifier_simd_int_t d02		= in_01.template get<2>();
-			const jsonifier_simd_int_t d03		= in_01.template get<3>();
-			const auto idx0						= svlsr_n_u8_x(pg, svadd_u8_x(pg, d00, three), 4);
-			const auto idx1						= svlsr_n_u8_x(pg, svadd_u8_x(pg, d01, three), 4);
-			const auto idx2						= svlsr_n_u8_x(pg, svadd_u8_x(pg, d02, three), 4);
-			const auto idx3						= svlsr_n_u8_x(pg, svadd_u8_x(pg, d03, three), 4);
-			const auto zeroes					= svdup_n_u8(0x00);
-			const auto ones						= svdup_n_u8(0xFF);
-			const jsonifier_simd_int_t matchOp0 = svsel_u8(svcmpeq_u8(pg, svtbl_u8(opTable, idx0), d00), ones, zeroes);
-			const jsonifier_simd_int_t matchOp1 = svsel_u8(svcmpeq_u8(pg, svtbl_u8(opTable, idx1), d01), ones, zeroes);
-			const jsonifier_simd_int_t matchOp2 = svsel_u8(svcmpeq_u8(pg, svtbl_u8(opTable, idx2), d02), ones, zeroes);
-			const jsonifier_simd_int_t matchOp3 = svsel_u8(svcmpeq_u8(pg, svtbl_u8(opTable, idx3), d03), ones, zeroes);
-			return sve2CollapseToBitmask(matchOp0, matchOp1, matchOp2, matchOp3, sve2BitMask());
+			const auto pg	   = svptrue_b8();
+			const auto bitMask = sve2BitMask();
+			return sve2CollapseMasked(svand_u8_x(pg, in_01.template get<0>(), bitMask), svand_u8_x(pg, in_01.template get<1>(), bitMask),
+				svand_u8_x(pg, in_01.template get<2>(), bitMask), svand_u8_x(pg, in_01.template get<3>(), bitMask));
 		}
 	};
 
@@ -131,10 +107,10 @@ namespace jsonifier::simd {
 			prevScalar	  = 0;
 		}
 
-		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t match_0, const jsonifier_simd_int_t match_1, const jsonifier_simd_int_t match_2,
-			const jsonifier_simd_int_t match_3, const jsonifier_simd_int_t bitMask) noexcept {
-			return sve2CollapseToBitmask(match_0, match_1, match_2, match_3, bitMask);
-		}
+		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t masked_0, const jsonifier_simd_int_t masked_1, const jsonifier_simd_int_t masked_2,
+			const jsonifier_simd_int_t masked_3) noexcept {
+			return sve2CollapseMasked(masked_0, masked_1, masked_2, masked_3);
+		}		
 
 		JSONIFIER_INLINE void finishNextNoInString() noexcept {
 			rope_block::inString = prevInString;
@@ -148,21 +124,27 @@ namespace jsonifier::simd {
 
 		JSONIFIER_INLINE void next(const simd_array_t in_01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
 			const auto pg				  = svptrue_b8();
-			const auto zeroes			  = svdup_n_u8(0x00);
-			const auto ones				  = svdup_n_u8(0xFF);
 			const auto bitMask			  = sve2BitMask();
 			const jsonifier_simd_int_t d0 = in_01.template get<0>();
 			const jsonifier_simd_int_t d1 = in_01.template get<1>();
 			const jsonifier_simd_int_t d2 = in_01.template get<2>();
 			const jsonifier_simd_int_t d3 = in_01.template get<3>();
-			const uint64_t backslashLocal = toBitmask(svsel_u8(svcmpeq_u8(pg, d0, bsRegister), ones, zeroes), svsel_u8(svcmpeq_u8(pg, d1, bsRegister), ones, zeroes),
-				svsel_u8(svcmpeq_u8(pg, d2, bsRegister), ones, zeroes), svsel_u8(svcmpeq_u8(pg, d3, bsRegister), ones, zeroes), bitMask);
-			const uint64_t quotesLocal	  = toBitmask(svsel_u8(svcmpeq_u8(pg, d0, quoteRegister), ones, zeroes), svsel_u8(svcmpeq_u8(pg, d1, quoteRegister), ones, zeroes),
-				   svsel_u8(svcmpeq_u8(pg, d2, quoteRegister), ones, zeroes), svsel_u8(svcmpeq_u8(pg, d3, quoteRegister), ones, zeroes), bitMask);
-			const uint64_t escaped		  = nextEscapeAndTerminalCode(backslashLocal);
-			const uint64_t quotes		  = (quotesLocal & ~escaped);
-			rope_block::escaped			  = escaped;
-			rope_block::quotes			  = quotes;
+			const auto eqBs0			  = svcmpeq_u8(pg, d0, bsRegister);
+			const auto eqQ0				  = svcmpeq_u8(pg, d0, quoteRegister);
+			const auto eqBs1			  = svcmpeq_u8(pg, d1, bsRegister);
+			const auto eqQ1				  = svcmpeq_u8(pg, d1, quoteRegister);
+			const auto eqBs2			  = svcmpeq_u8(pg, d2, bsRegister);
+			const auto eqQ2				  = svcmpeq_u8(pg, d2, quoteRegister);
+			const auto eqBs3			  = svcmpeq_u8(pg, d3, bsRegister);
+			const auto eqQ3				  = svcmpeq_u8(pg, d3, quoteRegister);
+			const uint64_t backslashLocal = sve2CollapseMasked(svand_u8_z(eqBs0, bitMask, bitMask), svand_u8_z(eqBs1, bitMask, bitMask), svand_u8_z(eqBs2, bitMask, bitMask),
+				svand_u8_z(eqBs3, bitMask, bitMask));
+			const uint64_t quotesLocal =
+				sve2CollapseMasked(svand_u8_z(eqQ0, bitMask, bitMask), svand_u8_z(eqQ1, bitMask, bitMask), svand_u8_z(eqQ2, bitMask, bitMask), svand_u8_z(eqQ3, bitMask, bitMask));
+			const uint64_t escaped = nextEscapeAndTerminalCode(backslashLocal);
+			const uint64_t quotes  = (quotesLocal & ~escaped);
+			rope_block::escaped	   = escaped;
+			rope_block::quotes	   = quotes;
 			return quotes ? finishNextInString() : finishNextNoInString();
 		}
 

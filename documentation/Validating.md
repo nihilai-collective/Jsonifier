@@ -68,7 +68,7 @@ Both `parseJson` and `validateJson` will catch structurally invalid JSON — `pars
 #include <jsonifier>
 #include <iostream>
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string good = R"({"name":"Concert","id":42,"topicIds":[1,2,3]})";

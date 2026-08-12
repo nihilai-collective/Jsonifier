@@ -69,7 +69,7 @@ template<> struct jsonifier::core<twitter_partial_message> {
     static constexpr auto parseValue = createValue<&value_type::statuses>();
 };
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
     twitter_partial_message result;
 

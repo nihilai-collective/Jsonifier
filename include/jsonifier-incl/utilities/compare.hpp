@@ -1,25 +1,7 @@
-/*
-	MIT License	
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/compare.hpp
 #pragma once
 
 #include <jsonifier-incl/utilities/string_literal.hpp>
@@ -458,37 +440,46 @@ namespace jsonifier::internal {
 				const jsonifier_simd_int_128 data2{ simd::gatherValues<jsonifier_simd_int_128>(valuesNew.data()) };
 				return simd::opTest(simd::opXor(data1, data2)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 8) {
-				static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
+				static constexpr uint64_t valuesNew{ pack_values<stringLiteral>::value };
 				uint64_t l;
 				std::memcpy(&l, str, 8);
 				return !(l ^ valuesNew) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 7) {
-				static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
-				uint64_t l{};
-				std::memcpy(&l, str, 7);
-				return !(l ^ valuesNew) ? str + newCount : nullptr;
+				static constexpr auto loString = stringLiteral.template substr<0, 4>();
+				static constexpr auto hiString = stringLiteral.template substr<3, 4>();
+				static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
+				static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
+				uint32_t lo, hi;
+				std::memcpy(&lo, str, 4);
+				std::memcpy(&hi, str + 3, 4);
+				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 6) {
-				static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
-				uint64_t l{};
-				std::memcpy(&l, str, 6);
-				return !(l ^ valuesNew) ? str + newCount : nullptr;
+				static constexpr auto loString = stringLiteral.template substr<0, 4>();
+				static constexpr auto hiString = stringLiteral.template substr<4, 2>();
+				static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
+				static constexpr uint16_t hiValuesNew{ pack_values<hiString>::value };
+				uint32_t lo;
+				uint16_t hi;
+				std::memcpy(&lo, str, 4);
+				std::memcpy(&hi, str + 4, 2);
+				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 5) {
-				static constexpr auto valuesNew{ static_cast<uint32_t>(pack_values<stringLiteral>::value) };
+				static constexpr uint32_t valuesNew{ static_cast<uint32_t>(pack_values<stringLiteral>::value) };
 				uint32_t l;
 				std::memcpy(&l, str, 4);
 				return (!(l ^ valuesNew) && (str[4] == stringLiteral[4])) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 4) {
-				static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
+				static constexpr uint32_t valuesNew{ pack_values<stringLiteral>::value };
 				uint32_t l;
 				std::memcpy(&l, str, 4);
 				return !(l ^ valuesNew) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 3) {
-				static constexpr auto valuesNew{ static_cast<uint16_t>(pack_values<stringLiteral>::value) };
+				static constexpr uint16_t valuesNew{ static_cast<uint16_t>(pack_values<stringLiteral>::value) };
 				uint16_t l;
 				std::memcpy(&l, str, 2);
 				return (!(l ^ valuesNew) && (str[2] == stringLiteral[2])) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 2) {
-				static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
+				static constexpr uint16_t valuesNew{ pack_values<stringLiteral>::value };
 				uint16_t l;
 				std::memcpy(&l, str, 2);
 				return !(l ^ valuesNew) ? str + newCount : nullptr;

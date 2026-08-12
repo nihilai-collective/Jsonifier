@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/utility.hpp
 #pragma once
 
 #include <jsonifier-incl/containers/array.hpp>
@@ -231,11 +213,13 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02> JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) {
+	template<concepts::integral_types value_type01, concepts::integral_types value_type02>
+	JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
 		return value1 > static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02> JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) {
+	template<concepts::integral_types value_type01, concepts::integral_types value_type02>
+	JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) noexcept {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
@@ -255,7 +239,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;

@@ -1,4 +1,9 @@
 // The following code was based heavily on this code: https://github.com/simdjson/simdjson/blob/master/src/internal/isadetection.h
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// cmake/main.cpp
+
 #include <iostream>
 #include <cstdint>
 
@@ -43,11 +48,18 @@ constexpr uint32_t to_bits(instruction_sets value) {
 		#define HWCAP2_SVE2 (1 << 1)
 	#endif
 
+	#if defined(__linux__) && !defined(HWCAP_PMULL)
+		#define HWCAP_PMULL (1 << 4)
+	#endif
+
 static uint32_t detect_supported_architectures() {
 	uint32_t host_isa = to_bits(instruction_sets::fallback);
 	#if defined(__linux__)
 	if (getauxval(AT_HWCAP) & HWCAP_ASIMD) {
 		host_isa |= to_bits(instruction_sets::neon);
+	}
+	if (getauxval(AT_HWCAP) & HWCAP_PMULL) {
+		host_isa |= to_bits(instruction_sets::clmul);
 	}
 	if (getauxval(AT_HWCAP2) & HWCAP2_SVE2) {
 		host_isa |= to_bits(instruction_sets::sve2);
@@ -57,6 +69,11 @@ static uint32_t detect_supported_architectures() {
 	size_t size = sizeof(value);
 	if (sysctlbyname("hw.optional.AdvSIMD", &value, &size, nullptr, 0) != 0 || value) {
 		host_isa |= to_bits(instruction_sets::neon);
+	}
+	value = 0;
+	size  = sizeof(value);
+	if (sysctlbyname("hw.optional.arm.FEAT_PMULL", &value, &size, nullptr, 0) == 0 && value) {
+		host_isa |= to_bits(instruction_sets::clmul);
 	}
 	#else
 	host_isa |= to_bits(instruction_sets::neon);

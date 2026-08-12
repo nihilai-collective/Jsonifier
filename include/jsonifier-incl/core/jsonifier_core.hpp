@@ -1,48 +1,14 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/core/jsonifier_core.hpp
 #pragma once
 
-#include <jsonifier-incl/parsing/validate_impl.hpp>
-#include <jsonifier-incl/serializing/serializer.hpp>
-#include <jsonifier-incl/serializing/prettifier.hpp>
-#include <jsonifier-incl/parsing/parser.hpp>
-#include <jsonifier-incl/utilities/error.hpp>
-#include <jsonifier-incl/utilities/printer.hpp>
-
-namespace jsonifier::internal {
-
-	template<typename derived_type_new> class parser;
-
-}
+#include <jsonifier-incl/core/prixon_core.hpp>
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public internal::json_printer,
-																			  public internal::prettifier<jsonifier_core<initialBufferSize>>,
-																			  public internal::serializer<jsonifier_core<initialBufferSize>>,
-																			  public internal::validator<jsonifier_core<initialBufferSize>>,
-																			  public internal::minifier<jsonifier_core<initialBufferSize>>,
-																			  public internal::parser<jsonifier_core<initialBufferSize>> {
+	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public prixon_core<initialBufferSize> {
 	  public:
 		friend struct internal::json_printer;
 		friend class internal::prettifier<jsonifier_core<initialBufferSize>>;

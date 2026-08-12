@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO nihilai-collective/jsonifier
     REF "v${VERSION}"
-    SHA512 f07c0e970ab19b5ffffd5da3576d9e063d9774bdb41e855e21c069cdca97eb72c6ae7b3ff8fc8134066c3442286c85854f46597d6f8ebb304a2770cf6a25bfd1
+    SHA512 259b9b90aa093e1c6c79ddc1867199cc0256b3ac2066d4ea1606ba7727cc73c9bb690c4c4f27820098fad7c5bb339db6bbc00e6a3aa97427cd18b1f781ca502f
     HEAD_REF main
 )
 

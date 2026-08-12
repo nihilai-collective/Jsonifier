@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/concepts.hpp
 #pragma once
 
 #include <jsonifier-incl/utilities/forward.hpp>
@@ -56,6 +38,9 @@ namespace jsonifier::concepts {
 	template<typename value_type> static constexpr bool is_same_v<value_type, value_type> = true;
 
 	template<typename value_type> using base_t = internal::remove_cvref_t<value_type>;
+
+	template<typename value_type>
+	concept has_static_size = requires() { base_t<value_type>::staticSize; };
 
 	template<typename value_type_01, typename value_type_02>
 	concept same_as_types = is_same_v<internal::remove_reference_t<value_type_01>, internal::remove_reference_t<value_type_02>>;
@@ -257,10 +242,13 @@ namespace jsonifier::concepts {
 	concept unique_ptr_t = requires(jsonifier::internal::remove_cvref_t<value_type> value) {
 		typename jsonifier::internal::remove_cvref_t<value_type>::element_type;
 		typename jsonifier::internal::remove_cvref_t<value_type>::deleter_type;
-	} && has_release<value_type> && has_get<value_type>;
+	} && has_release<value_type> && has_get<value_type>;	
 
 	template<typename value_type>
 	concept shared_ptr_t = has_reset<value_type> && has_get<value_type> && copyable<value_type>;
+
+	template<typename value_type>
+	concept any_pointer_t = unique_ptr_t<value_type> || shared_ptr_t<value_type> || pointer_t<value_type>;
 
 	template<typename value_type>
 	concept has_excluded_keys = requires(jsonifier::internal::remove_cvref_t<value_type> value) {
@@ -292,6 +280,9 @@ namespace jsonifier::concepts {
 	};
 
 	template<typename value_type>
+	concept skip_or_always_null_t = skip_t<value_type> || always_null_t<value_type>;
+
+	template<typename value_type>
 	concept tuple_t = requires { std::tuple_size<jsonifier::internal::remove_cvref_t<value_type>>::value; } && !has_data<value_type>;
 
 	template<typename value_type> using decay_keep_volatile_t = std::remove_const_t<jsonifier::internal::remove_reference_t<value_type>>;
@@ -306,6 +297,9 @@ namespace jsonifier::concepts {
 			opt.emplace(typename jsonifier::internal::remove_cvref_t<value_type>::value_type{})
 		} -> std::same_as<typename jsonifier::internal::remove_cvref_t<value_type>::value_type&>;
 	};
+
+	template<typename value_type>
+	concept any_pointer_or_optional_t = any_pointer_t<value_type> || optional_t<value_type>;
 
 	template<typename value_type>
 	concept enum_t = std::is_enum_v<jsonifier::internal::remove_cvref_t<value_type>>;

@@ -1,33 +1,12 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-/// Nov 13ull, 2023
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/i_to_str.hpp
 #pragma once
 
 #include <jsonifier-incl/containers/allocator.hpp>
 
 namespace jsonifier::internal {
-
-	alignas(64) static constexpr uint8_t zero{ static_cast<uint8_t>('0') };
 
 	static constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
 		9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
@@ -46,11 +25,11 @@ namespace jsonifier::internal {
 		array<uint16_t, 100> t{};
 		for (uint32_t i = 0; i < 100; ++i) {
 			if constexpr (endianness == std::endian::little) {
-				t[i] |= static_cast<uint16_t>(zero + (i / 10));
-				t[i] |= static_cast<uint16_t>(zero + (i % 10)) << 8;
+				t[i] |= static_cast<uint16_t>(static_cast<uint8_t>('0') + (i / 10));
+				t[i] |= static_cast<uint16_t>(static_cast<uint8_t>('0') + (i % 10)) << 8;
 			} else {
-				t[i] |= static_cast<uint16_t>(zero + (i / 10)) << 8;
-				t[i] |= static_cast<uint16_t>(zero + (i % 10));
+				t[i] |= static_cast<uint16_t>(static_cast<uint8_t>('0') + (i / 10)) << 8;
+				t[i] |= static_cast<uint16_t>(static_cast<uint8_t>('0') + (i % 10));
 			}
 		}
 		return t;
@@ -60,13 +39,13 @@ namespace jsonifier::internal {
 		array<array<char, 3>, 1000> t{};
 		for (uint32_t i = 0; i < 1000; ++i) {
 			if constexpr (endianness == std::endian::little) {
-				t[i][0] = static_cast<char>(zero + (i / 100));
-				t[i][1] = static_cast<char>(zero + (i / 10 % 10));
-				t[i][2] = static_cast<char>(zero + (i % 10));
+				t[i][0] = static_cast<char>(static_cast<uint8_t>('0') + (i / 100));
+				t[i][1] = static_cast<char>(static_cast<uint8_t>('0') + (i / 10 % 10));
+				t[i][2] = static_cast<char>(static_cast<uint8_t>('0') + (i % 10));
 			} else {
-				t[i][2] = static_cast<char>(zero + (i / 100));
-				t[i][1] = static_cast<char>(zero + (i / 10 % 10));
-				t[i][0] = static_cast<char>(zero + (i % 10));
+				t[i][2] = static_cast<char>(static_cast<uint8_t>('0') + (i / 100));
+				t[i][1] = static_cast<char>(static_cast<uint8_t>('0') + (i / 10 % 10));
+				t[i][0] = static_cast<char>(static_cast<uint8_t>('0') + (i % 10));
 			}
 		}
 		return t;
@@ -76,15 +55,15 @@ namespace jsonifier::internal {
 		array<uint32_t, 10000> t{};
 		for (uint32_t i = 0; i < 10000; ++i) {
 			if constexpr (endianness == std::endian::little) {
-				t[i] |= static_cast<uint32_t>(zero + (i / 1000));
-				t[i] |= static_cast<uint32_t>(zero + (i / 100 % 10)) << 8;
-				t[i] |= static_cast<uint32_t>(zero + (i / 10 % 10)) << 16;
-				t[i] |= static_cast<uint32_t>(zero + (i % 10)) << 24;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 1000));
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 100 % 10)) << 8;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 10 % 10)) << 16;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i % 10)) << 24;
 			} else {
-				t[i] |= static_cast<uint32_t>(zero + (i / 1000)) << 24;
-				t[i] |= static_cast<uint32_t>(zero + (i / 100 % 10)) << 16;
-				t[i] |= static_cast<uint32_t>(zero + (i / 10 % 10)) << 8;
-				t[i] |= static_cast<uint32_t>(zero + (i % 10));
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 1000)) << 24;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 100 % 10)) << 16;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i / 10 % 10)) << 8;
+				t[i] |= static_cast<uint32_t>(static_cast<uint8_t>('0') + (i % 10));
 			}
 		}
 		return t;
@@ -153,7 +132,7 @@ namespace jsonifier::internal {
 	template<concepts::uint_types v_type> struct to_chars_internal<v_type, 5ULL> {
 		inline static string_buffer_ptr impl(string_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type a = value * 3518437209ULL >> 45;
-			*buf		   = static_cast<char>(a) + zero;
+			*buf		   = static_cast<char>(a) + '0';
 			std::memcpy(buf + 1, char_table_4_digit_data + value - a * 10000, 4ULL);
 			return buf + 5;
 		}
@@ -192,7 +171,7 @@ namespace jsonifier::internal {
 			const v_type bcdefghi = value - a * 100000000ULL;
 			const v_type bcde	  = bcdefghi * 3518437209ULL >> 45;
 			const v_type fghi	  = bcdefghi - (bcde * 10000ULL);
-			*buf				  = static_cast<char>(a) + zero;
+			*buf				  = static_cast<char>(a) + '0';
 			std::memcpy(buf + 1, char_table_4_digit_data + bcde, 4ULL);
 			std::memcpy(buf + 5, char_table_4_digit_data + fghi, 4ULL);
 			return buf + 9;
@@ -246,7 +225,7 @@ namespace jsonifier::internal {
 			const v_type bcde	  = abcde - (a * 10000ULL);
 			const v_type fghi	  = fghijklm * 3518437209ULL >> 45;
 			const v_type jklm	  = fghijklm - (fghi * 10000ULL);
-			*buf				  = static_cast<char>(a) + zero;
+			*buf				  = static_cast<char>(a) + '0';
 			std::memcpy(buf + 1, char_table_4_digit_data + bcde, 4ULL);
 			std::memcpy(buf + 5, char_table_4_digit_data + fghi, 4ULL);
 			std::memcpy(buf + 9, char_table_4_digit_data + jklm, 4ULL);
@@ -312,7 +291,7 @@ namespace jsonifier::internal {
 			const v_type fghi	   = bcdefghi - (bcde * 10000ULL);
 			const v_type jklm	   = jklmnopq * 3518437209ULL >> 45;
 			const v_type nopq	   = jklmnopq - (jklm * 10000ULL);
-			*buf				   = static_cast<char>(a) + zero;
+			*buf				   = static_cast<char>(a) + '0';
 			std::memcpy(buf + 1, char_table_4_digit_data + bcde, 4ULL);
 			std::memcpy(buf + 5, char_table_4_digit_data + fghi, 4ULL);
 			std::memcpy(buf + 9, char_table_4_digit_data + jklm, 4ULL);
@@ -385,7 +364,7 @@ namespace jsonifier::internal {
 
 	template<concepts::uint64_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static string_buffer_ptr impl(string_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 100000000ULL			  ? value < 10000ULL ? value < 100ULL ? value < 10U ? (static_cast<void>(buf[0] = char(value) + zero), buf + 1)
+			return value < 100000000ULL			  ? value < 10000ULL ? value < 100ULL ? value < 10U ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
 																									: (static_cast<void>(std::memcpy(buf, char_table_2_digit_data + value, 2ULL)), buf + 2)
 								  : value < 1000U ? (static_cast<void>(std::memcpy(buf, char_table_3_digit_data + value, 3ULL)), buf + 3)
 																					  : (static_cast<void>(std::memcpy(buf, char_table_4_digit_data + value, 4ULL)), buf + 4)
@@ -406,7 +385,7 @@ namespace jsonifier::internal {
 
 	template<concepts::uint32_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static string_buffer_ptr impl(string_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 100000U	  ? value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + zero), buf + 1)
+			return value < 100000U	  ? value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
 																				   : (static_cast<void>(std::memcpy(buf, char_table_2_digit_data + value, 2ULL)), buf + 2)
 																	 : (static_cast<void>(std::memcpy(buf, char_table_3_digit_data + value, 3ULL)), buf + 3)
 					   : value < 10000ULL ? (static_cast<void>(std::memcpy(buf, char_table_4_digit_data + value, 4ULL)), buf + 4)
@@ -419,7 +398,7 @@ namespace jsonifier::internal {
 
 	template<concepts::uint16_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static string_buffer_ptr impl(string_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + zero), buf + 1)
+			return value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
 															  : (static_cast<void>(std::memcpy(buf, char_table_2_digit_data + value, 2ULL)), buf + 2)
 												: (static_cast<void>(std::memcpy(buf, char_table_3_digit_data + value, 3ULL)), buf + 3)
 				: value < 10000ULL ? (static_cast<void>(std::memcpy(buf, char_table_4_digit_data + value, 4ULL)), buf + 4)
@@ -430,7 +409,7 @@ namespace jsonifier::internal {
 	template<concepts::uint8_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static string_buffer_ptr impl(string_buffer_ptr __restrict buf, const v_type value) noexcept {
 			return value < 100
-				? value < 10 ? (static_cast<void>(buf[0] = char(value) + zero), buf + 1) : (static_cast<void>(std::memcpy(buf, &char_table_2_digit_data[value], 2)), buf + 2)
+				? value < 10 ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1) : (static_cast<void>(std::memcpy(buf, &char_table_2_digit_data[value], 2)), buf + 2)
 				: (static_cast<void>(std::memcpy(buf, &char_table_3_digit_data[value], 3)), buf + 3);
 		}
 	};

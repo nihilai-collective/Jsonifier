@@ -1,3 +1,9 @@
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/fast_float.hpp
+#pragma once
+
 // jsonifier_fast_float by Daniel Lemire
 // jsonifier_fast_float by Jo�o Paulo Magalhaes
 //
@@ -193,7 +199,9 @@
 
 namespace jsonifier::internal {
 
-#define JSONIFIER_IS_DIGIT(x) ((static_cast<uint8_t>(x - '0')) < 10)
+	template<concepts::uint_types v_type> JSONIFIER_INLINE bool is_digit(v_type value) {
+		return ((static_cast<uint8_t>(value - '0')) < 10);
+	}
 
 #ifndef FLT_EVAL_METHOD
 	#error "FLT_EVAL_METHOD should be defined, please include cfloat."

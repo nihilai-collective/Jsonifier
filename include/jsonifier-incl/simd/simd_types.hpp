@@ -1,26 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2023 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/simd_types.hpp
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
@@ -48,7 +29,7 @@ namespace jsonifier {
 		#if JSONIFIER_COMPILER_CLANG
 	static constexpr uint64_t simdBlocksPerStep = 8;
 		#elif JSONIFIER_COMPILER_GCC
-	static constexpr uint64_t simdBlocksPerStep = 8;
+	static constexpr uint64_t simdBlocksPerStep = 4;
 		#else
 	static constexpr uint64_t simdBlocksPerStep = 4;
 		#endif
@@ -90,6 +71,12 @@ namespace jsonifier {
 
 namespace jsonifier {
 
+	#ifndef JSONIFIER_SVE2_VECTOR_BITS
+		#define JSONIFIER_SVE2_VECTOR_BITS 128
+	#endif
+
+	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "Jsonifier's SVE2 path is only implemented for a 128-bit vector length.");
+
 	static constexpr const char* cpu_arch_name{ "SVE2" };
 
 	#if JSONIFIER_COMPILER_CLANG
@@ -118,7 +105,7 @@ namespace jsonifier {
 	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#elif JSONIFIER_COMPILER_GCC
-	static constexpr uint64_t simdTapeStep		= 8;
+	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#else
 	static constexpr uint64_t simdTapeStep		= 1;
@@ -139,8 +126,8 @@ namespace jsonifier {
 	using jsonifier_simd_int_256				= uint32_t;
 	using jsonifier_simd_int_512				= uint64_t;
 	using jsonifier_simd_int_t					= jsonifier_simd_int_128;
-	static constexpr uint64_t simdTapeStep		= 1;
-	static constexpr uint64_t simdBlocksPerStep = 4;
+	static constexpr uint64_t simdTapeStep		= 4;
+	static constexpr uint64_t simdBlocksPerStep = 8;
 
 #endif
 
@@ -149,10 +136,6 @@ namespace jsonifier {
 	concept simd_int_sve2_type = std::same_as<std::remove_cvref_t<value_type>, jsonifier_simd_int_t>;
 #endif
 
-	static constexpr uint64_t registersPerBlock{ 64 / simdBytesPerRegister };
-	static constexpr uint64_t simdBytesPerBlock{ 64 };
-	static constexpr uint64_t simdBytesPerStep = simdBlocksPerStep * simdBytesPerBlock;
-
 	template<typename value_type>
 	concept simd_int_512_type = sizeof(value_type) == 64;
 	template<typename value_type>
@@ -160,18 +143,26 @@ namespace jsonifier {
 	template<typename value_type>
 	concept simd_int_128_type = sizeof(value_type) == 16;
 
+	static constexpr uint64_t registersPerBlock{ 64 / simdBytesPerRegister };
+	static constexpr uint64_t simdBytesPerBlock{ 64 };
+	static constexpr uint64_t simdBytesPerStep = simdBlocksPerStep * simdBytesPerBlock;
+
+	static_assert(simdBytesPerRegister == sizeof(jsonifier_simd_int_t),
+		"simdBytesPerRegister disagrees with the actual register width; registersPerBlock and every bitmask collapse depend on these matching.");
+	static_assert(simdBytesPerBlock % simdBytesPerRegister == 0, "Register width must evenly divide the 64-byte block.");
+
 	template<uint64_t size> struct simd_array {
 		using size_type = uint64_t;
-		jsonifier_simd_int_t values[size]{};
+		alignas(sizeof(jsonifier_simd_int_t)) jsonifier_simd_int_t values[size]{};
 
-		template<uint64_t indexNew> JSONIFIER_INLINE constexpr void set(jsonifier_simd_int_t value) noexcept {
-			constexpr uint64_t index{ indexNew % size };
-			values[index] = value;
+		template<uint64_t indexNew> JSONIFIER_INLINE void set(jsonifier_simd_int_t value) noexcept {
+			static_assert(indexNew < size, "simd_array::set index out of range.");
+			values[indexNew] = value;
 		}
 
-		template<uint64_t indexNew> JSONIFIER_INLINE constexpr jsonifier_simd_int_t get() const noexcept {
-			constexpr uint64_t index{ indexNew % size };
-			return values[index];
+		template<uint64_t indexNew> JSONIFIER_INLINE jsonifier_simd_int_t get() const noexcept {
+			static_assert(indexNew < size, "simd_array::get index out of range.");
+			return values[indexNew];
 		}
 	};
 

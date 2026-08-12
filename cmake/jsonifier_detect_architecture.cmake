@@ -1,7 +1,7 @@
-# cmake/jsonifier_detect_architecture.cmake - Script for detecting the CPU architecture.
-# MIT License
-# Copyright (c) 2023 RealTimeChris
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
 # https://github.com/nihilai-collective/jsonifier
+# cmake/jsonifier_detect_architecture.cmake
 
 if(NOT DEFINED JSONIFIER_CPU_PROPERTIES_CONSTRUCTED)
 
@@ -89,6 +89,14 @@ if(NOT DEFINED JSONIFIER_CPU_PROPERTIES_CONSTRUCTED)
     set(SIMD_FLAGS "")
     math(EXPR JSONIFIER_CPU_INSTRUCTIONS 0)
 
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)")
+        set(JSONIFIER_TARGET_IS_AARCH64 TRUE)
+    else()
+        set(JSONIFIER_TARGET_IS_AARCH64 FALSE)
+    endif()
+
+    math(EXPR JSONIFIER_HAS_CLMUL_BIT "( ${JSONIFIER_CPU_INSTRUCTIONS_NUMERIC} & 0x8 )")
+
     function(jsonifier_add_instruction INSTRUCTION_SET_NAME INSTRUCTION_SET_FLAG DETECT_BIT OUTPUT_BIT)
         math(EXPR INSTRUCTION_PRESENT "( ${JSONIFIER_CPU_INSTRUCTIONS_NUMERIC} & ${DETECT_BIT} )")
         if(INSTRUCTION_PRESENT)
@@ -113,6 +121,24 @@ if(NOT DEFINED JSONIFIER_CPU_PROPERTIES_CONSTRUCTED)
         set(JSONIFIER_FLAG_AVX2 "/arch:AVX2")
         set(JSONIFIER_FLAG_AVX512 "/arch:AVX512")
         set(JSONIFIER_FLAG_SVE2 "")
+    elseif(JSONIFIER_TARGET_IS_AARCH64)
+        set(JSONIFIER_FLAG_LZCNT "")
+        set(JSONIFIER_FLAG_POPCNT "")
+        set(JSONIFIER_FLAG_BMI "")
+        set(JSONIFIER_FLAG_CLMUL "")
+        set(JSONIFIER_FLAG_AVX "")
+        set(JSONIFIER_FLAG_AVX2 "")
+        set(JSONIFIER_FLAG_AVX512 "")
+        if(JSONIFIER_HAS_CLMUL_BIT)
+            set(JSONIFIER_SVE2_ARCH "armv9-a+sve2+aes")
+        else()
+            set(JSONIFIER_SVE2_ARCH "armv9-a+sve2")
+        endif()
+        if(JSONIFIER_SVE2_VL_BITS GREATER 0)
+            set(JSONIFIER_FLAG_SVE2 "-march=${JSONIFIER_SVE2_ARCH};-msve-vector-bits=${JSONIFIER_SVE2_VL_BITS}")
+        else()
+            set(JSONIFIER_FLAG_SVE2 "-march=${JSONIFIER_SVE2_ARCH}")
+        endif()
     else()
         set(JSONIFIER_FLAG_LZCNT "-mlzcnt")
         set(JSONIFIER_FLAG_POPCNT "-mpopcnt")
@@ -121,11 +147,7 @@ if(NOT DEFINED JSONIFIER_CPU_PROPERTIES_CONSTRUCTED)
         set(JSONIFIER_FLAG_AVX "-mavx")
         set(JSONIFIER_FLAG_AVX2 "-mavx2")
         set(JSONIFIER_FLAG_AVX512 "-mavx512vbmi2;-mavx512bw;-mavx512f")
-        if(JSONIFIER_SVE2_VL_BITS GREATER 0)
-            set(JSONIFIER_FLAG_SVE2 "-march=armv9-a+sve2;-msve-vector-bits=${JSONIFIER_SVE2_VL_BITS}")
-        else()
-            set(JSONIFIER_FLAG_SVE2 "-march=armv9-a+sve2")
-        endif()
+        set(JSONIFIER_FLAG_SVE2 "")
     endif()
 
     jsonifier_add_instruction("LzCnt" "${JSONIFIER_FLAG_LZCNT}" 0x1 1)
@@ -144,14 +166,27 @@ if(NOT DEFINED JSONIFIER_CPU_PROPERTIES_CONSTRUCTED)
         jsonifier_add_instruction("Neon" "" 0x10 16)
     endif()
 
-    if(INSTRUCTION_PRESENT512)
-        jsonifier_add_instruction("Avx512" "${JSONIFIER_FLAG_AVX512}" 0x80 128)
-    endif()
-    if(INSTRUCTION_PRESENT256)
-        jsonifier_add_instruction("Avx2" "${JSONIFIER_FLAG_AVX2}" 0x40 64)
-    endif()
-    if(INSTRUCTION_PRESENT128)
-        jsonifier_add_instruction("Avx" "${JSONIFIER_FLAG_AVX}" 0x20 32)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(INSTRUCTION_PRESENT512)
+            jsonifier_add_instruction("Avx512" "${JSONIFIER_FLAG_AVX512}" 0x80 128)
+            jsonifier_add_instruction("Avx2" "" 0x40 64)
+            jsonifier_add_instruction("Avx" "" 0x20 32)
+        elseif(INSTRUCTION_PRESENT256)
+            jsonifier_add_instruction("Avx2" "${JSONIFIER_FLAG_AVX2}" 0x40 64)
+            jsonifier_add_instruction("Avx" "" 0x20 32)
+        elseif(INSTRUCTION_PRESENT128)
+            jsonifier_add_instruction("Avx" "${JSONIFIER_FLAG_AVX}" 0x20 32)
+        endif()
+    else()
+        if(INSTRUCTION_PRESENT512)
+            jsonifier_add_instruction("Avx512" "${JSONIFIER_FLAG_AVX512}" 0x80 128)
+        endif()
+        if(INSTRUCTION_PRESENT256)
+            jsonifier_add_instruction("Avx2" "${JSONIFIER_FLAG_AVX2}" 0x40 64)
+        endif()
+        if(INSTRUCTION_PRESENT128)
+            jsonifier_add_instruction("Avx" "${JSONIFIER_FLAG_AVX}" 0x20 32)
+        endif()
     endif()
 
     set(SIMD_FLAGS "${SIMD_FLAGS}" CACHE STRING "SIMD flags" FORCE)
@@ -192,28 +227,10 @@ else()
 
 endif()
 
-file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp" "/*
-	MIT License
-
-	Copyright (c) 2023 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the \"Software\"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp" "// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp
 #pragma once
 
 #undef JSONIFIER_CPU_INSTRUCTIONS

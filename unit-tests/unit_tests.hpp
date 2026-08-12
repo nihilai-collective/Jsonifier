@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// unit-tests/unit_tests.hpp
 #pragma once
 
 #include "common.hpp"
@@ -39,7 +21,7 @@ template<> struct jsonifier::core<simple_struct> {
 
 struct char_roundtrip {
 	char char_val{};
-	unsigned char uchar_val{};
+	uint8_t uchar_val{};
 	int32_t int_val{};
 };
 
@@ -1090,7 +1072,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Tuple Roundtrip", true>::assert_eq(std::make_tuple(123, std::string{ "test" }), test_tuple_roundtrip);
 		rt_ut::unit_test<"Nested Maps", true>::assert_eq(std::make_tuple(1, 3), test_nested_maps);
 		rt_ut::unit_test<"Vector of Vectors", true>::assert_eq(std::make_tuple(std::uint64_t{ 2 }, std::uint64_t{ 3 }, 5), test_vector_of_vectors);
-		rt_ut::unit_test<"Char Empty String", true>::assert_eq(std::make_tuple(char{ 'a' }, static_cast<unsigned char>('b'), 1), test_char_empty);
+		rt_ut::unit_test<"Char Empty String", true>::assert_eq(std::make_tuple(char{ 'a' }, static_cast<uint8_t>('b'), 1), test_char_empty);
 		rt_ut::unit_test<"Basic Serialize", true>::assert_eq(true, test_basic_serialize);
 		rt_ut::unit_test<"Basic Parse", true>::assert_eq(std::make_tuple(42, std::string{ "test" }), test_basic_parse);
 		rt_ut::unit_test<"Roundtrip", true>::assert_eq(std::make_tuple(99, std::string{ "roundtrip" }), test_roundtrip);
@@ -1128,6 +1110,7 @@ namespace unit_tests {
 		unitTestsImpl<false, true, true>();
 		unitTestsImpl<true, false, true>();
 		unitTestsImpl<true, true, true>();
+		std::cout << "Unit test validation tests complete." << std::endl;
 	}
 
 }

@@ -111,7 +111,7 @@ For arbitrary-length strings that don't fit exactly into a whole number of SIMD 
 #include <jsonifier>
 #include <iostream>
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string json_valid = R"({"name":"Concert 🎵","id":42})";

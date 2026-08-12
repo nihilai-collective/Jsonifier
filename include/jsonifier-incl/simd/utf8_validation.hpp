@@ -1,26 +1,8 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/utf8_validation.hpp
+// The code below drew heavy inspiration from Dr.Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -88,11 +70,11 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct chunk_loader;
 
 	template<uint64_t... indices> struct chunk_loader<integer_sequence<indices...>> {
-		template<uint64_t index> JSONIFIER_INLINE static void impl(simd_array_t& result, const uint8_t* src) noexcept {
-			result.template set<index>(gatherValuesU<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t*>(src + index * simdBytesPerRegister)));
+		template<uint64_t index> JSONIFIER_INLINE static void impl(simd_array_t& __restrict result, const uint8_t* __restrict src) noexcept {
+			result.template set<index>(gatherValuesU<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(src + index * simdBytesPerRegister)));
 		}
 
-		JSONIFIER_INLINE static simd_array_t impl(const uint8_t* src) noexcept {
+		JSONIFIER_INLINE static simd_array_t impl(const uint8_t* __restrict src) noexcept {
 			simd_array_t returnValues;
 			(impl<indices>(returnValues, src), ...);
 			return returnValues;
@@ -102,11 +84,11 @@ namespace jsonifier::internal {
 	template<typename derived_type, typename integer_sequence> struct step_checker;
 
 	template<typename derived_type, uint64_t... indices> struct step_checker<derived_type, integer_sequence<indices...>> {
-		template<uint64_t index> JSONIFIER_INLINE void impl(const uint8_t* src_new) noexcept {
+		template<uint64_t index> JSONIFIER_INLINE void impl(const uint8_t* __restrict src_new) noexcept {
 			static_cast<derived_type*>(this)->checkStepImpl(src_new + index * simdBytesPerBlock);
 		}
 
-		JSONIFIER_INLINE void impl(const uint8_t* src_new) noexcept {
+		JSONIFIER_INLINE void impl(const uint8_t* __restrict src_new) noexcept {
 			(impl<indices>(src_new), ...);
 		}
 	};
@@ -121,9 +103,9 @@ namespace jsonifier::internal {
 		jsonifier_simd_int_t error;
 
 		JSONIFIER_INLINE void reset() {
-			lookupH		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t*>(byte1HighTable.data()));
-			lookup2		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t*>(byte2HighTable.data()));
-			lookupL		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t*>(byte1LowTable.data()));
+			lookupH		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1HighTable.data()));
+			lookup2		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte2HighTable.data()));
+			lookupL		   = gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1LowTable.data()));
 			prevIncomplete = jsonifier_simd_int_t{};
 			prevInput	   = jsonifier_simd_int_t{};
 			error		   = jsonifier_simd_int_t{};
@@ -155,16 +137,16 @@ namespace jsonifier::internal {
 		template<typename integer_sequence> struct chunk_processor;
 
 		template<uint64_t... indices> struct chunk_processor<integer_sequence<indices...>> {
-			template<uint64_t index> JSONIFIER_INLINE static void impl(utf8_checker_new& c, simd_array_t chunks, jsonifier_simd_int_t& prev) noexcept {
+			template<uint64_t index> JSONIFIER_INLINE static void impl(utf8_checker_new& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
 				c.checkChunk(chunks.template get<index>(), prev), prev = chunks.template get<index>();
 			}
 
-			JSONIFIER_INLINE static void impl(utf8_checker_new& c, simd_array_t chunks, jsonifier_simd_int_t& prev) noexcept {
+			JSONIFIER_INLINE static void impl(utf8_checker_new& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
 				(impl<indices>(c, chunks, prev), ...);
 			}
 		};
 
-		JSONIFIER_INLINE void checkStepImpl(const uint8_t* src) {
+		JSONIFIER_INLINE void checkStepImpl(const uint8_t* __restrict src) {
 			simd_array_t chunks = chunk_loader<make_integer_sequence<registersPerBlock>>::impl(src);
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
@@ -180,7 +162,7 @@ namespace jsonifier::internal {
 			prevIncomplete = checkIncomplete(chunks.template get<registersPerBlock - 1>());
 		}
 
-		JSONIFIER_INLINE void checkStep(const uint8_t* src_new) {
+		JSONIFIER_INLINE void checkStep(const uint8_t* __restrict src_new) {
 			step_checker_type::impl(src_new);
 		}
 
@@ -189,7 +171,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	JSONIFIER_INLINE bool validateUtf8(const uint8_t* src, uint64_t len) {
+	JSONIFIER_INLINE bool validateUtf8(const uint8_t* __restrict src, uint64_t len) {
 		if (len == 0) {
 			return true;
 		}
@@ -248,10 +230,10 @@ namespace jsonifier::internal {
 			tmp[bytesProcessed - 2] = state.prevBytes[1];
 			tmp[bytesProcessed - 1] = state.prevBytes[2];
 			incompleteRegister		= state.prevIncomplete ? simd::gatherValue<simd_type>(static_cast<char>(0x80u)) : simd_type{};
-			lookupH					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(byte1HighTable.data()));
-			lookup2					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(byte2HighTable.data()));
-			lookupL					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(byte1LowTable.data()));
-			prevInput				= simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(+tmp));
+			lookupH					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1HighTable.data()));
+			lookup2					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte2HighTable.data()));
+			lookupL					= simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1LowTable.data()));
+			prevInput				= simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp));
 			error					= simd_type{};
 		}
 
@@ -282,14 +264,14 @@ namespace jsonifier::internal {
 			incompleteRegister = simd::opSubs(input, simd::gatherValues<simd_type>(isIncompleteMax + (64 - bytesProcessed)));
 		}
 
-		JSONIFIER_INLINE void checkPartial(const void* src, uint64_t count) noexcept {
+		JSONIFIER_INLINE void checkPartial(const void* __restrict src, uint64_t count) noexcept {
 			if (count == 0) {
 				return;
 			}
 			alignas(64) uint8_t tmp[bytesProcessed];
 			std::memset(tmp, 0x41, bytesProcessed);
 			std::memcpy(tmp, src, count);
-			checkRegister(simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(+tmp)));
+			checkRegister(simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp)));
 		}
 
 		JSONIFIER_INLINE void flush() noexcept {
@@ -313,7 +295,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier {
 
-	JSONIFIER_INLINE bool validateUtf8(const uint8_t* src, uint64_t len) {
+	JSONIFIER_INLINE bool validateUtf8(const uint8_t* __restrict src, uint64_t len) {
 		return internal::validateUtf8(src, len);
 	}
 

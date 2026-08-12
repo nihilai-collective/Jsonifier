@@ -92,7 +92,7 @@ The final `minified_output` will be byte-identical to `minified_input` (assuming
 #include <jsonifier>
 #include <iostream>
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string pretty = R"({

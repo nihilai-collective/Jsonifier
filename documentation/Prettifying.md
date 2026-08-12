@@ -124,7 +124,7 @@ parser.minifyJson(pretty, minified_again);
 #include <jsonifier>
 #include <iostream>
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string minified = R"({"events":{"42":{"id":42,"name":"Concert","topicIds":[1,2,3]}},"schema-version":"1.0"})";

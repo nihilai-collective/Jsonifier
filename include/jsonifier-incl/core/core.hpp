@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included string1 all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/core/core.hpp
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -41,31 +23,36 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept has_name = requires(jsonifier::internal::remove_cvref_t<value_type> value) { value.name; };
 
-	template<uint64_t maxIndex, uint64_t currentIndex = 0, typename tuple_type>
-	static constexpr array<tuple_reference, maxIndex> collectTupleRefsImpl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
-		if constexpr (currentIndex < maxIndex) {
-			auto potentialKey = internal::getBecauseOtherLibAuthorsResolve<currentIndex>(tuple);
+	template<typename integer_sequence> struct tuple_ref_collector;
+
+	template<uint64_t... indices> struct tuple_ref_collector<integer_sequence<indices...>> {
+		template<uint64_t index, typename tuple_type, uint64_t maxIndex> static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
+			const auto& potentialKey	 = internal::getBecauseOtherLibAuthorsResolve<index>(tuple);
 			if constexpr (has_name<decltype(potentialKey)>) {
-				tupleRefsRaw[currentIndex].key = potentialKey.name.operator string_view();
+				tupleRefsRaw[index].key = potentialKey.name.operator string_view();
 			}
-			tupleRefsRaw[currentIndex].oldIndex = currentIndex;
-			return collectTupleRefsImpl<maxIndex, currentIndex + 1>(tuple, tupleRefsRaw);
 		}
+
+		template<typename tuple_type, uint64_t maxIndex> static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+			(impl<indices>(tuple, tupleRefsRaw), ...);
+		}
+	};
+
+	template<typename tuple_type> constexpr auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tuple_size_v<remove_cvref_t<tuple_type>>> {
+		constexpr auto tupleSize = tuple_size_v<remove_cvref_t<tuple_type>>;
+		array<tuple_reference, tupleSize> tupleRefsRaw{};
+		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
 		return tupleRefsRaw;
 	}
 
-	template<typename tuple_type> static constexpr auto collectTupleRefs(const tuple_type& tuple) {
-		constexpr auto tupleSize = tuple_size_v<tuple_type>;
-		array<tuple_reference, tupleSize> tupleRefsRaw{};
-		return collectTupleRefsImpl<tupleSize>(tuple, tupleRefsRaw);
-	}
-
-	template<uint64_t size> static constexpr array<tuple_reference, size> sortTupleRefsByFirstByte(const array<tuple_reference, size>& tupleRefsRaw) {
+	template<uint64_t size, typename comparator_type>
+	constexpr array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
 		array<tuple_reference, size> returnValues{ tupleRefsRaw };
 		for (uint64_t i = 1; i < size; ++i) {
 			auto key  = returnValues[i];
-			int64_t j = static_cast<int64_t>(i - 1);
-			while (j >= 0 && static_cast<uint64_t>(returnValues[static_cast<uint64_t>(j)].key[0]) < static_cast<uint64_t>(key.key[0])) {
+			int64_t j = static_cast<int64_t>(i) - 1;
+			while (j >= 0 && comparator(returnValues[static_cast<uint64_t>(j)], key)) {
 				returnValues[static_cast<uint64_t>(j + 1)] = returnValues[static_cast<uint64_t>(j)];
 				--j;
 			}
@@ -74,19 +61,15 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<uint64_t size> static constexpr array<tuple_reference, size> sortTupleRefsByLength(const array<tuple_reference, size>& tupleRefsRaw) {
-		array<tuple_reference, size> returnValues{ tupleRefsRaw };
-		for (uint64_t i = 1; i < size; ++i) {
-			auto key  = returnValues[i];
-			int64_t j = static_cast<int64_t>(i - 1);
-			while (j >= 0 && static_cast<uint64_t>(returnValues[static_cast<uint64_t>(j)].key.size()) < static_cast<uint64_t>(key.key.size())) {
-				returnValues[static_cast<uint64_t>(j + 1)] = returnValues[static_cast<uint64_t>(j)];
-				--j;
-			}
-			returnValues[static_cast<uint64_t>(j + 1)] = key;
-		}
-		return returnValues;
-	}
+	static constexpr auto byFirstByte = [](const tuple_reference& lhs, const tuple_reference& rhs) {
+		const uint64_t lhsByte = lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull;
+		const uint64_t rhsByte = rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull;
+		return lhsByte < rhsByte;
+	};
+
+	static constexpr auto byLength = [](const tuple_reference& lhs, const tuple_reference& rhs) {
+		return lhs.key.size() < rhs.key.size();
+	};
 
 	template<uint64_t size> static constexpr tuple_references consolidateTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) {
 		tuple_references returnValues{};
@@ -97,15 +80,15 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename value_type> static constexpr auto tupleRefs{ collectTupleRefs(core<value_type>::parseValue) };
+	template<typename value_type> static constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
 	template<typename value_type> static constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
-	template<typename value_type> static constexpr auto sortedTupleReferencesByLength{ sortTupleRefsByLength(tupleRefs<value_type>) };
+	template<typename value_type> static constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
 	template<typename value_type> static constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
-	template<typename value_type> static constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefsByFirstByte(tupleRefs<value_type>) };
+	template<typename value_type> static constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
 	template<typename value_type> static constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
-	template<typename value_type> using core_tuple_type			   = decltype(core<jsonifier::internal::remove_cvref_t<value_type>>::parseValue);
-	template<typename value_type> constexpr uint64_t coreTupleSize = tuple_size_v<core_tuple_type<value_type>>;
+	template<typename value_type> using core_tuple_type					  = decltype(core<jsonifier::internal::remove_cvref_t<value_type>>::parseValue);
+	template<typename value_type> static constexpr uint64_t coreTupleSize = tuple_size_v<core_tuple_type<value_type>>;
 
 }// namespace internal

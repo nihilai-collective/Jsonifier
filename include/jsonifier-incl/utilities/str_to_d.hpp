@@ -1,26 +1,7 @@
-/*
-	MIT License	
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/utilities/str_to_d.hpp
 #pragma once
 
 #include <jsonifier-incl/utilities/fast_float.hpp>
@@ -77,7 +58,7 @@ namespace jsonifier::internal {
 		if (negative) {
 			++iter;
 
-			if (!JSONIFIER_IS_DIGIT(*iter)) [[unlikely]] {
+			if (!is_digit(static_cast<uint8_t>(*iter))) [[unlikely]] {
 				return nullptr;
 			}
 		}
@@ -89,15 +70,15 @@ namespace jsonifier::internal {
 			iter += 2;
 		}
 
-		while (JSONIFIER_IS_DIGIT(*iter)) {
-			mantissa = 10 * mantissa + static_cast<uint8_t>(*iter - zero);
+		while (is_digit(static_cast<uint8_t>(*iter))) {
+			mantissa = 10 * mantissa + static_cast<uint8_t>(*iter - static_cast<uint8_t>('0'));
 			++iter;
 		}
 
 		int64_t digitcount = static_cast<int64_t>(iter - integer.ptr);
 		integer.end		   = integer.ptr + static_cast<uint64_t>(digitcount);
 
-		if (digitcount == 0 || (integer.ptr[0] == zero && digitcount > 1)) [[unlikely]] {
+		if (digitcount == 0 || (integer.ptr[0] == static_cast<uint8_t>('0') && digitcount > 1)) [[unlikely]] {
 			return nullptr;
 		}
 
@@ -109,7 +90,7 @@ namespace jsonifier::internal {
 
 			loop_parse_if_eight_digits(iter, end, mantissa);
 
-			while ((iter != end) && JSONIFIER_IS_DIGIT(*iter)) {
+			while ((iter != end) && is_digit(static_cast<uint8_t>(*iter))) {
 				uint8_t digit = uint8_t(*iter - char('0'));
 				++iter;
 				mantissa = mantissa * 10 + digit;
@@ -135,10 +116,10 @@ namespace jsonifier::internal {
 			} else if (plus == *iter) {
 				++iter;
 			}
-			if (JSONIFIER_IS_DIGIT(*iter)) {
-				while (JSONIFIER_IS_DIGIT(*iter)) {
+			if (is_digit(static_cast<uint8_t>(*iter))) {
+				while (is_digit(static_cast<uint8_t>(*iter))) {
 					if (expNumber < 0x10000000) {
-						expNumber = 10 * expNumber + static_cast<uint8_t>(*iter - zero);
+						expNumber = 10 * expNumber + static_cast<uint8_t>(*iter - static_cast<uint8_t>('0'));
 					}
 					++iter;
 				}
@@ -153,8 +134,8 @@ namespace jsonifier::internal {
 
 		if (digitcount > 19) {
 			before = integer.ptr;
-			while ((*before == zero || *before == decimal)) {
-				if (*before == zero) {
+			while ((*before == static_cast<uint8_t>('0') || *before == decimal)) {
+				if (*before == static_cast<uint8_t>('0')) {
 					--digitcount;
 				}
 				++before;
@@ -166,7 +147,7 @@ namespace jsonifier::internal {
 				before		  = integer.ptr;
 				static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
 				while ((mantissa < minNineteenDigitInteger) && (before != integer.end)) {
-					mantissa = mantissa * 10 + static_cast<uint8_t>(*before - zero);
+					mantissa = mantissa * 10 + static_cast<uint8_t>(*before - static_cast<uint8_t>('0'));
 					++before;
 				}
 				if (mantissa >= minNineteenDigitInteger) {
@@ -174,7 +155,7 @@ namespace jsonifier::internal {
 				} else {
 					before = fraction.ptr;
 					while ((mantissa < minNineteenDigitInteger) && (before != fraction.end)) {
-						mantissa = mantissa * 10 + static_cast<uint8_t>(*before - zero);
+						mantissa = mantissa * 10 + static_cast<uint8_t>(*before - static_cast<uint8_t>('0'));
 						++before;
 					}
 					exponent = fraction.ptr - before + expNumber;

@@ -34,24 +34,58 @@ Consider what the structural tape provides: the positions of every brace, bracke
 
 (We scope the double-load claim deliberately: a two-stage consumer that *skips* content — simdjson's On Demand API skipping unrequested fields — does not reload the skipped bytes in its second pass. That is exactly the workload where the tape earns its keep, and exactly why Jsonifier retains the two-stage machinery for partial reading. The accounting above describes the full-materialization case, where nothing is skipped and the tape's information is fully redundant with the walk.)
 
-For full-document parsing into known types, this is pure overhead. Jsonifier's measurements across its benchmark corpus consistently showed the fused single-pass path outperforming its own two-stage path on full-document workloads — which is precisely why the library ships both and routes between them.
+For full-document parsing into known types, this is pure overhead. Jsonifier's measurements across its benchmark corpus consistently showed the fused single-pass path outperforming its own two-stage path on full-document workloads — which is precisely why the library ships both and routes between them. §2.2 quantifies that claim directly.
 
 **The routing rule is simple: the two-stage machinery is engaged for partial reading, prettifying, and minifying — workloads where the caller does *not* want every value, or wants pure structural transformation. Full-document parsing takes the single-pass path.**
 
 One anticipated objection deserves preemption here: that Jsonifier's requirement of ahead-of-time registration (`jsonifier::core<T>`) concedes generality that simdjson retains, since simdjson parses arbitrary documents with no such declaration. For truly dynamic workloads — schemas unknown until runtime, exploratory traversal, structural transformation of unknown documents — this is correct, and simdjson's DOM and On Demand models are the appropriate tools; Jsonifier's registration model simply does not address that problem. But for the workload this paper concerns — parsing documents into concrete types the caller has defined — the objection dissolves on inspection, because the schema knowledge exists at compile time in both programs. A simdjson caller materializing a struct writes the schema into their source as a sequence of field accesses in a fixed order chosen at authoring time; that traversal code is a schema declaration in imperative clothing. The difference is not the presence of compile-time knowledge but its legibility to the library: expressed as hand-written traversal, the knowledge is opaque — simdjson cannot fuse key literals from it, cannot learn permuted orders through it, and cannot skip building the index it implies is unnecessary. Expressed as a reflection registration, the identical knowledge becomes architecture: fused member headers, adaptive order recovery, and the routing rule above. The comparison between the two libraries on known-type workloads is therefore not "declared schema versus no schema" — it is the same schema, declared once where the compiler can consume it versus restated per call site where it cannot.
 
-A note on benchmarking, to keep this paper consistent with its stage-1 companion: the head-to-head results reported there are measured with Jsonifier's two-stage path explicitly engaged via the harness's branch-switching configuration, so that both libraries execute the same stage-1-then-stage-2 architecture and the comparison isolates the stage implementations themselves rather than the routing decision. As of the July 2026 sweep, that record stands at **132 wins, 11 ties, 17 losses across 160 head-to-head tests against simdjson**, including perfect 32-0-0 sweeps on two of the five platform/compiler targets:
+### 2.1 The forced two-stage comparison
+
+A note on benchmarking, to keep this paper consistent with its stage-1 companion: the head-to-head results reported here are measured with Jsonifier's two-stage path explicitly engaged via the harness's branch-switching configuration, so that both libraries execute the same stage-1-then-stage-2 architecture and the comparison isolates the stage implementations themselves rather than the routing decision. As of the July 2026 sweep, that record stands at **136 wins, 7 ties, 27 losses across 170 head-to-head tests against simdjson**, including a perfect 34-0-0 sweep on one of the five platform/compiler targets:
 
 | Platform / Compiler | Wins | Ties | Losses |
 |---|---|---|---|
-| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 32 | 0 | 0 |
-| Linux / Clang 23 (i9-14900KF, AVX2) | 32 | 0 | 0 |
-| macOS / GCC 16.1 (Apple M1, NEON) | 27 | 2 | 3 |
-| macOS / Clang 22.1 (Apple M1, NEON) | 25 | 5 | 2 |
-| Linux / GCC 16.0 (i9-14900KF, AVX2) | 16 | 4 | 12 |
-| **Aggregate** | **132** | **11** | **17** |
+| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 34 | 0 | 0 |
+| Linux / Clang 23.0.0 (i9-14900KF, AVX2) | 30 | 2 | 2 |
+| macOS / GCC 16.1.0 (Apple M1, NEON) | 27 | 2 | 5 |
+| macOS / Clang 22.1.8 (Apple M1, NEON) | 24 | 2 | 8 |
+| Linux / GCC 16.0.1 (i9-14900KF, AVX2) | 21 | 1 | 12 |
+| **Aggregate** | **136** | **7** | **27** |
 
-The routing rule above describes the library's *default* behavior in production use; the benchmark deliberately overrides it for architectural comparability. Jsonifier's fused single-pass path is faster still on full-document workloads — which is the point of this section — and the harness's isolated-stage mode exists precisely to keep those two claims separately measurable. Per-platform tables and raw CSVs are maintained live at nihilai-collective.net; the figures above are a snapshot at time of writing.
+Linux/GCC is the visibly weaker platform in this table — nearly half the win count of Windows/MSVC, and the only row where losses (12) approach wins (21). We do not have a confirmed root cause for this specific gap; the per-compiler step-geometry divergence documented in §4.1 (GCC preferring `simdTapeStep = 1` against Clang's `simdTapeStep = 4` on identical AVX2 hardware) reflects a real, independently-verified difference in how the two compilers schedule the classification and drain loops, and is a plausible contributor, but we have not isolated it as the specific cause of this table's Linux/GCC margin and are not claiming that link as established.
+
+The routing rule above describes the library's *default* behavior in production use; the benchmark deliberately overrides it for architectural comparability. Jsonifier's fused single-pass path is faster still on full-document workloads on most platforms — which is the point of the next section — and the harness's isolated-stage mode exists precisely to keep those two claims separately measurable. Per-platform tables and raw CSVs are maintained live at nihilai-collective.net; the figures above are a snapshot at time of writing.
+
+### 2.2 Isolating the single-pass claim
+
+§2.1's table answers "when both libraries run the same stage-1-then-stage-2 architecture, which implementation is faster?" It does not answer this paper's actual thesis — that Jsonifier's *default*, fused single-pass path outperforms two-stage parsing on full-document workloads. That comparison requires a separate harness: Jsonifier running in its default routing mode (the "scalar iteration" fused path, no stage-1 tape), against simdjson's On Demand API, on the same platform/compiler targets.
+
+| Platform / Compiler | Wins | Ties | Losses |
+|---|---|---|---|
+| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 33 | 0 | 0 |
+| Linux / Clang 24.0.0 (i9-14900KF, AVX2) | 30 | 2 | 1 |
+| macOS / Clang 22.1.8 (Apple M1, NEON) | 28 | 0 | 4 |
+| macOS / GCC 16.1.0 (Apple M1, NEON) | 23 | 3 | 6 |
+| Linux / GCC 16.1.0 (i9-14900KF, AVX2) | 18 | 1 | 12 |
+| **Aggregate** | **132** | **6** | **23** |
+
+Windows/MSVC is again nearly a clean sweep at 33-0-0 — the strongest single result across either table. Linux/GCC is again the weakest platform, 18-1-12 — this is now the second independently-measured benchmark mode (production-routing aggregate and this forced-single-pass comparison both show it) in which Linux/GCC is Jsonifier's least favorable platform relative to simdjson. We flag the pattern without claiming a diagnosed cause for the same reason given in §2.1: it is consistent with the per-compiler step-geometry divergence in §4.1, but that link has not been isolated and confirmed here.
+
+**Reading the two tables together.** Comparing win-to-loss ratios platform by platform against §2.1 gives a sharper picture than the aggregate totals alone:
+
+| Platform / Compiler | §2.1 W/L ratio | §2.2 W/L ratio | Direction |
+|---|---|---|---|
+| Windows / MSVC | 34:0 (no losses) | 33:0 (no losses) | Unchanged — clean sweep both times |
+| Linux / Clang | 30:2 → 15.0 | 30:1 → 30.0 | Stronger |
+| macOS / Clang | 24:8 → 3.0 | 28:4 → 7.0 | Stronger |
+| macOS / GCC | 27:5 → 5.4 | 23:6 → 3.8 | Weaker |
+| Linux / GCC | 21:12 → 1.75 | 18:12 → 1.5 | Weaker |
+| **Aggregate** | **136:27 → 5.0** | **132:23 → 5.7** | **Stronger** |
+
+Three of the five platforms — Linux/Clang, macOS/Clang, and the aggregate — show a *stronger* relative standing against simdjson under the fused single-pass path than under the forced two-stage comparison in §2.1. The two GCC rows (Linux and macOS) move the other way, each showing a narrower margin under the fused path than under the forced two-stage comparison. Windows/MSVC is unchanged at a clean sweep in both modes.
+
+We do not have a mechanism to offer for why the fused path widens Jsonifier's margin on three platforms while narrowing it on the two GCC targets specifically. The two tables are also not directly test-for-test comparable — they were run at different points against different upstream commits on both sides, and §2.1's harness explicitly forces the two-stage path while §2.2's does not — so this section reports the pattern as measured rather than assigning it a cause. What it does establish is narrower than "the fused path always wins more against simdjson": the fused path remains ahead of simdjson in aggregate on every platform measured, and the aggregate margin is wider under the fused path than under the forced two-stage comparison, but the GCC targets specifically buck that trend.
 
 ## 3. The single-pass path: `json_iterator` over raw text
 
@@ -282,8 +316,8 @@ The consequence differs by path. On simdjson's architecture, validation work is 
 
 | Dimension | simdjson | Jsonifier |
 |---|---|---|
-| Stage-1 usage | Unconditional, all documents | Partial reading, prettify, minify only (benchmarks may force it for comparability; see §2) |
-| Full-document parse | Stage 1 + On Demand traversal | Single fused pass, schema-directed |
+| Stage-1 usage | Unconditional, all documents | Partial reading, prettify, minify only (benchmarks may force it for comparability; see §2.1) |
+| Full-document parse | Stage 1 + On Demand traversal | Single fused pass, schema-directed (see §2.2) |
 | Target of stage 2 | DOM / lazy generic values | Reflected concrete types via shared iterator concept |
 | Out-of-order keys | Forward scan + wrap-around rescan per lookup, per object — no memory across documents | One hash fallback, then learned per-slot order correction (thread-local, per stream) |
 | Schema knowledge (known-type workloads) | Exists in caller's traversal code — invisible to the library | Declared once via reflection — consumed by the architecture |
@@ -299,8 +333,8 @@ The last row is the root of every other difference. simdjson must ship one binar
 
 ## 8. Conclusion
 
-The two-stage model is a genuinely great algorithm — Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. The benchmarks are the receipts.
+The two-stage model is a genuinely great algorithm — Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. §2.2 shows that skipping the tape for full-document parsing keeps Jsonifier ahead of simdjson on every platform measured, and widens the aggregate margin over the forced two-stage comparison in §2.1 — though the two GCC targets specifically move the other way, a split-platform pattern §2.2 reports without a confirmed explanation. The benchmarks are the receipts.
 
 ---
 
-*Jsonifier is MIT-licensed and available at github.com/nihilai-collective/Jsonifier. Benchmark methodology and full sweep data: github.com/RealTimeChris/Json-Performance.*
+*Jsonifier is MIT-licensed and available at github.com/nihilai-collective/Jsonifier. Benchmark methodology and full sweep data: github.com/nihilai-collective/Json-Performance.*

@@ -1,26 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// include/jsonifier-incl/simd/avx.hpp
 #pragma once
 
 #include <jsonifier-incl/simd/simd_types.hpp>
@@ -38,11 +19,11 @@ namespace jsonifier::simd {
 		return tzcntUnsafe(value);
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* __restrict str) noexcept {
 		return _mm_load_si128(static_cast<const __m128i*>(str));
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* __restrict str) noexcept {
 		return _mm_loadu_si128(static_cast<const __m128i*>(str));
 	}
 
@@ -58,11 +39,11 @@ namespace jsonifier::simd {
 		return _mm_set1_epi8(static_cast<const char>(str));
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm_store_si128(static_cast<__m128i*>(storageLocation), value);
 	}
 
-	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm_storeu_si128(static_cast<__m128i*>(storageLocation), value);
 	}
 
@@ -153,17 +134,17 @@ namespace jsonifier::simd {
 		return !simd::opTest(value);
 	}
 
-	template<simd_int_128_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {
+	template<simd_int_128_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {
 		return opOr(chunks.template get<0>(), opOr(chunks.template get<1>(), opOr(chunks.template get<2>(), chunks.template get<3>())));
 	}
 
 	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 
-	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
+	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* __restrict str) noexcept {
 		return _mm256_load_si256(static_cast<const __m256i*>(str));
 	}
 
-	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
+	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* __restrict str) noexcept {
 		return _mm256_loadu_si256(static_cast<const __m256i*>(str));
 	}
 
@@ -179,11 +160,11 @@ namespace jsonifier::simd {
 		return _mm256_set1_epi8(static_cast<const char>(value));
 	}
 
-	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm256_store_si256(static_cast<__m256i*>(storageLocation), value);
 	}
 
-	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_256_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm256_storeu_si256(static_cast<__m256i*>(storageLocation), value);
 	}
 
@@ -269,17 +250,17 @@ namespace jsonifier::simd {
 		return _mm256_alignr_epi8(cur, _mm256_permute2x128_si256(prev, cur, 0x21), N);
 	}
 
-	template<simd_int_256_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {
+	template<simd_int_256_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {
 		return opOr(chunks.template get<0>(), chunks.template get<1>());
 	}
 
 		#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 
-	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
+	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* __restrict str) noexcept {
 		return _mm512_load_si512(static_cast<const __m512i*>(str));
 	}
 
-	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
+	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* __restrict str) noexcept {
 		return _mm512_loadu_si512(static_cast<const __m512i*>(str));
 	}
 
@@ -295,11 +276,11 @@ namespace jsonifier::simd {
 		return _mm512_set1_epi8(static_cast<const char>(value));
 	}
 
-	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm512_store_si512(static_cast<__m512i*>(storageLocation), value);
 	}
 
-	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
+	template<simd_int_512_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm512_storeu_si512(static_cast<__m512i*>(storageLocation), value);
 	}
 
@@ -388,7 +369,7 @@ namespace jsonifier::simd {
 		return !simd::opTest(value);
 	}
 
-	template<simd_int_512_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {
+	template<simd_int_512_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {
 		return chunks.template get<0>();
 	}
 

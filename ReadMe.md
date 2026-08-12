@@ -12,7 +12,7 @@ It achieves this through the usage of [SIMD instructions](./include/jsonifier-in
 
 - [Stage-1 Document](./Batched-Drain.md)
 - [Full Arch Document](./Two-Stages.md)
-- [Benchmarks](https://github.com/RealTimeChris/Json-Performance)
+- [Benchmarks](https://github.com/nihilai-collective/Json-Performance)
 - [More Benchmarks](https://github.com/Loki-Astari/JsonBenchmark)
 
 ---

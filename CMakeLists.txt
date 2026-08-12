@@ -1,7 +1,8 @@
-# CMakeLists.txt - Primary build script.
-# MIT License
-# Copyright (c) 2023 RealTimeChris
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
 # https://github.com/nihilai-collective/jsonifier
+# CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.28)
 
 set(CMAKE_CXX_STANDARD 20)

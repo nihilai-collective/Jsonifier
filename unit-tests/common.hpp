@@ -1,25 +1,7 @@
-/*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+// MIT License @ /License.md
+// Copyright (c) 2026 Nihilai Collective Corp
+// https://github.com/nihilai-collective/jsonifier
+// unit-tests/common.hpp
 #pragma once
 
 #include <filesystem>
@@ -160,26 +142,59 @@ inline static bool processFilesInFolder(std::unordered_map<std::string, test_bas
 class file_handle {
   public:
 	static void save_file(const std::string& data, const std::string& path) {
-		std::filesystem::path abs_path = std::filesystem::absolute(path);
-		std::filesystem::create_directories(abs_path.parent_path());
-		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
-		if (stream.is_open()) {
-			stream << data;
-			stream.flush();
-			bool ok = stream.good();
-			stream.close();
-			std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
-		} else {
-			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+		std::error_code errorCode{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return;
 		}
+		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
+		if (errorCode) {
+			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+			return;
+		}
+		stream << data;
+		stream.flush();
+		const bool ok = stream.good();
+		stream.close();
+		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
 	}
 
 	static std::string get(const std::string& path) {
-		std::fstream stream{ std::filesystem::absolute(path), std::ios::in };
-		if (stream.is_open()) {
-			return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+		std::error_code errorCode{};
+		std::string contents{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for reading: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return contents;
 		}
-		return {};
+		if (!std::filesystem::exists(abs_path, errorCode)) {
+			std::cout << "File not found: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		if (!std::filesystem::is_regular_file(abs_path, errorCode)) {
+			std::cout << "Not a regular file: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		std::fstream stream{ abs_path, std::ios::in | std::ios::binary };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for reading: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		contents = std::string{ std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>() };
+		if (stream.bad()) {
+			std::cout << "Read error: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		if (contents.empty()) {
+			std::cout << "File is empty: " << abs_path.string() << std::endl;
+		}
+		return contents;
 	}
 };
 

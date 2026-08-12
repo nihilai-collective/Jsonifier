@@ -1,6 +1,8 @@
-# cmake/CMakeLists.txt - CMake Script for detecting the CPU architecture.
-# MIT License
-# Copyright (c) 2026 RealTimeChris
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# cmake/CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.10)
 project(FeatureDetection)
 set(CMAKE_CXX_STANDARD 20)

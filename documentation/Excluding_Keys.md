@@ -121,7 +121,7 @@ template<> struct jsonifier::core<user_profile> {
         &value_type::created_at>();
 };
 
-int main() {
+int32_t main() {
     jsonifier::jsonifier_core<> parser;
     user_profile user{ "Jane", "jane@example.com", "$2b$12$....", 1728000000 };
 

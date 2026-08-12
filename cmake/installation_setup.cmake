@@ -1,6 +1,7 @@
-# cmake/installation_setup.cmake - Script for detecting the CPU architecture.
-# MIT License
-# Copyright (c) 2026 RealTimeChris
+# MIT License @ /License.md
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# cmake/installation_setup.cmake
 
 set(CONFIG_FILE_NAME ${PROJECT_NAME}Config.cmake)
 set(EXPORTED_TARGETS_NAME ${PROJECT_NAME}Targets)
