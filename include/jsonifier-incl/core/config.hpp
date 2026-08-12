@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/core/config.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
@@ -27,12 +11,11 @@
 #include <source_location>
 #include <unordered_map>
 #include <algorithm>
-#include <iostream>
 #include <optional>
-#include <iomanip>
 #include <variant>
 #include <cstring>
-#include <sstream>
+#include <cstdint>
+#include <memory>
 #include <chrono>
 #include <cfloat>
 #include <atomic>
@@ -44,16 +27,37 @@
 #elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 	#include <arm_neon.h>
 #elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#include <arm_neon_sve_bridge.h>
+	#include <arm_neon.h>
 	#include <arm_sve.h>
 #endif
 
 #if JSONIFIER_PLATFORM_WINDOWS
 	#include <windows.h>
-#elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC
+#elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC || JSONIFIER_PLATFORM_ANDROID
 	#include <sys/mman.h>
+	#include <unistd.h>
 #endif
 
 namespace jsonifier {
+
+	JSONIFIER_INLINE static consteval bool is_power_of_2(uint64_t value) noexcept {
+		return value != 0 && (value & (value - 1)) == 0;
+	}
+
+	template<uint64_t size, typename value_type_01, typename value_type_02> JSONIFIER_INLINE void pow2_memcpy_wrapper(value_type_01* dst, const value_type_02* src) noexcept {
+		static_assert(is_power_of_2(size), "Sorry, but you can only memcpy a power-of-2 size.");
+		std::memcpy(dst, src, size);
+	}
+
+	template<typename value_type_01, typename value_type_02> JSONIFIER_INLINE void memcpy_wrapper(value_type_01* dst, const value_type_02* src, uint64_t size) noexcept {
+		std::memcpy(dst, src, size);
+	}
+
+#define reinterpret_cast static_assert(false, "Sorry, but reinterpret_cast is banned in this library!")
+#define const_cast static_assert(false, "Sorry, but const_cast is banned in this library!")
+#define dynamic_cast static_assert(false, "Sorry, but dynamic_cast is banned in this library!")
+#define memcpy static_assert(false, "Sorry, but un-constrained memcpy is banned in this library!")
 
 	struct serialize_options {
 		uint64_t indentSize{ 3 };

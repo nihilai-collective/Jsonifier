@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/json_entity.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/reflection.hpp>
@@ -42,12 +26,6 @@ namespace jsonifier::internal {
 		static constexpr uint64_t index{ indexNew };
 	};
 
-	template<typename value_type>
-	concept is_json_entity_temp = requires {
-		typename value_type::class_type;
-		value_type::memberPtr;
-	};
-
 	template<uint64_t maxIndex, uint64_t index, auto value> static constexpr decltype(auto) makeJsonEntityAuto() noexcept {
 		if constexpr (is_json_entity_temp<decltype(value)>) {
 			return json_entity<value.memberPtr, value.name, index, maxIndex>{};
@@ -56,9 +34,6 @@ namespace jsonifier::internal {
 			return json_entity<value, stringLiteralFromView<nameNew.size()>(nameNew), index, maxIndex>{};
 		}
 	}
-
-	template<typename value_type>
-	concept convertible_to_json_entity = is_json_entity_temp<value_type> || std::is_member_pointer_v<value_type>;
 
 	template<auto... values, uint64_t... indices> static constexpr auto createValueImpl(jsonifier::internal::integer_sequence<indices...>) {
 		static_assert((convertible_to_json_entity<decltype(values)> && ...), "All arguments passed to createValue must be convertible to a json_entity.");

@@ -1,26 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// Much of the code in this header was sampled from xxHash library: https://github.com/Cyan4973/xxHash/
-/// https://github.com/RealTimeChris/
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/hash.hpp
+ */
 #pragma once
 
 namespace jsonifier::internal {
@@ -67,6 +50,7 @@ namespace jsonifier::internal {
 		}
 	};
 
+	// These PRNs were generated using the above algorithm.
 	alignas(64) static constexpr array<uint64_t, 135ULL> prns{ { 1033321092324544984ull, 2666561049963377653ull, 3901177690447069239ull, 4218182233242110882ull,
 		5911765535454950103ull, 6788651254494793497ull, 7100864855074445223ull, 8121427956336305945ull, 9038010914689427860ull, 14840306302415334885ull, 2861875790078914964ull,
 		3162274379479658823ull, 4716213344225307449ull, 540950270129450019ull, 6138393194460717092ull, 7344427311844191385ull, 8475133706542525636ull, 9707373313909664576ull,
@@ -89,14 +73,13 @@ namespace jsonifier::internal {
 		5417879022829474871ull, 6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
 	template<typename value_type> constexpr value_type readBitsCt(string_view_ptr ptr) noexcept {
-		value_type chunk{};
-		for (uint64_t x = 0; x < sizeof(value_type); ++x) {
-			chunk |= static_cast<value_type>(static_cast<uint8_t>(ptr[x])) << (x * 8);
-		}
+		char values[sizeof(value_type)]{};
+		std::copy(ptr, ptr + sizeof(value_type), values);
+		value_type result{ std::bit_cast<value_type>(values) };
 		if constexpr (std::endian::native == std::endian::big) {
-			chunk = byteswap(chunk);
+			result = byteswap(result);
 		}
-		return chunk;
+		return result;
 	}
 
 	struct ct_key_hasher {
@@ -114,24 +97,35 @@ namespace jsonifier::internal {
 
 		constexpr uint64_t hashKeyCt(string_view_ptr value, uint64_t length) const noexcept {
 			uint64_t seed64{ seed };
-			uint64_t chunk64{};
 
-			while (length >= 8) {
-				chunk64 = readBitsCt<uint64_t>(value);
-				seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
+			{
+				uint64_t chunk64{};
+				while (length >= 8) {
+					chunk64 = readBitsCt<uint64_t>(value);
+					seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
+					value += 8;
+					length -= 8;
+				}
+			}
+
+			if (length >= 4) {
+				uint32_t chunk32{};
+				chunk32 = readBitsCt<uint32_t>(value);
+				seed64 ^= static_cast<uint64_t>(chunk32 * 0x9E3779B185EBCA87ull);
+				value += 4;
+				length -= 4;
+			}
+
+			if (length >= 2) {
+				uint16_t chunk16{};
+				chunk16 = readBitsCt<uint16_t>(value);
+				seed64 ^= static_cast<uint64_t>(chunk16 * 0x9E3779B185EBCA87ull);
+				value += 2;
+				length -= 2;
 			}
 
 			if (length > 0) {
-				uint64_t tail{};
-				for (uint64_t i = 0; i < length; ++i) {
-					tail |= static_cast<uint64_t>(static_cast<uint8_t>(value[i])) << (i * 8);
-				}
-				if constexpr (std::endian::native == std::endian::big) {
-					tail = byteswap(tail);
-				}
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
 			}
 
 			return seed64 ^ (seed64 >> 32);
@@ -147,19 +141,35 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static uint64_t hashKeyRt(string_view_ptr value, uint64_t length) noexcept {
 			uint64_t seed64{ constEval(seed) };
-			uint64_t chunk64{};
 
-			while (length >= 8) {
-				std::memcpy(&chunk64, value, 8);
-				seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
+			{
+				uint64_t chunk64{};
+				while (length >= 8) {
+					pow2_memcpy_wrapper<8>(&chunk64, value);
+					seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
+					value += 8;
+					length -= 8;
+				}
+			}
+
+			if (length >= 4) {
+				uint32_t chunk32{};
+				pow2_memcpy_wrapper<4>(&chunk32, value);
+				seed64 ^= static_cast<uint64_t>(chunk32 * 0x9E3779B185EBCA87ull);
+				value += 4;
+				length -= 4;
+			}
+
+			if (length >= 2) {
+				uint16_t chunk16{};
+				pow2_memcpy_wrapper<2>(&chunk16, value);
+				seed64 ^= static_cast<uint64_t>(chunk16 * 0x9E3779B185EBCA87ull);
+				value += 2;
+				length -= 2;
 			}
 
 			if (length > 0) {
-				uint64_t tail{};
-				std::memcpy(&tail, value, length);
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
 			}
 
 			return seed64 ^ (seed64 >> 32);

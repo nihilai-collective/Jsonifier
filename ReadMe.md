@@ -8,11 +8,11 @@
 
 A high-performance C++ library for validating, serializing, parsing, prettifying, and minifying JSON data — **very rapidly**.
 
-It achieves this through the usage of [SIMD instructions](./include/jsonifier-incl/simd) as well as compile-time [hash maps](/include/jsonifier-incl/utilities/hash_map.hpp) for efficient key lookups during parsing.
+It achieves this through the usage of [SIMD instructions](./include/jsonifier-incl/simd) as well as compile-time [hash maps](./include/jsonifier-incl/utilities/hash_map.hpp) for efficient key lookups during parsing.
 
 - [Stage-1 Document](./Batched-Drain.md)
 - [Full Arch Document](./Two-Stages.md)
-- [Benchmarks](https://github.com/RealTimeChris/Json-Performance)
+- [Benchmarks](https://github.com/nihilai-collective/Json-Performance)
 - [More Benchmarks](https://github.com/Loki-Astari/JsonBenchmark)
 
 ---
@@ -33,6 +33,8 @@ It achieves this through the usage of [SIMD instructions](./include/jsonifier-in
 | ![Linux](https://img.shields.io/github/actions/workflow/status/nihilai-collective/jsonifier/unit-tests.yml?style=plastic&logo=linux&logoColor=green&label=Linux&labelColor=pewter&color=blue&branch=main) | Ubuntu (Latest) |
 | ![Mac](https://img.shields.io/github/actions/workflow/status/nihilai-collective/jsonifier/unit-tests.yml?style=plastic&logo=apple&logoColor=green&label=MacOS&labelColor=pewter&color=blue&branch=main) | macOS (Latest) |
 
+> **Android:** `JSONIFIER_PLATFORM_ANDROID` is detected and handled distinctly from `JSONIFIER_PLATFORM_LINUX` (separate `mmap`/`unistd.h` wiring, its own entry in the supported-platform check), for NDK cross-compilation. It is not part of the CI matrix above, so treat it as best-effort rather than continuously verified.
+
 ## CPU Architecture Support
 
 Jsonifier automatically detects and optimizes for your CPU architecture:
@@ -43,11 +45,9 @@ Jsonifier automatically detects and optimizes for your CPU architecture:
 - **AVX-512** — 512-bit vector registers for maximum parallelism (requires F + BW + VBMI2 support detected together)
 - **PCLMULQDQ** — carry-less multiplication support, detected and used where available
 - **ARM-NEON** — SIMD instructions for ARM processors
-- **ARM-SVE2** — scalable vector extensions for ARM processors ⚠️ **experimental** — see note below
+- **ARM-SVE2** — scalable vector extensions for ARM processors ⚠️ **experimental** — the SVE2 backend is new and still under active development; a handful of parsing cases are not yet handled correctly. NEON remains the recommended path for production ARM builds until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
 Manual configuration is also available via `JSONIFIER_CPU_FLAGS` in CMake, and cross-compilation is supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` to skip native feature detection.
-
-> **A note on SVE2:** the SVE2 backend is new and still under active development. A handful of parsing cases are not yet handled correctly under SVE2. If you're building for ARM, **NEON remains the recommended path for production use** until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
 ---
 
@@ -85,7 +85,7 @@ Continuous integration runs AddressSanitizer and UndefinedBehaviorSanitizer on e
 
 ## CI/CD with unit-tests
 
-Jsonifier uses GitHub Actions to continuously test across multiple platforms and compilers with sanitizers enabled. The test suite is built on [rt-ut](https://github.com/realtimechris/rt-ut), fetched directly via CMake `FetchContent`, and runs on every push and pull request:
+Jsonifier uses GitHub Actions to continuously test across multiple platforms and compilers with sanitizers enabled. The test suite is built on [rt-ut](https://github.com/nihilai-collective/rt-ut), fetched directly via CMake `FetchContent`, and runs on every push and pull request:
 
 ```yaml
 name: unit-tests
@@ -134,7 +134,7 @@ Jsonifier includes an extensive test suite that runs on **every push** across **
 
 | Test Category | Description |
 |---------------|-------------|
-| **Conformance Tests** | Full RFC8259 compliance testing against two corpora: the classic `jsonchecker` set (77 `fail*.json` + 27 `pass*.json`, each checked against a specific expected `parse_statuses` error) and the full JSONTestSuite Y/N corpus (189 `n_*.json` + 90 `y_*.json`). 383 documents total, each run across all eight `partialRead` / `knownOrder` / `nullTerminated` combinations |
+| **Conformance Tests** | Full RFC8259 compliance testing against two corpora, each wired up independently: `conformance.hpp` drives the classic `jsonchecker` set (77 of 79 `fail*.json` on disk + all 27 `pass*.json`, each checked against a specific expected `parse_statuses` error), and `JSONTestSuite.hpp` drives the JSONTestSuite Y/N corpus (all 188 `n_*.json` + all 95 `y_*.json`; the `i_*.json` implementation-defined cases are intentionally unused). 387 documents total, each run across all eight `partialRead` / `knownOrder` / `nullTerminated` combinations |
 | **Round-Trip Tests** | 27 serialize → parse → compare cases covering primitives, raw pointers, `unique_ptr`, and nested objects, ensuring data integrity across all types |
 | **Float Validation** | 64 edge cases including denormals, subnormal boundaries, round-half-to-even cases, infinities, and extreme exponents |
 | **Integer Validation** | Bounds testing for signed (24 pass / 11 fail) and unsigned (16 pass / 11 fail) integers, from zero through the full int64/uint64 range |
@@ -144,14 +144,16 @@ Jsonifier includes an extensive test suite that runs on **every push** across **
 | **Parsing Tests** | Parse/serialize/minify/prettify/validate correctness across the full real-world payload suite, both minified and prettified, across all eight `partialRead` / `knownOrder` / `nullTerminated` combinations |
 | **Intrinsics Tests** | Direct correctness testing of the SIMD abstraction layer — comparison, bitmask, logical, saturating-subtract, shift, cross-register alignment, and load/store round-trips at every unaligned offset |
 | **Error Tests** | Construction, equality, line-number reporting, and control-character escaping of the error-reporting model |
-| **Type Coverage** | Primitives, containers (`vector`, `array`, `map`, `unordered_map`), tuples, `optional`, `shared_ptr`, enums, nested structs, renamed/escaped keys — 70+ dedicated unit tests |
+| **Type Coverage** | Primitives, containers (`vector`, `array`, `map`, `unordered_map`), tuples, `optional`, `shared_ptr`, enums, nested structs, renamed/escaped keys — 69 dedicated unit tests |
+| **Internal Containers & Utilities** | Direct correctness tests for the library's own building blocks — the fixed-size allocator, `jsonifier::array`, the tuple implementation and its iterator, the compile-time hash and hash-map generators, comparators, enum-name reflection, and the minifier/prettifier/printer output paths — 349 dedicated unit tests |
 
 ### What Gets Tested
 
-- **70+ dedicated unit tests** covering reflection, renamed fields, optionals, enums, `shared_ptr`, nested structs, containers, tuples, maps, and escaped keys
-- **266 conformance fail cases + 117 pass cases** (77+27 from `jsonchecker`, 189+90 from JSONTestSuite), each asserting the exact expected `parse_statuses` value — 3,064 conformance assertions per platform across all eight configs
+- **69 dedicated unit tests** covering reflection, renamed fields, optionals, enums, `shared_ptr`, nested structs, containers, tuples, maps, and escaped keys
+- **349 additional unit tests** directly exercising the library's internal containers and utilities — allocator, `jsonifier::array`, tuple/iterator, compile-time hash and hash-map generation, comparators, enum-name reflection, and the minify/prettify/print output paths
+- **265 conformance fail cases + 122 pass cases** (77+27 from `jsonchecker`, 188+95 from JSONTestSuite), each asserting the exact expected `parse_statuses` value — 3,096 conformance assertions per platform across all eight configs
 - **27 round-trip tests** including edge cases (null, empty, large numbers, raw pointers, `unique_ptr`, special floats)
-- **64 float edge cases** and **24+16 int/uint pass cases** with **11+11 matching fail cases**
+- **64 float edge cases** (plus dedicated serialization-fidelity checks) and **24+16 int/uint pass cases** with **11+11 matching fail cases**, backed by separate digit-boundary/`toString` tests across all eight integer types
 - **35 string pass cases + 26 fail cases**, including full Unicode/emoji/ZWJ/escape coverage
 - **A full UTF-8 correctness gauntlet** — basic sequence tests, the complete Markus Kuhn stress corpus, second-byte boundary tests, fused string-parser tests, unaligned-pointer and unaligned-invalid-sequence sweeps, an mmap page-boundary fault check, and a width-transition sweep
 - **Direct SIMD intrinsics correctness tests**, independent of parsing, covering every primitive operation across all supported backends
@@ -174,7 +176,7 @@ cmake -B build -DJSONIFIER_UNIT_TESTS=ON
 cmake -B build -DJSONIFIER_UNIT_TESTS=ON -DJSONIFIER_ASAN=ON -DJSONIFIER_UBSAN=ON
 
 cmake --build build --target jsonifier-unit-tests
-./build/Tests/jsonifier-unit-tests
+./build/unit-tests/jsonifier-unit-tests
 ```
 
 ---
@@ -198,7 +200,7 @@ struct catalog {
 
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::logo,
@@ -207,7 +209,7 @@ template<> struct jsonifier::core<event> {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::events,
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
@@ -227,6 +229,8 @@ int main() {
 ```
 
 Note the `makeJsonEntity<&value_type::schema_version, "schema-version">()` — Jsonifier maps the C++-legal `schema_version` member to the kebab-case `"schema-version"` key in JSON entirely at compile time, with zero runtime cost.
+
+Other Note You must never manually include any header besides the top-level <jsonifier> include, or it will likely break your entire build.
 
 The `jsonifier_core<>` type is now templated on an initial scratch-buffer size in bytes (default 1MB) — e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents.
 
@@ -264,10 +268,10 @@ The `jsonifier_core<>` type is now templated on an initial scratch-buffer size i
 ## Requirements
 
 - CMake 3.28 or later
-- C++20 compliant compiler (MSVC 2022+, GCC 11+, Clang 14+)
+- C++20 compliant compiler (MSVC 2022+, GCC 11+, Clang 16+)
 - Supported CPU (x64, ARM64 with NEON or SVE2*)
 
-<sub>* SVE2 support is experimental — see the CPU Architecture Support note above.</sub>
+<sub>* SVE2 support is experimental — see the CPU Architecture Support section above.</sub>
 
 ---
 
@@ -283,8 +287,9 @@ This library is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - Reflection interface inspired by [Glaze](https://github.com/stephenberry/glaze)
 - Dragonbox algorithm for float conversion
 - FastFloat for number parsing
-- Unit test harness: [rt-ut](https://github.com/realtimechris/rt-ut)
+- Unit test harness: [rt-ut](https://github.com/nihilai-collective/rt-ut)
 - Raymond, because, Thanks.
+- Paul Mandarino. "Back yourself up, back your words up."
 
 ---
 

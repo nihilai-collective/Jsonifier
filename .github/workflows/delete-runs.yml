@@ -40,7 +40,8 @@ on:
       dry_run:
         description: 'Logs simulated changes, no deletions are performed'
         required: false
-
+        type: boolean
+        default: false
 jobs:
   del_runs:
     runs-on: ubuntu-latest

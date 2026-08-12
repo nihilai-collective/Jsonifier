@@ -1,28 +1,13 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/string_literal.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
+#include <jsonifier-incl/core/fastio.hpp>
 
 namespace jsonifier::internal {
 
@@ -93,6 +78,14 @@ namespace jsonifier::internal {
 			return values[index];
 		}
 
+		template<uint64_t offset_new, uint64_t count, uint64_t new_size = count + 1> JSONIFIER_INLINE constexpr string_literal<new_size> substr() const {
+			static_assert(offset_new + count <= length);
+			string_literal<new_size> return_value{};
+			std::copy(values + offset_new, values + offset_new + count, return_value.values);
+			return_value.values[count] = '\0';
+			return return_value;
+		}
+
 		JSONIFIER_INLINE static constexpr size_type size() noexcept {
 			return length;
 		}
@@ -107,8 +100,13 @@ namespace jsonifier::internal {
 
 	template<uint64_t sizeVal> string_literal(const char (&)[sizeVal]) -> string_literal<sizeVal>;
 
+	template<uint64_t size, size_t buffer_size> basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const string_literal<size>& input) noexcept {
+		os << std::basic_string_view<char>{ input.data(), input.size() };
+		return os;
+	}
+
 	template<uint64_t size> std::ostream& operator<<(std::ostream& os, const string_literal<size>& input) noexcept {
-		os.write(input.data(), static_cast<std::streamsize>(input.size()));
+		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
 

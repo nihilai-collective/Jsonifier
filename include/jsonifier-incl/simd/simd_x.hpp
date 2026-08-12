@@ -1,37 +1,21 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/simd_x.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 	struct simd_x {
 	  public:
-		static constexpr uint64_t sixtyFourPer{ static_cast<uint64_t>(16) / sizeof(uint64_t) };
-		static constexpr uint64_t thirtyTwoPer{ static_cast<uint64_t>(16) / sizeof(uint32_t) };
-		static constexpr uint64_t sixteenPer{ static_cast<uint64_t>(16) / sizeof(uint16_t) };
-		static constexpr uint64_t eightPer{ static_cast<uint64_t>(16) / sizeof(uint8_t) };
+		static constexpr uint64_t sixtyFourPer{ 16ULL / sizeof(uint64_t) };
+		static constexpr uint64_t thirtyTwoPer{ 16ULL / sizeof(uint32_t) };
+		static constexpr uint64_t sixteenPer{ 16ULL / sizeof(uint16_t) };
+		static constexpr uint64_t eightPer{ 16ULL / sizeof(uint8_t) };
 
 		union alignas(16) storage_type {
 			uint64_t xUint64[sixtyFourPer];

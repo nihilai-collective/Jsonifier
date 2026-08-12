@@ -1,10 +1,15 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# unit-tests/CMakeLists.txt
+
 add_executable(jsonifier-unit-tests main.cpp)
 
 include(FetchContent)
 
 FetchContent_Declare(
   rt-ut
-  GIT_REPOSITORY https://github.com/realtimechris/rt-ut.git
+  GIT_REPOSITORY https://github.com/nihilai-collective/rt-ut.git
   GIT_TAG main
   GIT_SHALLOW TRUE
 )
@@ -18,6 +23,7 @@ target_link_libraries(jsonifier-unit-tests
 option(JSONIFIER_ASAN  "Enable AddressSanitizer"            OFF)
 option(JSONIFIER_UBSAN "Enable UndefinedBehaviorSanitizer"  OFF)
 
+set(JSONIFIER_TEST_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/" CACHE STRING "Root path the unit tests resolve their JSON data against")
 set(JSONIFIER_ASAN_EFFECTIVE  ${JSONIFIER_ASAN})
 set(JSONIFIER_UBSAN_EFFECTIVE ${JSONIFIER_UBSAN})
 
@@ -72,7 +78,11 @@ set(JSONIFIER_MSVC_COMPILER_OPTIONS
     /wd4710
     /wd5045
     /wd4711
+    /wd4623
+    /wd4626
     /wd4686
+    /wd4865
+    /wd5027
     /Wall
     /W4
     /bigobj
@@ -95,6 +105,7 @@ set(JSONIFIER_CLANG_COMPILER_OPTIONS
     -Wall
     -Wno-c++98-compat-pedantic
     -Wno-c++98-compat
+    -Wno-keyword-macro
     -Wno-padded
 )
 
@@ -147,7 +158,7 @@ target_link_options(jsonifier-unit-tests
 )
 
 target_compile_definitions(jsonifier-unit-tests PUBLIC 
-"BASE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/\"")
+"BASE_PATH=\"${JSONIFIER_TEST_BASE_PATH}\"")
 
 install(
     FILES

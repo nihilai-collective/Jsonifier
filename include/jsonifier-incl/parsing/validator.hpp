@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/parsing/validator.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -28,20 +12,20 @@
 
 namespace jsonifier::internal {
 
-	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
 		return value + strLen(value);
 	}
 
-	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
 		return std::bit_cast<string_view_ptr>(value);
 	}
 
-	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
-		return std::bit_cast<string_view_ptr>(value.data() + value.size());
+	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
+		return value.data() + value.size();
 	}
 
-	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
-		return std::bit_cast<string_view_ptr>(value.data());
+	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
+		return value.data();
 	}
 
 	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
@@ -49,37 +33,39 @@ namespace jsonifier::internal {
 	template<typename derived_type> class validator {
 	  public:
 		template<json_structural_type, typename derived_type_new> friend struct validate_impl;
-		validator& operator=(const validator& other) = delete;
-		validator(const validator& other)			 = delete;
 
-		template<concepts::string_t string_type> inline bool validateJson(string_type&& in) noexcept {
+		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
 			static constexpr parse_options validateOpts{};
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
 			derivedRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(),
+			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
 				derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
 			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
-			if (getStringBuffer().size() < newSize) {
-				getStringBuffer().resize(newSize);
+			if (derivedRef.stringBuffer.size() < newSize) {
+				derivedRef.stringBuffer.resize(newSize);
 			}
-			getErrors().clear();
+			derivedRef.errors.clear();
 			if (context.anyInput()) {
 				if (!impl(context)) {
 					return false;
 				}
 				context.checkIfDone();
-				return getErrors().size() == 0;
+				return derivedRef.errors.size() == 0;
 			} else {
 				return false;
 			}
 		}
 
 	  protected:
-		derived_type& derivedRef{ initializeSelfRef() };
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 
-		validator() noexcept {
-		}
+		validator() noexcept						 = default;
+		validator& operator=(const validator& other) = delete;
+		validator(const validator& other)			 = delete;
+		validator& operator=(validator&& other)		 = delete;
+		validator(validator&& other)				 = delete;
+		~validator() noexcept						 = default;
 
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (!context.notAtEndPre()) {
@@ -102,20 +88,6 @@ namespace jsonifier::internal {
 				return false;
 			}
 		}
-
-		JSONIFIER_INLINE auto& getStringBuffer() noexcept {
-			return derivedRef.stringBuffer;
-		}
-
-		std::vector<error>& getErrors() noexcept {
-			return derivedRef.getErrors();
-		}
-
-		derived_type& initializeSelfRef() noexcept {
-			return *static_cast<derived_type*>(this);
-		}
-
-		~validator() noexcept = default;
 	};
 
 }// namespace internal

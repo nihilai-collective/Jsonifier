@@ -1,29 +1,14 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/error.hpp
+ */
 #pragma once
 
+#include <jsonifier-incl/core/fastio.hpp>
 #include <jsonifier-incl/utilities/get_enum_name.hpp>
+#include <jsonifier-incl/utilities/i_to_str.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
 
 namespace jsonifier::internal {
@@ -31,7 +16,6 @@ namespace jsonifier::internal {
 	enum class status_classes : uint8_t {
 		unset,
 		parsing,
-		serializing,
 		minifying,
 		prettifying,
 		validating,
@@ -75,6 +59,8 @@ namespace jsonifier::internal {
 		no_input,
 		exceeded_max_depth,
 		incorrect_structural_index,
+		unclosed_object,
+		unclosed_array,
 		count,
 	};
 
@@ -96,47 +82,80 @@ namespace jsonifier::internal {
 		count,
 	};
 
-	inline void printBytes(std::ostringstream& stream, char b) {
+	inline void appendUnsigned(string& stream, uint64_t value) {
+		char buffer[24];
+		auto* end = to_chars<uint64_t>::impl(buffer, value);
+		stream.append(buffer, static_cast<size_t>(end - buffer));
+	}
+
+	inline void appendErrorType(status_classes status_class, string& stream, uint64_t value) {
+		switch (static_cast<uint64_t>(status_class)) {
+			case static_cast<uint64_t>(status_classes::parsing): {
+				stream += getName(static_cast<parse_statuses>(value));
+				return;
+			}
+			case static_cast<uint64_t>(status_classes::minifying): {
+				stream += getName(static_cast<minify_statuses>(value));
+				return;
+			}
+			case static_cast<uint64_t>(status_classes::prettifying): {
+				stream += getName(static_cast<prettify_statuses>(value));
+				return;
+			}
+			case static_cast<uint64_t>(status_classes::validating): {
+				stream += getName(static_cast<validate_statuses>(value));
+				return;
+			}
+			default: {
+				return;
+			}
+		}
+	}
+
+	inline void appendEscapedByte(string& stream, char b) {
 		switch (b) {
 			case '\a':
-				stream << "\\a";
+				stream += "\\a";
 				return;
 			case '\b':
-				stream << "\\b";
+				stream += "\\b";
 				return;
 			case '\f':
-				stream << "\\f";
+				stream += "\\f";
 				return;
 			case '\n':
-				stream << "\\n";
+				stream += "\\n";
 				return;
 			case '\r':
-				stream << "\\r";
+				stream += "\\r";
 				return;
 			case '\t':
-				stream << "\\t";
+				stream += "\\t";
 				return;
 			case '\v':
-				stream << "\\v";
+				stream += "\\v";
 				return;
 			case '\\':
-				stream << "\\\\";
+				stream += "\\\\";
 				return;
 			case '\'':
-				stream << "\\'";
+				stream += "\\'";
 				return;
 			case '\"':
-				stream << "\\\"";
+				stream += "\\\"";
 				return;
 			case '\0':
-				stream << "\\0";
+				stream += "\\0";
 				return;
 			default:
-				if (std::isprint(static_cast<unsigned char>(b))) {
-					stream << b;
+				if (std::isprint(static_cast<uint8_t>(b))) {
+					stream += b;
 					return;
 				} else {
-					stream << "\\x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(b)) << std::dec;
+					static constexpr char hexDigits[]{ "0123456789abcdef" };
+					stream += "\\x";
+					stream += hexDigits[(static_cast<uint8_t>(b) >> 4U) & 0xFU];
+					stream += hexDigits[static_cast<uint8_t>(b) & 0xFU];
 					return;
 				}
 		}
@@ -177,12 +196,12 @@ namespace jsonifier::internal {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> static inline error constructError(error_class typeNew, string_view_ptr rootIter, string_view_ptr errorPos,
+		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, string_view_ptr rootIter, string_view_ptr errorPos,
 			string_view_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> static inline error constructError(string_view_ptr rootIter, string_view_ptr errorPos, string_view_ptr endIter,
+		template<status_classes errorClassNew, auto typeNew> inline static error constructError(string_view_ptr rootIter, string_view_ptr errorPos, string_view_ptr endIter,
 			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
@@ -192,11 +211,11 @@ namespace jsonifier::internal {
 		}
 
 		inline bool operator==(const error& rhs) const noexcept {
-			return errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
+			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
 		}
 
-		inline string reportError() const noexcept {
-			return reportString;
+		inline std::string_view reportError() const noexcept {
+			return reportString.operator std::basic_string_view<char>();
 		}
 
 	  protected:
@@ -205,55 +224,80 @@ namespace jsonifier::internal {
 		string_view_ptr rootIter{};
 		string_view_ptr errorPos{};
 		string_view_ptr endIter{};
-		uint64_t errorType{};
-		uint64_t errorIndex{};
-		uint64_t line{};
 		uint64_t localIndex{};
 		string reportString{};
+		uint64_t errorIndex{};
+		uint64_t errorType{};
+		uint64_t line{};
 
 		inline void formatReport() noexcept {
-			errorIndex = static_cast<uint64_t>(errorPos - rootIter);
 			line	   = 0;
 			localIndex = 0;
+			errorIndex = 0;
 			string context{};
-			if (errorPos && endIter && errorPos < endIter) {
-				uint64_t errorLength = std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos));
-				int64_t reportIndex	 = 0;
-				string_view view{ errorPos, errorLength };
-				using V				   = std::decay_t<decltype(view[0])>;
-				const auto start	   = std::begin(view) + reportIndex;
-				line				   = static_cast<uint64_t>(std::count(rootIter, errorPos, '\n') + 1);
-				const auto rstart	   = std::rbegin(view) + static_cast<int64_t>(view.size()) - reportIndex - 1ll;
-				const auto prevNewLine = std::find(std::min(rstart + 1, std::rend(view)), std::rend(view), static_cast<V>('\n'));
-				localIndex			   = static_cast<uint64_t>(std::distance(rstart, prevNewLine) - 1ll);
-				auto endIndex{ std::end(view) - start >= 64 ? 64 : std::end(view) - start };
-				context = string{ start, static_cast<uint64_t>(endIndex) };
-				for (auto& c: context) {
-					if (c == '\t') {
-						c = ' ';
+			if (errorPos && endIter && rootIter && errorPos >= rootIter && errorPos <= endIter) {
+				errorIndex = static_cast<uint64_t>(errorPos - rootIter);
+
+				line = static_cast<uint64_t>(std::count(rootIter, errorPos, '\n') + 1);
+
+				string_view_ptr scan		   = errorPos;
+				uint64_t distanceFromLineStart = 0;
+				while (scan > rootIter && *(scan - 1) != '\n') {
+					--scan;
+					++distanceFromLineStart;
+				}
+				localIndex = distanceFromLineStart;
+
+				if (errorPos < endIter) {
+					uint64_t errorLength = std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos));
+					string_view view{ errorPos, errorLength };
+					context = string{ std::begin(view), static_cast<uint64_t>(view.size()) };
+					for (auto& c: context) {
+						if (c == '\t') {
+							c = ' ';
+						}
 					}
 				}
 			}
-			std::ostringstream stream{};
-			stream << "Error of Class: " << errorClass << ", of Type: " << errorType << ", at global index: " << errorIndex << ", on line: " << line
-				   << ", at local index: " << localIndex;
+			string stream{};
+			stream += "Error of Class: ";
+			stream += getName(errorClass);
+			stream += ", of Type: ";
+			appendErrorType(errorClass, stream, errorType);
+			stream += ", at global index: ";
+			appendUnsigned(stream, errorIndex);
+			stream += ", on line: ";
+			appendUnsigned(stream, line);
+			stream += ", at local index: ";
+			appendUnsigned(stream, localIndex);
 			if (!context.empty()) {
-				stream << "\nHere's some of the string's values: ";
+				stream += "\nHere's some of the string's values: ";
 				collectValues(stream, context);
 			}
-			stream << "\nIn file: " << sourceLocation.file_name() << ", at line/column: " << sourceLocation.line() << ":" << sourceLocation.column() << std::endl;
-			reportString = stream.str();
+			stream += "\nIn file: ";
+			stream += sourceLocation.file_name();
+			stream += ", at line/column: ";
+			appendUnsigned(stream, static_cast<uint64_t>(sourceLocation.line()));
+			stream += ":";
+			appendUnsigned(stream, static_cast<uint64_t>(sourceLocation.column()));
+			stream += "\n";
+			reportString = stream;
 		}
 
-		static inline void collectValues(std::ostringstream& stream, const string& inputValues) {
+		inline static void collectValues(string& stream, const string& inputValues) {
 			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
-				stream << "'";
-				printBytes(stream, inputValues[i]);
-				stream << "' ";
+				stream += "'";
+				appendEscapedByte(stream, inputValues[i]);
+				stream += "' ";
 			}
 			return;
 		}
 	};
+
+	template<size_t buffer_size> inline static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const error& errorNew) noexcept {
+		os << errorNew.reportError();
+		return os;
+	}
 
 	inline static std::ostream& operator<<(std::ostream& os, const error& errorNew) noexcept {
 		os << errorNew.reportError();

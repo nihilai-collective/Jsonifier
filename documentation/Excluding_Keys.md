@@ -125,7 +125,7 @@ int main() {
     jsonifier::jsonifier_core<> parser;
     user_profile user{ "Jane", "jane@example.com", "$2b$12$....", 1728000000 };
 
-    user.jsonifierExcludedKeys = { "password_hash", "email" };
+    user.jsonifierExcludedKeys{ "password_hash", "email" };
     std::string public_view;
     parser.serializeJson(user, public_view);
     std::cout << "Public: " << public_view << std::endl;

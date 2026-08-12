@@ -1,18 +1,26 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/zmij.hpp
+ */
+#pragma once
+
 // A double-to-string conversion algorithm based on Schubfach and xjb.
 // Copyright (c) 2025 - present, Victor Zverovich
 // Distributed under the MIT license (see LICENSE) or alternatively
 // the Boost Software License, Version 1.0.
 // https://github.com/vitaut/zmij/
 
+#include <jsonifier-incl/core/config.hpp>
+
 namespace zmij {
 	struct dec_fp {
 		long long sig;
-		int exp;
+		int32_t exp;
 		bool negative;
 	};
 }// namespace zmij
-
-#include <jsonifier-incl/core/config.hpp>
 
 #include <jsonifier-incl/simd/avx.hpp>
 #include <jsonifier-incl/simd/neon.hpp>
@@ -23,7 +31,6 @@ namespace zmij {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 	#define ZMIJ_USE_NEON ZMIJ_USE_SIMD
-	#include <arm_neon.h>
 #else
 	#define ZMIJ_USE_NEON 0
 #endif
@@ -31,7 +38,6 @@ namespace zmij {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
 	#define ZMIJ_USE_SSE ZMIJ_USE_SIMD
 	#define ZMIJ_USE_SSE4_1 ZMIJ_USE_SSE
-	#include <immintrin.h>
 #else
 	#define ZMIJ_USE_SSE 0
 	#define ZMIJ_USE_SSE4_1 0
@@ -150,12 +156,12 @@ namespace {
 #endif
 	}
 
-	JSONIFIER_INLINE auto clz(uint64_t x) noexcept -> int {
-		return static_cast<int>(std::countl_zero(x));
+	JSONIFIER_INLINE auto clz(uint64_t x) noexcept -> int32_t {
+		return static_cast<int32_t>(std::countl_zero(x));
 	}
 
-	JSONIFIER_INLINE auto ctz(uint64_t x) noexcept -> int {
-		return static_cast<int>(std::countr_zero(x));
+	JSONIFIER_INLINE auto ctz(uint64_t x) noexcept -> int32_t {
+		return static_cast<int32_t>(std::countr_zero(x));
 	}
 
 	JSONIFIER_INLINE auto select(uint64_t condition, int64_t true_value, int64_t false_value) -> int64_t {
@@ -269,30 +275,30 @@ namespace {
 		return ZMIJ_USE_INT128 ? umul128_hi64(x, div10_sig64) : x / 10ULL;
 	}
 
-	JSONIFIER_INLINE constexpr auto compute_dec_exp(int bin_exp, bool regular = true) noexcept -> int {
-		constexpr int log10_3_over_4_sig = 131'072;
-		constexpr int log10_2_sig = 315'653, log10_2_exp = 20;
+	JSONIFIER_INLINE constexpr auto compute_dec_exp(int32_t bin_exp, bool regular = true) noexcept -> int32_t {
+		constexpr int32_t log10_3_over_4_sig = 131'072;
+		constexpr int32_t log10_2_sig = 315'653, log10_2_exp = 20;
 		return (bin_exp * log10_2_sig - (regular ? 0 : log10_3_over_4_sig)) >> log10_2_exp;
 	}
 
 	template<typename Float> struct float_traits : std::numeric_limits<Float> {
 		static_assert(float_traits::is_iec559, "IEEE 754 required");
 
-		static constexpr int num_bits		   = float_traits::digits == 53 ? 64 : 32;
-		static constexpr int num_sig_bits	   = float_traits::digits - 1;
-		static constexpr int num_exp_bits	   = num_bits - num_sig_bits - 1;
-		static constexpr int exp_mask		   = static_cast<int>((1U << num_exp_bits) - 1U);
-		static constexpr int exp_bias		   = static_cast<int>((1U << (num_exp_bits - 1)) - 1U);
-		static constexpr int exp_offset		   = exp_bias + num_sig_bits;
-		static constexpr int min_fixed_dec_exp = -4;
-		static constexpr int max_fixed_dec_exp = compute_dec_exp(float_traits::digits + 1) - 1;
+		static constexpr int32_t num_bits		   = float_traits::digits == 53 ? 64 : 32;
+		static constexpr int32_t num_sig_bits	   = float_traits::digits - 1;
+		static constexpr int32_t num_exp_bits	   = num_bits - num_sig_bits - 1;
+		static constexpr int32_t exp_mask		   = static_cast<int32_t>((1U << num_exp_bits) - 1U);
+		static constexpr int32_t exp_bias		   = static_cast<int32_t>((1U << (num_exp_bits - 1)) - 1U);
+		static constexpr int32_t exp_offset		   = exp_bias + num_sig_bits;
+		static constexpr int32_t min_fixed_dec_exp = -4;
+		static constexpr int32_t max_fixed_dec_exp = compute_dec_exp(float_traits::digits + 1) - 1;
 
 		using sig_type						   = std::conditional_t<num_bits == 64, uint64_t, uint32_t>;
 		static constexpr sig_type implicit_bit = static_cast<sig_type>(1) << num_sig_bits;
 
 		JSONIFIER_INLINE static auto to_bits(Float value) noexcept -> sig_type {
 			sig_type bits;
-			memcpy(&bits, &value, sizeof(value));
+			jsonifier::pow2_memcpy_wrapper<sizeof(value)>(&bits, &value);
 			return bits;
 		}
 
@@ -307,7 +313,7 @@ namespace {
 		}
 	};
 
-	constexpr uint64_t pow10_minor[] = {
+	constexpr uint64_t pow10_minor[]{
 		0x8000000000000000,
 		0xa000000000000000,
 		0xc800000000000000,
@@ -337,7 +343,7 @@ namespace {
 		0xa56fa5b99019a5c8,
 		0xcecb8f27f4200f3a,
 	};
-	constexpr uint128 pow10_major[] = {
+	constexpr uint128 pow10_major[]{
 		{ 0xaf8e5410288e1b6f, 0x07ecf0ae5ee44dda },// -303
 		{ 0xb1442798f49ffb4a, 0x99cd11cfdf41779d },// -275
 		{ 0xb2fe3f0b8599ef07, 0x861fa7e6dcb4aa15 },// -247
@@ -362,17 +368,17 @@ namespace {
 		{ 0xd732290fbacaf133, 0xa97c177947ad4096 },//  285
 		{ 0xd94ad8b1c7380874, 0x18375281ae7822bc },//  313
 	};
-	constexpr uint32_t pow10_fixups[] = { 0x0a4e363f, 0x00001840, 0x00006400, 0x24200040, 0x00000000, 0x0c000000, 0x82c81380, 0x5e4ce01f, 0xd730f60f, 0x0000001b, 0x00000000,
+	constexpr uint32_t pow10_fixups[]{ 0x0a4e363f, 0x00001840, 0x00006400, 0x24200040, 0x00000000, 0x0c000000, 0x82c81380, 0x5e4ce01f, 0xd730f60f, 0x0000001b, 0x00000000,
 		0xcdf7fffc, 0x6e8201d8, 0x40cd3fd1, 0xdb642501, 0x00000d0d, 0x14042400, 0x53713840, 0x11781db4, 0x00000000 };
 
 	struct alignas(64) pow10_significand_table {
-		static constexpr bool compress				 = ZMIJ_OPTIMIZE_SIZE != 0;
-		static constexpr bool split_tables			 = !compress && ZMIJ_AARCH64 != 0;
-		static constexpr int num_pow10s				 = 618;
-		uint64_t data[compress ? 1 : num_pow10s * 2] = {};
+		static constexpr bool compress		= ZMIJ_OPTIMIZE_SIZE != 0;
+		static constexpr bool split_tables	= !compress && ZMIJ_AARCH64 != 0;
+		static constexpr int32_t num_pow10s = 618;
+		uint64_t data[compress ? 1 : num_pow10s * 2]{};
 
-		JSONIFIER_INLINE static constexpr auto compute(unsigned i) noexcept -> uint128 {
-			constexpr unsigned stride = sizeof(pow10_minor) / sizeof(*pow10_minor);
+		JSONIFIER_INLINE static constexpr auto compute(uint32_t i) noexcept -> uint128 {
+			constexpr uint32_t stride = sizeof(pow10_minor) / sizeof(*pow10_minor);
 			auto m					  = pow10_minor[(i + 10U) % stride];
 			auto h					  = pow10_major[(i + 10U) / stride];
 
@@ -388,8 +394,8 @@ namespace {
 		}
 
 		consteval pow10_significand_table() {
-			for (int i = 0; i < num_pow10s && !compress; ++i) {
-				uint128 result = compute(static_cast<unsigned>(i));
+			for (int32_t i = 0; i < num_pow10s && !compress; ++i) {
+				uint128 result = compute(static_cast<uint32_t>(i));
 				if constexpr (split_tables) {
 					data[num_pow10s - i - 1]	 = result.hi;
 					data[num_pow10s * 2 - i - 1] = result.lo;
@@ -400,11 +406,11 @@ namespace {
 			}
 		}
 
-		JSONIFIER_INLINE constexpr auto operator[](int dec_exp) const noexcept -> uint128 {
-			constexpr int dec_exp_min = -293;
-			int i					  = dec_exp - dec_exp_min;
+		JSONIFIER_INLINE constexpr auto operator[](int32_t dec_exp) const noexcept -> uint128 {
+			constexpr int32_t dec_exp_min = -293;
+			int32_t i					  = dec_exp - dec_exp_min;
 			if constexpr (compress) {
-				return compute(static_cast<unsigned>(i));
+				return compute(static_cast<uint32_t>(i));
 			} else {
 				if constexpr (!split_tables) {
 					const uint64_t* p = data + i * 2;
@@ -422,37 +428,37 @@ namespace {
 		}
 	};
 
-	JSONIFIER_INLINE constexpr auto compute_exp_shift(int bin_exp, int dec_exp) noexcept -> unsigned char {
-		constexpr int log2_pow10_sig = 217'707, log2_pow10_exp = 16;
-		int pow10_bin_exp = (-dec_exp * log2_pow10_sig) >> log2_pow10_exp;
-		return static_cast<unsigned char>(bin_exp + pow10_bin_exp + 1);
+	JSONIFIER_INLINE constexpr auto compute_exp_shift(int32_t bin_exp, int32_t dec_exp) noexcept -> uint8_t {
+		constexpr int32_t log2_pow10_sig = 217'707, log2_pow10_exp = 16;
+		int32_t pow10_bin_exp = (-dec_exp * log2_pow10_sig) >> log2_pow10_exp;
+		return static_cast<uint8_t>(bin_exp + pow10_bin_exp + 1);
 	}
 
 	struct exp_shift_table {
-		static constexpr bool enable										= ZMIJ_OPTIMIZE_SIZE == 0;
-		static constexpr int extra_shift									= 6;
-		unsigned char data[enable ? float_traits<double>::exp_mask + 1 : 1] = {};
+		static constexpr bool enable		 = ZMIJ_OPTIMIZE_SIZE == 0;
+		static constexpr int32_t extra_shift = 6;
+		uint8_t data[enable ? float_traits<double>::exp_mask + 1 : 1]{};
 
 		consteval exp_shift_table() {
-			for (int raw_exp = 0; raw_exp < static_cast<int>(sizeof(data)) && enable; ++raw_exp) {
-				int bin_exp = raw_exp - float_traits<double>::exp_offset;
+			for (int32_t raw_exp = 0; raw_exp < static_cast<int32_t>(sizeof(data)) && enable; ++raw_exp) {
+				int32_t bin_exp = raw_exp - float_traits<double>::exp_offset;
 				if (raw_exp == 0)
 					++bin_exp;
-				int dec_exp	  = compute_dec_exp(bin_exp);
-				data[raw_exp] = static_cast<unsigned char>(compute_exp_shift(bin_exp, dec_exp + 1) + extra_shift);
+				int32_t dec_exp = compute_dec_exp(bin_exp);
+				data[raw_exp]	= static_cast<uint8_t>(compute_exp_shift(bin_exp, dec_exp + 1) + extra_shift);
 			}
 		}
 	};
 
 	struct alignas(64) exp_string_table {
-		static constexpr bool enable										 = ZMIJ_USE_EXP_STRING_TABLE;
-		using traits														 = float_traits<double>;
-		static constexpr int min_dec_exp									 = traits::min_exponent10 - traits::max_digits10;
-		static constexpr int offset											 = -min_dec_exp;
-		uint64_t data[enable ? traits::max_exponent10 - min_dec_exp + 1 : 1] = {};
+		static constexpr bool enable		 = ZMIJ_USE_EXP_STRING_TABLE;
+		using traits						 = float_traits<double>;
+		static constexpr int32_t min_dec_exp = traits::min_exponent10 - traits::max_digits10;
+		static constexpr int32_t offset		 = -min_dec_exp;
+		uint64_t data[enable ? traits::max_exponent10 - min_dec_exp + 1 : 1]{};
 
 		consteval exp_string_table() {
-			for (int e = min_dec_exp; e <= traits::max_exponent10 && enable; ++e) {
+			for (int32_t e = min_dec_exp; e <= traits::max_exponent10 && enable; ++e) {
 				uint64_t abs_e = e >= 0 ? static_cast<uint64_t>(e) : static_cast<uint64_t>(-e);
 				uint64_t bc	   = abs_e % 100ULL;
 				uint64_t val   = ((bc % 10ULL + static_cast<uint64_t>('0')) << 8) | (bc / 10ULL + static_cast<uint64_t>('0'));
@@ -465,50 +471,50 @@ namespace {
 	};
 
 	struct exp_float_shuffle_table {
-		static constexpr bool enable						 = (ZMIJ_USE_SSE4_1 || ZMIJ_USE_NEON) && exp_string_table::enable;
-		static constexpr unsigned char exp_pos				 = 8;
-		static constexpr unsigned char last_digit_pos		 = 12;
-		static constexpr unsigned char point_pos			 = 13;
-		alignas(64) unsigned char data[enable ? 32 * 16 : 1] = {};
+		static constexpr bool enable			= (ZMIJ_USE_SSE4_1 || ZMIJ_USE_NEON) && exp_string_table::enable;
+		static constexpr uint8_t exp_pos		= 8;
+		static constexpr uint8_t last_digit_pos = 12;
+		static constexpr uint8_t point_pos		= 13;
+		alignas(64) uint8_t data[enable ? 32 * 16 : 1]{};
 
 		struct entry {
-			const unsigned char* shuffle;
-			unsigned char length;
+			const uint8_t* shuffle;
+			uint8_t length;
 		};
 
-		JSONIFIER_INLINE constexpr auto get_entry(int num_digits, bool has_last_digit, bool has_extra_digit) const noexcept {
-			int idx = (num_digits - 1) * 4 + (has_last_digit ? 2 : 0) + (has_extra_digit ? 1 : 0);
+		JSONIFIER_INLINE constexpr auto get_entry(int32_t num_digits, bool has_last_digit, bool has_extra_digit) const noexcept {
+			int32_t idx = (num_digits - 1) * 4 + (has_last_digit ? 2 : 0) + (has_extra_digit ? 1 : 0);
 			return entry{ &data[idx * 16], data[idx * 16 + 15] };
 		}
 
 		consteval exp_float_shuffle_table() {
-			for (int idx = 0; idx < 32 && enable; ++idx) {
-				int num_digits		 = (idx >> 2) + 1;
+			for (int32_t idx = 0; idx < 32 && enable; ++idx) {
+				int32_t num_digits	 = (idx >> 2) + 1;
 				bool has_last_digit	 = ((idx >> 1) & 1) != 0;
 				bool has_extra_digit = (idx & 1) != 0;
 
-				unsigned char* out = &data[idx * 16];
-				for (int i = 0; i < 16; ++i)
+				uint8_t* out = &data[idx * 16];
+				for (int32_t i = 0; i < 16; ++i)
 					out[i] = 0x80;
-				unsigned char leading_digit_pos = has_extra_digit ? 7U : 6U;
-				unsigned char length			= 0;
+				uint8_t leading_digit_pos = has_extra_digit ? 7U : 6U;
+				uint8_t length			  = 0;
 				if (has_last_digit) {
 					out[length++] = leading_digit_pos;
 					out[length++] = point_pos;
-					for (int i = static_cast<int>(leading_digit_pos) - 1; i >= 0; --i)
-						out[length++] = static_cast<unsigned char>(i);
+					for (int32_t i = static_cast<int32_t>(leading_digit_pos) - 1; i >= 0; --i)
+						out[length++] = static_cast<uint8_t>(i);
 					out[length++] = last_digit_pos;
 				} else {
-					length = static_cast<unsigned char>(num_digits + (has_extra_digit ? 1 : 0));
+					length = static_cast<uint8_t>(num_digits + (has_extra_digit ? 1 : 0));
 					if (length == 2)
 						length = 1;
 					out[0] = leading_digit_pos;
 					out[1] = point_pos;
-					for (int i = 2; i < static_cast<int>(length); ++i)
-						out[i] = static_cast<unsigned char>(static_cast<int>(leading_digit_pos) + 1 - i);
+					for (int32_t i = 2; i < static_cast<int32_t>(length); ++i)
+						out[i] = static_cast<uint8_t>(static_cast<int32_t>(leading_digit_pos) + 1 - i);
 				}
-				for (unsigned char i = 0; i < 4U; ++i)
-					out[length++] = static_cast<unsigned char>(static_cast<int>(exp_pos) + static_cast<int>(i));
+				for (uint8_t i = 0; i < 4U; ++i)
+					out[length++] = static_cast<uint8_t>(static_cast<int32_t>(exp_pos) + static_cast<int32_t>(i));
 				out[15] = length;
 			}
 		}
@@ -518,48 +524,48 @@ namespace {
 	// Each entry holds the byte positions of the leading zeros, decimal point,
 	// and end of output, indexed by the decimal exponent (dec_exp).
 	struct fixed_layout_table {
-		using traits					 = float_traits<double>;
-		static constexpr int num_entries = traits::max_fixed_dec_exp - traits::min_fixed_dec_exp + 1;
+		using traits						 = float_traits<double>;
+		static constexpr int32_t num_entries = traits::max_fixed_dec_exp - traits::min_fixed_dec_exp + 1;
 
 		// On AArch64, align entry to 32 bytes so indexing uses `lsl #5` not `umaddl`.
 		struct alignas(ZMIJ_AARCH64 && !ZMIJ_OPTIMIZE_SIZE ? 32 : 1) entry {
 			// Byte offset past leading "0.00..." before first significant digit.
-			unsigned char start_pos;
-			unsigned char point_pos;
+			uint8_t start_pos;
+			uint8_t point_pos;
 			// Start position for shifting digits right by one to insert the point.
-			unsigned char shift_pos;
+			uint8_t shift_pos;
 			// Offset past the end of fixed-notation output, indexed by sig length - 1.
-			unsigned char end_pos[traits::max_digits10];
+			uint8_t end_pos[traits::max_digits10];
 		};
-		entry data[num_entries] = {};
+		entry data[num_entries]{};
 
 		consteval fixed_layout_table() {
-			for (int dec_exp = traits::min_fixed_dec_exp; dec_exp <= traits::max_fixed_dec_exp; ++dec_exp) {
+			for (int32_t dec_exp = traits::min_fixed_dec_exp; dec_exp <= traits::max_fixed_dec_exp; ++dec_exp) {
 				auto& e = data[dec_exp - traits::min_fixed_dec_exp];
 
-				e.start_pos = dec_exp < 0 ? static_cast<unsigned char>(1 - dec_exp) : static_cast<unsigned char>(0);
-				e.point_pos = dec_exp >= 0 ? static_cast<unsigned char>(1 + dec_exp) : static_cast<unsigned char>(1);
-				e.shift_pos = static_cast<unsigned char>(static_cast<int>(e.point_pos) + (dec_exp >= 0 ? 1 : 0));
+				e.start_pos = dec_exp < 0 ? static_cast<uint8_t>(1 - dec_exp) : static_cast<uint8_t>(0);
+				e.point_pos = dec_exp >= 0 ? static_cast<uint8_t>(1 + dec_exp) : static_cast<uint8_t>(1);
+				e.shift_pos = static_cast<uint8_t>(static_cast<int32_t>(e.point_pos) + (dec_exp >= 0 ? 1 : 0));
 
-				for (int n = 1; n <= traits::max_digits10; ++n) {
-					int end_pos = n;
+				for (int32_t n = 1; n <= traits::max_digits10; ++n) {
+					int32_t end_pos = n;
 					if (dec_exp >= 0)
 						end_pos = n > dec_exp + 1 ? n + 1 : dec_exp + 1;
-					e.end_pos[n - 1] = static_cast<unsigned char>(end_pos);
+					e.end_pos[n - 1] = static_cast<uint8_t>(end_pos);
 				}
 			}
 		}
 
-		[[maybe_unused]] inline constexpr auto get(int dec_exp) const noexcept -> const entry& {
+		[[maybe_unused]] JSONIFIER_INLINE constexpr auto get(int32_t dec_exp) const noexcept -> const entry& {
 			constexpr auto min = traits::min_fixed_dec_exp;
-			return data[static_cast<unsigned>(dec_exp - min)];
+			return data[static_cast<uint32_t>(dec_exp - min)];
 		}
 	};
 
-	[[maybe_unused]] JSONIFIER_INLINE auto count_trailing_nonzeros(uint64_t x) noexcept -> int {
+	[[maybe_unused]] JSONIFIER_INLINE auto count_trailing_nonzeros(uint64_t x) noexcept -> int32_t {
 		if constexpr (is_big_endian)
 			x = bswap64(x);
-		return static_cast<int>((70ULL - static_cast<uint64_t>(clz((x << 1U) | 1ULL))) / 8ULL);
+		return static_cast<int32_t>((70ULL - static_cast<uint64_t>(clz((x << 1U) | 1ULL))) / 8ULL);
 	}
 
 	// Converts value in the range [0, 100) to a string. GCC generates a bit better
@@ -575,15 +581,15 @@ namespace {
 		return &data[value * 2ULL];
 	}
 
-	constexpr int div10k_exp	  = 40;
+	constexpr int32_t div10k_exp  = 40;
 	constexpr uint32_t div10k_sig = static_cast<uint32_t>((1ULL << div10k_exp) / 10000ULL + 1ULL);
 	constexpr uint32_t neg10k	  = static_cast<uint32_t>((1ULL << 32) - 10000ULL);
 
-	constexpr int div100_exp	  = 19;
+	constexpr int32_t div100_exp  = 19;
 	constexpr uint32_t div100_sig = (1U << div100_exp) / 100U + 1U;
 	constexpr uint32_t neg100	  = (1U << 16) - 100U;
 
-	constexpr int div10_exp		 = 10;
+	constexpr int32_t div10_exp	 = 10;
 	constexpr uint32_t div10_sig = (1U << div10_exp) / 10U + 1U;
 	constexpr uint32_t neg10	 = (1U << 8) - 10U;
 
@@ -622,8 +628,8 @@ namespace {
 
 		static constexpr uint64_t mul_const		  = 0xabcc77118461cefdULL;
 		static constexpr uint64_t hundred_million = 100000000ULL;
-		static constexpr int32x4 multipliers32	  = { static_cast<int32_t>(div10k_sig), neg10k, static_cast<int32_t>(div100_sig << 12), static_cast<int32_t>(neg100) };
-		static constexpr int16x8 multipliers16	  = { 0xce0, static_cast<int16_t>(neg10) };
+		static constexpr int32x4 multipliers32{ static_cast<int32_t>(div10k_sig), neg10k, static_cast<int32_t>(div100_sig << 12), static_cast<int32_t>(neg100) };
+		static constexpr int16x8 multipliers16{ 0xce0, static_cast<int16_t>(neg10) };
 #elif ZMIJ_USE_SSE
 		// Ordered so that the values used to format floats fit in a single cache
 		// line.
@@ -650,7 +656,7 @@ namespace {
 
 		// Shuffle indices for SIMD digit shift. Offset 0 = identity, offset 1 =
 		// shift left by 1 (drops the leading '0' of a 16-digit significand).
-		static constexpr unsigned char shift_shuffle[17] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0 };
+		static constexpr uint8_t shift_shuffle[17]{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0 };
 	};
 	alignas(64) constexpr data static_data{};
 
@@ -677,8 +683,8 @@ namespace {
 		uint64_t abcdefgh = static_cast<uint64_t>(umul128(value, static_data.mul_const) >> 90);
 		uint64_t ijklmnop = value - abcdefgh * hundred_million;
 
-		uint64x1_t ijklmnop_abcdefgh_64 = { (ijklmnop << 32) | abcdefgh };
-		int32x2_t abcdefgh_ijklmnop		= vreinterpret_s32_u64(ijklmnop_abcdefgh_64);
+		uint64x1_t ijklmnop_abcdefgh_64{ (ijklmnop << 32) | abcdefgh };
+		int32x2_t abcdefgh_ijklmnop = vreinterpret_s32_u64(ijklmnop_abcdefgh_64);
 
 		int32x2_t abcd_ijkl				 = vreinterpret_s32_u32(vshr_n_u32(vreinterpret_u32_s32(vqdmulh_n_s32(abcdefgh_ijklmnop, static_data.multipliers32[0])), 9U));
 		int32x2_t efgh_abcd_mnop_ijkl_32 = vmla_n_s32(abcdefgh_ijklmnop, abcd_ijkl, static_data.multipliers32[1]);
@@ -692,11 +698,11 @@ namespace {
 	using m128ptr = const __m128i*;
 
 	JSONIFIER_INLINE auto to_bcd_4x4(__m128i y) noexcept -> __m128i {
-		const __m128i div100_local = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div100);
-		const __m128i div10_local  = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div10);
+		const __m128i div100_local = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div100);
+		const __m128i div10_local  = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div10);
 	#if ZMIJ_USE_SSE4_1
-		const __m128i neg100_local = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg100);
-		const __m128i neg10_local  = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg10);
+		const __m128i neg100_local = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg100);
+		const __m128i neg10_local  = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg10);
 
 		__m128i z = _mm_add_epi64(y, _mm_mullo_epi32(neg100_local, _mm_srli_epi32(_mm_mulhi_epu16(y, div100_local), 3)));
 		return _mm_add_epi16(z, _mm_mullo_epi16(neg10_local, _mm_mulhi_epu16(z, div10_local)));
@@ -715,7 +721,7 @@ namespace {
 
 	struct bcd_result {
 		uint64_t bcd;
-		int len;
+		int32_t len;
 	};
 
 	[[maybe_unused]] JSONIFIER_INLINE auto to_bcd8(uint64_t abcdefgh) noexcept -> bcd_result {
@@ -739,7 +745,7 @@ namespace {
 #elif ZMIJ_USE_SSE4_1
 			uint64_t abcd_efgh		= abcdefgh + neg10k * ((abcdefgh * div10k_sig) >> div10k_exp);
 			uint64_t unshuffled_bcd = static_cast<uint64_t>(_mm_cvtsi128_si64(to_bcd_4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcd_efgh)))));
-			int len					= unshuffled_bcd != 0ULL ? 8 - static_cast<int>(ctz(unshuffled_bcd)) / 8 : 0;
+			int32_t len				= unshuffled_bcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffled_bcd)) / 8 : 0;
 			return { bswap64(unshuffled_bcd), len };
 #elif ZMIJ_USE_SSE
 			uint64_t abcd_efgh = (abcdefgh << 32) - 10000ULL * ((abcdefgh * div10k_sig) >> div10k_exp);
@@ -755,14 +761,14 @@ namespace {
 		}
 	}
 
-	template<int num_bits> struct dec_digits {
+	template<int32_t num_bits> struct dec_digits {
 		uint64_t digits;
 #if ZMIJ_USE_NEON
 		uint8x16_t unshuffled;
 #elif ZMIJ_USE_SSE4_1
 		__m128i unshuffled;
 #endif
-		int num_digits;
+		int32_t num_digits;
 	};
 
 	template<> struct dec_digits<64> {
@@ -774,10 +780,10 @@ namespace {
 		using digits_type = uint128;
 #endif
 		digits_type digits;
-		int num_digits;
+		int32_t num_digits;
 	};
 
-	template<int num_bits> JSONIFIER_INLINE auto to_digits(uint64_t value) noexcept -> dec_digits<num_bits> {
+	template<int32_t num_bits> JSONIFIER_INLINE auto to_digits(uint64_t value) noexcept -> dec_digits<num_bits> {
 #if !ZMIJ_USE_NEON && !ZMIJ_USE_SSE
 		uint32_t hi = static_cast<uint32_t>(value / 100'000'000ULL);
 		uint32_t lo = static_cast<uint32_t>(value % 100'000'000ULL);
@@ -797,8 +803,8 @@ namespace {
 		uint32_t hi = static_cast<uint32_t>(value / 100'000'000ULL);
 		uint32_t lo = static_cast<uint32_t>(value % 100'000'000ULL);
 
-		const __m128i div10k	   = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div10k);
-		const __m128i neg10k_local = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg10k);
+		const __m128i div10k	   = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.div10k);
+		const __m128i neg10k_local = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.neg10k);
 		__m128i x				   = _mm_set_epi64x(static_cast<int64_t>(hi), static_cast<int64_t>(lo));
 		__m128i y				   = _mm_add_epi64(x, _mm_mul_epu32(neg10k_local, _mm_srli_epi64(_mm_mul_epu32(x, div10k), div10k_exp)));
 
@@ -806,12 +812,12 @@ namespace {
 			y = _mm_shuffle_epi32(y, _MM_SHUFFLE(0, 1, 2, 3));
 
 		__m128i bcd				= to_bcd_4x4(y);
-		const __m128i zeros_val = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.zeros);
+		const __m128i zeros_val = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.zeros);
 
 		uint64_t mask = static_cast<uint64_t>(_mm_movemask_epi8(_mm_cmpgt_epi8(bcd, _mm_setzero_si128())));
-		int len		  = ZMIJ_USE_SSE4_1 ? 16 - static_cast<int>(ctz(mask)) : 64 - clz(mask);
+		int32_t len	  = ZMIJ_USE_SSE4_1 ? 16 - static_cast<int32_t>(ctz(mask)) : 64 - clz(mask);
 	#if ZMIJ_USE_SSE4_1
-		bcd = _mm_shuffle_epi8(bcd, jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.bswap));
+		bcd = _mm_shuffle_epi8(bcd, jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.bswap));
 	#endif
 		return { _mm_or_si128(bcd, zeros_val), len };
 #endif
@@ -822,14 +828,14 @@ namespace {
 		uint64_t abcd_efgh		= value + neg10k * ((value * div10k_sig) >> div10k_exp);
 		__m128i bcd_xmm			= to_bcd_4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcd_efgh)));
 		uint64_t unshuffled_bcd = static_cast<uint64_t>(_mm_cvtsi128_si64(bcd_xmm));
-		int len					= unshuffled_bcd != 0ULL ? 8 - static_cast<int>(ctz(unshuffled_bcd)) / 8 : 0;
+		int32_t len				= unshuffled_bcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffled_bcd)) / 8 : 0;
 		return { bswap64(unshuffled_bcd) + zeros, bcd_xmm, len };
 #elif ZMIJ_USE_NEON
 		uint64_t abcd_efgh		= value + neg10k * ((value * div10k_sig) >> div10k_exp);
 		int32x4_t input			= vcombine_s32(vreinterpret_s32_u64(vcreate_u64(abcd_efgh)), vdup_n_s32(0));
 		uint8x16_t unshuffled	= to_bcd_4x4(input);
 		uint64_t unshuffled_bcd = vget_lane_u64(vreinterpret_u64_u8(vget_low_u8(unshuffled)), 0);
-		int len					= unshuffled_bcd != 0ULL ? 8 - static_cast<int>(ctz(unshuffled_bcd)) / 8 : 0;
+		int32_t len				= unshuffled_bcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffled_bcd)) / 8 : 0;
 		return { bswap64(unshuffled_bcd) + zeros, unshuffled, len };
 #else
 		auto result = to_bcd8(value);
@@ -839,7 +845,7 @@ namespace {
 
 	JSONIFIER_INLINE void write_digits(jsonifier::string_buffer_ptr buffer, dec_digits<64>::digits_type digits, bool drop_leading_zero) noexcept {
 		if constexpr (!ZMIJ_USE_NEON && !ZMIJ_USE_SSE4_1) {
-			memcpy(buffer, &digits, sizeof(digits));
+			jsonifier::pow2_memcpy_wrapper<sizeof(digits)>(buffer, &digits);
 			memmove(buffer, buffer + (drop_leading_zero ? 1 : 0), sizeof(digits));
 			return;
 		}
@@ -854,19 +860,19 @@ namespace {
 	}
 
 	JSONIFIER_INLINE void write_digits(jsonifier::string_buffer_ptr buffer, uint64_t digits, bool drop_leading_zero) noexcept {
-		memcpy(buffer, &digits, sizeof(digits));
+		jsonifier::pow2_memcpy_wrapper<sizeof(digits)>(buffer, &digits);
 		memmove(buffer, buffer + (drop_leading_zero ? 1 : 0), sizeof(digits));
 	}
 
-	JSONIFIER_INLINE auto write_exp_float_simd(jsonifier::string_buffer_ptr buffer, const dec_digits<32>& dig, int last_digit, bool has_last_digit, bool has_extra_digit,
+	JSONIFIER_INLINE auto write_exp_float_simd(jsonifier::string_buffer_ptr buffer, const dec_digits<32>& dig, int32_t last_digit, bool has_last_digit, bool has_extra_digit,
 		[[maybe_unused]] uint64_t exp_data) noexcept -> jsonifier::string_buffer_ptr {
 		uint32_t prefix				   = (static_cast<uint32_t>('.') << 8) + static_cast<uint32_t>('0') + static_cast<uint32_t>(last_digit);
 		[[maybe_unused]] uint64_t tail = exp_data | (static_cast<uint64_t>(prefix) << 32);
 		auto entry					   = static_data.exp_float_shuffles.get_entry(dig.num_digits, has_last_digit, has_extra_digit);
 #if ZMIJ_USE_SSE4_1
-		__m128i ascii	= _mm_or_si128(dig.unshuffled, jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.zeros));
+		__m128i ascii	= _mm_or_si128(dig.unshuffled, jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&static_data.zeros));
 		__m128i src		= _mm_insert_epi64(ascii, static_cast<int64_t>(tail), 1);
-		__m128i shuffle = jsonifier::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(entry.shuffle);
+		__m128i shuffle = jsonifier::internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(entry.shuffle);
 		__m128i out		= _mm_shuffle_epi8(src, shuffle);
 		_mm_storeu_si128(std::bit_cast<__m128i*>(buffer), out);
 #elif ZMIJ_USE_NEON
@@ -879,15 +885,15 @@ namespace {
 		return buffer + entry.length;
 	}
 
-	[[maybe_unused]] JSONIFIER_INLINE auto write_exp_float_simd(jsonifier::string_buffer_ptr, const dec_digits<64>&, int, bool, bool, uint64_t) noexcept
+	[[maybe_unused]] JSONIFIER_INLINE auto write_exp_float_simd(jsonifier::string_buffer_ptr, const dec_digits<64>&, int32_t, bool, bool, uint64_t) noexcept
 		-> jsonifier::string_buffer_ptr {
 		return nullptr;
 	}
 
 	struct to_decimal_result {
 		long long sig;
-		int exp;
-		int last_digit		= 0;
+		int32_t exp;
+		int32_t last_digit	= 0;
 		bool has_last_digit = false;
 	};
 
@@ -895,56 +901,56 @@ namespace {
 	// Converts a binary FP number bin_sig * 2**bin_exp to the shortest decimal
 	// representation, where bin_exp = raw_exp - exp_offset.
 	template<typename Float, typename UInt> JSONIFIER_INLINE static auto to_decimal(UInt bin_sig, int64_t raw_exp, bool regular) noexcept -> to_decimal_result {
-		using traits			  = float_traits<Float>;
-		int64_t bin_exp			  = raw_exp - traits::exp_offset;
-		constexpr int num_bits	  = std::numeric_limits<UInt>::digits;
-		constexpr int extra_shift = exp_shift_table::extra_shift;
+		using traits				  = float_traits<Float>;
+		int64_t bin_exp				  = raw_exp - traits::exp_offset;
+		constexpr int32_t num_bits	  = std::numeric_limits<UInt>::digits;
+		constexpr int32_t extra_shift = exp_shift_table::extra_shift;
 
 		if (!regular) [[ZMIJ_UNLIKELY]] {
-			int dec_exp			= compute_dec_exp(static_cast<int>(bin_exp), false);
-			unsigned char shift = static_cast<unsigned char>(compute_exp_shift(static_cast<int>(bin_exp), dec_exp + 1) + extra_shift);
-			uint128 pow10		= static_data.pow10_significands[-dec_exp - 1];
-			uint128 p			= umul192_hi128(pow10.hi, pow10.lo, static_cast<uint64_t>(bin_sig) << shift);
+			int32_t dec_exp = compute_dec_exp(static_cast<int32_t>(bin_exp), false);
+			uint8_t shift	= static_cast<uint8_t>(compute_exp_shift(static_cast<int32_t>(bin_exp), dec_exp + 1) + extra_shift);
+			uint128 pow10	= static_data.pow10_significands[-dec_exp - 1];
+			uint128 p		= umul192_hi128(pow10.hi, pow10.lo, static_cast<uint64_t>(bin_sig) << shift);
 
 			long long integral	= static_cast<long long>(p.hi >> extra_shift);
 			uint64_t fractional = (p.hi << (64 - extra_shift)) | (p.lo >> extra_shift);
 
-			uint64_t half_ulp = pow10.hi >> (extra_shift + 1 - static_cast<int>(shift));
+			uint64_t half_ulp = pow10.hi >> (extra_shift + 1 - static_cast<int32_t>(shift));
 			bool round_up	  = half_ulp > ~uint64_t(0ULL) - fractional;
 			bool round_down	  = (half_ulp >> 1) > fractional;
 			integral += (round_up ? 1LL : 0LL);
 
-			int digit = static_cast<int>(umul128_add_hi64(fractional, 10ULL, (1ULL << 63) - 1ULL));
-			int lo	  = static_cast<int>(umul128_add_hi64(fractional - (half_ulp >> 1), 10ULL, ~uint64_t(0ULL)));
+			int32_t digit = static_cast<int32_t>(umul128_add_hi64(fractional, 10ULL, (1ULL << 63) - 1ULL));
+			int32_t lo	  = static_cast<int32_t>(umul128_add_hi64(fractional - (half_ulp >> 1), 10ULL, ~uint64_t(0ULL)));
 			if (digit < lo)
 				digit = lo;
 			return { integral, dec_exp, digit, (round_up || round_down) == false };
 		}
 
 		constexpr uint64_t log10_2_sig = 78'913ULL;
-		constexpr int log10_2_exp	   = 18;
-		int dec_exp =
-			use_umul128_hi64 ? static_cast<int>(umul128_hi64(static_cast<uint64_t>(bin_exp), log10_2_sig << (64 - log10_2_exp))) : compute_dec_exp(static_cast<int>(bin_exp));
+		constexpr int32_t log10_2_exp  = 18;
+		int32_t dec_exp				   = use_umul128_hi64 ? static_cast<int32_t>(umul128_hi64(static_cast<uint64_t>(bin_exp), log10_2_sig << (64 - log10_2_exp)))
+														  : compute_dec_exp(static_cast<int32_t>(bin_exp));
 		ZMIJ_ASM(("" : "+r"(dec_exp)));
-		unsigned char shift = static_cast<uint8_t>(exp_shift_table::enable ? static_data.exp_shifts.data[static_cast<std::size_t>(bin_exp + float_traits<double>::exp_offset)]
-																		   : compute_exp_shift(static_cast<int>(bin_exp), dec_exp + 1) + extra_shift);
-		uint64_t even		= 1ULL - static_cast<uint64_t>(bin_sig & 1U);
+		uint8_t shift = static_cast<uint8_t>(exp_shift_table::enable ? static_data.exp_shifts.data[static_cast<size_t>(bin_exp + float_traits<double>::exp_offset)]
+																	 : compute_exp_shift(static_cast<int32_t>(bin_exp), dec_exp + 1) + extra_shift);
+		uint64_t even = 1ULL - static_cast<uint64_t>(bin_sig & 1U);
 
 		if constexpr (num_bits == 32) {
-			constexpr int extra_shift_32 = 34;
-			shift						 = static_cast<unsigned char>(static_cast<int>(shift) + (extra_shift_32 - exp_shift_table::extra_shift));
-			uint64_t pow10_hi			 = static_data.pow10_significands[-dec_exp - 1].hi;
-			uint64_t p					 = umul128_hi64(pow10_hi + 1ULL, static_cast<uint64_t>(bin_sig) << shift);
+			constexpr int32_t extra_shift_32 = 34;
+			shift							 = static_cast<uint8_t>(static_cast<int32_t>(shift) + (extra_shift_32 - exp_shift_table::extra_shift));
+			uint64_t pow10_hi				 = static_data.pow10_significands[-dec_exp - 1].hi;
+			uint64_t p						 = umul128_hi64(pow10_hi + 1ULL, static_cast<uint64_t>(bin_sig) << shift);
 
 			long long integral	= static_cast<long long>(p >> extra_shift_32);
 			uint64_t fractional = p & ((1ULL << extra_shift_32) - 1ULL);
 
-			uint64_t half_ulp = (pow10_hi >> (65 - static_cast<int>(shift))) + even;
+			uint64_t half_ulp = (pow10_hi >> (65 - static_cast<int32_t>(shift))) + even;
 			bool round_up	  = ((fractional + half_ulp) >> extra_shift_32) != 0ULL;
 			bool round_down	  = half_ulp > fractional;
 			integral += (round_up ? 1LL : 0LL);
 
-			int digit = static_cast<int>((fractional * 10ULL + (1ULL << (extra_shift_32 - 1))) >> extra_shift_32);
+			int32_t digit = static_cast<int32_t>((fractional * 10ULL + (1ULL << (extra_shift_32 - 1))) >> extra_shift_32);
 			if (fractional == (1ULL << (extra_shift_32 - 2))) [[ZMIJ_UNLIKELY]]
 				digit = 2;
 			return { integral, dec_exp, digit, (round_up || round_down) == false };
@@ -955,12 +961,12 @@ namespace {
 			long long integral	= static_cast<long long>(p.hi >> extra_shift);
 			uint64_t fractional = (p.hi << (64 - extra_shift)) | (p.lo >> extra_shift);
 
-			uint64_t half_ulp = (pow10.hi >> (extra_shift + 1 - static_cast<int>(shift))) + even;
+			uint64_t half_ulp = (pow10.hi >> (extra_shift + 1 - static_cast<int32_t>(shift))) + even;
 			bool round_up	  = fractional + half_ulp < fractional;
 			bool round_down	  = half_ulp > fractional;
 			integral += (round_up ? 1LL : 0LL);
 
-			int digit = static_cast<int>(umul128_add_hi64(fractional, 10ULL, static_data.biased_half));
+			int32_t digit = static_cast<int32_t>(umul128_add_hi64(fractional, 10ULL, static_data.biased_half));
 			if (fractional == (1ULL << 62)) [[ZMIJ_UNLIKELY]]
 				digit = 2;
 			return { integral, dec_exp, digit, (round_up || round_down) == false };
@@ -979,7 +985,7 @@ namespace zmij {
 		auto negative = traits::is_negative(bits);
 		if (bin_exp == 0 || bin_exp == traits::exp_mask) [[ZMIJ_UNLIKELY]] {
 			if (bin_exp != 0)
-				return { static_cast<int64_t>(bin_sig), static_cast<int>(~0U >> 1U), negative };
+				return { static_cast<int64_t>(bin_sig), static_cast<int32_t>(~0U >> 1U), negative };
 			if (bin_sig == 0ULL)
 				return { 0LL, 0, negative };
 			bin_exp = 1;
@@ -1006,32 +1012,32 @@ namespace zmij {
 			uint64_t threshold = traits::num_bits == 64 ? d->threshold : 10000000ULL;
 
 			to_decimal_result dec;
-			bool is_normal = static_cast<unsigned>(bin_exp - 1LL) < static_cast<unsigned>(traits::exp_mask - 1);
+			bool is_normal = static_cast<uint32_t>(bin_exp - 1LL) < static_cast<uint32_t>(traits::exp_mask - 1);
 			if (!is_normal) [[ZMIJ_UNLIKELY]] {
 				if (bin_exp != 0) {
-					memcpy(buffer, bin_sig == 0ULL ? "inf" : "nan", 4);
+					jsonifier::pow2_memcpy_wrapper<4>(buffer, bin_sig == 0ULL ? "inf" : "nan");
 					return buffer + 3;
 				}
 				if (bin_sig == 0ULL) {
-					memcpy(buffer, "0", 2);
+					jsonifier::pow2_memcpy_wrapper<2>(buffer, "0");
 					return buffer + 1;
 				}
 				dec				  = ::to_decimal<Float>(bin_sig, 1LL, true);
 				long long dec_sig = dec.sig * 10LL + static_cast<long long>(-static_cast<int32_t>(dec.has_last_digit) & dec.last_digit);
-				int dec_exp		  = dec.exp;
+				int32_t dec_exp	  = dec.exp;
 				while (dec_sig < static_cast<long long>(threshold)) {
 					dec_sig *= 10LL;
 					--dec_exp;
 				}
-				long long q	   = static_cast<long long>(::div10(static_cast<uint64_t>(dec_sig)));
-				int last_digit = static_cast<int>(dec_sig - q * 10LL);
-				dec			   = { q, dec_exp, last_digit, last_digit != 0 };
+				long long q		   = static_cast<long long>(::div10(static_cast<uint64_t>(dec_sig)));
+				int32_t last_digit = static_cast<int32_t>(dec_sig - q * 10LL);
+				dec				   = { q, dec_exp, last_digit, last_digit != 0 };
 			} else {
 				dec = ::to_decimal<Float>(bin_sig | traits::implicit_bit, bin_exp, bin_sig != 0ULL);
 			}
 			bool has_last_digit	 = dec.has_last_digit;
 			bool has_extra_digit = dec.sig >= static_cast<long long>(threshold);
-			int dec_exp			 = dec.exp + traits::max_digits10 - 2 + (has_extra_digit ? 1 : 0);
+			int32_t dec_exp		 = dec.exp + traits::max_digits10 - 2 + (has_extra_digit ? 1 : 0);
 			if constexpr (traits::num_bits == 32) {
 				if (dec.sig < static_cast<long long>(1e6)) [[ZMIJ_UNLIKELY]] {
 					dec.sig		   = 10LL * dec.sig + static_cast<long long>(-static_cast<int32_t>(has_last_digit) & dec.last_digit);
@@ -1042,11 +1048,11 @@ namespace zmij {
 
 			jsonifier::string_buffer_ptr start = buffer;
 			auto dig						   = to_digits<traits::num_bits>(static_cast<uint64_t>(dec.sig));
-			constexpr int bcd_size			   = traits::num_bits == 64 ? 16 : 8;
+			constexpr int32_t bcd_size		   = traits::num_bits == 64 ? 16 : 8;
 			if (dec_exp >= traits::min_fixed_dec_exp && dec_exp <= traits::max_fixed_dec_exp) {
-				memcpy(start, &zeros, 8);
-				char last_digit_char = static_cast<char>(static_cast<int>('0') + (-static_cast<int32_t>(has_last_digit) & dec.last_digit));
-				int num_digits		 = has_last_digit ? bcd_size : dig.num_digits - 1;
+				jsonifier::pow2_memcpy_wrapper<8>(start, &zeros);
+				char last_digit_char = static_cast<char>(static_cast<int32_t>('0') + (-static_cast<int32_t>(has_last_digit) & dec.last_digit));
+				int32_t num_digits	 = has_last_digit ? bcd_size : dig.num_digits - 1;
 
 				const auto* fixed_layouts = &d->fixed_layouts;
 				if constexpr (ZMIJ_AARCH64)
@@ -1056,37 +1062,37 @@ namespace zmij {
 				buffer += layout.start_pos;
 				write_digits(buffer, dig.digits, !has_extra_digit);
 				buffer[bcd_size + (has_extra_digit ? 1 : 0) - 1] = last_digit_char;
-				unsigned point_pos								 = layout.point_pos;
+				uint32_t point_pos								 = layout.point_pos;
 				memmove(start + layout.shift_pos, start + point_pos, bcd_size);
 				start[point_pos] = '.';
-				return buffer + layout.end_pos[static_cast<std::size_t>(num_digits + (has_extra_digit ? 1 : 0) - 1)];
+				return buffer + layout.end_pos[static_cast<size_t>(num_digits + (has_extra_digit ? 1 : 0) - 1)];
 			}
 			if constexpr (traits::num_bits == 32 && exp_float_shuffle_table::enable) {
-				uint64_t exp_data = d->exp_strings.data[static_cast<std::size_t>(dec_exp + exp_string_table::offset)];
+				uint64_t exp_data = d->exp_strings.data[static_cast<size_t>(dec_exp + exp_string_table::offset)];
 				return write_exp_float_simd(buffer, dig, dec.last_digit, has_last_digit, has_extra_digit, exp_data);
 			} else {
 				buffer += (has_extra_digit ? 1 : 0);
-				memcpy(buffer, &dig.digits, bcd_size);
-				buffer[bcd_size] = static_cast<char>(static_cast<int>('0') + dec.last_digit);
+				jsonifier::pow2_memcpy_wrapper<bcd_size>(buffer, &dig.digits);
+				buffer[bcd_size] = static_cast<char>(static_cast<int32_t>('0') + dec.last_digit);
 				buffer += select(has_last_digit ? 1ULL : 0ULL, bcd_size + 1, dig.num_digits);
 				start[0] = start[1];
 				start[1] = '.';
 				buffer -= (buffer - 1 == start + 1 ? 1 : 0);
 
 				if constexpr (exp_string_table::enable) {
-					uint64_t exp_data = d->exp_strings.data[static_cast<std::size_t>(dec_exp + exp_string_table::offset)];
-					int len			  = static_cast<int>(exp_data >> 48);
+					uint64_t exp_data = d->exp_strings.data[static_cast<size_t>(dec_exp + exp_string_table::offset)];
+					int32_t len		  = static_cast<int32_t>(exp_data >> 48);
 					if constexpr (is_big_endian)
 						exp_data = bswap64(exp_data);
-					memcpy(buffer, &exp_data, traits::max_exponent10 >= 100 ? 8ULL : 4ULL);
+					jsonifier::pow2_memcpy_wrapper<(traits::max_exponent10 >= 100 ? 8ULL : 4ULL)>(buffer, &exp_data);
 					return buffer + len;
 				} else {
-					uint16_t e_sign =
-						static_cast<uint16_t>(dec_exp >= 0 ? (static_cast<int>('+') << 8 | static_cast<int>('e')) : (static_cast<int>('-') << 8 | static_cast<int>('e')));
+					uint16_t e_sign = static_cast<uint16_t>(
+						dec_exp >= 0 ? (static_cast<int32_t>('+') << 8 | static_cast<int32_t>('e')) : (static_cast<int32_t>('-') << 8 | static_cast<int32_t>('e')));
 					if constexpr (is_big_endian) {
-						e_sign = static_cast<uint16_t>((static_cast<int>(e_sign) << 8) | (static_cast<int>(e_sign) >> 8));
+						e_sign = static_cast<uint16_t>((static_cast<int32_t>(e_sign) << 8) | (static_cast<int32_t>(e_sign) >> 8));
 					} else {
-						memcpy(buffer, &e_sign, 2);
+						jsonifier::pow2_memcpy_wrapper<2>(buffer, &e_sign);
 						buffer += 2;
 						dec_exp = dec_exp >= 0 ? dec_exp : -dec_exp;
 						if constexpr (traits::max_exponent10 >= 100) {
@@ -1094,9 +1100,9 @@ namespace zmij {
 															  : static_cast<uint32_t>((static_cast<uint32_t>(dec_exp) * div100_sig) >> div100_exp);
 							*buffer		   = static_cast<char>(static_cast<uint32_t>('0') + digit);
 							buffer += (dec_exp >= 100 ? 1 : 0);
-							dec_exp -= static_cast<int>(digit * 100U);
+							dec_exp -= static_cast<int32_t>(digit * 100U);
 						} else {
-							memcpy(buffer, digits2(static_cast<uint64_t>(dec_exp)), 2);
+							jsonifier::pow2_memcpy_wrapper<2>(buffer, digits2(static_cast<uint64_t>(dec_exp)));
 							return buffer + 2;
 						}
 					}

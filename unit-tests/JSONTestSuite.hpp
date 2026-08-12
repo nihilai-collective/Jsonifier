@@ -1,29 +1,13 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/JSONTestSuite.hpp
+ */
 #pragma once
 
-#include "common.hpp"
 #include "conformance.hpp"
+#include "common.hpp"
 
 namespace json_test_suite_tests {
 
@@ -322,9 +306,9 @@ namespace json_test_suite_tests {
 		conformance_tests::runConformanceTest<"n_structure_angle_bracket_null.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 			jsonifier::internal::parse_statuses::missing_object_start>(jsonTests["n_structure_angle_bracket_null.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_trailing_garbage.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_extra_array_close.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_unclosed_string.json", partial, knownOrder, nullTerminated, std::vector<std::string>,
 			jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["n_structure_array_with_unclosed_string.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_ascii-unicode-identifier.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
@@ -618,6 +602,7 @@ namespace json_test_suite_tests {
 		jsonTestSuiteYNTestsImpl<false, true, true>();
 		jsonTestSuiteYNTestsImpl<true, false, true>();
 		jsonTestSuiteYNTestsImpl<true, true, true>();
+		std::cout << "JSON Test Suite validation tests complete." << std::endl;
 	}
 
 }

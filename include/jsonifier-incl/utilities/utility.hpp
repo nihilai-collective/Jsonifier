@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/utility.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/containers/array.hpp>
@@ -27,10 +11,19 @@
 
 namespace jsonifier::internal {
 
+	template<typename value_type> using base_t = remove_cvref_t<value_type>;
+
 	alignas(64) static constexpr array<bool, 256ULL> whitespaceTable{ []() constexpr {
 		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\t')] = true;
 		returnValues[static_cast<uint64_t>(' ')]  = true;
+		returnValues[static_cast<uint64_t>('\n')] = true;
+		returnValues[static_cast<uint64_t>('\r')] = true;
+		return returnValues;
+	}() };
+
+	alignas(64) static constexpr array<bool, 256ULL> newlineTable{ []() constexpr {
+		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\n')] = true;
 		returnValues[static_cast<uint64_t>('\r')] = true;
 		return returnValues;
@@ -98,7 +91,22 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	template<concepts::uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
+		return static_cast<value_type&&>(t);
+	}
+
+	template<typename value_type>
+		requires(std::is_rvalue_reference_v<value_type>)
+	JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>&& t) noexcept {
+		static_assert(!std::is_lvalue_reference_v<value_type>, "value_type cannot be an lvalue reference (e.g., U&).");
+		return static_cast<value_type&&>(t);
+	}
+
+	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
+		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
+	}
+
+	template<uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
 		if constexpr (sizeof(value_type) == 1) {
 			return value;
 		} else if constexpr (sizeof(value_type) == 2) {
@@ -114,7 +122,18 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<concepts::uint_types auto valueNew> struct integral_constant {
+	template<uint64_t bytesProcessedNew, typename simd_type, typename integer_type_new, integer_type_new maskNew> struct type_holder {
+		static constexpr uint64_t bytesProcessed{ bytesProcessedNew };
+		static constexpr integer_type_new mask{ maskNew };
+		using type		   = simd_type;
+		using integer_type = integer_type_new;
+	};
+
+	template<typename value_type> struct get_int_type {
+		using type = jsonifier::internal::conditional_t<std::is_unsigned_v<value_type>, uint8_t, int8_t>;
+	};
+
+	template<uint_types auto valueNew> struct integral_constant {
 		using value_type				  = decltype(valueNew);
 		static constexpr value_type value = valueNew;
 
@@ -127,22 +146,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::uint_types auto index> using tag = integral_constant<index>;
-
-	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
-		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
-	}
-
-	template<uint64_t bytesProcessedNew, typename simd_type, typename integer_type_new, integer_type_new maskNew> struct type_holder {
-		static constexpr uint64_t bytesProcessed{ bytesProcessedNew };
-		static constexpr integer_type_new mask{ maskNew };
-		using type		   = simd_type;
-		using integer_type = integer_type_new;
-	};
-
-	template<typename value_type> struct get_int_type {
-		using type = jsonifier::internal::conditional_t<std::is_unsigned_v<value_type>, uint8_t, int8_t>;
-	};
+	template<uint_types auto index> using tag = integral_constant<index>;
 
 	template<uint64_t... indices> struct integer_sequence {};
 
@@ -187,28 +191,6 @@ namespace jsonifier::internal {
 	using make_stepped_range_sequence =
 		typename offset_sequence<step_sequence_t<make_integer_sequence<static_cast<decltype(end)>((end - start + step - 1) / step)>, step>, start>::type;
 
-	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
-		return static_cast<value_type&&>(t);
-	}
-
-	template<typename value_type>
-		requires(std::is_rvalue_reference_v<value_type>)
-	JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>&& t) noexcept {
-		static_assert(!std::is_lvalue_reference_v<value_type>, "value_type cannot be an lvalue reference (e.g., U&).");
-		return static_cast<value_type&&>(t);
-	}
-
-	template<auto function, typename variant_type, typename... arg_types, uint64_t... indices>
-	JSONIFIER_INLINE static constexpr void visitImpl(integer_sequence<indices...>, variant_type&& variant, arg_types&&... args) noexcept {
-		const auto idx = variant.index();
-		static_cast<void>(((idx == indices ? (function(std::get<indices>(internal::forward<variant_type>(variant)), internal::forward<arg_types>(args)...), true) : false) || ...));
-	}
-
-	template<auto function, typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
-		using seq_t = make_integer_sequence<std::variant_size_v<jsonifier::internal::remove_cvref_t<variant_type>>>;
-		visitImpl<function>(seq_t{}, internal::forward<variant_type>(variant), internal::forward<arg_types>(args)...);
-	}
-
 	template<template<auto...> typename functor_type, typename integer_sequence, auto...> struct functor_runner;
 
 	template<template<auto...> typename functor_type, uint64_t... indices, auto... values> struct functor_runner<functor_type, integer_sequence<indices...>, values...> {
@@ -231,11 +213,22 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02> JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) {
+	template<auto function, typename variant_type, typename... arg_types, uint64_t... indices>
+	JSONIFIER_INLINE static constexpr void visitImpl(integer_sequence<indices...>, variant_type&& variant, arg_types&&... args) noexcept {
+		const auto idx = variant.index();
+		static_cast<void>(((idx == indices ? (function(std::get<indices>(internal::forward<variant_type>(variant)), internal::forward<arg_types>(args)...), true) : false) || ...));
+	}
+
+	template<auto function, typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
+		using seq_t = make_integer_sequence<std::variant_size_v<base_t<variant_type>>>;
+		visitImpl<function>(seq_t{}, internal::forward<variant_type>(variant), internal::forward<arg_types>(args)...);
+	}
+
+	template<integral_t value_type01, integral_t value_type02> JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
 		return value1 > static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02> JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) {
+	template<integral_t value_type01, integral_t value_type02> JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) noexcept {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
@@ -249,26 +242,68 @@ namespace jsonifier::internal {
 		return returnVal;
 	}
 
+	template<typename value_type> struct digit_sizes;
+
+	template<uint64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 20 };
+	};
+
+	template<int64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 20 };
+	};
+
+	template<uint32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 10 };
+	};
+
+	template<int32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 11 };
+	};
+
+	template<uint16_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 5 };
+	};
+
+	template<int16_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 5 };
+	};
+
+	template<uint8_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 3 };
+	};
+
+	template<int8_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 3 };
+	};
+
+	template<float32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 32 };
+	};
+
+	template<float64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 32 };
+	};
+
 }
 
 #include <jsonifier-incl/containers/tuple.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
+	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
+	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

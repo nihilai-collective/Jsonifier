@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/number_utils.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/containers/allocator.hpp>
@@ -34,18 +18,18 @@ namespace jsonifier {
 
 	template<uint64_t> class jsonifier_core;
 
-	template<concepts::num_t value_type01> inline static string toString(const value_type01& value) noexcept {
+	template<internal::number_t value_type01> inline static string toString(const value_type01& value) noexcept {
 		string returnString{};
 		returnString.resize(64);
 		if constexpr (sizeof(value_type01) == 8) {
 			auto newPtr = internal::to_chars<value_type01>::impl(returnString.data(), value);
 			returnString.resize(static_cast<uint64_t>(newPtr - returnString.data()));
 		} else {
-			if constexpr (concepts::uint_types<value_type01>) {
+			if constexpr (internal::uint_types<value_type01>) {
 				uint64_t newValue{ static_cast<uint64_t>(value) };
-				auto newPtr = internal::to_chars<value_type01>::impl(returnString.data(), newValue);
+				auto newPtr = internal::to_chars<uint64_t>::impl(returnString.data(), newValue);
 				returnString.resize(static_cast<uint64_t>(newPtr - returnString.data()));
-			} else if constexpr (concepts::int_types<value_type01>) {
+			} else if constexpr (internal::int_types<value_type01>) {
 				int64_t newValue{ static_cast<int64_t>(value) };
 				auto newPtr = internal::to_chars<int64_t>::impl(returnString.data(), newValue);
 				returnString.resize(static_cast<uint64_t>(newPtr - returnString.data()));
@@ -63,7 +47,7 @@ namespace jsonifier {
 		if (stringNew.size() > 0) [[likely]] {
 			auto iter = static_cast<string_view_ptr>(stringNew.data());
 			auto end  = static_cast<string_view_ptr>(stringNew.data()) + stringNew.size();
-			internal::parseFloat(newValue, iter, end);
+			internal::float_parser<double>::parseFloat(newValue, iter, end);
 		}
 		return newValue;
 	}
@@ -118,16 +102,16 @@ namespace jsonifier::internal {
 	template<typename value_type_new, typename iterator> JSONIFIER_INLINE static bool parseNumber(value_type_new& value, iterator&& iter, iterator&& end) noexcept {
 		using value_type = value_type_new;
 
-		if constexpr (concepts::integer_t<value_type>) {
-			if constexpr (concepts::uint_types<value_type>) {
-				if constexpr (concepts::uint64_types<value_type>) {
+		if constexpr (integer_t<value_type>) {
+			if constexpr (uint_types<value_type>) {
+				if constexpr (uint64_types<value_type>) {
 					return integer_parser<value_type>::parseInt(value, iter, end);
 				} else {
 					uint64_t i;
 					return integer_parser<uint64_t>::parseInt(i, iter, end) ? (value = static_cast<value_type>(i), true) : false;
 				}
 			} else {
-				if constexpr (concepts::int64_types<value_type>) {
+				if constexpr (int64_types<value_type>) {
 					return integer_parser<value_type>::parseInt(value, iter, end);
 				} else {
 					int64_t i;
@@ -137,9 +121,9 @@ namespace jsonifier::internal {
 		} else {
 			if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
 				double temp;
-				return parseFloat(temp, iter, end) ? (value = static_cast<value_type>(temp), true) : false;
+				return internal::float_parser<double>::parseFloat(temp, iter, end) ? (value = static_cast<value_type>(temp), true) : false;
 			} else {
-				return parseFloat(value, iter, end);
+				return internal::float_parser<value_type>::parseFloat(value, iter, end);
 			}
 		}
 	}

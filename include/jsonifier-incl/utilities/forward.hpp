@@ -1,26 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/forward.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
@@ -33,6 +16,26 @@ namespace jsonifier::internal {
 	template<typename, template<typename...> typename> constexpr bool is_specialization_v = false;
 
 	template<template<typename...> typename value_type, typename... arg_types> constexpr bool is_specialization_v<value_type<arg_types...>, value_type> = true;
+
+	template<typename value_type> struct remove_const {
+		using type = value_type;
+	};
+
+	template<typename value_type> struct remove_const<const value_type> {
+		using type = value_type;
+	};
+
+	template<typename value_type> using remove_const_t = typename remove_const<value_type>::type;
+
+	template<typename value_type> struct remove_volatile {
+		using type = value_type;
+	};
+
+	template<typename value_type> struct remove_volatile<volatile value_type> {
+		using type = value_type;
+	};
+
+	template<typename value_type> using remove_volatile_t = typename remove_volatile<value_type>::type;
 
 	template<typename value_type> struct remove_cv {
 		using type = value_type;
@@ -94,18 +97,21 @@ namespace jsonifier::internal {
 
 	enum class avx_type { m128 = 0, m256 = 1, m512 = 2 };
 
-	template<avx_type type> struct avx_type_wrapper;
+	template<avx_type type> struct simd_type_wrapper;
 
-	template<> struct avx_type_wrapper<avx_type::m128> {
-		using type = jsonifier_simd_int_128;
+	template<> struct simd_type_wrapper<avx_type::m128> {
+		static constexpr auto simd_type = avx_type::m128;
+		using type						= jsonifier_simd_int_128;
 	};
 
-	template<> struct avx_type_wrapper<avx_type::m256> {
-		using type = jsonifier_simd_int_256;
+	template<> struct simd_type_wrapper<avx_type::m256> {
+		static constexpr auto simd_type = avx_type::m256;
+		using type						= jsonifier_simd_int_256;
 	};
 
-	template<> struct avx_type_wrapper<avx_type::m512> {
-		using type = jsonifier_simd_int_512;
+	template<> struct simd_type_wrapper<avx_type::m512> {
+		static constexpr auto simd_type = avx_type::m512;
+		using type						= jsonifier_simd_int_512;
 	};
 
 }

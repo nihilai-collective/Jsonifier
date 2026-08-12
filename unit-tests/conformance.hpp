@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/conformance.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -31,12 +15,13 @@ namespace conformance_tests {
 	inline static void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
+		parser.getErrors().clear();
 		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .validateUtf8 = true, .nullTerminated = nullTerminated }>(valueNew,
 			dataToParse);
 		rt_ut::unit_test<testName, true>::template assert_eq<parse_error>([&]() {
 			auto& errors = parser.getErrors();
 			for (auto& value: errors) {
-				std::cout << "Error: " << value << std::endl;
+				std::cout << "Error: " << value.reportError() << std::endl;
 			}
 			if (errors.size() > 0) {
 				return errors[0].operator jsonifier::internal::parse_statuses();
@@ -180,7 +165,7 @@ namespace conformance_tests {
 				jsonTests["fail68.json"].fileContents, parser);
 			runConformanceTest<"fail69.json", partial, knownOrder, nullTerminated, bool, jsonifier::internal::parse_statuses::invalid_bool_value>(
 				jsonTests["fail69.json"].fileContents, parser);
-			runConformanceTest<"fail70.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::no_input>(
+			runConformanceTest<"fail70.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
 				jsonTests["fail70.json"].fileContents, parser);
 			runConformanceTest<"fail71.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::invalid_string_characters>(
 				jsonTests["fail71.json"].fileContents, parser);
@@ -277,6 +262,7 @@ namespace conformance_tests {
 		conformanceTestsImpl<false, true, true>();
 		conformanceTestsImpl<true, false, true>();
 		conformanceTestsImpl<true, true, true>();
+		std::cout << "Conformance validation tests complete." << std::endl;
 	}
 
 }

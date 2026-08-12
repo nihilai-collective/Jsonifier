@@ -1,31 +1,15 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/neon_stage1.hpp
+ */
+// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 
 #include <jsonifier-incl/simd/neon.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 
@@ -116,11 +100,7 @@ namespace jsonifier::simd {
 			return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
 		}
 
-		JSONIFIER_INLINE void finishNextNoInString() noexcept {
-			rope_block::inString = prevInString;
-		}
-
-		JSONIFIER_INLINE void finishNextInString() noexcept {
+		JSONIFIER_INLINE void finishNext() noexcept {
 			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
@@ -138,7 +118,7 @@ namespace jsonifier::simd {
 			const uint64_t quotes		  = (quotesLocal & ~escaped);
 			rope_block::escaped			  = escaped;
 			rope_block::quotes			  = quotes;
-			return quotes ? finishNextInString() : finishNextNoInString();
+			return finishNext();
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCodeImpl(const uint64_t potentialEscape) noexcept {
@@ -170,7 +150,7 @@ namespace jsonifier::simd {
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {
-			return static_cast<uint32_t>(simd::tzcnt(bits) + base);
+			return static_cast<uint32_t>(simd::countrZero(bits) + base);
 		}
 
 		JSONIFIER_INLINE static uint64_t advance(const uint64_t bits) noexcept {
@@ -178,7 +158,7 @@ namespace jsonifier::simd {
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
-			return static_cast<uint64_t>(popcnt(bits));
+			return static_cast<uint64_t>(popCount(bits));
 		}
 	};
 

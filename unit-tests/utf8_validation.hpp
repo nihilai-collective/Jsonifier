@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/utf8_validation.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -115,7 +99,7 @@ namespace utf8_validation_tests {
 			return buffer;
 		}
 
-	  private:
+	  protected:
 		std::vector<uint8_t> buffer;
 	};
 
@@ -142,16 +126,8 @@ namespace utf8_validation_tests {
 		jsonifier::string_view_ptr string1Start = std::bit_cast<jsonifier::string_view_ptr>(sourceScratch.data());
 		jsonifier::string_buffer_ptr string2	= destScratch.data();
 		using scanner_type						= jsonifier::internal::string_scanner<utf8ValidatedOpts>;
-		const auto res							= scanner_type::impl(string1Start, string1Start + sourceScratch.size());
-		if (!res.valid) {
-			return false;
-		}
-		if (res.firstEscape == scanner_type::npos) {
-			std::memcpy(string2, string1Start, res.rawLength);
-			return true;
-		}
-		std::memcpy(string2, string1Start, res.firstEscape);
-		return scanner_type::unescapeImpl(string1Start + res.firstEscape, string1Start + res.rawLength, string2 + res.firstEscape) != nullptr;
+		const auto res							= scanner_type::impl(string1Start, string1Start + sourceScratch.size(), string2);
+		return res.outLength != std::numeric_limits<uint64_t>::max();
 	}
 
 	inline static bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {
@@ -766,6 +742,7 @@ namespace utf8_validation_tests {
 		runPageBoundaryFaultTest();
 #endif
 		runUtf8WidthTransitionSweep();
+		std::cout << "Utf8-validation validation tests complete." << std::endl;
 	}
 
 }

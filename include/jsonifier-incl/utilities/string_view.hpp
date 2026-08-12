@@ -1,33 +1,17 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-/// Feb 20, 2023
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/string_view.hpp
+ */
 #pragma once
 
+#include <jsonifier-incl/core/fastio.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 
 namespace jsonifier {
 
-class string_view_base {
+	class string_view_base {
 	  public:
 		using value_type			 = char;
 		using const_pointer			 = const value_type*;
@@ -54,24 +38,24 @@ class string_view_base {
 			*this = stringNew;
 		}
 
-		template<concepts::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base& operator=(value_type_newer&& stringNew) noexcept {
+		template<internal::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base& operator=(value_type_newer&& stringNew) noexcept {
 			dataVal = stringNew.data();
 			sizeVal = stringNew.size();
 			return *this;
 		}
 
-		template<concepts::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base(value_type_newer&& stringNew) noexcept {
+		template<internal::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base(value_type_newer&& stringNew) noexcept {
 			*this = stringNew;
 		}
 
-		template<typename value_type_newer, concepts::same_character_size<value_type>>
+		template<typename value_type_newer, internal::same_character_size<value_type>>
 		JSONIFIER_INLINE constexpr string_view_base& operator=(const value_type_newer& stringNew) noexcept {
 			dataVal = stringNew.data();
 			sizeVal = stringNew.size();
 			return *this;
 		}
 
-		template<typename value_type_newer, concepts::same_character_size<value_type>> JSONIFIER_INLINE constexpr string_view_base(const value_type_newer& stringNew) noexcept {
+		template<typename value_type_newer, internal::same_character_size<value_type>> JSONIFIER_INLINE constexpr string_view_base(const value_type_newer& stringNew) noexcept {
 			*this = stringNew;
 		}
 
@@ -170,7 +154,7 @@ class string_view_base {
 			string_base<size> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
-				std::memcpy(returnValue.data(), data(), returnValue.size());
+				memcpy_wrapper(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -179,7 +163,7 @@ class string_view_base {
 			std::basic_string<value_type_newer> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
-				std::memcpy(returnValue.data(), data(), returnValue.size());
+				memcpy_wrapper(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -193,7 +177,7 @@ class string_view_base {
 			return rhsLength == lhs.size() && internal::comparison::compare(lhs.data(), rhs, rhsLength);
 		}
 
-		template<concepts::string_t value_type_newer> JSONIFIER_INLINE friend bool operator==(const string_view_base& lhs, const value_type_newer& rhs) noexcept {
+		template<internal::string_t value_type_newer> JSONIFIER_INLINE friend bool operator==(const string_view_base& lhs, const value_type_newer& rhs) noexcept {
 			if (lhs.size() == rhs.size()) {
 				if (lhs.size() > 0) {
 					return internal::comparison::compare(lhs.data(), rhs.data(), rhs.size());
@@ -210,8 +194,13 @@ class string_view_base {
 
 	using string_view = string_view_base;
 
+	template<size_t buffer_size> JSONIFIER_INLINE static internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
+		os << std::basic_string_view<char>{ input.data(), input.size() };
+		return os;
+	}
+
 	JSONIFIER_INLINE static std::ostream& operator<<(std::ostream& os, const string_view& input) noexcept {
-		os.write(input.data(), static_cast<std::streamsize>(input.size()));
+		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
 
@@ -219,4 +208,4 @@ class string_view_base {
 		return string_view(stringNew, lengthNew);
 	}
 
-}// namespace jsonifier
+}

@@ -1,26 +1,9 @@
 /*
-	MIT License
-
-	Copyright (iter) 2023 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-/// Most of the code in this header was developed in collaboration with Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/str_to_i.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/containers/allocator.hpp>
@@ -68,7 +51,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type> struct integer_parser;
 
-	template<concepts::int_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
+	template<int_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
 		constexpr integer_parser() noexcept = default;
 
 		JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
@@ -120,12 +103,12 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static const uint8_t* parseFraction(value_type& value, const uint8_t* iter) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				value_type fracValue{ static_cast<value_type>(*iter - zero) };
+			if (is_digit(*iter)) [[likely]] {
+				value_type fracValue{ static_cast<value_type>(*iter - static_cast<uint8_t>('0')) };
 				typename get_int_type<value_type>::type fracDigits{ 1 };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					fracValue = fracValue * 10 + static_cast<value_type>(*iter - zero);
+				while (is_digit(*iter)) {
+					fracValue = fracValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
 					++iter;
 					++fracDigits;
 				}
@@ -150,11 +133,11 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static const uint8_t* parseExponentPostFrac(value_type& value, const uint8_t* iter, int8_t expSign, value_type fracValue,
 			typename get_int_type<value_type>::type fracDigits) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				value_type expValue{ static_cast<value_type>(*iter - zero) };
+			if (is_digit(*iter)) [[likely]] {
+				value_type expValue{ static_cast<value_type>(*iter - static_cast<uint8_t>('0')) };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					expValue = expValue * 10 + static_cast<value_type>(*iter - zero);
+				while (is_digit(*iter)) {
+					expValue = expValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
 					++iter;
 				}
 				if (expValue < 19) [[likely]] {
@@ -182,11 +165,11 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static const uint8_t* parseExponent(value_type& value, const uint8_t* iter, int8_t expSign) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				value_type expValue{ static_cast<value_type>(*iter - zero) };
+			if (is_digit(*iter)) [[likely]] {
+				value_type expValue{ static_cast<value_type>(*iter - static_cast<uint8_t>('0')) };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					expValue = expValue * 10 + static_cast<value_type>(*iter - zero);
+				while (is_digit(*iter)) {
+					expValue = expValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
 					++iter;
 				}
 				if (expValue < 19) [[likely]] {
@@ -229,16 +212,16 @@ namespace jsonifier::internal {
 		template<bool negative> JSONIFIER_INLINE static const uint8_t* parseInteger(value_type& value, const uint8_t* iter) noexcept {
 			using v_type_local = std::make_unsigned_t<value_type>;
 			uint8_t numTmp{ *iter };
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = numTmp - zero;
+			if (is_digit(numTmp)) [[likely]] {
+				value = numTmp - static_cast<uint8_t>('0');
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
 				return nullptr;
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -255,12 +238,12 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (iter[-2] == zero) [[unlikely]] {
+			if (iter[-2] == static_cast<uint8_t>('0')) [[unlikely]] {
 				return nullptr;
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -277,8 +260,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -295,8 +278,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -313,8 +296,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -331,8 +314,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -349,8 +332,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -367,8 +350,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -385,8 +368,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -403,8 +386,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -421,8 +404,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -439,8 +422,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -457,8 +440,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -475,8 +458,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -493,8 +476,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -511,8 +494,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -529,8 +512,8 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -547,11 +530,11 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
+			if (is_digit(numTmp)) [[likely]] {
 				if (static_cast<uint64_t>(value) > static_cast<uint64_t>(compVals<value_type, negative>[numTmp])) [[unlikely]] {
 					return nullptr;
 				}
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -605,7 +588,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::uint_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
+	template<uint_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
 		constexpr integer_parser() noexcept = default;
 
 		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
@@ -657,12 +640,12 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static const uint8_t* parseFraction(value_type& value, const uint8_t* iter) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				value_type fracValue{ static_cast<value_type>(*iter - zero) };
+			if (is_digit(*iter)) [[likely]] {
+				value_type fracValue{ static_cast<value_type>(*iter - static_cast<uint8_t>('0')) };
 				typename get_int_type<value_type>::type fracDigits{ 1 };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					fracValue = fracValue * 10 + static_cast<value_type>(*iter - zero);
+				while (is_digit(*iter)) {
+					fracValue = fracValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
 					++iter;
 					++fracDigits;
 				}
@@ -687,11 +670,11 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static const uint8_t* parseExponentPostFrac(value_type& value, const uint8_t* iter, int8_t expSign, value_type fracValue,
 			typename get_int_type<value_type>::type fracDigits) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				int64_t expValue{ *iter - zero };
+			if (is_digit(*iter)) [[likely]] {
+				int64_t expValue{ *iter - static_cast<uint8_t>('0') };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					expValue = expValue * 10 + *iter - zero;
+				while (is_digit(*iter)) {
+					expValue = expValue * 10 + *iter - static_cast<uint8_t>('0');
 					++iter;
 				}
 				if (expValue <= 19) [[likely]] {
@@ -719,11 +702,11 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static const uint8_t* parseExponent(value_type& value, const uint8_t* iter, int8_t expSign) noexcept {
-			if (JSONIFIER_IS_DIGIT(*iter)) [[likely]] {
-				value_type expValue{ static_cast<value_type>(*iter - zero) };
+			if (is_digit(*iter)) [[likely]] {
+				value_type expValue{ static_cast<value_type>(*iter - static_cast<uint8_t>('0')) };
 				++iter;
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					expValue = expValue * 10 + static_cast<value_type>(*iter - zero);
+				while (is_digit(*iter)) {
+					expValue = expValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
 					++iter;
 				}
 				if (expValue <= 19) [[likely]] {
@@ -766,16 +749,16 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static const uint8_t* parseInteger(value_type& value, const uint8_t* iter) noexcept {
 			using v_type_local = std::make_unsigned_t<value_type>;
 			uint8_t numTmp{ *iter };
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(numTmp - zero);
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(numTmp - static_cast<uint8_t>('0'));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
 				return nullptr;
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -785,12 +768,12 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (iter[-2] == zero) [[unlikely]] {
+			if (iter[-2] == static_cast<uint8_t>('0')) [[unlikely]] {
 				return nullptr;
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -800,8 +783,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -811,8 +794,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -822,8 +805,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -833,8 +816,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -844,8 +827,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -855,8 +838,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -866,8 +849,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -877,8 +860,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -888,8 +871,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -899,8 +882,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -910,8 +893,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -921,8 +904,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -932,8 +915,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -943,8 +926,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -954,8 +937,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -965,8 +948,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -976,11 +959,11 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
+			if (is_digit(numTmp)) [[likely]] {
 				if (static_cast<uint64_t>(value) > static_cast<uint64_t>(compVals<value_type, false>[numTmp])) [[unlikely]] {
 					return nullptr;
 				}
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {
@@ -990,8 +973,8 @@ namespace jsonifier::internal {
 				return finishParse(value, iter);
 			}
 
-			if (JSONIFIER_IS_DIGIT(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - zero));
+			if (is_digit(numTmp)) [[likely]] {
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - static_cast<uint8_t>('0')));
 				++iter;
 				numTmp = *iter;
 			} else [[unlikely]] {

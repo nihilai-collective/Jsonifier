@@ -1,43 +1,17 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/core/jsonifier_core.hpp
+ */
 #pragma once
 
-#include <jsonifier-incl/parsing/validate_impl.hpp>
-#include <jsonifier-incl/serializing/serializer.hpp>
-#include <jsonifier-incl/serializing/prettifier.hpp>
-#include <jsonifier-incl/parsing/parser.hpp>
-#include <jsonifier-incl/utilities/error.hpp>
-#include <jsonifier-incl/utilities/printer.hpp>
-
-namespace jsonifier::internal {
-
-	template<typename derived_type_new> class parser;
-
-}
+#include <jsonifier-incl/core/prixon_core.hpp>
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public internal::json_printer,
+	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public prixon_core,
+																			  public internal::json_printer,
 																			  public internal::prettifier<jsonifier_core<initialBufferSize>>,
 																			  public internal::serializer<jsonifier_core<initialBufferSize>>,
 																			  public internal::validator<jsonifier_core<initialBufferSize>>,
@@ -53,37 +27,40 @@ namespace jsonifier {
 
 		jsonifier_core() noexcept = default;
 
+		jsonifier_core(jsonifier_core&& other) noexcept
+			: section(internal::move(other.section)), stringBuffer(internal::move(other.stringBuffer)), errors(internal::move(other.errors)) {
+		}
+
 		jsonifier_core& operator=(jsonifier_core&& other) noexcept {
 			if (this != &other) [[likely]] {
-				stringBuffer = internal::move(other.stringBuffer);
 				section		 = internal::move(other.section);
+				stringBuffer = internal::move(other.stringBuffer);
 				errors		 = internal::move(other.errors);
 			}
 			return *this;
 		}
 
-		jsonifier_core(jsonifier_core&& other) noexcept : prettifier{}, serializer{}, validator{}, minifier{}, parser{} {
-			*this = internal::move(other);
+		jsonifier_core(const jsonifier_core& other) noexcept : section(other.section), stringBuffer(other.stringBuffer), errors(other.errors) {
 		}
 
 		jsonifier_core& operator=(const jsonifier_core& other) noexcept {
 			if (this != &other) [[likely]] {
-				stringBuffer = other.stringBuffer;
 				section		 = other.section;
+				stringBuffer = other.stringBuffer;
 				errors		 = other.errors;
 			}
 			return *this;
 		}
 
-		jsonifier_core(const jsonifier_core& other) noexcept : prettifier{}, serializer{}, validator{}, minifier{}, parser{} {
-			*this = other;
-		}
+		~jsonifier_core() noexcept = default;
 
 		std::vector<internal::error>& getErrors() noexcept {
 			return errors;
 		}
 
-		~jsonifier_core() noexcept = default;
+		const std::vector<internal::error>& getErrors() const noexcept {
+			return errors;
+		}
 
 	  protected:
 		using comparator = internal::json_printer;

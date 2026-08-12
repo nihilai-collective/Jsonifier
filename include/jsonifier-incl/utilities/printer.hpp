@@ -1,52 +1,51 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/printer.hpp
+ */
 #pragma once
 
+#include <jsonifier-incl/core/fastio.hpp>
+#include <jsonifier-incl/utilities/raw_json_data.hpp>
 #include <jsonifier-incl/utilities/json_entity.hpp>
-#include <jsonifier-incl/parsing/validator.hpp>
 #include <jsonifier-incl/utilities/hash_map.hpp>
+#include <jsonifier-incl/parsing/validator.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
 
 namespace jsonifier::internal {
 
-	template<typename value_type, typename = void> struct json_printer_impl;
+	template<typename value_type, typename = void> struct print_impl;
 
-	struct json_printer {
-		template<typename value_type_new> inline static void printJson(value_type_new&& value, std::ostream& os, uint64_t depth = 0) noexcept {
+	struct print {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
-			os << "Printing Json" << std::endl;
-			json_printer_impl<value_type>::impl(internal::forward<value_type_new>(value), os, depth);
-		}
-
-		template<typename value_type_new> inline static void printJsonImpl(value_type_new&& value, std::ostream& os, uint64_t depth = 0) noexcept {
-			using value_type = remove_cvref_t<value_type_new>;
-			json_printer_impl<value_type>::impl(internal::forward<value_type_new>(value), os, depth);
+			print_impl<value_type>::impl(internal::forward<value_type_new>(value), os, depth);
 		}
 	};
 
-	inline void printIndent(std::ostream& os, uint64_t depth) noexcept {
+	struct json_printer {
+		template<typename value_type_new> inline static void printJson(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
+			os << "Printing Json" << endl;
+			print::impl(internal::forward<value_type_new>(value), os, depth);
+		}
+
+		template<typename value_type_new> inline static void printJsonImpl(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
+			print::impl(internal::forward<value_type_new>(value), os, depth);
+		}
+
+	  protected:
+		json_printer() noexcept							   = default;
+		json_printer& operator=(const json_printer& other) = delete;
+		json_printer(const json_printer& other)			   = delete;
+		json_printer& operator=(json_printer&& other)	   = delete;
+		json_printer(json_printer&& other)				   = delete;
+		~json_printer() noexcept						   = default;
+	};
+
+	inline void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
 		for (uint64_t x = 0; x < depth; ++x) {
 			os << "  ";
 		}
@@ -55,10 +54,10 @@ namespace jsonifier::internal {
 	template<typename entity_type> struct json_entity_print : public entity_type {
 		constexpr json_entity_print() = default;
 
-		template<typename value_type> inline static void processIndex(const value_type& value, std::ostream& os, uint64_t depth) {
+		template<typename value_type> inline static void processIndex(const value_type& value, basic_stream<>& os, uint64_t depth) {
 			printIndent(os, depth);
 			os << entity_type::name.operator std::string_view() << " (size: " << sizeof(decltype(value.*entity_type::memberPtr)) << "): ";
-			json_printer::printJsonImpl(value.*entity_type::memberPtr, os, depth + 1);
+			print::impl(value.*entity_type::memberPtr, os, depth + 1);
 		}
 	};
 
@@ -80,206 +79,258 @@ namespace jsonifier::internal {
 
 	template<typename value_type> using print_base_t = typename get_print_base<value_type, make_integer_sequence<coreTupleSize<value_type>>>::type;
 
-	template<concepts::jsonifier_object_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<jsonifier_object_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			static constexpr auto memberCount{ coreTupleSize<value_type> };
 			printIndent(os, depth);
-			os << "object (members: " << memberCount << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << std::endl;
+			os << "object (members: " << memberCount << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
 			if constexpr (memberCount > 0) {
 				print_base_t<remove_cvref_t<value_type>>::iterateValues(value, os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "}" << std::endl;
+			os << "}" << endl;
 		}
 	};
 
-	template<concepts::map_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<map_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			printIndent(os, depth);
-			os << "map (entries: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << std::endl;
+			os << "map (entries: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
 			for (auto iter = value.begin(); iter != value.end(); ++iter) {
 				printIndent(os, depth + 1);
 				os << "key: ";
-				json_printer::printJsonImpl(iter->first, os, depth + 1);
+				print::impl(iter->first, os, depth + 1);
 				printIndent(os, depth + 1);
 				os << "value: ";
-				json_printer::printJsonImpl(iter->second, os, depth + 1);
+				print::impl(iter->second, os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "}" << std::endl;
+			os << "}" << endl;
 		}
 	};
 
-	template<concepts::tuple_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<tuple_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			static constexpr auto size = std::tuple_size_v<remove_cvref_t<value_type>>;
 			printIndent(os, depth);
-			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << std::endl;
+			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
 			printElements<0, size>(value, os, depth + 1);
 			printIndent(os, depth);
-			os << "}" << std::endl;
+			os << "}" << endl;
 		}
 
-		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new> inline static void printElements(value_type_new&& value, std::ostream& os, uint64_t depth) {
+		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new> inline static void printElements(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			if constexpr (currentIndex < newSize) {
 				auto& sub = get<currentIndex>(value);
 				printIndent(os, depth);
 				os << "[" << currentIndex << "]: ";
-				json_printer::printJsonImpl(sub, os, depth + 1);
+				print::impl(sub, os, depth + 1);
 				printElements<currentIndex + 1, newSize>(value, os, depth);
 			}
 		}
 	};
 
-	template<concepts::vector_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<vector_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			const auto newSize = value.size();
 			printIndent(os, depth);
-			os << "vector (elements: " << newSize << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") [" << std::endl;
+			os << "vector (elements: " << newSize << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") [" << endl;
 			auto iter = getBeginIterVec(value);
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(newSize); ++index) {
 				printIndent(os, depth + 1);
 				os << "[" << index << "]: ";
-				json_printer::printJsonImpl(iter[index], os, depth + 1);
+				print::impl(iter[index], os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "]" << std::endl;
+			os << "]" << endl;
 		}
 	};
 
-	template<concepts::raw_array_t value_type> struct json_printer_impl<value_type> {
+	template<raw_array_t value_type> struct print_impl<value_type> {
 		template<template<typename, uint64_t> typename value_type_new, typename value_type_internal, uint64_t size>
-		inline static void impl(const value_type_new<value_type_internal, size>& value, std::ostream& os, uint64_t depth) {
+		inline static void impl(const value_type_new<value_type_internal, size>& value, basic_stream<>& os, uint64_t depth) {
 			printIndent(os, depth);
-			os << "array (elements: " << size << ", size: " << sizeof(value_type_new<value_type_internal, size>) << ") [" << std::endl;
+			os << "array (elements: " << size << ", size: " << sizeof(value_type_new<value_type_internal, size>) << ") [" << endl;
 			auto iter = getBeginIterVec(value);
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(size); ++index) {
 				printIndent(os, depth + 1);
 				os << "[" << index << "]: ";
-				json_printer::printJsonImpl(iter[index], os, depth + 1);
+				print::impl(iter[index], os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "]" << std::endl;
+			os << "]" << endl;
 		}
 	};
 
-	template<concepts::string_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << "\"" << value << "\" (length: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<string_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
+			os << "\"" << value << "\" (length: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
 		}
 	};
 
-	template<concepts::char_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << "'" << value << "' (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<char_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
+			os << "'" << value << "' (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
 		}
 	};
 
-	template<concepts::enum_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << static_cast<int64_t>(value) << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<enum_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
+			os << static_cast<int64_t>(value) << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
 		}
 	};
 
-	template<concepts::num_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << value << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<number_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
+			os << value << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
 		}
 	};
 
-	template<concepts::bool_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << (value ? "true" : "false") << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<bool_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
+			os << (value ? "true" : "false") << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
 		}
 	};
 
-	template<concepts::always_null_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&&, std::ostream& os, uint64_t) {
-			os << "null" << std::endl;
+	template<always_null_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&&, basic_stream<>& os, uint64_t) {
+			os << "null" << endl;
 		}
 	};
 
-	template<concepts::pointer_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
+	template<pointer_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) {
 			if (!value) {
-				os << "null" << std::endl;
+				os << "null" << endl;
 				return;
 			}
 			os << "* -> ";
-			json_printer::printJsonImpl(*value, os, depth);
+			print::impl(*value, os, depth);
 		}
 	};
 
-	template<concepts::unique_ptr_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<unique_ptr_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			if (!value) {
-				os << "null" << std::endl;
+				os << "null" << endl;
 				return;
 			}
 			os << "unique_ptr -> ";
-			json_printer::printJsonImpl(*value, os, depth);
+			print::impl(*value, os, depth);
 		}
 	};
 
-	template<concepts::shared_ptr_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<shared_ptr_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			if (!value) {
-				os << "null" << std::endl;
+				os << "null" << endl;
 				return;
 			}
 			os << "shared_ptr -> ";
-			json_printer::printJsonImpl(*value, os, depth);
+			print::impl(*value, os, depth);
 		}
 	};
 
-	template<concepts::optional_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<optional_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			if (!value) {
-				os << "nullopt" << std::endl;
+				os << "nullopt" << endl;
 				return;
 			}
-			json_printer::printJsonImpl(value.value(), os, depth);
+			print::impl(value.value(), os, depth);
 		}
 	};
 
-	template<concepts::variant_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+	template<variant_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			os << "variant (active index: " << value.index() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << "): ";
-			static constexpr auto lambda = [&](auto&& valueNewer) {
-				json_printer::printJsonImpl(valueNewer, os, depth);
+			static constexpr auto lambda = [](auto&& valueNewer, basic_stream<>& osNew, uint64_t depthNew) {
+				print::impl(valueNewer, osNew, depthNew);
 			};
-			visit<lambda>(value);
+			visit<lambda>(value, os, depth);
 		}
 	};
 
-	template<concepts::raw_json_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << "raw_json (length: " << value.rawJson().size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+	template<raw_json_t value_type> struct print_impl<value_type> {
+		inline static void printIndent(basic_stream<>& os, uint64_t depth) {
+			for (uint64_t x = 0; x < depth; ++x) {
+				os << "  ";
+			}
+		}
+
+		inline static void printNumber(const jsonifier::json_number& number, basic_stream<>& os) {
+			switch (static_cast<uint64_t>(number.getType())) {
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::uint64): {
+					os << number.getUint() << " (uint64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::int64): {
+					os << number.getInt() << " (int64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::double64): {
+					os << number.getDouble() << " (double64)";
+					return;
+				}
+				default: {
+					os << "<invalid number>";
+					return;
+				}
+			}
+		}
+
+		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
+			switch (static_cast<uint64_t>(value.getType())) {
+				case static_cast<uint64_t>(json_type::object): {
+					const auto& object = value.getObject();
+					os << "object (size: " << object.size() << ")" << endl;
+					for (const auto& [key, entry]: object) {
+						printIndent(os, depth + 1);
+						os << key << ": ";
+						impl(entry, os, depth + 1);
+					}
+					return;
+				}
+				case static_cast<uint64_t>(json_type::array): {
+					const auto& array = value.getArray();
+					os << "array (size: " << array.size() << ")" << endl;
+					for (uint64_t x = 0; x < array.size(); ++x) {
+						printIndent(os, depth + 1);
+						os << "[" << x << "]: ";
+						impl(array[x], os, depth + 1);
+					}
+					return;
+				}
+				case static_cast<uint64_t>(json_type::string): {
+					const auto& string = value.getString();
+					os << "\"" << string << "\" (length: " << string.size() << ")" << endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::number): {
+					printNumber(value.getNumber(), os);
+					os << endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::boolean): {
+					os << (value.getBool() ? "true" : "false") << endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::null): {
+					os << "null" << endl;
+					return;
+				}
+				default: {
+					os << "unset" << endl;
+					return;
+				}
+			}
 		}
 	};
 
-	template<concepts::skip_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&&, std::ostream& os, uint64_t) {
-			os << "skipped" << std::endl;
+	template<skip_t value_type> struct print_impl<value_type> {
+		template<typename value_type_new> inline static void impl(value_type_new&&, basic_stream<>& os, uint64_t) {
+			os << "skipped" << endl;
 		}
 	};
 
-	template<typename derived_type> class printer {
-	  public:
-		printer& operator=(const printer& other) = delete;
-		printer(const printer& other)			 = delete;
-
-		template<typename value_type> inline void printJsonImpl(value_type&& value, std::ostream& os = std::cout) noexcept {
-			json_printer::printJsonImpl(value, os);
-		}
-
-	  protected:
-		derived_type& derivedRef{ initializeSelfRef() };
-		printer() noexcept {
-		}
-		derived_type& initializeSelfRef() noexcept {
-			return *static_cast<derived_type*>(this);
-		}
-		~printer() noexcept = default;
-	};
 };

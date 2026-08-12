@@ -2,7 +2,7 @@ Third-Party Licenses
 
 This project bundles the following third-party components.
 
-fast_float (jsonifier_fast_float)
+fast_float (fast_float)
 
 MIT License
 

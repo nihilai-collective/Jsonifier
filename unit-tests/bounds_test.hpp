@@ -1,36 +1,17 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/bounds_test.hpp
+ */
 #pragma once
 
-#include "common.hpp"
 #include "parsing_tests.hpp"
-
-#include <random>
-#include <cstdint>
+#include "common.hpp"
 
 namespace bounds_tests {
 
-	class random_die {
+	struct random_die {
 	  public:
 		inline random_die() : seed{ static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) } {
 			seedState(seed);
@@ -54,7 +35,7 @@ namespace bounds_tests {
 		uint64_t seed;
 		uint64_t s[4];
 
-		inline static uint64_t rotl(uint64_t x, int k) {
+		inline static uint64_t rotl(uint64_t x, int32_t k) {
 			return (x << k) | (x >> (64 - k));
 		}
 
@@ -72,7 +53,7 @@ namespace bounds_tests {
 
 		inline void seedState(uint64_t seedVal) {
 			uint64_t z = seedVal;
-			for (int i = 0; i < 4; ++i) {
+			for (int32_t i = 0; i < 4; ++i) {
 				z += 0x9e3779b97f4a7c15ULL;
 				uint64_t x = z;
 				x		   = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -105,7 +86,7 @@ namespace bounds_tests {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
-		auto dataToParse = file_handle::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		auto dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		jsonifier::jsonifier_core<> parser{};
 		rt_ut::unit_test<testNameRtUt, true>::run(
 			[&](std::string s) {
@@ -114,6 +95,7 @@ namespace bounds_tests {
 					jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .validateUtf8 = true, .nullTerminated = nullTerminated }>(
 					jsonifierValue, s);
 				if (parser.getErrors().size()) {
+					std::cout << "FULL PARSE FAILURE: " << parser.getErrors()[0].reportError() << std::endl;
 					return false;
 				}
 				random_die randomDie{};
@@ -182,6 +164,7 @@ namespace bounds_tests {
 		boundsTestsImpl<false, true, true>();
 		boundsTestsImpl<true, false, true>();
 		boundsTestsImpl<true, true, true>();
+		std::cout << "Bounds truncation validation tests complete." << std::endl;
 	}
 
 }

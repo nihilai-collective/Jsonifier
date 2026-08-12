@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/round_trip.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -63,11 +47,11 @@ namespace round_trip_tests {
 		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .validateUtf8 = true, .nullTerminated = nullTerminated }>(valueNew,
 			dataToParse);
 		for (auto& value: parser.getErrors()) {
-			std::cout << "Jsonifier Error: " << value << std::endl;
+			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}
 		parser.serializeJson(valueNew, newString);
 		for (auto& value: parser.getErrors()) {
-			std::cout << "Jsonifier Error: " << value << std::endl;
+			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}
 		rt_ut::unit_test<testName, true>::run([&]() {
 			return parser.getErrors().size() == 0;
@@ -119,5 +103,6 @@ namespace round_trip_tests {
 		roundTripTestsImpl<false, true, true>();
 		roundTripTestsImpl<true, false, true>();
 		roundTripTestsImpl<true, true, true>();
+		std::cout << "Round trip validation tests complete." << std::endl;
 	}
 }
