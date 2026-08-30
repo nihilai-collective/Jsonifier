@@ -9,6 +9,8 @@
 
 namespace jsonifier::internal {
 
+	template<typename value_type> using base_t = remove_cvref_t<value_type>;
+
 	alignas(64) static constexpr array<bool, 256ULL> whitespaceTable{ []() constexpr {
 		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\t')] = true;
@@ -80,7 +82,7 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	template<concepts::uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
+	template<uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
 		if constexpr (sizeof(value_type) == 1) {
 			return value;
 		} else if constexpr (sizeof(value_type) == 2) {
@@ -96,7 +98,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<concepts::uint_types auto valueNew> struct integral_constant {
+	template<uint_types auto valueNew> struct integral_constant {
 		using value_type				  = decltype(valueNew);
 		static constexpr value_type value = valueNew;
 
@@ -109,7 +111,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::uint_types auto index> using tag = integral_constant<index>;
+	template<uint_types auto index> using tag = integral_constant<index>;
 
 	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
 		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
@@ -187,7 +189,7 @@ namespace jsonifier::internal {
 	}
 
 	template<auto function, typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
-		using seq_t = make_integer_sequence<std::variant_size_v<jsonifier::internal::remove_cvref_t<variant_type>>>;
+		using seq_t = make_integer_sequence<std::variant_size_v<base_t<variant_type>>>;
 		visitImpl<function>(seq_t{}, internal::forward<variant_type>(variant), internal::forward<arg_types>(args)...);
 	}
 
@@ -213,12 +215,12 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02>
+	template<integral_types value_type01, integral_types value_type02>
 	JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
 		return value1 > static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	template<concepts::integral_types value_type01, concepts::integral_types value_type02>
+	template<integral_types value_type01, integral_types value_type02>
 	JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) noexcept {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
@@ -237,22 +239,22 @@ namespace jsonifier::internal {
 
 #include <jsonifier-incl/containers/tuple.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
+	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::avx_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::avx_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::avx_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
+	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

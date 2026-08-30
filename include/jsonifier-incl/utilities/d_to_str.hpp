@@ -9,7 +9,7 @@
 
 namespace jsonifier::internal {
 
-	template<concepts::float_t value_type> struct to_chars<value_type> {
+	template<float_t value_type> struct to_chars<value_type> {
 		JSONIFIER_INLINE static string_buffer_ptr impl(string_buffer_ptr buf, value_type val) noexcept {
 			return zmij::detail::write(val, buf);
 		}

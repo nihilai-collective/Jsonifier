@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <jsonifier>
+#include <iostream>
 #include <fstream>
 #include <random>
 #include <array>
@@ -139,7 +140,7 @@ inline static bool processFilesInFolder(std::unordered_map<std::string, test_bas
 	return true;
 }
 
-class file_handle {
+class file_handler {
   public:
 	static void save_file(const std::string& data, const std::string& path) {
 		std::error_code errorCode{};

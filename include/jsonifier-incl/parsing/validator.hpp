@@ -10,19 +10,19 @@
 
 namespace jsonifier::internal {
 
-	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
 		return value + strLen(value);
 	}
 
-	template<concepts::pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
 		return std::bit_cast<string_view_ptr>(value);
 	}
 
-	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
 		return std::bit_cast<string_view_ptr>(value.data() + value.size());
 	}
 
-	template<concepts::has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
 		return std::bit_cast<string_view_ptr>(value.data());
 	}
 
@@ -34,7 +34,7 @@ namespace jsonifier::internal {
 		validator& operator=(const validator& other) = delete;
 		validator(const validator& other)			 = delete;
 
-		template<concepts::string_t string_type> inline bool validateJson(string_type&& in) noexcept {
+		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
 			static constexpr parse_options validateOpts{};
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);

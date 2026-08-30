@@ -49,7 +49,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type> struct integer_parser;
 
-	template<concepts::int_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
+	template<int_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
 		constexpr integer_parser() noexcept = default;
 
 		JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
@@ -586,7 +586,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::uint_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
+	template<uint_types value_type> struct integer_parser<value_type> : public pow_tables<>, public exp_tables<> {
 		constexpr integer_parser() noexcept = default;
 
 		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {

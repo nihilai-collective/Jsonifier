@@ -25,12 +25,11 @@ namespace jsonifier::internal {
 	static constexpr uint8_t overLong4	  = 1 << 6;
 	static constexpr uint8_t carry		  = tooShort | tooLong | twoConts;
 
-	using namespace jsonifier::simd;
-
-	static constexpr uint8_t byte1HighTableRaw[]{ tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts,
-		tooShort | overLong2, tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 };
+	using namespace jsonifier::internal::simd;
 
 	alignas(64) static constexpr array<uint8_t, simdBytesPerRegister> byte1HighTable{ [] {
+		const uint8_t byte1HighTableRaw[]{ tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts, tooShort | overLong2,
+			tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = byte1HighTableRaw[x % std::size(byte1HighTableRaw)];
@@ -38,12 +37,11 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	static constexpr uint8_t byte2LowTableRaw[]{ carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
-		carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000,
-		carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000 | surrogate, carry | tooLarge | tooLarge1000,
-		carry | tooLarge | tooLarge1000 };
-
 	alignas(64) static constexpr array<uint8_t, simdBytesPerRegister> byte1LowTable{ [] {
+		const uint8_t byte2LowTableRaw[]{ carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
+			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000,
+			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000 | surrogate, carry | tooLarge | tooLarge1000,
+			carry | tooLarge | tooLarge1000 };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = byte2LowTableRaw[x % std::size(byte2LowTableRaw)];
@@ -51,11 +49,10 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	static constexpr uint8_t byte2HighTableRaw[]{ tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
-		tooLong | overLong2 | twoConts | overLong3 | tooLarge1000 | overLong4, tooLong | overLong2 | twoConts | overLong3 | tooLarge,
-		tooLong | overLong2 | twoConts | surrogate | tooLarge, tooLong | overLong2 | twoConts | surrogate | tooLarge, tooShort, tooShort, tooShort, tooShort };
-
 	alignas(64) static constexpr array<uint8_t, simdBytesPerRegister> byte2HighTable{ [] {
+		const uint8_t byte2HighTableRaw[]{ tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
+			tooLong | overLong2 | twoConts | overLong3 | tooLarge1000 | overLong4, tooLong | overLong2 | twoConts | overLong3 | tooLarge,
+			tooLong | overLong2 | twoConts | surrogate | tooLarge, tooLong | overLong2 | twoConts | surrogate | tooLarge, tooShort, tooShort, tooShort, tooShort };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = byte2HighTableRaw[x % std::size(byte2HighTableRaw)];
@@ -63,7 +60,7 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	alignas(64) static constexpr uint8_t isIncompleteMax[64] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+	alignas(64) static constexpr uint8_t isIncompleteMax[64]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, static_cast<uint8_t>(0xF0u - 1), static_cast<uint8_t>(0xE0u - 1), static_cast<uint8_t>(0xC0u - 1) };
 

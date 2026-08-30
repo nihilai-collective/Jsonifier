@@ -9,12 +9,9 @@
 #include <source_location>
 #include <unordered_map>
 #include <algorithm>
-#include <iostream>
 #include <optional>
-#include <iomanip>
 #include <variant>
 #include <cstring>
-#include <sstream>
 #include <chrono>
 #include <cfloat>
 #include <atomic>
@@ -35,6 +32,7 @@
 	#include <windows.h>
 #elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC || JSONIFIER_PLATFORM_ANDROID
 	#include <sys/mman.h>
+	#include <unistd.h>
 #endif
 
 namespace jsonifier {

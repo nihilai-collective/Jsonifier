@@ -71,10 +71,6 @@ namespace jsonifier {
 
 namespace jsonifier {
 
-	#ifndef JSONIFIER_SVE2_VECTOR_BITS
-		#define JSONIFIER_SVE2_VECTOR_BITS 128
-	#endif
-
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "Jsonifier's SVE2 path is only implemented for a 128-bit vector length.");
 
 	static constexpr const char* cpu_arch_name{ "SVE2" };
@@ -102,13 +98,13 @@ namespace jsonifier {
 	static constexpr const char* cpu_arch_name{ "NEON" };
 
 	#if JSONIFIER_COMPILER_CLANG
-	static constexpr uint64_t simdTapeStep		= 4;
+	static constexpr uint64_t simdTapeStep		= 8;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#elif JSONIFIER_COMPILER_GCC
-	static constexpr uint64_t simdTapeStep		= 4;
+	static constexpr uint64_t simdTapeStep		= 8;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#else
-	static constexpr uint64_t simdTapeStep		= 1;
+	static constexpr uint64_t simdTapeStep		= 8;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#endif
 	using jsonifier_simd_int_128 = uint8x16_t;
@@ -122,7 +118,7 @@ namespace jsonifier {
 
 	static constexpr const char* cpu_arch_name{ "FALLBACK" };
 
-	using jsonifier_simd_int_128				= jsonifier::simd::simd_x;
+	using jsonifier_simd_int_128				= jsonifier::internal::simd::simd_x;
 	using jsonifier_simd_int_256				= uint32_t;
 	using jsonifier_simd_int_512				= uint64_t;
 	using jsonifier_simd_int_t					= jsonifier_simd_int_128;
@@ -135,13 +131,6 @@ namespace jsonifier {
 	template<typename value_type>
 	concept simd_int_sve2_type = std::same_as<std::remove_cvref_t<value_type>, jsonifier_simd_int_t>;
 #endif
-
-	template<typename value_type>
-	concept simd_int_512_type = sizeof(value_type) == 64;
-	template<typename value_type>
-	concept simd_int_256_type = sizeof(value_type) == 32;
-	template<typename value_type>
-	concept simd_int_128_type = sizeof(value_type) == 16;
 
 	static constexpr uint64_t registersPerBlock{ 64 / simdBytesPerRegister };
 	static constexpr uint64_t simdBytesPerBlock{ 64 };

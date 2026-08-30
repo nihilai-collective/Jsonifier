@@ -42,9 +42,6 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename context_type>
-	concept structural_context = requires(context_type ctx) { ctx.currentIterPtr(); };
-
 	template<typename derived_type_new> class parser {
 	  public:
 		friend class jsonifier::raw_json_data;
@@ -55,7 +52,7 @@ namespace jsonifier::internal {
 		parser(const parser& other)			   = delete;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
-		inline bool parseJsonForComparison(comparison_type&& object, buffer_type&& in) noexcept {
+		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
@@ -79,7 +76,7 @@ namespace jsonifier::internal {
 			return derivedRef.section.begin();
 		}
 
-		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			if constexpr (parseOpts.partialRead) {
 				auto rootIter = getBeginIter(in);

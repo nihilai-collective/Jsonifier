@@ -9,7 +9,7 @@
 
 namespace jsonifier::internal {
 
-	template<typename value_type_new, uint64_t size> struct sized_iterator {
+	template<typename value_type_new, uint64_t> struct sized_iterator {
 		using iterator_concept	= std::contiguous_iterator_tag;
 		using iterator_category = std::random_access_iterator_tag;
 		using element_type		= value_type_new;
@@ -18,10 +18,10 @@ namespace jsonifier::internal {
 		using pointer			= value_type*;
 		using reference			= value_type&;
 
-		JSONIFIER_INLINE constexpr sized_iterator() noexcept {
+		JSONIFIER_INLINE constexpr sized_iterator() noexcept : ptr{ nullptr } {
 		}
 
-		JSONIFIER_INLINE constexpr sized_iterator(pointer ptrNew) noexcept : ptr(ptrNew) {
+		JSONIFIER_INLINE constexpr sized_iterator(pointer ptrNew) noexcept : ptr{ ptrNew } {
 		}
 
 		JSONIFIER_INLINE constexpr reference operator*() const noexcept {

@@ -7,7 +7,7 @@
 
 #include <jsonifier-incl/simd/neon.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 

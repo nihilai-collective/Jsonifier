@@ -90,17 +90,19 @@ Jsonifier ships with a CPU feature-detection step baked into its CMake flow. Dur
 
 If you're bypassing CMake — pasting the headers into your project, using a hand-rolled Makefile, integrating into a non-CMake build system, or cross-compiling — you **must** manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` and set `JSONIFIER_CPU_INSTRUCTIONS` to the bitfield matching your target CPU:
 
-| Feature | Bit | Value |
-|---------|-----|-------|
-| POPCNT  | 0   | `1 << 0` = 1 |
-| LZCNT   | 1   | `1 << 1` = 2 |
-| BMI     | 2   | `1 << 2` = 4 |
-| NEON    | 3   | `1 << 3` = 8 |
-| AVX     | 4   | `1 << 4` = 16 |
-| AVX2    | 5   | `1 << 5` = 32 |
-| AVX-512 | 6   | `1 << 6` = 64 |
+| Feature   | Bit | Value |
+|-----------|-----|-------|
+| LZCNT     | 0   | `1 << 0` = 1 |
+| POPCNT    | 1   | `1 << 1` = 2 |
+| BMI       | 2   | `1 << 2` = 4 |
+| PCLMULQDQ | 3   | `1 << 3` = 8 |
+| NEON      | 4   | `1 << 4` = 16 |
+| AVX       | 5   | `1 << 5` = 32 |
+| AVX2      | 6   | `1 << 6` = 64 |
+| AVX-512   | 7   | `1 << 7` = 128 |
+| SVE2      | 8   | `1 << 8` = 256 |
 
-OR them together for the features your target supports. A modern x64 CPU with AVX-512 would be `1 | 2 | 4 | 16 | 32 | 64 = 119`. An ARM64 CPU with NEON would be `8`. A conservative fallback with no SIMD would be `0`.
+OR them together for the features your target supports. A modern x64 CPU with AVX-512 would be `1 | 2 | 4 | 8 | 32 | 64 | 128 = 239`. An ARM64 CPU with NEON would be `16`. A conservative fallback with no SIMD would be `0`.
 
 See the [CPU Architecture Selection](CPU_Architecture_Selection.md) page for the full breakdown and cross-compilation guidance.
 
@@ -130,7 +132,7 @@ By default, Jsonifier auto-detects the best available instruction set at configu
 If you need to override the auto-detected value even when using CMake — for example, when cross-compiling or building a portable binary for a different CPU baseline — set `JSONIFIER_CPU_INSTRUCTIONS` explicitly:
 
 ```cmake
-cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS=119
+cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS=239
 ```
 
 See the [CPU Architecture Selection](CPU_Architecture_Selection.md) page for the full details.

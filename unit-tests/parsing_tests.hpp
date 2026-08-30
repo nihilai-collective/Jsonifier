@@ -27,7 +27,7 @@ namespace parsing_tests {
 
 	template<test_types test_type, rt_ut::string_literal testNameNew, typename value_type> inline static void utilityTests(jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
-		std::string dataToParse = file_handle::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		value_type jsonifier_value;
 		if constexpr (test_type == test_types::minify) {
 			parser.minifyJson(dataToParse, jsonifier_value);
@@ -53,7 +53,7 @@ namespace parsing_tests {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
-		std::string dataToParse = file_handle::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		std::string serializedJson{};
 		value_type jsonifier_value;
 		parser.parseJson<

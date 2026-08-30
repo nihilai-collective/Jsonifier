@@ -7,7 +7,7 @@
 #include <jsonifier-incl/simd/simd_types.hpp>
 #include <jsonifier-incl/simd/bmi.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 

@@ -8,7 +8,7 @@
 #include <jsonifier-incl/simd/simd_types.hpp>
 #include <jsonifier-incl/simd/bmi.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) && \
 	!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)

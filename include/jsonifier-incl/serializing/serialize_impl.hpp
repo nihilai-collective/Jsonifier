@@ -12,7 +12,7 @@
 namespace jsonifier::internal {
 
 	template<typename value_type> consteval uint64_t getValueSize(value_type value) {
-		if constexpr (concepts::integral_types<value_type>) {
+		if constexpr (integral_types<value_type>) {
 			return sizeof(value_type);
 		} else {
 			return value.size();
@@ -37,7 +37,7 @@ namespace jsonifier::internal {
 		constexpr json_entity_size() noexcept = default;
 
 		template<typename value_type, typename context_type> JSONIFIER_INLINE static void processIndex(value_type& value, context_type& context) {
-			if constexpr (concepts::has_excluded_keys<value_type>) {
+			if constexpr (has_excluded_keys<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
 					return;
@@ -45,7 +45,7 @@ namespace jsonifier::internal {
 			}
 			context.requiredSize += objectEntrySize<options, json_entity_type::name>();
 			using v_type = remove_cv_t<decltype(getMember<json_entity_type::memberPtr>(value))>;
-			if constexpr (concepts::has_static_size<get_size_impl<v_type, options>>) {
+			if constexpr (has_static_size<get_size_impl<v_type, options>>) {
 				context.requiredSize += get_size_impl<v_type, options>::staticSize;
 			} else {
 				get_size<options>::impl(getMember<json_entity_type::memberPtr>(value), context);
@@ -79,7 +79,7 @@ namespace jsonifier::internal {
 	template<serialize_options options, typename value_type> using size_getter_base_t =
 		typename get_size_getter_base<options, value_type, make_integer_sequence<coreTupleSize<value_type>>>::type;
 
-	template<concepts::jsonifier_object_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<jsonifier_object_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> inline static void impl(value_type_new& value, size_context& context) noexcept {
 			static constexpr auto memberCount{ coreTupleSize<value_type> };
 
@@ -104,7 +104,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::map_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<map_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> inline static void impl(value_type_new& value, size_context& context) noexcept {
 			using key_type	   = remove_cvref_t<typename remove_cvref_t<value_type_new>::key_type>;
 			using mapped_type  = remove_cvref_t<typename remove_cvref_t<value_type_new>::mapped_type>;
@@ -120,16 +120,16 @@ namespace jsonifier::internal {
 				context.requiredSize += options.prettify ? (newSize - 1) * (2 + context.indent) : (newSize - 1);
 				context.requiredSize += newSize * (options.prettify ? 2 : 1);
 
-				if constexpr (concepts::has_static_size<get_size_impl<key_type, options>> && concepts::has_static_size<get_size_impl<mapped_type, options>>) {
+				if constexpr (has_static_size<get_size_impl<key_type, options>> && has_static_size<get_size_impl<mapped_type, options>>) {
 					context.requiredSize += newSize * (get_size_impl<key_type, options>::staticSize + get_size_impl<mapped_type, options>::staticSize);
-				} else if constexpr (concepts::has_static_size<get_size_impl<key_type, options>>) {
+				} else if constexpr (has_static_size<get_size_impl<key_type, options>>) {
 					context.requiredSize += newSize * get_size_impl<key_type, options>::staticSize;
 					auto iter	   = value.begin();
 					const auto end = value.end();
 					for (; iter != end; ++iter) {
 						get_size<options>::impl(iter->second, context);
 					}
-				} else if constexpr (concepts::has_static_size<get_size_impl<mapped_type, options>>) {
+				} else if constexpr (has_static_size<get_size_impl<mapped_type, options>>) {
 					context.requiredSize += newSize * get_size_impl<mapped_type, options>::staticSize;
 					auto iter	   = value.begin();
 					const auto end = value.end();
@@ -156,7 +156,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::vector_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<vector_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> inline static void impl(value_type_new& value, size_context& context) noexcept {
 			using elem_type	   = remove_cvref_t<typename remove_cvref_t<value_type_new>::value_type>;
 			const auto newSize = value.size();
@@ -174,7 +174,7 @@ namespace jsonifier::internal {
 					context.requiredSize += newSize - 1;
 				}
 
-				if constexpr (concepts::has_static_size<get_size_impl<elem_type, options>>) {
+				if constexpr (has_static_size<get_size_impl<elem_type, options>>) {
 					context.requiredSize += newSize * get_size_impl<elem_type, options>::staticSize;
 				} else {
 					auto iter = getBeginIterVec(value);
@@ -194,7 +194,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::raw_array_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<raw_array_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<template<typename, auto> typename value_type_new, typename value_type_internal, auto size>
 		JSONIFIER_INLINE static void impl(const value_type_new<value_type_internal, size>& value, size_context& context) noexcept {
 			using elem_type				  = remove_cvref_t<value_type_internal>;
@@ -207,7 +207,7 @@ namespace jsonifier::internal {
 				} else {
 					context.requiredSize += newSize;
 				}
-				if constexpr (concepts::has_static_size<get_size_impl<elem_type, options>>) {
+				if constexpr (has_static_size<get_size_impl<elem_type, options>>) {
 					context.requiredSize += newSize * get_size_impl<elem_type, options>::staticSize;
 				} else {
 					auto iter = getBeginIterVec(value);
@@ -226,7 +226,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::tuple_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<tuple_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr auto memberCount = tuple_size_v<value_type>;
 
 		template<auto... values> struct tuple_member_sizer {
@@ -263,7 +263,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::num_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<num_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 32 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -271,7 +271,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::enum_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<enum_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 32 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -279,14 +279,14 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::string_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<string_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
 			const auto newSize = value.size();
 			context.requiredSize += newSize * 6 + 2;
 		}
 	};
 
-	template<concepts::char_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<char_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 8 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -294,7 +294,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::bool_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<bool_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 5 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -302,7 +302,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::skip_or_always_null_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<skip_or_always_null_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 4 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -311,11 +311,11 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::any_pointer_or_optional_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<any_pointer_or_optional_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
 			if (value) {
 				using v_type = remove_cv_t<decltype(*value)>;
-				if constexpr (concepts::has_static_size<get_size_impl<v_type, options>>) {
+				if constexpr (has_static_size<get_size_impl<v_type, options>>) {
 					context.requiredSize += get_size_impl<v_type, options>::staticSize;
 				} else {
 					get_size<options>::impl(*value, context);
@@ -327,7 +327,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::raw_json_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<raw_json_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
 			const auto rawJson = value.rawJson();
 			const auto size	   = rawJson.size();
@@ -335,7 +335,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::variant_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<variant_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
 			static constexpr auto lambda = [](auto& valueNewer, auto& contextNew) {
 				get_size<options>::impl(valueNewer, contextNew);
@@ -453,7 +453,7 @@ namespace jsonifier::internal {
 		constexpr json_entity_serialize() noexcept = default;
 
 		template<typename value_type, typename context_type> JSONIFIER_INLINE static void processIndex(value_type& value, context_type& context) {
-			if constexpr (concepts::has_excluded_keys<value_type>) {
+			if constexpr (has_excluded_keys<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
 					return;
@@ -485,7 +485,7 @@ namespace jsonifier::internal {
 	template<serialize_options options, typename value_type, typename context_type> using serialize_base_t =
 		typename get_serialize_base<options, value_type, context_type, make_integer_sequence<coreTupleSize<value_type>>>::type;
 
-	template<concepts::jsonifier_object_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<jsonifier_object_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		using open_indent  = indent_table<"{\n", options.indentChar, options.indentSize>;
 		using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
 
@@ -518,7 +518,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::map_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<map_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		using open_indent  = indent_table<"{\n", options.indentChar, options.indentSize>;
 		using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 		using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
@@ -580,7 +580,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::vector_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<vector_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		using open_indent  = indent_table<"[\n", options.indentChar, options.indentSize>;
 		using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 		using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
@@ -623,7 +623,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::raw_array_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<raw_array_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		using open_indent  = indent_table<"[\n", options.indentChar, options.indentSize>;
 		using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 		using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
@@ -669,7 +669,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::tuple_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<tuple_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		using open_indent  = indent_table<"[\n", options.indentChar, options.indentSize>;
 		using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 		using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
@@ -712,7 +712,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::string_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<string_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		alignas(64) static constexpr char packedValues01[]{ "\"\"" };
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			const auto newSize = value.size();
@@ -729,7 +729,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::char_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<char_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			*context.bufferPtr = '"';
 			++context.bufferPtr;
@@ -741,21 +741,21 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::enum_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<enum_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			int64_t valueNew{ static_cast<int64_t>(value) };
 			serialize<options>::impl(valueNew, context);
 		}
 	};
 
-	template<concepts::num_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<num_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			if constexpr (sizeof(value_type) == 8) {
 				context.bufferPtr = to_chars<std::remove_cvref_t<value_type_new>>::impl(context.bufferPtr, value);
 			} else {
-				if constexpr (concepts::uint_types<std::remove_cvref_t<value_type_new>>) {
+				if constexpr (uint_types<std::remove_cvref_t<value_type_new>>) {
 					context.bufferPtr = to_chars<std::remove_cvref_t<uint64_t>>::impl(context.bufferPtr, static_cast<uint64_t>(value));
-				} else if constexpr (concepts::int_types<value_type>) {
+				} else if constexpr (int_types<value_type>) {
 					context.bufferPtr = to_chars<std::remove_cvref_t<int64_t>>::impl(context.bufferPtr, static_cast<int64_t>(value));
 				} else {
 					context.bufferPtr = to_chars<std::remove_cvref_t<double>>::impl(context.bufferPtr, static_cast<double>(value));
@@ -764,7 +764,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::bool_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<bool_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			alignas(64) static constexpr uint64_t falseVInt{ [] {
 				if constexpr (std::endian::native == std::endian::little) {
@@ -786,7 +786,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::any_pointer_or_optional_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<any_pointer_or_optional_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			if (value) {
 				serialize<options>::impl(*value, context);
@@ -798,7 +798,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::raw_json_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<raw_json_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			const auto rawJson = value.rawJson();
 			const auto size	   = rawJson.size();
@@ -807,7 +807,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::skip_or_always_null_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<skip_or_always_null_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&&, context_type& context) noexcept {
 			alignas(64) static constexpr char_blitter<"null"> nullV{};
 			std::memcpy(context.bufferPtr, &nullV.value, nullV.lengthToCopy);
@@ -815,7 +815,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<concepts::variant_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<variant_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			static constexpr auto lambda = [](auto&& valueNewer, auto&& contextNew) {
 				serialize<options>::impl(valueNewer, contextNew);

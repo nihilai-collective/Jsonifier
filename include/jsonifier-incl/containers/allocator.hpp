@@ -36,7 +36,7 @@ namespace jsonifier::internal {
 		standard,
 	};
 
-	template<typename value_type_new> class alloc_wrapper {
+	template<trivially_constructible_copyable_destructible_types value_type_new> class alloc_wrapper {
 	  public:
 		using value_type	   = value_type_new;
 		using pointer		   = value_type*;
@@ -155,10 +155,7 @@ namespace jsonifier::internal {
 			return static_cast<size_type>(-1) / sizeof(value_type);
 		}
 
-		JSONIFIER_INLINE static void destroy(pointer p) noexcept {
-			if constexpr (!std::is_trivially_destructible_v<value_type>) {
-				p->~value_type();
-			}
+		JSONIFIER_INLINE static void destroy(pointer) noexcept {
 		}
 
 		JSONIFIER_INLINE constexpr bool operator==(const alloc_wrapper&) const noexcept {

@@ -6,14 +6,14 @@
 
 #include <jsonifier-incl/core/config.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 	struct simd_x {
 	  public:
-		static constexpr uint64_t sixtyFourPer{ static_cast<uint64_t>(16) / sizeof(uint64_t) };
-		static constexpr uint64_t thirtyTwoPer{ static_cast<uint64_t>(16) / sizeof(uint32_t) };
-		static constexpr uint64_t sixteenPer{ static_cast<uint64_t>(16) / sizeof(uint16_t) };
-		static constexpr uint64_t eightPer{ static_cast<uint64_t>(16) / sizeof(uint8_t) };
+		static constexpr uint64_t sixtyFourPer{ 16ULL / sizeof(uint64_t) };
+		static constexpr uint64_t thirtyTwoPer{ 16ULL / sizeof(uint32_t) };
+		static constexpr uint64_t sixteenPer{ 16ULL / sizeof(uint16_t) };
+		static constexpr uint64_t eightPer{ 16ULL / sizeof(uint8_t) };
 
 		union alignas(16) storage_type {
 			uint64_t xUint64[sixtyFourPer];

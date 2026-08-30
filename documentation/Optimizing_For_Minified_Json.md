@@ -99,7 +99,7 @@ template<> struct jsonifier::core<event> {
         &value_type::topicIds>();
 };
 
-int32_t main() {
+int main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string minified_json = R"({"id":42,"name":"Concert","topicIds":[1,2,3]})";

@@ -137,7 +137,7 @@ template<> struct jsonifier::core<catalog> {
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
 
-int32_t main() {
+int main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string json = R"({"events":{"42":{"id":42,"name":"Concert","logo":null,"topicIds":[1,2,3]}},"schema-version":"1.0"})";

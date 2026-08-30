@@ -6,13 +6,13 @@
 
 #include <jsonifier-incl/utilities/utility.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
-	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
+	template<uint16_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
 		return static_cast<value_type>(value & (value - 1));
 	}
 
-	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
+	template<uint32_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI)
 		return static_cast<value_type>(_blsr_u32(value));
 #else
@@ -20,7 +20,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
+	template<uint64_types value_type> JSONIFIER_INLINE value_type blsr(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI)
 		return static_cast<value_type>(_blsr_u64(value));
 #else
@@ -28,7 +28,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
+	template<uint16_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return value == 0 ? static_cast<value_type>(16) : static_cast<value_type>(__builtin_ctz(value));
@@ -44,7 +44,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
+	template<uint32_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<value_type>(_tzcnt_u32(value));
@@ -62,7 +62,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
+	template<uint64_types value_type> JSONIFIER_INLINE value_type tzcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<value_type>(_tzcnt_u64(value));
@@ -80,7 +80,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
+	template<uint16_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<value_type>(__builtin_ctz(value));
@@ -96,7 +96,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
+	template<uint32_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<value_type>(_tzcnt_u32(value));
@@ -114,7 +114,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
+	template<uint64_types value_type> JSONIFIER_INLINE value_type tzcntUnsafe(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<value_type>(_tzcnt_u64(value));

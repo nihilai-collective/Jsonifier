@@ -24,12 +24,6 @@ namespace jsonifier::internal {
 		static constexpr uint64_t index{ indexNew };
 	};
 
-	template<typename value_type>
-	concept is_json_entity_temp = requires {
-		typename value_type::class_type;
-		value_type::memberPtr;
-	};
-
 	template<uint64_t maxIndex, uint64_t index, auto value> static constexpr decltype(auto) makeJsonEntityAuto() noexcept {
 		if constexpr (is_json_entity_temp<decltype(value)>) {
 			return json_entity<value.memberPtr, value.name, index, maxIndex>{};
@@ -38,9 +32,6 @@ namespace jsonifier::internal {
 			return json_entity<value, stringLiteralFromView<nameNew.size()>(nameNew), index, maxIndex>{};
 		}
 	}
-
-	template<typename value_type>
-	concept convertible_to_json_entity = is_json_entity_temp<value_type> || std::is_member_pointer_v<value_type>;
 
 	template<auto... values, uint64_t... indices> static constexpr auto createValueImpl(jsonifier::internal::integer_sequence<indices...>) {
 		static_assert((convertible_to_json_entity<decltype(values)> && ...), "All arguments passed to createValue must be convertible to a json_entity.");

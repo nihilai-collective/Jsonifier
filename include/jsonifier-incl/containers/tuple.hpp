@@ -6,14 +6,6 @@
 
 #include <jsonifier-incl/utilities/forward.hpp>
 
-#if JSONIFIER_COMPILER_MSVC
-	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
-	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
-#else
-	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
-	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[no_unique_address]]
-#endif
-
 namespace jsonifier::internal {
 
 	template<typename value_type>
@@ -48,7 +40,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t indexNew, derivable_types value_type_new> struct type_list_elem<indexNew, value_type_new>
-		: public std::remove_const_t<std::remove_volatile_t<value_type_new>> {
+		: public remove_const_t<remove_volatile_t<value_type_new>> {
 		using value_type = value_type_new;
 		static constexpr uint64_t index{ indexNew };
 
@@ -90,7 +82,7 @@ namespace jsonifier::internal {
 	template<typename... value_types> using type_list_t = typename tuple_type_list<make_integer_sequence<sizeof...(value_types)>, value_types...>::type;
 
 	template<uint64_t index, typename type_list_type> struct type_list_element {
-		using type = typename decltype(std::remove_pointer_t<std::remove_cvref_t<type_list_type>>::getForType(tag<index>{}))::value_type;
+		using type = typename decltype(remove_pointer_t<remove_cvref_t<type_list_type>>::getForType(tag<index>{}))::value_type;
 	};
 
 	template<uint64_t index, typename type_list_type> using type_list_element_t = type_list_element<index, type_list_type>::type;
@@ -183,13 +175,27 @@ namespace jsonifier::internal {
 		}
 	};
 
+	template<typename result_type_new> struct ordering_accumulator {
+		result_type_new value{ result_type_new::equivalent };
+
+		constexpr ordering_accumulator& operator=(result_type_new newValue) noexcept {
+			value = newValue;
+			return *this;
+		}
+
+		constexpr operator bool() const noexcept {
+			return std::is_eq(value);
+		}
+	};
+
 	template<uint64_t... indices> struct comparison_op<integer_sequence<indices...>, ss_op> {
 		template<template<typename...> typename tuple_type_01, typename... value_types_01, template<typename...> typename tuple_type_02, typename... value_types_02>
-		JSONIFIER_INLINE static constexpr auto impl(const tuple_type_01<value_types_01...>& t1, const tuple_type_02<value_types_02...>& t2) noexcept {
-			using result_type  = std::common_comparison_category_t<decltype(std::declval<value_types_01>() <=> std::declval<value_types_02>())...>;
-			result_type result = result_type::equivalent;
-			((result = ss_op::impl(t1[tag<indices>{}], t2[tag<indices>{}]), result != 0) || ...);
-			return result;
+		JSONIFIER_INLINE static constexpr auto impl(const tuple_type_01<value_types_01...>& t1, const tuple_type_02<value_types_02...>& t2) noexcept
+			-> std::common_comparison_category_t<decltype(std::declval<value_types_01>() <=> std::declval<value_types_02>())...> {
+			using result_type = std::common_comparison_category_t<decltype(std::declval<value_types_01>() <=> std::declval<value_types_02>())...>;
+			ordering_accumulator<result_type> result{};
+			((result = ss_op::impl(t1[tag<indices>{}], t2[tag<indices>{}])) && ...);
+			return result.value;
 		}
 	};
 
@@ -242,7 +248,7 @@ namespace jsonifier::internal {
 			return comparison_op<make_integer_sequence<sizeof...(value_types)>, neq_op>::impl(*this, other);
 		}
 
-		template<typename... other_types> JSONIFIER_INLINE constexpr uint64_t operator<=>(const tuple<other_types...>& other) const noexcept {
+		template<typename... other_types> JSONIFIER_INLINE constexpr decltype(auto) operator<=>(const tuple<other_types...>& other) const noexcept {
 			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
 			return comparison_op<make_integer_sequence<sizeof...(value_types)>, ss_op>::impl(*this, other);
 		}
@@ -311,7 +317,7 @@ namespace jsonifier::internal {
 
 	template<typename... value_type> struct tuple_size<std::tuple<value_type...>> : public integral_constant<sizeof...(value_type)> {};
 
-	template<typename tuple_type> static constexpr uint64_t tuple_size_v = tuple_size<std::remove_cvref_t<tuple_type>>::value;
+	template<typename tuple_type> static constexpr uint64_t tuple_size_v = tuple_size<remove_cvref_t<tuple_type>>::value;
 
 	template<typename... value_types> tuple(value_types&&...) -> tuple<value_types...>;
 
@@ -339,7 +345,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t indexNew, typename target_type, typename tuple_type> struct index_tag {
 		using element_type				 = type_list_element_t<indexNew, tuple_type>;
-		static constexpr bool isNotMatch = !std::is_same_v<std::remove_cvref_t<target_type>, std::remove_cvref_t<element_type>>;
+		static constexpr bool isNotMatch = !std::is_same_v<remove_cvref_t<target_type>, remove_cvref_t<element_type>>;
 		static constexpr uint64_t index{ isNotMatch ? std::numeric_limits<uint64_t>::max() : indexNew };
 		static constexpr completion_signal value{ index, isNotMatch };
 	};
@@ -357,7 +363,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename target_type, typename tuple_type> JSONIFIER_INLINE static constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
-		constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<std::remove_cvref_t<tuple_type>::size>>::index;
+		constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index;
 		return std::forward<tuple_type>(tupleVal)[tag<index>{}];
 	}
 
@@ -403,12 +409,13 @@ namespace jsonifier::internal {
 		using result_type	   = join_tuples_t<list_types...>;
 		using lists_tuple_type = type_list_t<list_types*...>;
 
-		static consteval auto getMapValues() {
+		struct tuple_cat_index_map {
+			uint64_t listIdx[total]{};
+			uint64_t localIdx[total]{};
+		};
+
+		static consteval tuple_cat_index_map getMapValues() {
 			if constexpr (total > 0) {
-				struct tuple_cat_index_map {
-					uint64_t listIdx[total]{};
-					uint64_t localIdx[total]{};
-				};
 				constexpr uint64_t sizes[]{ list_types::size... };
 				tuple_cat_index_map m{};
 				uint64_t g{};
@@ -463,6 +470,6 @@ namespace std {
 	template<uint64_t I, typename Ts>
 		requires(jsonifier::internal::is_specialization_of_v<remove_cvref_t<Ts>, jsonifier::internal::tuple>)
 	JSONIFIER_INLINE constexpr decltype(auto) get(Ts&& t) noexcept {
-		return jsonifier::internal::get<I>(t);
+		return jsonifier::internal::getBecauseOtherLibAuthorsResolve<I>(std::forward<Ts>(t));
 	}
 }

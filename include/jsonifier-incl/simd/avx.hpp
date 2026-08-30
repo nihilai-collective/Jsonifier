@@ -7,7 +7,7 @@
 #include <jsonifier-incl/simd/simd_types.hpp>
 #include <jsonifier-incl/simd/bmi.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
 
@@ -252,6 +252,10 @@ namespace jsonifier::simd {
 
 	template<simd_int_256_type simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE static simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {
 		return opOr(chunks.template get<0>(), chunks.template get<1>());
+	}
+
+	template<simd_int_256_type simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE static bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
+		return !simd::opTest(value);
 	}
 
 		#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)

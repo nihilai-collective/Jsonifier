@@ -54,7 +54,7 @@ namespace jsonifier::internal {
 		serializer& operator=(const serializer& other) = delete;
 		serializer(const serializer& other)			   = delete;
 
-		template<serialize_options optionsNew = serialize_options{}, typename value_type, concepts::buffer_like buffer_type>
+		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
 		inline bool serializeJsonDirect(value_type&& object, buffer_type&& buffer) noexcept {
 			static constexpr serialize_options options{ optionsNew };
 			serialize_context<decltype(buffer)> context{ buffer.data() };
@@ -62,7 +62,7 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<serialize_options optionsNew = serialize_options{}, typename value_type, concepts::buffer_like buffer_type>
+		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
 		inline bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};

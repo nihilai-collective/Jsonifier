@@ -10,7 +10,7 @@ Use `raw_json_data` as the destination for any JSON you don't want to (or can't)
 #include <jsonifier>
 #include <iostream>
 
-int32_t main() {
+int main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string json = R"({"name":"Concert","count":42,"tags":["music","live"]})";
@@ -63,7 +63,7 @@ Typed access is populated lazily — the first call to any typed accessor trigge
 
 ## Number Handling
 
-JSON has one number grammar, but C++ has three number families (signed integers, uint32_t integers, and floating-point). Jsonifier picks a type for each number in the input based on its shape:
+JSON has one number grammar, but C++ has three number families (signed integers, unsigned integers, and floating-point). Jsonifier picks a type for each number in the input based on its shape:
 
 - **Contains `.`, `e`, or `E`** → parsed as `double`
 - **Contains `-`** → parsed as `int64_t`
@@ -90,7 +90,7 @@ template<> struct jsonifier::core<message> {
         &value_type::payload>();
 };
 
-int32_t main() {
+int main() {
     jsonifier::jsonifier_core<> parser;
     message msg;
 
@@ -185,7 +185,7 @@ template<> struct jsonifier::core<discord_message> {
         &value_type::data>();
 };
 
-int32_t main() {
+int main() {
     jsonifier::jsonifier_core<> parser;
 
     std::string message_created = R"({

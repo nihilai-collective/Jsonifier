@@ -13,7 +13,7 @@
 
 namespace jsonifier::internal {
 
-	template<const uint8_t repeat, concepts::uint_types return_type> static constexpr return_type repeatByte() noexcept {
+	template<const uint8_t repeat, uint_types return_type> static constexpr return_type repeatByte() noexcept {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
@@ -298,39 +298,15 @@ namespace jsonifier::internal {
 
 	template<auto string> struct pack_values;
 
-	template<typename value_type>
-	concept equals_0 = value_type::length == 0;
-
-	template<typename value_type>
-	concept gt_0_lte_8 = value_type::length > 0 && value_type::length <= 8;
-
-	template<typename value_type>
-	concept gt_8 = value_type::length > 8;
-
-	template<typename value_type>
-	concept gt_0_lt_16 = value_type::length > 0 && value_type::length < 16;
-
-	template<typename value_type>
-	concept eq_16 = value_type::length == 16 && simdBytesPerRegister >= 16;
-
-	template<typename value_type>
-	concept eq_32 = value_type::length == 32 && simdBytesPerRegister >= 32;
-
-	template<typename value_type>
-	concept eq_64 = value_type::length == 64 && simdBytesPerRegister >= 64;
-
-	template<typename value_type>
-	concept gt_16 = value_type::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;
-
 	template<gt_0_lte_8 auto string> struct pack_values<string> {
 		static constexpr decltype(auto) gen() {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
 			for (uint64_t x = 0; x < string.length; ++x) {
 				if constexpr (std::endian::native == std::endian::little) {
-					returnValues |= static_cast<int_type>(static_cast<uint64_t>(string[x]) << ((x % 8) * 8));
+					returnValues |= static_cast<int_type>(static_cast<uint64_t>(static_cast<uint8_t>(string[x])) << ((x % 8) * 8));
 				} else {
-					returnValues |= static_cast<int_type>(static_cast<uint64_t>(string[x]) << (((sizeof(int_type) - 1 - (x % 8))) * 8));
+					returnValues |= static_cast<int_type>(static_cast<uint64_t>(static_cast<uint8_t>(string[x])) << (((sizeof(int_type) - 1 - (x % 8))) * 8));
 				}
 			}
 			return returnValues;
@@ -341,10 +317,10 @@ namespace jsonifier::internal {
 	template<gt_8 auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, get_int_length_v<string.size()>>;
 		static constexpr array_type gen() {
-			array_type out{};
+			array_type out_local{};
 			for (uint64_t i = 0; i < string.size(); ++i)
-				out[i] = static_cast<uint8_t>(string[i]);
-			return out;
+				out_local[i] = static_cast<uint8_t>(string[i]);
+			return out_local;
 		}
 		alignas(64) static constexpr auto value{ gen() };
 	};
@@ -403,7 +379,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew, typename = void> struct string_literal_comparitor;
+	template<typename sl_type, base_t<sl_type> stringNew, typename = void> struct string_literal_comparator_impl;
 
 	template<uint64_t... indices, auto stringNew, uint64_t split_mod> struct string_literal_splitter<integer_sequence<indices...>, stringNew, split_mod> {
 		static consteval string_status get_split_string_status(uint64_t index, uint64_t total_length) noexcept {
@@ -415,7 +391,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			return (static_cast<void>(
-						((str = string_literal_comparitor<decltype(string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string),
+						((str = string_literal_comparator_impl<decltype(string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string),
 							  string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string>::impl(str),
 							 str != nullptr) &&
 							...)),
@@ -423,13 +399,13 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<equals_0 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<equals_0 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			return str;
 		}
 	};
 
-	template<gt_0_lt_16 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<gt_0_lt_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
@@ -455,29 +431,36 @@ namespace jsonifier::internal {
 				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 6) {
 				static constexpr auto loString = stringLiteral.template substr<0, 4>();
-				static constexpr auto hiString = stringLiteral.template substr<4, 2>();
+				static constexpr auto hiString = stringLiteral.template substr<2, 4>();
 				static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
-				static constexpr uint16_t hiValuesNew{ pack_values<hiString>::value };
-				uint32_t lo;
-				uint16_t hi;
+				static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
+				uint32_t lo, hi;
 				std::memcpy(&lo, str, 4);
-				std::memcpy(&hi, str + 4, 2);
+				std::memcpy(&hi, str + 2, 4);
 				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 5) {
-				static constexpr uint32_t valuesNew{ static_cast<uint32_t>(pack_values<stringLiteral>::value) };
-				uint32_t l;
-				std::memcpy(&l, str, 4);
-				return (!(l ^ valuesNew) && (str[4] == stringLiteral[4])) ? str + newCount : nullptr;
+				static constexpr auto loString = stringLiteral.template substr<0, 4>();
+				static constexpr auto hiString = stringLiteral.template substr<1, 4>();
+				static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
+				static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
+				uint32_t lo, hi;
+				std::memcpy(&lo, str, 4);
+				std::memcpy(&hi, str + 1, 4);
+				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 4) {
 				static constexpr uint32_t valuesNew{ pack_values<stringLiteral>::value };
 				uint32_t l;
 				std::memcpy(&l, str, 4);
 				return !(l ^ valuesNew) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 3) {
-				static constexpr uint16_t valuesNew{ static_cast<uint16_t>(pack_values<stringLiteral>::value) };
-				uint16_t l;
-				std::memcpy(&l, str, 2);
-				return (!(l ^ valuesNew) && (str[2] == stringLiteral[2])) ? str + newCount : nullptr;
+				static constexpr auto loString = stringLiteral.template substr<0, 2>();
+				static constexpr auto hiString = stringLiteral.template substr<1, 2>();
+				static constexpr uint16_t loValuesNew{ pack_values<loString>::value };
+				static constexpr uint16_t hiValuesNew{ pack_values<hiString>::value };
+				uint16_t lo, hi;
+				std::memcpy(&lo, str, 2);
+				std::memcpy(&hi, str + 1, 2);
+				return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 			} else if constexpr (newCount == 2) {
 				static constexpr uint16_t valuesNew{ pack_values<stringLiteral>::value };
 				uint16_t l;
@@ -491,7 +474,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<eq_16 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<eq_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
@@ -503,7 +486,7 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 
-	template<eq_32 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<eq_32 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
@@ -516,18 +499,18 @@ namespace jsonifier::internal {
 #endif
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
-	template<eq_64 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<eq_64 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_512 data1{ simd::gatherValuesU<jsonifier_simd_int_512>(str) };
 			const jsonifier_simd_int_512 data2{ simd::gatherValues<jsonifier_simd_int_512>(valuesNew.data()) };
-			return simd::opTest(simd::opXor(data1, data2)) ? str + 64 : nullptr;
+			return simd::opCmpEq(data1, data2) == 0xFFFFFFFFFFFFFFFFULL ? str + 64 : nullptr;
 		}
 	};
 #endif
 
-	template<gt_16 sl_type, jsonifier::internal::remove_cvref_t<sl_type> stringNew> struct string_literal_comparitor<sl_type, stringNew, void> {
+	template<gt_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		static constexpr uint64_t split_mod{ getOffsetIntoLiteralSize(stringNew.size()) };
 		static constexpr auto string_count{ getSplitStringCount<split_mod>(stringNew) };
 
@@ -539,7 +522,7 @@ namespace jsonifier::internal {
 	template<auto string> struct string_literal_comparator {
 		JSONIFIER_INLINE static bool impl(string_view_ptr str, uint64_t string_length) noexcept {
 			using sl_type = decltype(string);
-			return string_length >= string.size() ? string_literal_comparitor<sl_type, string>::impl(str) != nullptr : false;
+			return string_length >= string.size() ? string_literal_comparator_impl<sl_type, string>::impl(str) != nullptr : false;
 		}
 	};
 

@@ -52,7 +52,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
 			structural_index_ptr __restrict tape, size_type strIdx) noexcept {
 			uint64_t offset = 0;
-			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[indices]), ...);
+			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
 		}
 	};
 

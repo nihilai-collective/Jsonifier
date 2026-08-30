@@ -9,7 +9,7 @@
 #include <jsonifier-incl/simd/popcount.hpp>
 #include <jsonifier-incl/simd/avx.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
 #if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 

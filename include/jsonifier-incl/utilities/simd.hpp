@@ -10,6 +10,7 @@
 #include <jsonifier-incl/simd/add_tape_values.hpp>
 #include <jsonifier-incl/simd/avx_stage1.hpp>
 #include <jsonifier-incl/simd/neon_stage1.hpp>
+#include <jsonifier-incl/core/fastio.hpp>
 
 namespace jsonifier::internal {
 
@@ -56,32 +57,32 @@ namespace jsonifier::internal {
 	};
 
 	inline static void printBitsAligned(uint64_t bits, string_view_ptr label, string_view_ptr str = nullptr, uint64_t len = 0) noexcept {
-		std::cout << label << ":" << std::endl;
+		out << label << ":" << endl;
 		if (str && len > 0) {
-			std::cout << "STR:  ";
+			out << "STR:  ";
 			for (uint64_t i = 0; i < std::min<uint64_t>(len, 64); ++i) {
 				char c = str[i];
 				if (c == '\n' || c == '\r' || c == '\t')
 					c = ' ';
-				std::cout << c;
+				out << c;
 			}
-			std::cout << std::endl;
+			out << endl;
 		}
-		std::cout << "BITS: ";
+		out << "BITS: ";
 		for (uint64_t i = 0; i < 64; ++i) {
-			std::cout << ((bits >> i) & 1ULL);
+			out << ((bits >> i) & 1ULL);
 		}
-		std::cout << std::endl;
-		std::cout << "IDX:  ";
+		out << endl;
+		out << "IDX:  ";
 		for (uint64_t i = 0; i < 64; ++i) {
-			std::cout << (i % 10);
+			out << (i % 10);
 		}
-		std::cout << std::endl;
-		std::cout << "TENS: ";
+		out << endl;
+		out << "TENS: ";
 		for (uint64_t i = 0; i < 64; ++i) {
-			std::cout << ((i / 10) % 10);
+			out << ((i / 10) % 10);
 		}
-		std::cout << std::endl << std::endl;
+		out << endl << endl;
 	}
 
 	struct rope_block {

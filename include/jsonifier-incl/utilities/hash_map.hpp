@@ -11,10 +11,11 @@
 #include <jsonifier-incl/utilities/reflection.hpp>
 #include <jsonifier-incl/utilities/get_enum_name.hpp>
 #include <jsonifier-incl/containers/tuple.hpp>
+#include <jsonifier-incl/core/fastio.hpp>
 
 namespace std {
 
-	template<jsonifier::concepts::string_t string_type> struct hash<string_type> : public std::hash<std::string_view> {
+	template<jsonifier::internal::string_t string_type> struct hash<string_type> : public std::hash<std::string_view> {
 		uint64_t operator()(const string_type& stringNew) const noexcept {
 			return std::hash<std::string_view>::operator()(std::string_view{ stringNew });
 		}
@@ -66,8 +67,8 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t length> using map_simd_t = typename jsonifier::internal::conditional_t<length >= 64 && simdBytesPerRegister >= 64, avx_type_wrapper<avx_type::m512>,
-		jsonifier::internal::conditional_t<length >= 32 && simdBytesPerRegister >= 32, avx_type_wrapper<avx_type::m256>, avx_type_wrapper<avx_type::m128>>>::type;
+	template<uint64_t length> using map_simd_t = typename jsonifier::internal::conditional_t<length >= 64 && simdBytesPerRegister >= 64, simd_type_wrapper<avx_type::m512>,
+		jsonifier::internal::conditional_t<length >= 32 && simdBytesPerRegister >= 32, simd_type_wrapper<avx_type::m256>, simd_type_wrapper<avx_type::m128>>>::type;
 
 	enum class hash_map_types : uint16_t {
 		unset						= 0,
@@ -143,6 +144,7 @@ namespace jsonifier::internal {
 	};
 
 	struct empty_data {
+		static constexpr uint64_t storageSize{ 0 };
 		template<uint64_t storageSizeNew> constexpr empty_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept : type{ newData.type } {
 		}
 		hash_map_types type{};
@@ -566,7 +568,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type> constexpr decltype(auto) collectMapConstructionData() noexcept {
 		constexpr auto& constructionData = mapConstructionData<value_type>;
-		constexpr auto storageSize		 = jsonifier::internal::remove_cvref_t<decltype(constructionData)>::storageSize;
+		constexpr auto storageSize		 = base_t<decltype(constructionData)>::storageSize;
 		static_assert(constructionData.type != hash_map_types::unset, "Failed to construct that hashmap!");
 		if constexpr (constructionData.type == hash_map_types::empty) {
 			return empty_data{ constructionData };
@@ -614,7 +616,8 @@ namespace jsonifier::internal {
 
 		~hash_map_type_tracker() {
 			for (auto& [key, value]: types) {
-				std::cout << "Type: " << key << ", Hash Map Type: " << value << std::endl;
+				auto name = getName(value);
+				out << "Type: " << key << ", Hash Map Type: " << std::string_view{ name.data(), name.size() } << endl;
 			}
 		}
 	};
@@ -644,7 +647,7 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			const uint64_t scanLen = (static_cast<uint64_t>(remaining) < subAmount02) ? static_cast<uint64_t>(remaining) : subAmount02;
-			return char_comparison<'"', jsonifier::internal::remove_cvref_t<decltype(*iter)>>::memchar(iter + subAmount01, scanLen);
+			return char_comparison<'"', base_t<decltype(*iter)>>::memchar(iter + subAmount01, scanLen);
 		}
 
 		template<typename iterator_type01, typename iterator_type02>

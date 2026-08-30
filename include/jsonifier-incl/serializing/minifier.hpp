@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 		inline minifier& operator=(const minifier& other) = delete;
 		inline minifier(const minifier& other)			  = delete;
 
-		template<concepts::string_t string_type> inline auto minifyJson(string_type&& in) noexcept {
+		template<string_t string_type> inline base_t<string_type> minifyJson(string_type&& in) noexcept {
 			if (derivedRef.stringBuffer.size() < in.size()) [[unlikely]] {
 				derivedRef.stringBuffer.resize(in.size());
 			}
@@ -51,22 +51,20 @@ namespace jsonifier::internal {
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			structural_index_ptr endStructural = derivedRef.section.end();
-			jsonifier::internal::remove_cvref_t<string_type> newString{};
+			base_t<string_type> newString{};
 			if (iter == endStructural) {
 				getErrors().emplace_back(error::constructError<status_classes::minifying, minify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
-				return newString;
-			}
-			auto index = impl(iter, endStructural, derivedRef.stringBuffer);
-			if (index != std::numeric_limits<uint64_t>::max()) {
-				newString.resize(index);
-				std::memcpy(newString.data(), derivedRef.stringBuffer.data(), index);
-				return newString;
 			} else {
-				return jsonifier::internal::remove_cvref_t<string_type>{};
+				auto index = impl(iter, endStructural, derivedRef.stringBuffer);
+				if (index != std::numeric_limits<uint64_t>::max()) {
+					newString.resize(index);
+					std::memcpy(newString.data(), derivedRef.stringBuffer.data(), index);
+				}
 			}
+			return newString;
 		}
 
-		template<concepts::string_t input_string_type, concepts::string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
+		template<string_t input_string_type, string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
 			if (derivedRef.stringBuffer.size() < in.size()) [[unlikely]] {
 				derivedRef.stringBuffer.resize(in.size());
 			}
@@ -112,20 +110,20 @@ namespace jsonifier::internal {
 			++currentDistance;
 		}
 
-		template<concepts::string_t string_type, typename iterator, typename iterator_end>
-		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& out) noexcept {
+		template<string_t string_type, typename iterator, typename iterator_end>
+		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer) noexcept {
 			using enum json_structural_type;
 			auto previousPtr = rootIter + *iter;
 			int64_t currentDistance{};
 			uint64_t index{};
 			++iter;
 
-			while (iter < endStructural) {
+			while (true) {
 				switch (static_cast<uint64_t>(jsonTypes[static_cast<uint8_t>(*previousPtr)])) {
 					case static_cast<uint64_t>(string): {
 						backTrackWs(currentDistance, previousPtr, iter);
 						if (currentDistance > 0) [[likely]] {
-							std::memcpy(&out[index], previousPtr, static_cast<uint64_t>(currentDistance));
+							std::memcpy(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
 							index += static_cast<uint64_t>(currentDistance);
 						} else {
 							getErrors().emplace_back(jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::invalid_string_length>(rootIter, &rootIter[*iter], endIter));
@@ -134,7 +132,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(comma): {
-						out[index] = ',';
+						outBuffer[index] = ',';
 						++index;
 						break;
 					}
@@ -143,7 +141,7 @@ namespace jsonifier::internal {
 						while (!whitespaceTable[static_cast<uint8_t>(previousPtr[++currentDistance])] && ((previousPtr + currentDistance) < (rootIter + *iter))) {
 						}
 						if (currentDistance > 0) [[likely]] {
-							std::memcpy(&out[index], previousPtr, static_cast<uint64_t>(currentDistance));
+							std::memcpy(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
 							index += static_cast<uint64_t>(currentDistance);
 						} else {
 							getErrors().emplace_back(
@@ -153,45 +151,45 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(colon): {
-						out[index] = ':';
+						outBuffer[index] = ':';
 						++index;
 						break;
 					}
 					case static_cast<uint64_t>(array_start): {
-						out[index] = '[';
+						outBuffer[index] = '[';
 						++index;
 						break;
 					}
 					case static_cast<uint64_t>(array_end): {
-						out[index] = ']';
+						outBuffer[index] = ']';
 						++index;
 						break;
 					}
 					case static_cast<uint64_t>(null): {
 						alignas(64) static constexpr uint32_t nullV{ pack_values<string_literal{ "null" }>::value };
-						std::memcpy(&out[index], &nullV, 4);
+						std::memcpy(&outBuffer[index], &nullV, 4);
 						index += 4;
 						break;
 					}
 					case static_cast<uint64_t>(boolean): {
 						if (*previousPtr == 'f') {
 							alignas(64) static constexpr uint64_t falseV{ pack_values<string_literal{ "false" }>::value };
-							std::memcpy(&out[index], &falseV, 5);
+							std::memcpy(&outBuffer[index], &falseV, 8);
 							index += 5;
 						} else {
 							alignas(64) static constexpr uint32_t trueV{ pack_values<string_literal{ "true" }>::value };
-							std::memcpy(&out[index], &trueV, 4);
+							std::memcpy(&outBuffer[index], &trueV, 4);
 							index += 4;
 						}
 						break;
 					}
 					case static_cast<uint64_t>(object_start): {
-						out[index] = '{';
+						outBuffer[index] = '{';
 						++index;
 						break;
 					}
 					case static_cast<uint64_t>(object_end): {
-						out[index] = '}';
+						outBuffer[index] = '}';
 						++index;
 						break;
 					}
@@ -205,12 +203,11 @@ namespace jsonifier::internal {
 						return std::numeric_limits<uint64_t>::max();
 					}
 				}
+				if (iter >= endStructural) {
+					break;
+				}
 				previousPtr = rootIter + *iter;
 				++iter;
-			}
-			if (previousPtr) {
-				out[index] = *previousPtr;
-				++index;
 			}
 			return index;
 		}

@@ -20,9 +20,6 @@ namespace jsonifier::internal {
 		uint64_t count{};
 	};
 
-	template<typename value_type>
-	concept has_name = requires(jsonifier::internal::remove_cvref_t<value_type> value) { value.name; };
-
 	template<typename integer_sequence> struct tuple_ref_collector;
 
 	template<uint64_t... indices> struct tuple_ref_collector<integer_sequence<indices...>> {
@@ -88,7 +85,7 @@ namespace jsonifier::internal {
 	template<typename value_type> static constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
-	template<typename value_type> using core_tuple_type					  = decltype(core<jsonifier::internal::remove_cvref_t<value_type>>::parseValue);
+	template<typename value_type> using core_tuple_type					  = decltype(core<base_t<value_type>>::parseValue);
 	template<typename value_type> static constexpr uint64_t coreTupleSize = tuple_size_v<core_tuple_type<value_type>>;
 
 }// namespace internal

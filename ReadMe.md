@@ -33,6 +33,8 @@ It achieves this through the usage of [SIMD instructions](./include/jsonifier-in
 | ![Linux](https://img.shields.io/github/actions/workflow/status/nihilai-collective/jsonifier/unit-tests.yml?style=plastic&logo=linux&logoColor=green&label=Linux&labelColor=pewter&color=blue&branch=main) | Ubuntu (Latest) |
 | ![Mac](https://img.shields.io/github/actions/workflow/status/nihilai-collective/jsonifier/unit-tests.yml?style=plastic&logo=apple&logoColor=green&label=MacOS&labelColor=pewter&color=blue&branch=main) | macOS (Latest) |
 
+> **Android:** `JSONIFIER_PLATFORM_ANDROID` is detected and handled distinctly from `JSONIFIER_PLATFORM_LINUX` (separate `mmap`/`unistd.h` wiring, its own entry in the supported-platform check), for NDK cross-compilation. It is not part of the CI matrix above, so treat it as best-effort rather than continuously verified.
+
 ## CPU Architecture Support
 
 Jsonifier automatically detects and optimizes for your CPU architecture:
@@ -145,10 +147,12 @@ Jsonifier includes an extensive test suite that runs on **every push** across **
 | **Intrinsics Tests** | Direct correctness testing of the SIMD abstraction layer — comparison, bitmask, logical, saturating-subtract, shift, cross-register alignment, and load/store round-trips at every unaligned offset |
 | **Error Tests** | Construction, equality, line-number reporting, and control-character escaping of the error-reporting model |
 | **Type Coverage** | Primitives, containers (`vector`, `array`, `map`, `unordered_map`), tuples, `optional`, `shared_ptr`, enums, nested structs, renamed/escaped keys — 70+ dedicated unit tests |
+| **Internal Containers & Utilities** | Direct correctness tests for the library's own building blocks — the fixed-size allocator, `jsonifier::array`, the tuple implementation and its iterator, the compile-time hash and hash-map generators, comparators, enum-name reflection, and the minifier/prettifier/printer output paths — 200+ dedicated unit tests |
 
 ### What Gets Tested
 
 - **70+ dedicated unit tests** covering reflection, renamed fields, optionals, enums, `shared_ptr`, nested structs, containers, tuples, maps, and escaped keys
+- **200+ additional unit tests** directly exercising the library's internal containers and utilities — allocator, `jsonifier::array`, tuple/iterator, compile-time hash and hash-map generation, comparators, enum-name reflection, and the minify/prettify/print output paths
 - **266 conformance fail cases + 117 pass cases** (77+27 from `jsonchecker`, 189+90 from JSONTestSuite), each asserting the exact expected `parse_statuses` value — 3,064 conformance assertions per platform across all eight configs
 - **27 round-trip tests** including edge cases (null, empty, large numbers, raw pointers, `unique_ptr`, special floats)
 - **64 float edge cases** and **24+16 int/uint pass cases** with **11+11 matching fail cases**
@@ -174,7 +178,7 @@ cmake -B build -DJSONIFIER_UNIT_TESTS=ON
 cmake -B build -DJSONIFIER_UNIT_TESTS=ON -DJSONIFIER_ASAN=ON -DJSONIFIER_UBSAN=ON
 
 cmake --build build --target jsonifier-unit-tests
-./build/Tests/jsonifier-unit-tests
+./build/unit-tests/jsonifier-unit-tests
 ```
 
 ---

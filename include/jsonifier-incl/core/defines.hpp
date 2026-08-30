@@ -4,6 +4,10 @@
 // include/jsonifier-incl/core/defines.hpp
 #pragma once
 
+#ifndef JSONIFIER_SVE2_VECTOR_BITS
+	#define JSONIFIER_SVE2_VECTOR_BITS 128
+#endif
+
 #if !defined(JSONIFIER_ARCH_X64)
 	#if defined(__x86_64__) || defined(_M_X64)
 		#define JSONIFIER_ARCH_X64 1
@@ -114,6 +118,14 @@
 	#else
 		#define JSONIFIER_LIFETIME_BOUND
 	#endif
+#endif
+
+#if JSONIFIER_COMPILER_MSVC
+	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
+	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
+	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
 #if JSONIFIER_PLATFORM_WINDOWS && !defined(NOMINMAX)

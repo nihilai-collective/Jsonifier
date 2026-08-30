@@ -6,9 +6,9 @@
 
 #include <jsonifier-incl/utilities/utility.hpp>
 
-namespace jsonifier::simd {
+namespace jsonifier::internal::simd {
 
-	template<concepts::uint16_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+	template<uint16_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<value_type>(__builtin_popcount(value));
@@ -24,7 +24,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint32_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+	template<uint32_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<value_type>(__builtin_popcount(value));
@@ -40,7 +40,7 @@ namespace jsonifier::simd {
 #endif
 	}
 
-	template<concepts::uint64_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
+	template<uint64_types value_type> JSONIFIER_INLINE value_type popcnt(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<value_type>(__builtin_popcountll(value));
