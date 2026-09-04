@@ -32,7 +32,7 @@ namespace bounds_tests {
 			return seed;
 		}
 
-	  private:
+	  protected:
 		uint64_t seed;
 		uint64_t s[4];
 

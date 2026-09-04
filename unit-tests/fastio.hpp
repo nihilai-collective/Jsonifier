@@ -51,7 +51,7 @@ namespace fastio_tests {
 			return content;
 		}
 
-	  private:
+	  protected:
 		jsonifier::internal::stream_target target_;
 		std::string tempPath{};
 #if JSONIFIER_PLATFORM_WINDOWS

@@ -719,7 +719,7 @@ namespace jsonifier::internal {
 			if (newSize > 0) {
 				*context.bufferPtr = '"';
 				++context.bufferPtr;
-				context.bufferPtr  = string_serializer<options, decltype(value.data()), decltype(context.bufferPtr)>::impl(value.data(), context.bufferPtr, value.size());
+				context.bufferPtr  = string_serializer<options>::impl(value.data(), context.bufferPtr, value.size());
 				*context.bufferPtr = '"';
 				++context.bufferPtr;
 			} else {

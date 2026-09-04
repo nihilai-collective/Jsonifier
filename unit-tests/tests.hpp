@@ -3,7 +3,7 @@
 // https://github.com/nihilai-collective/jsonifier
 // unit-tests/tests.hpp
 #pragma once
-/*
+
 #include "add_tape_values.hpp"
 #include "allocator.hpp"
 #include "array.hpp"
@@ -23,9 +23,8 @@
 #include "minifier.hpp"
 #include "parsing_tests.hpp"
 #include "prettifier.hpp"
-#include "printer.hpp"*/
+#include "printer.hpp"
 #include "raw_json_data.hpp"
-/*
 #include "reflection.hpp"
 #include "round_trip.hpp"
 #include "string.hpp"
@@ -33,11 +32,11 @@
 #include "string_literal_comparator.hpp"
 #include "tuple.hpp"
 #include "unit_tests.hpp"
-#include "utf8_validation.hpp"*/
+#include "utf8_validation.hpp"
 
 namespace tests {
 
-	inline static void testFunction() { /**
+	inline static void testFunction() {
 		add_tape_values_tests::runTests();
 		allocator_tests::runTests();
 		array_tests::runTests();
@@ -59,8 +58,8 @@ namespace tests {
 		minifier_tests::runTests();
 		parsing_tests::runTests();
 		prettifier_tests::runTests();
-		printer_tests::runTests();*/
-		raw_json_data_tests::runTests(); /*
+		printer_tests::runTests();
+		raw_json_data_tests::runTests();
 		reflection_tests::runTests();
 		round_trip_tests::runTests();
 		string_validation_tests::runTests();
@@ -68,7 +67,7 @@ namespace tests {
 		string_literal_comparator_impl_tests::runTests();
 		tuple_tests::runTests();
 		unit_tests::runTests();
-		utf8_validation_tests::runTests();*/
+		utf8_validation_tests::runTests();
 	};
 
 }

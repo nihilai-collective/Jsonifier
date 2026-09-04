@@ -100,7 +100,7 @@ namespace jsonifier::internal {
 				if (res.firstEscape == scanner_type::npos) [[likely]] {
 					return true;
 				}
-				return scanner_type::unescapeImpl(newPtr + res.firstEscape, newPtr + res.rawLength, context.getStringBuffer().data()) != nullptr;
+				return jsonifier::internal::unescapeImpl(newPtr + res.firstEscape, newPtr + res.rawLength, context.getStringBuffer().data()) != nullptr;
 			} else [[unlikely]] {
 				return false;
 			}

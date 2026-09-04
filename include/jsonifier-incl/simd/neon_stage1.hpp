@@ -152,7 +152,7 @@ namespace jsonifier::internal::simd {
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {
-			return static_cast<uint32_t>(simd::tzcnt(bits) + base);
+			return static_cast<uint32_t>(simd::countrZero(bits) + base);
 		}
 
 		JSONIFIER_INLINE static uint64_t advance(const uint64_t bits) noexcept {
@@ -160,7 +160,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
-			return static_cast<uint64_t>(popcnt(bits));
+			return static_cast<uint64_t>(popCount(bits));
 		}
 	};
 

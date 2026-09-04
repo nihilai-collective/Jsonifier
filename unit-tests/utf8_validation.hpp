@@ -97,7 +97,7 @@ namespace utf8_validation_tests {
 			return buffer;
 		}
 
-	  private:
+	  protected:
 		std::vector<uint8_t> buffer;
 	};
 
@@ -133,7 +133,7 @@ namespace utf8_validation_tests {
 			return true;
 		}
 		std::memcpy(string2, string1Start, res.firstEscape);
-		return scanner_type::unescapeImpl(string1Start + res.firstEscape, string1Start + res.rawLength, string2 + res.firstEscape) != nullptr;
+		return jsonifier::internal::unescapeImpl(string1Start + res.firstEscape, string1Start + res.rawLength, string2 + res.firstEscape) != nullptr;
 	}
 
 	inline static bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {

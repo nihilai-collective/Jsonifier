@@ -454,7 +454,7 @@ namespace jsonifier::internal {
 				std::memcpy(value.data(), iter, res.rawLength);
 			} else [[unlikely]] {
 				std::memcpy(value.data(), iter, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
+				const auto finalPtr = jsonifier::internal::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
 				if (!finalPtr) [[unlikely]] {
 					iter = iterStart;
 					return reject<parse_statuses::invalid_string_characters>();
@@ -1111,7 +1111,7 @@ namespace jsonifier::internal {
 				std::memcpy(value.data(), iter, res.rawLength);
 			} else [[unlikely]] {
 				std::memcpy(value.data(), iter, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
+				const auto finalPtr = jsonifier::internal::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
 				if (!finalPtr) [[unlikely]] {
 					iter = iterStart;
 					return reject<parse_statuses::invalid_string_characters>();
@@ -1522,7 +1522,7 @@ namespace jsonifier::internal {
 				std::memcpy(value.data(), strPtr, res.rawLength);
 			} else [[unlikely]] {
 				std::memcpy(value.data(), strPtr, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
+				const auto finalPtr = jsonifier::internal::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
 				if (!finalPtr) [[unlikely]] {
 					return reject<parse_statuses::invalid_string_characters>();
 				}
@@ -1972,7 +1972,7 @@ namespace jsonifier::internal {
 				std::memcpy(value.data(), strPtr, res.rawLength);
 			} else [[unlikely]] {
 				std::memcpy(value.data(), strPtr, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
+				const auto finalPtr = jsonifier::internal::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
 				if (!finalPtr) [[unlikely]] {
 					return reject<parse_statuses::invalid_string_characters>();
 				}

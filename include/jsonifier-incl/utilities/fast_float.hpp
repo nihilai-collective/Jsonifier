@@ -98,7 +98,7 @@
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
-#include <jsonifier-incl/simd/lzcount.hpp>
+#include <jsonifier-incl/simd/bit_ops.hpp>
 
 #if (defined(__x86_64) || defined(__x86_64__) || defined(_M_X64) || defined(__amd64) || defined(__aarch64__) || defined(_M_ARM64) || defined(__MINGW64__) || defined(__s390x__) || \
 	(defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)) || defined(__loongarch64))
@@ -706,7 +706,7 @@ namespace jsonifier::internal {
 	// w * 10 ** q, without rounding the representation up.
 	// the power2 in the exponent will be adjusted by invalid_am_bias.
 	template<typename binary> JSONIFIER_INLINE static constexpr adjusted_mantissa compute_error(int64_t q, uint64_t w) noexcept {
-		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::lzcnt(w));
+		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZero(w));
 		w <<= lz;
 		value128 product = compute_product_approximation<binary::mantissa_explicit_bits + 3>(q, w);
 		return compute_error_scaled<binary>(q, product.high, lz);
@@ -735,7 +735,7 @@ namespace jsonifier::internal {
 		// powers::largest_power_of_five].
 
 		// We want the most significant bit of i to be 1. Shift if needed.
-		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::lzcnt(w));
+		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZero(w));
 		w <<= lz;
 
 		// The required precision is binary::mantissa_explicit_bits + 3 because
@@ -963,12 +963,12 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE static uint64_t uint64_hi64(uint64_t r0, bool& truncated) noexcept {
 		truncated	= false;
-		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::lzcnt(r0));
+		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
 		return r0 << shl;
 	}
 
 	JSONIFIER_INLINE static uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
-		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::lzcnt(r0));
+		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
 		if (shl == 0) {
 			truncated = r1 != 0;
 			return r0;
@@ -1298,7 +1298,7 @@ namespace jsonifier::internal {
 			if (vec.is_empty()) {
 				return 0;
 			} else {
-				return static_cast<int32_t>(jsonifier::internal::simd::lzcnt(vec.rindex(0)));
+				return static_cast<int32_t>(jsonifier::internal::simd::countlZero(vec.rindex(0)));
 			}
 		}
 

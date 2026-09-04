@@ -6,7 +6,7 @@
 #pragma once
 
 #include <jsonifier-incl/containers/array.hpp>
-#include <jsonifier-incl/simd/popcount.hpp>
+#include <jsonifier-incl/simd/bit_ops.hpp>
 #include <jsonifier-incl/simd/avx.hpp>
 
 namespace jsonifier::internal::simd {
@@ -179,7 +179,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
-			return static_cast<uint64_t>(popcnt(bits));
+			return static_cast<uint64_t>(popCount(bits));
 		}
 	};
 

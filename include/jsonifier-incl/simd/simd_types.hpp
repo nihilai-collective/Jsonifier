@@ -98,13 +98,13 @@ namespace jsonifier {
 	static constexpr const char* cpu_arch_name{ "NEON" };
 
 	#if JSONIFIER_COMPILER_CLANG
-	static constexpr uint64_t simdTapeStep		= 8;
+	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#elif JSONIFIER_COMPILER_GCC
 	static constexpr uint64_t simdTapeStep		= 8;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#else
-	static constexpr uint64_t simdTapeStep		= 8;
+	static constexpr uint64_t simdTapeStep		= 1;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#endif
 	using jsonifier_simd_int_128 = uint8x16_t;

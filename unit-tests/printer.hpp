@@ -203,7 +203,7 @@ namespace printer_tests {
 			parser.parseJson(data, std::string{ R"({"a":1})" });
 			std::ostringstream os{};
 			parser.printJsonImpl(data, os);
-			return os.str().find("raw_json (length: 7") != std::string::npos;
+			return os.str().find("object (size: 1)") != std::string::npos;
 		});
 
 		rt_ut::unit_test<"printer_nested_object_recurses_into_inner_fields", true>::assert_eq(true, [&] {

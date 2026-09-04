@@ -8,9 +8,6 @@
 
 namespace jsonifier::internal {
 
-	template<typename value_type>
-	concept derivable_types = std::is_class_v<value_type> && !std::is_final_v<value_type>;
-
 	template<uint64_t indexNew, typename value_type_new> struct type_list_elem {
 		using value_type = value_type_new;
 		static constexpr uint64_t index{ indexNew };
@@ -88,27 +85,6 @@ namespace jsonifier::internal {
 	template<uint64_t index, typename type_list_type> using type_list_element_t = type_list_element<index, type_list_type>::type;
 
 	template<uint64_t index, typename tuple_type> using tuple_element_t = type_list_element_t<index, tuple_type>;
-
-	template<typename value_type_01, typename value_type_02>
-	concept eq_comparable_types = requires { std::declval<value_type_01>() == std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept neq_comparable_types = requires { std::declval<value_type_01>() != std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept lt_comparable_types = requires { std::declval<value_type_01>() < std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept lte_comparable_types = requires { std::declval<value_type_01>() <= std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept gt_comparable_types = requires { std::declval<value_type_01>() > std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept gte_comparable_types = requires { std::declval<value_type_01>() >= std::declval<value_type_02>(); };
-
-	template<typename value_type_01, typename value_type_02>
-	concept ss_comparable_types = requires { std::declval<value_type_01>() <=> std::declval<value_type_02>(); };
 
 	struct eq_op {
 		template<typename value_type_01, eq_comparable_types<value_type_01> value_type_02>
@@ -321,13 +297,6 @@ namespace jsonifier::internal {
 
 	template<typename... value_types> tuple(value_types&&...) -> tuple<value_types...>;
 
-	template<typename value_type, template<typename...> typename template_type> struct is_specialization_of_impl : std::false_type {};
-
-	template<template<typename...> typename template_type, typename... args> struct is_specialization_of_impl<template_type<args...>, template_type> : std::true_type {};
-
-	template<typename value_type, template<typename...> typename template_type>
-	concept is_specialization_of_v = is_specialization_of_impl<value_type, template_type>::value;
-
 	template<uint64_t index, typename Ts>
 		requires(is_specialization_of_v<remove_cvref_t<Ts>, jsonifier::internal::tuple>)
 	JSONIFIER_INLINE constexpr decltype(auto) getBecauseOtherLibAuthorsResolve(Ts&& t JSONIFIER_LIFETIME_BOUND) noexcept {
@@ -398,47 +367,58 @@ namespace jsonifier::internal {
 		using type = typename join_tuples<tuple<left_types..., right_types...>, rest_types...>::type;
 	};
 
+	template<typename... left_types> struct join_tuples<tuple<left_types...>> {
+		using type = tuple<left_types...>;
+	};
+
+	template<> struct join_tuples<> {
+		using type = tuple<>;
+	};
+
 	template<typename... left_types, typename... right_types> struct join_tuples<tuple<left_types...>, tuple<right_types...>> {
 		using type = tuple<left_types..., right_types...>;
 	};
 
 	template<typename... tuple_types> using join_tuples_t = typename join_tuples<tuple_types...>::type;
 
-	template<typename... list_types> struct tuple_cat_impl {
-		static constexpr uint64_t total{ (list_types::size + ...) };
-		using result_type	   = join_tuples_t<list_types...>;
-		using lists_tuple_type = type_list_t<list_types*...>;
+		template<typename... list_types> struct tuple_cat_impl {
+		using lists_type = type_list_t<list_types...>;
+		static constexpr uint64_t total{ (remove_reference_t<list_types>::size + ...) };
+		using result_type	   = join_tuples_t<remove_cvref_t<list_types>...>;
+		using lists_tuple_type = type_list_t<remove_reference_t<list_types>*...>;
 
 		struct tuple_cat_index_map {
-			uint64_t listIdx[total]{};
-			uint64_t localIdx[total]{};
+			uint64_t listIdx[total > 0 ? total : 1]{};
+			uint64_t localIdx[total > 0 ? total : 1]{};
 		};
 
 		static consteval tuple_cat_index_map getMapValues() {
+			tuple_cat_index_map m{};
 			if constexpr (total > 0) {
-				constexpr uint64_t sizes[]{ list_types::size... };
-				tuple_cat_index_map m{};
+				constexpr uint64_t sizes[]{ remove_reference_t<list_types>::size... };
 				uint64_t g{};
-				for (uint64_t i = 0; i < sizeof...(list_types); ++i)
+				for (uint64_t i = 0; i < sizeof...(list_types); ++i) {
 					for (uint64_t j = 0; j < sizes[i]; ++j, ++g) {
 						m.listIdx[g]  = i;
 						m.localIdx[g] = j;
 					}
-				return m;
-			} else {
-				struct tuple_cat_index_map {
-					uint64_t listIdx[2]{};
-					uint64_t localIdx[2]{};
-				};
-				return tuple_cat_index_map{};
+				}
 			}
+			return m;
 		}
 
 		static constexpr auto map{ getMapValues() };
 
 		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) {
-			auto* tuplePtr = list[tag<map.listIdx[index]>{}];
-			return (*tuplePtr)[tag<map.localIdx[index]>{}];
+			constexpr uint64_t listIdx	= map.listIdx[index];
+			constexpr uint64_t localIdx = map.localIdx[index];
+			auto* tuplePtr				= list[tag<listIdx>{}];
+			using source_type			= type_list_element_t<listIdx, lists_type>;
+			if constexpr (std::is_lvalue_reference_v<source_type>) {
+				return (*tuplePtr)[tag<localIdx>{}];
+			} else {
+				return std::move((*tuplePtr)[tag<localIdx>{}]);
+			}
 		}
 
 		template<typename integer_sequence> struct tuple_cat_impl_internal;
@@ -449,13 +429,13 @@ namespace jsonifier::internal {
 			}
 		};
 
-		template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) impl(tuple_list_types&&... listVals) noexcept {
-			return tuple_cat_impl_internal<make_integer_sequence<total>>::impl(lists_tuple_type{ { { &std::forward<tuple_list_types>(listVals) } }... });
+		template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) impl(tuple_list_types&... listVals) noexcept {
+			return tuple_cat_impl_internal<make_integer_sequence<total>>::impl(lists_tuple_type{ { { &listVals } }... });
 		}
 	};
 
 	template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) tupleCat(tuple_list_types&&... listVals) noexcept {
-		return tuple_cat_impl<remove_reference_t<tuple_list_types>...>::impl(std::forward<tuple_list_types>(listVals)...);
+		return tuple_cat_impl<tuple_list_types...>::impl(listVals...);
 	}
 }
 

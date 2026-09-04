@@ -556,7 +556,7 @@ namespace {
 			}
 		}
 
-		[[maybe_unused]] inline constexpr auto get(int32_t dec_exp) const noexcept -> const entry& {
+		[[maybe_unused]] JSONIFIER_INLINE constexpr auto get(int32_t dec_exp) const noexcept -> const entry& {
 			constexpr auto min = traits::min_fixed_dec_exp;
 			return data[static_cast<uint32_t>(dec_exp - min)];
 		}

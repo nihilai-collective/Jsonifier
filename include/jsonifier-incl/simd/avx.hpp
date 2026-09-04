@@ -5,18 +5,18 @@
 #pragma once
 
 #include <jsonifier-incl/simd/simd_types.hpp>
-#include <jsonifier-incl/simd/bmi.hpp>
+#include <jsonifier-incl/simd/bit_ops.hpp>
 
 namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
 
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcnt(const value_type value) noexcept {
-		return tzcnt(value);
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcnt(const value_type value) noexcept {
+		return countrZero(value);
 	}
 
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static value_type postCmpTzcntUnsafe(const value_type value) noexcept {
-		return tzcntUnsafe(value);
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcntUnsafe(const value_type value) noexcept {
+		return countrZeroUnsafe(value);
 	}
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* __restrict str) noexcept {

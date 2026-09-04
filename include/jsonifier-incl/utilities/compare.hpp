@@ -93,7 +93,7 @@ namespace jsonifier::internal {
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
-						next = simd::tzcntUnsafe(static_cast<uint64_t>(next)) >> 3u;
+						next = simd::countrZeroUnsafe(static_cast<uint64_t>(next)) >> 3u;
 						data += next;
 						return data;
 					} else {
@@ -113,7 +113,7 @@ namespace jsonifier::internal {
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
-						next = simd::tzcntUnsafe(static_cast<uint32_t>(next)) >> 3u;
+						next = static_cast<uint32_t>(simd::countrZeroUnsafe(static_cast<uint32_t>(next)) >> 3u);
 						data += next;
 						return data;
 					} else {
@@ -133,7 +133,7 @@ namespace jsonifier::internal {
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
-						next = simd::tzcntUnsafe(static_cast<uint16_t>(next)) >> 3u;
+						next = static_cast<int32_t>(simd::countrZeroUnsafe(static_cast<uint16_t>(next)) >> 3u);
 						data += next;
 						return data;
 					} else {

@@ -4,9 +4,10 @@
 // include/jsonifier-incl/utilities/printer.hpp
 #pragma once
 
+#include <jsonifier-incl/utilities/raw_json_data.hpp>
 #include <jsonifier-incl/utilities/json_entity.hpp>
-#include <jsonifier-incl/parsing/validator.hpp>
 #include <jsonifier-incl/utilities/hash_map.hpp>
+#include <jsonifier-incl/parsing/validator.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
@@ -235,8 +236,78 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type> struct json_printer_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
-			os << "raw_json (length: " << value.rawJson().size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
+		inline static void printIndent(std::ostream& os, uint64_t depth) {
+			for (uint64_t x = 0; x < depth; ++x) {
+				os << "  ";
+			}
+		}
+
+		inline static void printNumber(const jsonifier::json_number& number, std::ostream& os) {
+			switch (static_cast<uint64_t>(number.getType())) {
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::uint64): {
+					os << number.getUint() << " (uint64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::int64): {
+					os << number.getInt() << " (int64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::double64): {
+					os << number.getDouble() << " (double64)";
+					return;
+				}
+				default: {
+					os << "<invalid number>";
+					return;
+				}
+			}
+		}
+
+		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, uint64_t depth) {
+			switch (static_cast<uint64_t>(value.getType())) {
+				case static_cast<uint64_t>(json_type::object): {
+					const auto& object = value.getObject();
+					os << "object (size: " << object.size() << ")" << std::endl;
+					for (const auto& [key, entry]: object) {
+						printIndent(os, depth + 1);
+						os << key << ": ";
+						impl(entry, os, depth + 1);
+					}
+					return;
+				}
+				case static_cast<uint64_t>(json_type::array): {
+					const auto& array = value.getArray();
+					os << "array (size: " << array.size() << ")" << std::endl;
+					for (uint64_t x = 0; x < array.size(); ++x) {
+						printIndent(os, depth + 1);
+						os << "[" << x << "]: ";
+						impl(array[x], os, depth + 1);
+					}
+					return;
+				}
+				case static_cast<uint64_t>(json_type::string): {
+					const auto& string = value.getString();
+					os << "\"" << string << "\" (length: " << string.size() << ")" << std::endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::number): {
+					printNumber(value.getNumber(), os);
+					os << std::endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::boolean): {
+					os << (value.getBool() ? "true" : "false") << std::endl;
+					return;
+				}
+				case static_cast<uint64_t>(json_type::null): {
+					os << "null" << std::endl;
+					return;
+				}
+				default: {
+					os << "unset" << std::endl;
+					return;
+				}
+			}
 		}
 	};
 

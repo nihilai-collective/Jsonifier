@@ -167,7 +167,7 @@ namespace jsonifier::internal {
 			doFlush();
 		}
 
-	  private:
+	  protected:
 		void ensureSpace(size_t needed) {
 			if (len_ + needed > buffer_size) {
 				doFlush();

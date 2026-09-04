@@ -25,7 +25,11 @@ namespace jsonifier::internal {
 			constexpr auto notMulSub1{ ~(multiple - 1) };
 			return value & notMulSub1;
 		} else {
-			return static_cast<int64_t>(value) >= 0 ? (value / multiple) * multiple : ((value - multiple + 1) / multiple) * multiple;
+			if constexpr (std::is_signed_v<value_type>) {
+				return value >= 0 ? (value / multiple) * multiple : ((value - multiple + 1) / multiple) * multiple;
+			} else {
+				return (value / multiple) * multiple;
+			}
 		}
 	}
 
@@ -48,7 +52,7 @@ namespace jsonifier::internal {
 			using other = alloc_wrapper<U>;
 		};
 
-		static constexpr uint64_t alignment = simdBytesPerRegister;
+		static constexpr uint64_t alignment = (alignof(value_type_new) > simdBytesPerRegister) ? alignof(value_type_new) : simdBytesPerRegister;
 
 		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
 
@@ -57,6 +61,9 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static pointer allocate(size_type count) noexcept {
 			if (count == 0) [[unlikely]] {
+				return nullptr;
+			}
+			if (count > maxSize()) [[unlikely]] {
 				return nullptr;
 			}
 			const size_type bytes		 = count * sizeof(value_type) + headerSize;
@@ -152,7 +159,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
-			return static_cast<size_type>(-1) / sizeof(value_type);
+			return (static_cast<size_type>(-1) - headerSize) / sizeof(value_type);
 		}
 
 		JSONIFIER_INLINE static void destroy(pointer) noexcept {
@@ -166,7 +173,7 @@ namespace jsonifier::internal {
 			return !(*this == other);
 		}
 
-	  private:
+	  protected:
 		struct allocation_header {
 			allocated_memory_types type{};
 			size_type totalBytes{};

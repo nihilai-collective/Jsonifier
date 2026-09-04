@@ -418,4 +418,35 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept has_name = requires(base_t<value_type> value) { value.name; };
 
+	template<typename value_type>
+	concept derivable_types = std::is_class_v<value_type> && !std::is_final_v<value_type>;
+
+	template<typename value_type_01, typename value_type_02>
+	concept eq_comparable_types = requires { std::declval<value_type_01>() == std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept neq_comparable_types = requires { std::declval<value_type_01>() != std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept lt_comparable_types = requires { std::declval<value_type_01>() < std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept lte_comparable_types = requires { std::declval<value_type_01>() <= std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept gt_comparable_types = requires { std::declval<value_type_01>() > std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept gte_comparable_types = requires { std::declval<value_type_01>() >= std::declval<value_type_02>(); };
+
+	template<typename value_type_01, typename value_type_02>
+	concept ss_comparable_types = requires { std::declval<value_type_01>() <=> std::declval<value_type_02>(); };
+
+	template<typename value_type, template<typename...> typename template_type> struct is_specialization_of_impl : std::false_type {};
+
+	template<template<typename...> typename template_type, typename... args> struct is_specialization_of_impl<template_type<args...>, template_type> : std::true_type {};
+
+	template<typename value_type, template<typename...> typename template_type>
+	concept is_specialization_of_v = is_specialization_of_impl<value_type, template_type>::value;
+
 }
