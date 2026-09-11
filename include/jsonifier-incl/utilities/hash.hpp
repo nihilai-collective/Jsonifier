@@ -105,15 +105,24 @@ namespace jsonifier::internal {
 				length -= 8;
 			}
 
-			if (length > 0) {
-				uint64_t tail{};
-				for (uint64_t i = 0; i < length; ++i) {
-					tail |= static_cast<uint64_t>(static_cast<uint8_t>(value[i])) << (i * 8);
-				}
-				if constexpr (std::endian::native == std::endian::big) {
-					tail = byteswap(tail);
-				}
+			if (length >= 4) {
+				uint32_t tail{};
+				tail = readBitsCt<uint32_t>(value);
 				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				value += 4;
+				length -= 4;
+			}
+
+			if (length >= 2) {
+				uint16_t tail{};
+				tail = readBitsCt<uint16_t>(value);
+				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				value += 2;
+				length -= 2;
+			}
+
+			if (length > 0) {
+				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
 			}
 
 			return seed64 ^ (seed64 >> 32);
@@ -138,10 +147,24 @@ namespace jsonifier::internal {
 				length -= 8;
 			}
 
-			if (length > 0) {
-				uint64_t tail{};
-				std::memcpy(&tail, value, length);
+			if (length >= 4) {
+				uint32_t tail{};
+				std::memcpy(&tail, value, 4);
 				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				value += 4;
+				length -= 4;
+			}
+
+			if (length >= 2) {
+				uint16_t tail{};
+				std::memcpy(&tail, value, 2);
+				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				value += 2;
+				length -= 2;
+			}
+
+			if (length > 0) {
+				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
 			}
 
 			return seed64 ^ (seed64 >> 32);

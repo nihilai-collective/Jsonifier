@@ -102,16 +102,15 @@ namespace jsonifier::internal {
 	template<uint64_t initialBufferSize>
 	struct simd_string_reader : simd::rope_detector<rope_block>, string_block_reader, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, alloc_wrapper<uint32_t> {
 		friend add_tape_values<make_integer_sequence<simdBlocksPerStep>>;
-		static constexpr uint64_t initialTapeSize{ initialBufferSize * 8 / 10 };
 		using allocator = alloc_wrapper<uint32_t>;
 
 		JSONIFIER_INLINE simd_string_reader() noexcept {
-			tape	 = allocator::allocate(initialTapeSize);
-			capacity = initialTapeSize;
+			tape	 = allocator::allocate(initialBufferSize);
+			capacity = initialBufferSize;
 		}
 
 		template<bool minified> JSONIFIER_INLINE void reset(string_view_ptr __restrict rootIter, uint64_t stringLength) noexcept {
-			const uint64_t neededCapacity = (stringLength * 8 / 10) + 64;
+			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {
 				auto newTape = allocator::allocate(neededCapacity);
 				allocator::deallocate(tape, capacity);

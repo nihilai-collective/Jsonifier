@@ -56,6 +56,8 @@ namespace jsonifier::internal {
 		no_input,
 		exceeded_max_depth,
 		incorrect_structural_index,
+		unclosed_object,
+		unclosed_array,
 		count,
 	};
 

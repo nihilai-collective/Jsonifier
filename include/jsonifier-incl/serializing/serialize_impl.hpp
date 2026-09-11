@@ -123,21 +123,31 @@ namespace jsonifier::internal {
 				if constexpr (has_static_size<get_size_impl<key_type, options>> && has_static_size<get_size_impl<mapped_type, options>>) {
 					context.requiredSize += newSize * (get_size_impl<key_type, options>::staticSize + get_size_impl<mapped_type, options>::staticSize);
 				} else if constexpr (has_static_size<get_size_impl<key_type, options>>) {
-					context.requiredSize += newSize * get_size_impl<key_type, options>::staticSize;
-					auto iter	   = value.begin();
+					auto iter = value.begin();
+					if constexpr (!string_t<key_type>) {
+						context.requiredSize += newSize * (get_size_impl<key_type, options>::staticSize + 2);
+					} else {
+						context.requiredSize += newSize * get_size_impl<key_type, options>::staticSize;
+					}
 					const auto end = value.end();
 					for (; iter != end; ++iter) {
 						get_size<options>::impl(iter->second, context);
 					}
 				} else if constexpr (has_static_size<get_size_impl<mapped_type, options>>) {
 					context.requiredSize += newSize * get_size_impl<mapped_type, options>::staticSize;
-					auto iter	   = value.begin();
+					auto iter = value.begin();
+					if constexpr (!string_t<key_type>) {
+						context.requiredSize += newSize * 2;
+					}
 					const auto end = value.end();
 					for (; iter != end; ++iter) {
 						get_size<options>::impl(iter->first, context);
 					}
 				} else {
-					auto iter	   = value.begin();
+					auto iter = value.begin();
+					if constexpr (!string_t<key_type>) {
+						context.requiredSize += newSize * 2;
+					}
 					const auto end = value.end();
 					for (; iter != end; ++iter) {
 						get_size<options>::impl(iter->first, context);
@@ -344,25 +354,43 @@ namespace jsonifier::internal {
 		}
 	};
 
+	template<auto data> struct indent_blitter {
+		template<uint64_t index> JSONIFIER_INLINE static bool impl([[maybe_unused]] string_buffer_ptr __restrict& bufferPtr, uint64_t& remainingLength) {
+			static constexpr const uint64_t* ptr = data.data() + index;
+			static constexpr uint64_t sizeToCopy{ sizeof(uint64_t) };
+			static constexpr uint64_t offset{ index * sizeof(uint64_t) };
+			if (static_cast<int64_t>(remainingLength) > 0) {
+				std::memcpy(bufferPtr + offset, ptr, sizeToCopy);
+				remainingLength -= sizeToCopy;
+				return true;
+			} else {
+				return false;
+			}
+		}
+	};
+
 	template<string_literal prefix, char indentChar, uint64_t indentSize> struct indent_table {
 		alignas(64) static constexpr uint64_t maxDepth{ 8 };
 		alignas(64) static constexpr uint64_t maxIndentBytes{ maxDepth * indentSize };
 		alignas(64) static constexpr uint64_t totalLen{ prefix.size() + maxIndentBytes };
 		alignas(64) static constexpr uint64_t paddedLen{ (totalLen + 7) & ~uint64_t{ 7 } };
-		alignas(64) static constexpr array<char, paddedLen> data{ []() -> array<char, paddedLen> {
-			array<char, paddedLen> arr{};
-			for (uint64_t i = 0; i < prefix.size(); ++i)
-				arr[i] = prefix.values[i];
-			for (uint64_t i = 0; i < maxIndentBytes; ++i)
-				arr[prefix.size() + i] = indentChar;
+		alignas(64) static constexpr array<uint64_t, (paddedLen / sizeof(uint64_t))> data{ []() -> array<uint64_t, (paddedLen / sizeof(uint64_t))> {
+			array<uint64_t, (paddedLen / sizeof(uint64_t))> arr{};
+			for (uint64_t i = 0; i < prefix.size(); ++i) {
+				arr[i / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(prefix.values[i])) << ((i % sizeof(uint64_t)) * 8);
+			}
+			for (uint64_t i = 0; i < maxIndentBytes; ++i) {
+				const uint64_t idx = prefix.size() + i;
+				arr[idx / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(indentChar)) << ((idx % sizeof(uint64_t)) * 8);
+			}
 			return arr;
 		}() };
 
 		JSONIFIER_INLINE static void blitWithOverflow(string_buffer_ptr __restrict& bufferPtr, uint64_t totalIndent) noexcept {
 			const uint64_t capped  = totalIndent < maxIndentBytes ? totalIndent : maxIndentBytes;
 			const uint64_t advance = prefix.size() + capped;
-			const uint64_t copyLen = (advance + 7) & ~uint64_t{ 7 };
-			std::memcpy(bufferPtr, data.data(), copyLen);
+			uint64_t copyLen	   = (advance + 7) & ~uint64_t{ 7 };
+			functor_runner<indent_blitter, make_integer_sequence<paddedLen / sizeof(uint64_t)>, data>::implAnd(bufferPtr, copyLen);
 			bufferPtr += advance;
 			const uint64_t remaining = totalIndent - capped;
 			if (remaining) [[unlikely]] {
@@ -392,7 +420,7 @@ namespace jsonifier::internal {
 		static constexpr bool isScalar{ lengthToCopy <= 8 };
 		using int_type = conditional_t<isScalar, convert_length_to_int_t<lengthToCopy>, uint64_t>;
 		static constexpr uint64_t wordCount{ isScalar ? 1 : lengthToCopy / 8 };
-		using return_type = conditional_t<isScalar, int_type, array<uint64_t, wordCount> >;
+		using return_type = conditional_t<isScalar, int_type, array<uint64_t, wordCount>>;
 
 		alignas(64) static constexpr return_type value{ []() -> return_type {
 			if constexpr (isScalar) {
@@ -537,9 +565,17 @@ namespace jsonifier::internal {
 					*context.bufferPtr = '{';
 					++context.bufferPtr;
 				}
-
-				auto iter = value.begin();
+				auto iter	   = value.begin();
+				using key_type = base_t<decltype(iter->first)>;
+				if constexpr (!string_t<key_type>) {
+					*context.bufferPtr = '"';
+					++context.bufferPtr;
+				}
 				serialize<options>::impl(iter->first, context);
+				if constexpr (!string_t<key_type>) {
+					*context.bufferPtr = '"';
+					++context.bufferPtr;
+				}
 				if constexpr (options.prettify) {
 					std::memcpy(context.bufferPtr, &colonSpace.value, colonSpace.lengthToCopy);
 					context.bufferPtr += colonSpace.lengthToAdvance;
@@ -557,7 +593,15 @@ namespace jsonifier::internal {
 						*context.bufferPtr = ',';
 						++context.bufferPtr;
 					}
+					if constexpr (!string_t<key_type>) {
+						*context.bufferPtr = '"';
+						++context.bufferPtr;
+					}
 					serialize<options>::impl(iter->first, context);
+					if constexpr (!string_t<key_type>) {
+						*context.bufferPtr = '"';
+						++context.bufferPtr;
+					}
 					if constexpr (options.prettify) {
 						std::memcpy(context.bufferPtr, &colonSpace.value, colonSpace.lengthToCopy);
 						context.bufferPtr += colonSpace.lengthToAdvance;
@@ -713,7 +757,7 @@ namespace jsonifier::internal {
 	};
 
 	template<string_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
-		alignas(64) static constexpr char packedValues01[]{ "\"\"" };
+		alignas(64) static constexpr char_blitter<"\"\""> emptyString{};
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			const auto newSize = value.size();
 			if (newSize > 0) {
@@ -723,8 +767,8 @@ namespace jsonifier::internal {
 				*context.bufferPtr = '"';
 				++context.bufferPtr;
 			} else {
-				std::memcpy(context.bufferPtr, packedValues01, 2);
-				context.bufferPtr += 2;
+				std::memcpy(context.bufferPtr, &emptyString.value, emptyString.lengthToCopy);
+				context.bufferPtr += emptyString.lengthToAdvance;
 			}
 		}
 	};
@@ -823,5 +867,4 @@ namespace jsonifier::internal {
 			visit<lambda>(value, context);
 		}
 	};
-
 }

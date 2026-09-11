@@ -392,8 +392,10 @@ namespace jsonifier {
 							std::uninitialized_move(dataVal, dataVal + sizeVal, newPtr);
 						}
 						allocator::deallocate(dataVal, capacityVal + 1);
-						capacityVal = capacityNew;
-						dataVal		= newPtr;
+					}
+					capacityVal = capacityNew;
+					dataVal		= newPtr;
+					if (dataVal) {
 						allocator::construct(&dataVal[sizeVal], value_type{});
 					}
 				} catch (...) {

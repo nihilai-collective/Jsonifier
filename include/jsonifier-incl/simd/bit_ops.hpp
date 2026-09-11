@@ -96,6 +96,10 @@ namespace jsonifier::internal::simd {
 #endif
 	}
 
+	template<uint8_types value_type> JSONIFIER_INLINE uint64_t countrZero(value_type value) noexcept {
+		return value == 0 ? 8ULL : countrZero(static_cast<uint16_t>(value));
+	}
+
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countrZero(value_type value) noexcept {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)

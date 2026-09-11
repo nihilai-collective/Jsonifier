@@ -11,11 +11,11 @@ namespace jsonifier::internal::simd {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
 
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcnt(const value_type value) noexcept {
+	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcnt(const value_type value) noexcept {
 		return countrZero(value);
 	}
 
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcntUnsafe(const value_type value) noexcept {
+	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcntUnsafe(const value_type value) noexcept {
 		return countrZeroUnsafe(value);
 	}
 
