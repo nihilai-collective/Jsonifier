@@ -270,6 +270,29 @@ namespace jsonifier::internal {
 
 	template<jsonifier_object_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		inline static bool rootImpl(value_type& value, context_type& context) noexcept {
+			if (context.objectStartRoot()) [[likely]] {
+				if (context.objectMaybeEnd()) [[unlikely]] {
+					return true;
+				}
+				if (parse_base_t<options, value_type, context_type>::iterateValues(value, context)) {
+					if (context.objectMaybeEnd()) {
+						return true;
+					}
+					if (!context.collectObjectComma()) [[unlikely]] {
+						return false;
+					}
+					if constexpr (!options.minified && !structural_context<context_type>) {
+						context.skipWhitespace();
+					}
+					return context.skipRemainingObject();
+				}
+				return context.getErrors().size() == 0;
+			} else {
+				return false;
+			}
+		}
+
+		inline static bool impl(value_type& value, context_type& context) noexcept {
 			if (context.objectStart()) [[likely]] {
 				if (context.objectMaybeEnd()) [[unlikely]] {
 					return true;
@@ -291,9 +314,6 @@ namespace jsonifier::internal {
 				return false;
 			}
 		}
-		JSONIFIER_INLINE static bool impl(value_type& value, context_type& context) noexcept {
-			return rootImpl(value, context);
-		}
 	};
 
 #if JSONIFIER_COMPILER_CLANG
@@ -310,7 +330,7 @@ namespace jsonifier::internal {
 
 	template<map_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		inline static bool rootImpl(value_type& value, context_type& context) noexcept {
-			if (context.objectStart()) [[likely]] {
+			if (context.objectStartRoot()) [[likely]] {
 				if (context.objectMaybeEnd()) [[unlikely]] {
 					return true;
 				}
@@ -341,14 +361,42 @@ namespace jsonifier::internal {
 			}
 		}
 		JSONIFIER_INLINE static bool impl(value_type& value, context_type& context) noexcept {
-			return rootImpl(value, context);
+			if (context.objectStart()) [[likely]] {
+				if (context.objectMaybeEnd()) [[unlikely]] {
+					return true;
+				}
+				while (true) {
+					if (!parse<options>::impl(getKeyNew<typename value_type::key_type>(), context)) [[unlikely]] {
+						return false;
+					}
+					if (!context.collectObjectColon()) [[unlikely]] {
+						return false;
+					}
+					if (!parse<options>::impl(value[getKeyNew<typename value_type::key_type>()], context)) [[unlikely]] {
+						return false;
+					}
+					switch (static_cast<uint64_t>(context.collectObjectSeparator())) {
+						case static_cast<uint64_t>(sep_result::cont): {
+							continue;
+						}
+						case static_cast<uint64_t>(sep_result::ended): {
+							return true;
+						}
+						default: {
+							return false;
+						}
+					}
+				}
+			} else {
+				return false;
+			}
 		}
 	};
 
 	template<vector_t value_type, typename context_type, parse_options optionsNew> struct parse_impl<value_type, context_type, optionsNew> {
 		static constexpr parse_options options{ optionsNew };
 		inline static bool rootImpl(value_type& value, context_type& context) noexcept {
-			if (context.arrayStart()) [[likely]] {
+			if (context.arrayStartRoot()) [[likely]] {
 				if (context.arrayMaybeEnd()) [[unlikely]] {
 					value.clear();
 					return true;
@@ -414,13 +462,76 @@ namespace jsonifier::internal {
 			}
 		}
 		JSONIFIER_INLINE static bool impl(value_type& value, context_type& context) noexcept {
-			return rootImpl(value, context);
+			if (context.arrayStart()) [[likely]] {
+				if (context.arrayMaybeEnd()) [[unlikely]] {
+					value.clear();
+					return true;
+				}
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wexit-time-destructors"
+#endif
+				static thread_local value_type valueTemp;
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic pop
+#endif
+				uint64_t oldSize{ valueTemp.size() };
+				uint64_t newSize{};
+				if (oldSize > 0) {
+					auto beginIter = getBeginIterVec(valueTemp);
+					for (uint64_t x = 0; x < oldSize; ++x) {
+						if (parse<options>::impl(beginIter[static_cast<int64_t>(x)], context)) [[likely]] {
+							++newSize;
+							switch (static_cast<uint64_t>(context.collectArraySeparator())) {
+								case static_cast<uint64_t>(sep_result::cont): {
+									continue;
+								}
+								case static_cast<uint64_t>(sep_result::ended): {
+									value.resize(newSize);
+									std::move(beginIter, beginIter + static_cast<int64_t>(newSize), getBeginIterVec(value));
+									return true;
+								}
+								default: {
+									return false;
+								}
+							}
+						} else {
+							return false;
+						}
+					}
+				}
+				while (context.notAtEndPre()) {
+					if (parse<options>::impl(valueTemp.emplace_back(), context)) [[likely]] {
+						++newSize;
+						switch (static_cast<uint64_t>(context.collectArraySeparator())) {
+							case static_cast<uint64_t>(sep_result::cont): {
+								continue;
+							}
+							case static_cast<uint64_t>(sep_result::ended): {
+								value.resize(newSize);
+								auto beginIter = getBeginIterVec(valueTemp);
+								auto endIter   = getEndIterVec(valueTemp);
+								std::move(beginIter, endIter, getBeginIterVec(value));
+								return true;
+							}
+							default: {
+								return false;
+							}
+						}
+					} else {
+						return false;
+					}
+				}
+				return context.template reject<parse_statuses::unexpected_string_end>();
+			} else {
+				return false;
+			}
 		}
 	};
 
 	template<raw_array_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		inline static bool rootImpl(value_type& value, context_type& context) noexcept {
-			if (context.arrayStart()) [[likely]] {
+			if (context.arrayStartRoot()) [[likely]] {
 				if (context.arrayMaybeEnd()) [[unlikely]] {
 					return true;
 				}
@@ -457,7 +568,41 @@ namespace jsonifier::internal {
 			}
 		}
 		JSONIFIER_INLINE static bool impl(value_type& value, context_type& context) noexcept {
-			return rootImpl(value, context);
+			if (context.arrayStart()) [[likely]] {
+				if (context.arrayMaybeEnd()) [[unlikely]] {
+					return true;
+				}
+				if (const uint64_t nLocal = std::size(value); nLocal > 0) [[likely]] {
+					auto iterNew = std::begin(value);
+					for (uint64_t i = 0; i < nLocal; ++i) {
+						if (parse<options>::impl(*(iterNew++), context)) [[likely]] {
+							if (context.arrayMaybeEnd()) [[unlikely]] {
+								return true;
+							}
+							if (!context.collectArrayComma()) [[unlikely]] {
+								return false;
+							}
+						} else {
+							return false;
+						}
+					}
+				}
+				while (context.notAtEndPre()) {
+					if (context.skipValue()) [[likely]] {
+						if (context.arrayMaybeEnd()) [[unlikely]] {
+							return true;
+						}
+						if (!context.collectArrayComma()) [[unlikely]] {
+							return false;
+						}
+					} else {
+						return false;
+					}
+				}
+				return context.template reject<parse_statuses::unexpected_string_end>();
+			} else {
+				return false;
+			}
 		}
 	};
 

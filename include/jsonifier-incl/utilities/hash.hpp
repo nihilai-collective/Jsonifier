@@ -71,14 +71,13 @@ namespace jsonifier::internal {
 		5417879022829474871ull, 6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
 	template<typename value_type> constexpr value_type readBitsCt(string_view_ptr ptr) noexcept {
-		value_type chunk{};
-		for (uint64_t x = 0; x < sizeof(value_type); ++x) {
-			chunk |= static_cast<value_type>(static_cast<uint8_t>(ptr[x])) << (x * 8);
+		char values[sizeof(value_type)]{};
+		std::copy(ptr, ptr + sizeof(value_type), values);
+		value_type result{ std::bit_cast<value_type>(values) };
+		if constexpr (std::endian::native==std::endian::big) {
+			result = byteswap(result);
 		}
-		if constexpr (std::endian::native == std::endian::big) {
-			chunk = byteswap(chunk);
-		}
-		return chunk;
+		return result;
 	}
 
 	struct ct_key_hasher {
@@ -96,27 +95,29 @@ namespace jsonifier::internal {
 
 		constexpr uint64_t hashKeyCt(string_view_ptr value, uint64_t length) const noexcept {
 			uint64_t seed64{ seed };
-			uint64_t chunk64{};
 
-			while (length >= 8) {
-				chunk64 = readBitsCt<uint64_t>(value);
-				seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
+			{
+				uint64_t chunk64{};
+				while (length >= 8) {
+					chunk64 = readBitsCt<uint64_t>(value);
+					seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
+					value += 8;
+					length -= 8;
+				}
 			}
 
 			if (length >= 4) {
-				uint32_t tail{};
-				tail = readBitsCt<uint32_t>(value);
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				uint32_t chunk32{};
+				chunk32 = readBitsCt<uint32_t>(value);
+				seed64 ^= static_cast<uint64_t>(chunk32 * 0x9E3779B185EBCA87ull);
 				value += 4;
 				length -= 4;
 			}
 
 			if (length >= 2) {
-				uint16_t tail{};
-				tail = readBitsCt<uint16_t>(value);
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				uint16_t chunk16{};
+				chunk16 = readBitsCt<uint16_t>(value);
+				seed64 ^= static_cast<uint64_t>(chunk16 * 0x9E3779B185EBCA87ull);
 				value += 2;
 				length -= 2;
 			}
@@ -138,27 +139,29 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static uint64_t hashKeyRt(string_view_ptr value, uint64_t length) noexcept {
 			uint64_t seed64{ constEval(seed) };
-			uint64_t chunk64{};
 
-			while (length >= 8) {
-				std::memcpy(&chunk64, value, 8);
-				seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
+			{
+				uint64_t chunk64{};
+				while (length >= 8) {
+					std::memcpy(&chunk64, value, 8);
+					seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
+					value += 8;
+					length -= 8;
+				}
 			}
 
 			if (length >= 4) {
-				uint32_t tail{};
-				std::memcpy(&tail, value, 4);
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				uint32_t chunk32{};
+				std::memcpy(&chunk32, value, 4);
+				seed64 ^= static_cast<uint64_t>(chunk32 * 0x9E3779B185EBCA87ull);
 				value += 4;
 				length -= 4;
 			}
 
 			if (length >= 2) {
-				uint16_t tail{};
-				std::memcpy(&tail, value, 2);
-				seed64 ^= tail * 0x9E3779B185EBCA87ull;
+				uint16_t chunk16{};
+				std::memcpy(&chunk16, value, 2);
+				seed64 ^= static_cast<uint64_t>(chunk16 * 0x9E3779B185EBCA87ull);
 				value += 2;
 				length -= 2;
 			}

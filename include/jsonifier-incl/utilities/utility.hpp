@@ -20,6 +20,13 @@ namespace jsonifier::internal {
 		return returnValues;
 	}() };
 
+	alignas(64) static constexpr array<bool, 256ULL> newlineTable{ []() constexpr {
+		array<bool, 256ULL> returnValues{};
+		returnValues[static_cast<uint64_t>('\n')] = true;
+		returnValues[static_cast<uint64_t>('\r')] = true;
+		return returnValues;
+	}() };
+
 	alignas(64) static constexpr array<bool, 256> numberTable{ []() constexpr {
 		array<bool, 256> returnValues{};
 		returnValues['-'] = true;

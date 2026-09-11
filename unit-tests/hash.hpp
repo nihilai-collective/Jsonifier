@@ -20,22 +20,38 @@ namespace hash_validation_tests {
 	inline static uint64_t referenceHash(uint64_t seed, const std::string& bytes) {
 		uint64_t seed64{ seed };
 		uint64_t i{ 0 };
-		while (bytes.size() - i >= 8) {
+		uint64_t remaining{ bytes.size() };
+
+		while (remaining >= 8) {
 			uint64_t chunk{};
 			for (uint64_t b = 0; b < 8; ++b) {
 				chunk |= static_cast<uint64_t>(static_cast<uint8_t>(bytes[i + b])) << (b * 8);
 			}
 			seed64 ^= chunk * 0x9E3779B185EBCA87ull;
 			i += 8;
+			remaining -= 8;
 		}
-		if (i < bytes.size()) {
-			uint64_t tail{};
-			const uint64_t remaining = bytes.size() - i;
-			for (uint64_t b = 0; b < remaining; ++b) {
-				tail |= static_cast<uint64_t>(static_cast<uint8_t>(bytes[i + b])) << (b * 8);
-			}
-			seed64 ^= tail * 0x9E3779B185EBCA87ull;
+
+		if (remaining >= 4) {
+			uint32_t chunk32{};
+			std::memcpy(&chunk32, bytes.data() + i, 4);
+			seed64 ^= static_cast<uint64_t>(chunk32) * 0x9E3779B185EBCA87ull;
+			i += 4;
+			remaining -= 4;
 		}
+
+		if (remaining >= 2) {
+			uint16_t chunk16{};
+			std::memcpy(&chunk16, bytes.data() + i, 2);
+			seed64 ^= static_cast<uint64_t>(chunk16) * 0x9E3779B185EBCA87ull;
+			i += 2;
+			remaining -= 2;
+		}
+
+		if (remaining > 0) {
+			seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(bytes[i])) * 0x9E3779B185EBCA87ull;
+		}
+
 		return seed64 ^ (seed64 >> 32);
 	}
 
