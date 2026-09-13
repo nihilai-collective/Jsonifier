@@ -4,8 +4,8 @@
 // unit-tests/JSONTestSuite.hpp
 #pragma once
 
-#include "common.hpp"
 #include "conformance.hpp"
+#include "common.hpp"
 
 namespace json_test_suite_tests {
 

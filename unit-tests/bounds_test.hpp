@@ -4,15 +4,12 @@
 // unit-tests/bounds_test.hpp
 #pragma once
 
-#include "common.hpp"
 #include "parsing_tests.hpp"
-
-#include <random>
-#include <cstdint>
+#include "common.hpp"
 
 namespace bounds_tests {
 
-	class random_die {
+	struct random_die {
 	  public:
 		inline random_die() : seed{ static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) } {
 			seedState(seed);
@@ -32,7 +29,7 @@ namespace bounds_tests {
 			return seed;
 		}
 
-	  protected:
+	  private:
 		uint64_t seed;
 		uint64_t s[4];
 

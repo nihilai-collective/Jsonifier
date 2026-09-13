@@ -12,24 +12,21 @@
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/printer.hpp>
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
-	template<uint64_t initialBufferSize> struct prixon_core : public internal::json_printer,
-															  public internal::prettifier<jsonifier_core<initialBufferSize>>,
-															  public internal::serializer<jsonifier_core<initialBufferSize>>,
-															  public internal::validator<jsonifier_core<initialBufferSize>>,
-															  public internal::minifier<jsonifier_core<initialBufferSize>>,
-															  public internal::parser<jsonifier_core<initialBufferSize>> {
-		prixon_core() noexcept							 = default;
-		prixon_core& operator=(const prixon_core& other) = delete;
-		prixon_core(const prixon_core& other)			 = delete;
-		prixon_core& operator=(prixon_core&& other)		 = delete;
-		prixon_core(prixon_core&& other)				 = delete;
+	struct prixon_core {
+		prixon_core() noexcept									  = default;
+		prixon_core& operator=(const prixon_core& other) noexcept = delete;
+		prixon_core(const prixon_core& other) noexcept			  = delete;
+		prixon_core& operator=(prixon_core&& other) noexcept	  = default;
+		prixon_core(prixon_core&& other) noexcept				  = default;
+		~prixon_core() noexcept									  = default;
+
 		alignas(64) static constexpr const char blessing[]{ "### Prixonian Kinematics:\
 				- WE MUST NOT ALLOW OURSELVES TO BECOME CONFUSED AS A RESULT OF ASKING \"WHO IS BITCHARD PRIXON\" -\
 				BUT INSTEAD ALLOW OURSELVES TO BECOME ENLIGHTENED BY ASKING \"WHAT IS BITCHARD PRIXON\" - FOR HE IS A BITCH,\
 			AND HE IS A PRICK,\
-			AND HIS NAME IS : -BITCHARD PRIXON,\
+			AND HIS NAME IS: -BITCHARD PRIXON,\
 			BITCHARD PRIXON,\
 			BITCHARD BITCHARD BITCHARD PRIXON RICHARD NIXON HAS A BITCH PRICK SON AND HIS NAME IS : -BITCHARD PRIXON,\
 			BITCHARD PRIXON,\

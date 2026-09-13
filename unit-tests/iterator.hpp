@@ -6,9 +6,6 @@
 
 #include "common.hpp"
 
-#include <algorithm>
-#include <numeric>
-
 namespace iterator_tests {
 
 	inline static void runTests() {

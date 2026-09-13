@@ -28,19 +28,20 @@ namespace jsonifier::internal {
 
 	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
 
-	template<typename derived_type> class validator {
+	template<typename derived_type_new> class validator {
 	  public:
-		template<json_structural_type, typename derived_type_new> friend struct validate_impl;
-		validator& operator=(const validator& other) = delete;
-		validator(const validator& other)			 = delete;
+		template<json_structural_type, typename derived_type_newer> friend struct validate_impl;
+		using derived_type = derived_type_new;
+		friend derived_type;
 
 		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
+			derived_type& selfRef{ getSelfRef() };
 			static constexpr parse_options validateOpts{};
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
-			derivedRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(),
-				derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
+			selfRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(), selfRef.section.begin(),
+				selfRef.section.end(), selfRef.section.begin(), rootIter, endIter };
 			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
 			if (getStringBuffer().size() < newSize) {
 				getStringBuffer().resize(newSize);
@@ -57,11 +58,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-	  protected:
-		derived_type& derivedRef{ initializeSelfRef() };
-
-		validator() noexcept {
-		}
+	  private:
+		validator()								   = default;
+		validator(const validator&)				   = default;
+		validator& operator=(const validator&)	   = default;
+		validator(validator&&) noexcept			   = default;
+		validator& operator=(validator&&) noexcept = default;
+		~validator()							   = default;
 
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (!context.notAtEndPre()) {
@@ -86,18 +89,18 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE auto& getStringBuffer() noexcept {
-			return derivedRef.stringBuffer;
+			derived_type& selfRef{ getSelfRef() };
+			return selfRef.stringBuffer;
 		}
 
 		std::vector<error>& getErrors() noexcept {
-			return derivedRef.getErrors();
+			derived_type& selfRef{ getSelfRef() };
+			return selfRef.getErrors();
 		}
 
-		derived_type& initializeSelfRef() noexcept {
+		JSONIFIER_INLINE derived_type& getSelfRef() noexcept {
 			return *static_cast<derived_type*>(this);
 		}
-
-		~validator() noexcept = default;
 	};
 
 }// namespace internal

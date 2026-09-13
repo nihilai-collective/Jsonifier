@@ -105,6 +105,7 @@ set(JSONIFIER_CLANG_COMPILER_OPTIONS
     -Wall
     -Wno-c++98-compat-pedantic
     -Wno-c++98-compat
+    -Wno-keyword-macro
     -Wno-padded
 )
 

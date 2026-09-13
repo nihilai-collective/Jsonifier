@@ -6,8 +6,6 @@
 
 #include "common.hpp"
 
-#include <bit>
-
 namespace add_tape_values_tests {
 
 	inline static std::vector<uint32_t> runAddTapeValues(const jsonifier::internal::array<uint64_t, jsonifier::simdBlocksPerStep>& bitsArr, uint64_t strIdx) {

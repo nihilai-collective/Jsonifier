@@ -115,7 +115,7 @@ namespace allocator_tests {
 			using alloc_t = jsonifier::internal::alloc_wrapper<uint64_t>;
 			auto* p		  = alloc_t::allocate(4);
 			bool nonNull  = (p != nullptr);
-			bool aligned  = nonNull && (reinterpret_cast<uintptr_t>(p) % alloc_t::alignment == 0);
+			bool aligned  = nonNull && (std::bit_cast<uintptr_t>(p) % alloc_t::alignment == 0);
 			if (nonNull) {
 				for (uint64_t i = 0; i < 4; ++i)
 					p[i] = i * 11;
@@ -193,7 +193,7 @@ namespace allocator_tests {
 		rt_ut::unit_test<"allocator_over_aligned_type_alignment_preserved", true>::assert_eq(true, [] {
 			using alloc_t = jsonifier::internal::alloc_wrapper<over_aligned_pod>;
 			auto* p		  = alloc_t::allocate(2);
-			bool aligned  = (reinterpret_cast<uintptr_t>(p) % alignof(over_aligned_pod)) == 0;
+			bool aligned  = (std::bit_cast<uintptr_t>(p) % alignof(over_aligned_pod)) == 0;
 			alloc_t::deallocate(p, 2);
 			return p != nullptr && aligned;
 		});
@@ -217,7 +217,7 @@ namespace allocator_tests {
 		rt_ut::unit_test<"allocator_allocate_returns_simd_aligned_pointer", true>::assert_eq(true, [] {
 			jsonifier::internal::alloc_wrapper<int32_t> alloc{};
 			auto* p			   = alloc.allocate(64);
-			const bool aligned = (reinterpret_cast<uintptr_t>(p) % jsonifier::internal::alloc_wrapper<int32_t>::alignment) == 0;
+			const bool aligned = (std::bit_cast<uintptr_t>(p) % jsonifier::internal::alloc_wrapper<int32_t>::alignment) == 0;
 			alloc.deallocate(p, 64);
 			return p != nullptr && aligned;
 		});

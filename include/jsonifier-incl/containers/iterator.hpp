@@ -112,7 +112,6 @@ namespace jsonifier::internal {
 			return !(*this < other);
 		}
 
-	  protected:
 		pointer ptr;
 	};
 

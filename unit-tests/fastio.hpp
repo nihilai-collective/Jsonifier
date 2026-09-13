@@ -4,11 +4,11 @@
 // unit-tests/fastio.hpp
 #pragma once
 
-#include "common.hpp"
-
 #if !JSONIFIER_PLATFORM_WINDOWS
 	#include <fcntl.h>
 #endif
+
+#include "common.hpp"
 
 namespace fastio_tests {
 

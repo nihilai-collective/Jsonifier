@@ -49,10 +49,10 @@ namespace jsonifier::internal {
 		uint64_t index{};
 	};
 
-	template<typename derived_type> class serializer {
+	template<typename derived_type_new> class serializer {
 	  public:
-		serializer& operator=(const serializer& other) = delete;
-		serializer(const serializer& other)			   = delete;
+		using derived_type = derived_type_new;
+		friend derived_type;
 
 		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
 		inline bool serializeJsonDirect(value_type&& object, buffer_type&& buffer) noexcept {
@@ -64,45 +64,49 @@ namespace jsonifier::internal {
 
 		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
 		inline bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+			derived_type& selfRef{ getSelfRef() };
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};
 			get_size<options>::impl(object, sizeContext);
-			if (derivedRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
-				derivedRef.stringBuffer.resize(sizeContext.requiredSize + 64);
+			if (selfRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
+				selfRef.stringBuffer.resize(sizeContext.requiredSize + 64);
 			}
-			serialize_context<decltype(derivedRef.stringBuffer)> context{ derivedRef.stringBuffer.data() };
+			serialize_context<decltype(selfRef.stringBuffer)> context{ selfRef.stringBuffer.data() };
 			serialize<options>::impl(object, context);
-			context.index = static_cast<uint64_t>(context.bufferPtr - derivedRef.stringBuffer.data());
+			context.index = static_cast<uint64_t>(context.bufferPtr - selfRef.stringBuffer.data());
 			buffer.resize(context.index);
 			static constexpr uint64_t charSize = sizeof(remove_cvref_t<decltype(buffer[0])>);
-			std::memcpy(buffer.data(), derivedRef.stringBuffer.data(), context.index * charSize);
+			std::memcpy(buffer.data(), selfRef.stringBuffer.data(), context.index * charSize);
 			return true;
 		}
 
 		template<serialize_options optionsNew = serialize_options{}, typename value_type> inline string_view serializeJson(const value_type& object) noexcept {
+			derived_type& selfRef{ getSelfRef() };
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};
 			get_size<options>::impl(object, sizeContext);
-			if (derivedRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
-				derivedRef.stringBuffer.resize(sizeContext.requiredSize + 64);
+			if (selfRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
+				selfRef.stringBuffer.resize(sizeContext.requiredSize + 64);
 			}
-			serialize_context<decltype(derivedRef.stringBuffer)> context{ derivedRef.stringBuffer.data() };
+			serialize_context<decltype(selfRef.stringBuffer)> context{ selfRef.stringBuffer.data() };
 			serialize<options>::impl(object, context);
-			context.index = static_cast<uint64_t>(context.bufferPtr - derivedRef.stringBuffer.data());
-			return string_view{ derivedRef.stringBuffer.data(), context.index };
+			context.index = static_cast<uint64_t>(context.bufferPtr - selfRef.stringBuffer.data());
+			return string_view{ selfRef.stringBuffer.data(), context.index };
 		}
 
-	  protected:
-		derived_type& derivedRef{ initializeSelfRef() };
+	  private:
 
-		serializer() noexcept {
-		}
+		serializer()								 = default;
+		serializer(const serializer&)				 = default;
+		serializer& operator=(const serializer&)	 = default;
+		serializer(serializer&&) noexcept			 = default;
+		serializer& operator=(serializer&&) noexcept = default;
+		~serializer()								 = default;
 
-		derived_type& initializeSelfRef() noexcept {
+		JSONIFIER_INLINE derived_type& getSelfRef() noexcept {
 			return *static_cast<derived_type*>(this);
 		}
 
-		~serializer() noexcept = default;
 	};
 
 }
