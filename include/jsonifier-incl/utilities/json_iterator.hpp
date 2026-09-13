@@ -532,6 +532,166 @@ namespace jsonifier::internal {
 		}
 	};
 
+	struct indent_result {
+		string_view_ptr pos;
+		bool matched;
+	};
+
+	struct branch_record {
+		uint64_t calls{};
+		uint64_t successes{};
+		uint64_t failures{};
+		uint64_t badAdvance{};
+		int64_t worstDelta{};
+	};
+
+	class indent_probe {
+	  public:
+		static constexpr uint64_t maxBranches{ 17 };
+
+		JSONIFIER_INLINE static void record(uint64_t n, string_view_ptr entry, indent_result result) noexcept {
+			if (n >= maxBranches) {
+				return;
+			}
+			branch_record& rec{ records[n] };
+			++rec.calls;
+			if (result.matched) {
+				++rec.successes;
+				const int64_t delta{ static_cast<int64_t>(result.pos - entry) };
+				const int64_t expected{ static_cast<int64_t>(n) };
+				if (delta != expected) {
+					++rec.badAdvance;
+					const int64_t diff{ delta - expected };
+					if (diff > rec.worstDelta || -diff > rec.worstDelta) {
+						rec.worstDelta = diff;
+					}
+				}
+			} else {
+				++rec.failures;
+				const int64_t delta{ static_cast<int64_t>(result.pos - entry) };
+				if (delta < 0 || delta >= static_cast<int64_t>(n)) {
+					++rec.badAdvance;
+				}
+			}
+		}
+
+		JSONIFIER_INLINE static void recordWide(string_view_ptr entry, indent_result result) noexcept {
+			++wideCalls;
+			if (result.matched) {
+				++wideSuccesses;
+				if (result.pos - entry != 16) {
+					++wideBadAdvance;
+				}
+			} else {
+				++wideFailures;
+			}
+		}
+
+		~indent_probe() {
+			out << endl << "==== INDENT PROBE ====" << endl;
+			out << "n     calls        ok         fail       bad-adv    worst" << endl;
+			for (uint64_t x = 0; x < maxBranches; ++x) {
+				const branch_record& rec{ records[x] };
+				if (rec.calls == 0) {
+					continue;
+				}
+				out << x << "\t" << rec.calls << "\t" << rec.successes << "\t" << rec.failures << "\t" << rec.badAdvance << "\t" << rec.worstDelta;
+				if (rec.badAdvance != 0) {
+					out << "   <== CONTRACT VIOLATION";
+				}
+				out << endl;
+			}
+			out << "wide\t" << wideCalls << "\t" << wideSuccesses << "\t" << wideFailures << "\t" << wideBadAdvance << endl;
+			out << "======================" << endl;
+		}
+
+	  protected:
+		inline static branch_record records[maxBranches]{};
+		inline static uint64_t wideCalls{};
+		inline static uint64_t wideSuccesses{};
+		inline static uint64_t wideFailures{};
+		inline static uint64_t wideBadAdvance{};
+	};
+	class indent_histogram {
+	  public:
+		static constexpr uint64_t exactMax{ 64 };
+		static constexpr uint64_t overflowBuckets{ 8 };
+
+		JSONIFIER_INLINE static void record(uint64_t count) noexcept {
+			++totalCalls;
+			totalBytes += count;
+			if (count > maxSeen) {
+				maxSeen = count;
+			}
+			if (count <= exactMax) {
+				++exact[count];
+			} else {
+				uint64_t bucket{ 0 };
+				uint64_t threshold{ exactMax };
+				while (bucket + 1 < overflowBuckets && count > threshold * 2) {
+					threshold *= 2;
+					++bucket;
+				}
+				++overflow[bucket];
+			}
+		}
+
+		~indent_histogram() {
+			out << endl << "==== WS LENGTH HISTOGRAM ====" << endl;
+			out << "calls: " << totalCalls << "  bytes: " << totalBytes << "  max: " << maxSeen;
+			if (totalCalls != 0) {
+				out << "  mean: " << (static_cast<double>(totalBytes) / static_cast<double>(totalCalls));
+			}
+			out << endl << endl;
+			uint64_t peak{ 1 };
+			for (uint64_t x = 0; x <= exactMax; ++x) {
+				if (exact[x] > peak) {
+					peak = exact[x];
+				}
+			}
+			for (uint64_t x = 0; x <= exactMax; ++x) {
+				if (exact[x] == 0) {
+					continue;
+				}
+				const double pct{ totalCalls != 0 ? (static_cast<double>(exact[x]) * 100.0 / static_cast<double>(totalCalls)) : 0.0 };
+				out << "len " << x << "\t" << exact[x] << "\t" << pct << "%\t";
+				const uint64_t bars{ (exact[x] * 50) / peak };
+				for (uint64_t y = 0; y < bars; ++y) {
+					out << "#";
+				}
+				out << endl;
+			}
+			uint64_t threshold{ exactMax };
+			for (uint64_t x = 0; x < overflowBuckets; ++x) {
+				const uint64_t lo{ threshold + 1 };
+				threshold *= 2;
+				if (overflow[x] == 0) {
+					continue;
+				}
+				const double pct{ totalCalls != 0 ? (static_cast<double>(overflow[x]) * 100.0 / static_cast<double>(totalCalls)) : 0.0 };
+				out << "len " << lo << "-" << threshold << "\t" << overflow[x] << "\t" << pct << "%" << endl;
+			}
+			out << "=============================" << endl;
+		}
+
+	  protected:
+		inline static uint64_t exact[exactMax + 1]{};
+		inline static uint64_t overflow[overflowBuckets]{};
+		inline static uint64_t totalCalls{};
+		inline static uint64_t totalBytes{};
+		inline static uint64_t maxSeen{};
+	};
+
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wexit-time-destructors"
+#endif
+	inline static indent_histogram indentHistogramInstance{};
+	inline static indent_probe indentProbeInstance{};
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic pop
+#endif
+
 	template<parse_options parseOpts, typename string_buffer_type>
 		requires(!parseOpts.minified)
 	struct json_iterator<parseOpts, string_view_ptr, string_buffer_type> {
@@ -594,95 +754,41 @@ namespace jsonifier::internal {
 			return static_cast<uint64_t>(static_cast<uint8_t>(wsChar)) * 0x0101010101010101ull;
 		}
 
-		template<uint_types value_type> JSONIFIER_INLINE bool swarCmp(string_view_ptr iterLocal, uint64_t fill) noexcept {
-			value_type chunk;
-			std::memcpy(&chunk, iterLocal, sizeof(value_type));
-			return (chunk ^ fill) == 0;
+		JSONIFIER_INLINE indent_result cmpNarrow(string_view_ptr iterLocal, uint64_t n, uint64_t fill) noexcept {
+			if (n >= 8) {
+				uint64_t lo, hi;
+				std::memcpy(&lo, iterLocal, 8);
+				std::memcpy(&hi, iterLocal + (n - 8), 8);
+				const uint64_t loDiff{ lo ^ fill };
+				const uint64_t hiDiff{ hi ^ fill };
+				if (loDiff | hiDiff) {
+					return loDiff ? indent_result{ iterLocal + (simd::countrZero(loDiff) >> 3), false }
+								  : indent_result{ iterLocal + (n - 8) + (simd::countrZero(hiDiff) >> 3), false };
+				}
+				return { iterLocal + n, true };
+			}
+			uint64_t chunk{};
+			std::memcpy(&chunk, iterLocal, n);
+			const uint64_t mask{ (n == 8) ? ~uint64_t{ 0 } : ((uint64_t{ 1 } << (n << 3)) - 1) };
+			const uint64_t diff{ (chunk ^ fill) & mask };
+			return diff ? indent_result{ iterLocal + (simd::countrZero(diff) >> 3), false } : indent_result{ iterLocal + n, true };
 		}
-
-		struct indent_result {
-			string_view_ptr pos;
-			bool matched;
-		};
 
 		JSONIFIER_INLINE indent_result spanIsIndent(string_view_ptr iterLocal, uint64_t count) noexcept {
-			const uint64_t fill{ swarBroadcast() };
 			if (count < 16) [[likely]] {
-				if (count >= 8) {
-					uint64_t chunk;
-					std::memcpy(&chunk, iterLocal, 8);
-					const uint64_t diff{ chunk ^ fill };
-					if (diff) {
-						return { iterLocal + (simd::countrZero(diff) >> 3), false };
-					}
-					iterLocal += 8;
-					count -= 8;
+				return cmpNarrow(iterLocal, count, swarBroadcast());
+			}
+			const jsonifier_simd_int_128 charValue{ simd::gatherValue<jsonifier_simd_int_128>(wsChar) };
+			do {
+				const jsonifier_simd_int_128 values{ simd::gatherValuesU<jsonifier_simd_int_128>(iterLocal) };
+				const uint16_t mask{ static_cast<uint16_t>(~static_cast<uint16_t>(simd::opCmpEq(charValue, values))) };
+				if (mask) {
+					return { iterLocal + simd::countrZero(static_cast<uint32_t>(mask)), false };
 				}
-				return swarCmpTail(iterLocal, count, fill);
-			}
-			uint64_t remaining{ count };
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
-			if (remaining >= 32) {
-				const jsonifier_simd_int_256 charValue{ gatherValue<jsonifier_simd_int_256>(wsChar) };
-				while (remaining >= 32) {
-					const jsonifier_simd_int_256 iterValues{ gatherValuesU<jsonifier_simd_int_256>(iterLocal) };
-					const uint32_t mask{ static_cast<uint32_t>(opCmpEq(charValue, iterValues)) };
-					if (mask != std::numeric_limits<uint32_t>::max()) {
-						return { iterLocal + simd::countrZero(static_cast<uint32_t>(~mask)), false };
-					}
-					remaining -= 32;
-					iterLocal += 32;
-				}
-			}
-#endif
-			if (remaining >= 16) {
-				const jsonifier_simd_int_128 charValue{ gatherValue<jsonifier_simd_int_128>(wsChar) };
-				while (remaining >= 16) {
-					const jsonifier_simd_int_128 iterValues{ gatherValuesU<jsonifier_simd_int_128>(iterLocal) };
-					const uint16_t mask{ static_cast<uint16_t>(opCmpEq(charValue, iterValues)) };
-					if (mask != std::numeric_limits<uint16_t>::max()) {
-						return { iterLocal + simd::countrZero(static_cast<uint32_t>(static_cast<uint16_t>(~mask))), false };
-					}
-					remaining -= 16;
-					iterLocal += 16;
-				}
-			}
-			if (remaining >= 8) {
-				uint64_t chunk;
-				std::memcpy(&chunk, iterLocal, 8);
-				const uint64_t diff{ chunk ^ fill };
-				if (diff) {
-					return { iterLocal + (simd::countrZero(diff) >> 3), false };
-				}
-				iterLocal += 8;
-				remaining -= 8;
-			}
-			return swarCmpTail(iterLocal, remaining, fill);
-		}
-
-		JSONIFIER_INLINE indent_result swarCmpTail(string_view_ptr iterLocal, uint64_t remaining, uint64_t fill) noexcept {
-			if (remaining & 4) {
-				uint32_t chunk;
-				std::memcpy(&chunk, iterLocal, 4);
-				const uint32_t diff{ chunk ^ static_cast<uint32_t>(fill) };
-				if (diff) {
-					return { iterLocal + (simd::countrZero(diff) >> 3), false };
-				}
-				iterLocal += 4;
-			}
-			if (remaining & 2) {
-				uint16_t chunk;
-				std::memcpy(&chunk, iterLocal, 2);
-				const uint16_t diff{ static_cast<uint16_t>(chunk ^ static_cast<uint16_t>(fill)) };
-				if (diff) {
-					return { iterLocal + (simd::countrZero(static_cast<uint32_t>(diff)) >> 3), false };
-				}
-				iterLocal += 2;
-			}
-			if (remaining & 1) {
-				return { iterLocal, *iterLocal == wsChar };
-			}
-			return { iterLocal, true };
+				iterLocal += 16;
+				count -= 16;
+			} while (count >= 16);
+			return cmpNarrow(iterLocal, count, swarBroadcast());
 		}
 
 		JSONIFIER_INLINE void skipWhitespaceScalar() noexcept {
