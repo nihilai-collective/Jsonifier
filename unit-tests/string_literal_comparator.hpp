@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/string_literal_comparator.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/string_literal_comparator.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -34,7 +36,7 @@ namespace string_literal_comparator_impl_tests {
 
 	template<jsonifier::internal::string_literal literal> inline static bool matchesExactly() {
 		static constexpr auto localLiteral = literal;
-		using sl_type						= decltype(localLiteral);
+		using sl_type					   = decltype(localLiteral);
 		std::string buffer{ localLiteral.data(), localLiteral.size() };
 		const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 		return result == buffer.data() + localLiteral.size();
@@ -42,11 +44,11 @@ namespace string_literal_comparator_impl_tests {
 
 	template<jsonifier::internal::string_literal literal> inline static bool detectsCorruptionAtEveryPosition() {
 		static constexpr auto localLiteral = literal;
-		using sl_type						= decltype(localLiteral);
-		static constexpr uint64_t len		= localLiteral.size();
+		using sl_type					   = decltype(localLiteral);
+		static constexpr uint64_t len	   = localLiteral.size();
 		for (uint64_t pos = 0; pos < len; ++pos) {
 			std::string buffer{ localLiteral.data(), localLiteral.size() };
-			buffer[pos]			= static_cast<char>(~buffer[pos]);
+			buffer[pos]		   = static_cast<char>(~buffer[pos]);
 			const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 			if (result != nullptr) {
 				std::cout << "STRING_LITERAL_COMPARATOR_IMPL failed to detect corruption at position " << pos << " for length " << len << std::endl;
@@ -55,7 +57,7 @@ namespace string_literal_comparator_impl_tests {
 		}
 		return true;
 	}
-	
+
 	template<jsonifier::internal::string_literal literal> inline static bool ignoresTrailingGarbage() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);

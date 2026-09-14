@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/instruments.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/instruments.hpp
+ */
 #pragma once
 
 #include "common.hpp"

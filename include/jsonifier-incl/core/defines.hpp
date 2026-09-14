@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/core/defines.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/core/defines.hpp
+ */
 #pragma once
 
 #ifndef JSONIFIER_SVE2_VECTOR_BITS

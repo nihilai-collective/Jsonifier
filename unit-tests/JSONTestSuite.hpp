@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/JSONTestSuite.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/JSONTestSuite.hpp
+ */
 #pragma once
 
 #include "conformance.hpp"
@@ -304,9 +306,9 @@ namespace json_test_suite_tests {
 		conformance_tests::runConformanceTest<"n_structure_angle_bracket_null.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 			jsonifier::internal::parse_statuses::missing_object_start>(jsonTests["n_structure_angle_bracket_null.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_trailing_garbage.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_extra_array_close.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_unclosed_string.json", partial, knownOrder, nullTerminated, std::vector<std::string>,
 			jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["n_structure_array_with_unclosed_string.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_ascii-unicode-identifier.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,

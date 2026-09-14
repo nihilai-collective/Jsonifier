@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/hash_map.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/hash_map.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -163,8 +165,7 @@ namespace hash_map_tests {
 		rt_ut::unit_test<"hash_map_unknown_key_in_input_is_skipped_gracefully", true>::assert_eq(true, [] {
 			jsonifier::jsonifier_core<> parser{};
 			hm_five obj{};
-			std::string json =
-				R"({"alpha":1,"mystery_field":{"nested":[1,2,3]},"bravo":2,"charlie":3,"unexpected":"value","delta":4,"echo":5})";
+			std::string json = R"({"alpha":1,"mystery_field":{"nested":[1,2,3]},"bravo":2,"charlie":3,"unexpected":"value","delta":4,"echo":5})";
 			parser.parseJson(obj, json);
 			return obj.alpha == 1 && obj.bravo == 2 && obj.charlie == 3 && obj.delta == 4 && obj.echo == 5;
 		});

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/tuple.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/tuple.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -18,7 +20,7 @@ namespace tuple_tests {
 		});
 
 		rt_ut::unit_test<"tuple_tag_subscript_access_and_mutation", true>::assert_eq(true, [] {
-			auto t = jsonifier::internal::makeTuple(1, 2, 3);
+			auto t														= jsonifier::internal::makeTuple(1, 2, 3);
 			jsonifier::internal::getBecauseOtherLibAuthorsResolve<0>(t) = 100;
 			return jsonifier::internal::getBecauseOtherLibAuthorsResolve<0>(t) == 100 && jsonifier::internal::getBecauseOtherLibAuthorsResolve<1>(t) == 2 &&
 				jsonifier::internal::getBecauseOtherLibAuthorsResolve<2>(t) == 3;
@@ -55,12 +57,11 @@ namespace tuple_tests {
 		});
 
 		rt_ut::unit_test<"tuple_cat_concatenates_in_order", true>::assert_eq(true, [] {
-			auto a = jsonifier::internal::makeTuple(1, 2);
-			auto b = jsonifier::internal::makeTuple(std::string{ "x" }, 4.5);
+			auto a		= jsonifier::internal::makeTuple(1, 2);
+			auto b		= jsonifier::internal::makeTuple(std::string{ "x" }, 4.5);
 			auto joined = jsonifier::internal::tupleCat(a, b);
 			return decltype(joined)::size == 4 && jsonifier::internal::getBecauseOtherLibAuthorsResolve<0>(joined) == 1 &&
-				jsonifier::internal::getBecauseOtherLibAuthorsResolve<1>(joined) == 2 &&
-				jsonifier::internal::getBecauseOtherLibAuthorsResolve<2>(joined) == std::string{ "x" } &&
+				jsonifier::internal::getBecauseOtherLibAuthorsResolve<1>(joined) == 2 && jsonifier::internal::getBecauseOtherLibAuthorsResolve<2>(joined) == std::string{ "x" } &&
 				std::equal_to<double>{}(jsonifier::internal::getBecauseOtherLibAuthorsResolve<3>(joined), 4.5);
 		});
 
@@ -71,8 +72,8 @@ namespace tuple_tests {
 		});
 
 		rt_ut::unit_test<"tuple_structured_bindings_via_std_get", true>::assert_eq(true, [] {
-			auto t = jsonifier::internal::makeTuple(7, std::string{ "seven" });
-			auto& first  = std::get<0>(t);
+			auto t		 = jsonifier::internal::makeTuple(7, std::string{ "seven" });
+			auto& first	 = std::get<0>(t);
 			auto& second = std::get<1>(t);
 			return first == 7 && second == std::string{ "seven" };
 		});

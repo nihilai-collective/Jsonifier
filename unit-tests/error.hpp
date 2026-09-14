@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/error.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/error.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -57,7 +59,7 @@ namespace error_tests {
 			static constexpr std::string_view multiLineInput{ "{\n\"a\": 1,\n\"b\": bad\n}" };
 			auto badPos = multiLineInput.data() + multiLineInput.find("bad");
 			auto err	= jsonifier::internal::error::constructError<jsonifier::internal::status_classes::parsing, jsonifier::internal::parse_statuses::invalid_bool_value>(
-				   multiLineInput.data(), badPos, multiLineInput.data() + multiLineInput.size());
+				multiLineInput.data(), badPos, multiLineInput.data() + multiLineInput.size());
 
 			rt_ut::unit_test<"error, reportError-contains-line-number", true>::template assert_eq<true>([&]() {
 				return err.reportError().find("line: 3") != std::string::npos;

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/simd.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/simd.hpp
+ */
 // The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 
@@ -56,7 +58,7 @@ namespace jsonifier::internal {
 		uint64_t index{};
 	};
 
-	inline static void printBitsAligned(uint64_t bits, string_view_ptr label, string_view_ptr __restrict  str = nullptr, uint64_t len = 0) noexcept {
+	inline static void printBitsAligned(uint64_t bits, string_view_ptr label, string_view_ptr __restrict str = nullptr, uint64_t len = 0) noexcept {
 		out << label << ":" << endl;
 		if (str && len > 0) {
 			out << "STR:  ";
@@ -107,32 +109,6 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE simd_string_reader() noexcept {
 			tape	 = allocator::allocate(initialBufferSize);
 			capacity = initialBufferSize;
-		}
-
-		simd_string_reader(const simd_string_reader&)			 = delete;
-		simd_string_reader& operator=(const simd_string_reader&) = delete;
-
-		JSONIFIER_INLINE simd_string_reader(simd_string_reader&& other) noexcept
-			: simd::rope_detector<rope_block>(internal::move(other)), string_block_reader(internal::move(other)), add_tape_values<make_integer_sequence<simdBlocksPerStep>>(internal::move(other)),
-			  alloc_wrapper<uint32_t>(internal::move(other)), tape(std::exchange(other.tape, nullptr)), tapeCount(std::exchange(other.tapeCount, 0)),
-			  capacity(std::exchange(other.capacity, 0)) {
-		}
-
-		JSONIFIER_INLINE simd_string_reader& operator=(simd_string_reader&& other) noexcept {
-			if (this != &other) {
-				if (tape) {
-					allocator::deallocate(tape, capacity);
-				}
-				simd::rope_detector<rope_block>::operator=(internal::move(other));
-				string_block_reader::operator=(internal::move(other));
-				add_tape_values<make_integer_sequence<simdBlocksPerStep>>::operator=(internal::move(other));
-				alloc_wrapper<uint32_t>::operator=(internal::move(other));
-
-				tape	  = std::exchange(other.tape, nullptr);
-				tapeCount = std::exchange(other.tapeCount, 0);
-				capacity  = std::exchange(other.capacity, 0);
-			}
-			return *this;
 		}
 
 		template<bool minified> JSONIFIER_INLINE void reset(string_view_ptr __restrict rootIter, uint64_t stringLength) noexcept {

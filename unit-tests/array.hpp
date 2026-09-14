@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/array.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/array.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -23,7 +25,7 @@ namespace array_tests {
 
 		rt_ut::unit_test<"array_operator_bracket_read_and_write", true>::assert_eq(true, [] {
 			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			arr[1] = 99;
+			arr[1]				 = 99;
 			const auto& constArr = arr;
 			return arr[0] == 1 && arr[1] == 99 && constArr[2] == 3;
 		});

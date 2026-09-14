@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/simd/add_tape_values.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/add_tape_values.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -30,8 +32,8 @@ namespace jsonifier::internal {
 			static constexpr size_type bitTotal{ index * 64ull };
 			const int32_t base			  = static_cast<int32_t>(bitTotal + strIdx);
 			const __m512i indexes		  = _mm512_maskz_compress_epi8(bits,
-						_mm512_set_epi32(0x3f3e3d3c, 0x3b3a3938, 0x37363534, 0x33323130, 0x2f2e2d2c, 0x2b2a2928, 0x27262524, 0x23222120, 0x1f1e1d1c, 0x1b1a1918, 0x17161514, 0x13121110,
-							0x0f0e0d0c, 0x0b0a0908, 0x07060504, 0x03020100));
+				_mm512_set_epi32(0x3f3e3d3c, 0x3b3a3938, 0x37363534, 0x33323130, 0x2f2e2d2c, 0x2b2a2928, 0x27262524, 0x23222120, 0x1f1e1d1c, 0x1b1a1918, 0x17161514, 0x13121110,
+					0x0f0e0d0c, 0x0b0a0908, 0x07060504, 0x03020100));
 			const __m512i startIndexLocal = _mm512_set1_epi32(base);
 			__m512i t0					  = _mm512_cvtepu8_epi32(_mm512_castsi512_si128(indexes));
 			_mm512_storeu_si512(tape, _mm512_add_epi32(t0, startIndexLocal));

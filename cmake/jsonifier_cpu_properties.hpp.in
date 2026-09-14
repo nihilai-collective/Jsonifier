@@ -1,4 +1,4 @@
-// MIT License @ /License.md
+// SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Nihilai Collective Corp
 // https://github.com/nihilai-collective/jsonifier
 // include/jsonifier-incl/simd/jsonifier_cpu_properties.hpp

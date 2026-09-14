@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/printer.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/printer.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/raw_json_data.hpp>
@@ -17,14 +19,6 @@ namespace jsonifier::internal {
 	template<typename value_type, typename = void> struct json_printer_impl;
 
 	struct json_printer {
-
-		json_printer()									 = default;
-		json_printer(const json_printer&)				 = default;
-		json_printer& operator=(const json_printer&)	 = default;
-		json_printer(json_printer&&) noexcept			 = default;
-		json_printer& operator=(json_printer&&) noexcept = default;
-		~json_printer()									 = default;
-
 		template<typename value_type_new> inline static void printJson(value_type_new&& value, std::ostream& os, uint64_t depth = 0) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			os << "Printing Json" << std::endl;
@@ -172,7 +166,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<num_t value_type> struct json_printer_impl<value_type> {
+	template<number_t value_type> struct json_printer_impl<value_type> {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, std::ostream& os, [[maybe_unused]] uint64_t depth) {
 			os << value << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << std::endl;
 		}

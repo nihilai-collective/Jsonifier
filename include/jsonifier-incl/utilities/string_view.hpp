@@ -1,14 +1,16 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/string_view.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/string_view.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/string.hpp>
 
 namespace jsonifier {
 
-class string_view_base {
+	class string_view_base {
 	  public:
 		using value_type			 = char;
 		using const_pointer			 = const value_type*;

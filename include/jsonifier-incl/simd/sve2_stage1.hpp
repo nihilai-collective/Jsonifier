@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/simd/sve2_stage1.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/sve2_stage1.hpp
+ */
 // The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 
@@ -110,7 +112,7 @@ namespace jsonifier::internal::simd {
 		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t masked_0, const jsonifier_simd_int_t masked_1, const jsonifier_simd_int_t masked_2,
 			const jsonifier_simd_int_t masked_3) noexcept {
 			return sve2CollapseMasked(masked_0, masked_1, masked_2, masked_3);
-		}		
+		}
 
 		JSONIFIER_INLINE void finishNextNoInString() noexcept {
 			rope_block::inString = prevInString;

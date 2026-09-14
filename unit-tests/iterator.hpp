@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/iterator.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/iterator.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -20,20 +22,20 @@ namespace iterator_tests {
 		rt_ut::unit_test<"iterator_pre_and_post_increment", true>::assert_eq(true, [] {
 			int32_t values[3]{ 10, 20, 30 };
 			jsonifier::internal::basic_iterator<int32_t> it{ values };
-			auto post = it++;
-			bool postOk = *post == 10 && *it == 20;
+			auto post	 = it++;
+			bool postOk	 = *post == 10 && *it == 20;
 			auto& preRef = ++it;
-			bool preOk = *it == 30 && &preRef == &it;
+			bool preOk	 = *it == 30 && &preRef == &it;
 			return postOk && preOk;
 		});
 
 		rt_ut::unit_test<"iterator_pre_and_post_decrement", true>::assert_eq(true, [] {
 			int32_t values[3]{ 10, 20, 30 };
 			jsonifier::internal::basic_iterator<int32_t> it{ values + 2 };
-			auto post = it--;
-			bool postOk = *post == 30 && *it == 20;
+			auto post	 = it--;
+			bool postOk	 = *post == 30 && *it == 20;
 			auto& preRef = --it;
-			bool preOk = *it == 10 && &preRef == &it;
+			bool preOk	 = *it == 10 && &preRef == &it;
 			return postOk && preOk;
 		});
 
@@ -50,8 +52,8 @@ namespace iterator_tests {
 		rt_ut::unit_test<"iterator_binary_plus_and_minus_offset", true>::assert_eq(true, [] {
 			int32_t values[5]{ 0, 1, 2, 3, 4 };
 			jsonifier::internal::basic_iterator<int32_t> it{ values + 2 };
-			auto forward = it + 2;
-			auto backward = it - 1;
+			auto forward	   = it + 2;
+			auto backward	   = it - 1;
 			auto friendForward = 2 + it;
 			return *forward == 4 && *backward == 1 && *friendForward == 4;
 		});
@@ -109,7 +111,7 @@ namespace iterator_tests {
 			jsonifier::internal::basic_iterator<int32_t> end{ values + 5 };
 			bool distanceOk = std::distance(begin, end) == 5;
 			std::sort(begin, end);
-			bool sortedOk = values[0] == 1 && values[1] == 2 && values[2] == 3 && values[3] == 4 && values[4] == 5;
+			bool sortedOk	  = values[0] == 1 && values[1] == 2 && values[2] == 3 && values[3] == 4 && values[4] == 5;
 			bool accumulateOk = std::accumulate(begin, end, 0) == 15;
 			return distanceOk && sortedOk && accumulateOk;
 		});

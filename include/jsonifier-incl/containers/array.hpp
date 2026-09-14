@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/containers/array.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/containers/array.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
@@ -13,17 +15,17 @@ namespace jsonifier::internal {
 	  public:
 		static_assert(std::is_object_v<value_type_new>, "The C++ Standard forbids containers of non-object types because of [container.requirements].");
 
-		using value_type			 = value_type_new;
-		using size_type				 = uint64_t;
-		using difference_type		 = ptrdiff_t;
-		using pointer				 = value_type*;
-		using const_pointer			 = const value_type*;
-		using reference				 = value_type&;
-		using r_reference			 = value_type&&;
-		using const_reference		 = const value_type&;
-		using const_r_reference		 = const value_type&&;
-		using iterator				 = sized_iterator<value_type, sizeNew>;
-		using const_iterator		 = sized_iterator<const value_type, sizeNew>;
+		using value_type		= value_type_new;
+		using size_type			= uint64_t;
+		using difference_type	= ptrdiff_t;
+		using pointer			= value_type*;
+		using const_pointer		= const value_type*;
+		using reference			= value_type&;
+		using r_reference		= value_type&&;
+		using const_reference	= const value_type&;
+		using const_r_reference = const value_type&&;
+		using iterator			= sized_iterator<value_type, sizeNew>;
+		using const_iterator	= sized_iterator<const value_type, sizeNew>;
 
 		JSONIFIER_INLINE constexpr void fill(const value_type& value) noexcept {
 			std::fill_n(dataVal, sizeNew, value);
@@ -85,8 +87,7 @@ namespace jsonifier::internal {
 			return dataVal[static_cast<uint64_t>(position)];
 		}
 
-		template<indexable_types<size_type> index_type> JSONIFIER_INLINE constexpr const_reference at(index_type position) const
-			noexcept(false) JSONIFIER_LIFETIME_BOUND {
+		template<indexable_types<size_type> index_type> JSONIFIER_INLINE constexpr const_reference at(index_type position) const noexcept(false) JSONIFIER_LIFETIME_BOUND {
 			if (sizeNew <= static_cast<uint64_t>(position)) {
 				throw std::runtime_error{ "invalid array<T, N> subscript" };
 			}
@@ -160,15 +161,15 @@ namespace jsonifier::internal {
 
 	template<typename value_type_new> struct alignas(64) array<value_type_new, 0ULL> {
 	  public:
-		using value_type			 = value_type_new;
-		using size_type				 = uint64_t;
-		using difference_type		 = ptrdiff_t;
-		using pointer				 = value_type*;
-		using const_pointer			 = const value_type*;
-		using reference				 = value_type&;
-		using const_reference		 = const value_type&;
-		using iterator				 = sized_iterator<value_type, 0ULL>;
-		using const_iterator		 = sized_iterator<const value_type, 0ULL>;
+		using value_type	  = value_type_new;
+		using size_type		  = uint64_t;
+		using difference_type = ptrdiff_t;
+		using pointer		  = value_type*;
+		using const_pointer	  = const value_type*;
+		using reference		  = value_type&;
+		using const_reference = const value_type&;
+		using iterator		  = sized_iterator<value_type, 0ULL>;
+		using const_iterator  = sized_iterator<const value_type, 0ULL>;
 
 		JSONIFIER_INLINE constexpr size_type size() const noexcept {
 			return 0;
@@ -189,7 +190,6 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE constexpr friend bool operator!=(const array&, const array&) noexcept {
 			return false;
 		}
-
 	};
 
 }

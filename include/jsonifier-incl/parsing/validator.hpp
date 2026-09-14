@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/parsing/validator.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/parsing/validator.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -19,52 +21,51 @@ namespace jsonifier::internal {
 	}
 
 	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
-		return std::bit_cast<string_view_ptr>(value.data() + value.size());
+		return value.data() + value.size();
 	}
 
 	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
-		return std::bit_cast<string_view_ptr>(value.data());
+		return value.data();
 	}
 
 	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
 
-	template<typename derived_type_new> class validator {
+	template<typename derived_type> class validator {
 	  public:
-		template<json_structural_type, typename derived_type_newer> friend struct validate_impl;
-		using derived_type = derived_type_new;
-		friend derived_type;
+		template<json_structural_type, typename derived_type_new> friend struct validate_impl;
 
 		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
-			derived_type& selfRef{ getSelfRef() };
 			static constexpr parse_options validateOpts{};
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
-			selfRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(), selfRef.section.begin(),
-				selfRef.section.end(), selfRef.section.begin(), rootIter, endIter };
+			derivedRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
+				derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
 			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
-			if (getStringBuffer().size() < newSize) {
-				getStringBuffer().resize(newSize);
+			if (derivedRef.stringBuffer.size() < newSize) {
+				derivedRef.stringBuffer.resize(newSize);
 			}
-			getErrors().clear();
+			derivedRef.errors.clear();
 			if (context.anyInput()) {
 				if (!impl(context)) {
 					return false;
 				}
 				context.checkIfDone();
-				return getErrors().size() == 0;
+				return derivedRef.errors.size() == 0;
 			} else {
 				return false;
 			}
 		}
 
-	  private:
-		validator()								   = default;
-		validator(const validator&)				   = default;
-		validator& operator=(const validator&)	   = default;
-		validator(validator&&) noexcept			   = default;
-		validator& operator=(validator&&) noexcept = default;
-		~validator()							   = default;
+	  protected:
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
+
+		validator() noexcept						 = default;
+		validator& operator=(const validator& other) = delete;
+		validator(const validator& other)			 = delete;
+		validator& operator=(validator&& other)		 = delete;
+		validator(validator&& other)				 = delete;
+		~validator() noexcept						 = default;
 
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (!context.notAtEndPre()) {
@@ -86,20 +87,6 @@ namespace jsonifier::internal {
 			} else {
 				return false;
 			}
-		}
-
-		JSONIFIER_INLINE auto& getStringBuffer() noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			return selfRef.stringBuffer;
-		}
-
-		std::vector<error>& getErrors() noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			return selfRef.getErrors();
-		}
-
-		JSONIFIER_INLINE derived_type& getSelfRef() noexcept {
-			return *static_cast<derived_type*>(this);
 		}
 	};
 

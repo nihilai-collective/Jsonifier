@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/tests.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/tests.hpp
+ */
 #pragma once
 
 #include "add_tape_values.hpp"
@@ -9,7 +11,7 @@
 #include "array.hpp"
 #include "bounds_test.hpp"
 #include "compare.hpp"
-#include "conformance.hpp"
+#include "conformance.hpp" 
 #include "error.hpp"
 #include "fastio.hpp"
 #include "float.hpp"
@@ -21,7 +23,7 @@
 #include "iterator.hpp"
 #include "JSONTestSuite.hpp"
 #include "minifier.hpp"
-#include "parsing_tests.hpp"
+#include "parsing_tests.hpp" 
 #include "prettifier.hpp"
 #include "printer.hpp"
 #include "raw_json_data.hpp"

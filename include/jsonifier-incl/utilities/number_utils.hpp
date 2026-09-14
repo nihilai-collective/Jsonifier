@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/number_utils.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/number_utils.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/containers/allocator.hpp>
@@ -16,7 +18,7 @@ namespace jsonifier {
 
 	template<uint64_t> class jsonifier_core;
 
-	template<internal::num_t value_type01> inline static string toString(const value_type01& value) noexcept {
+	template<internal::number_t value_type01> inline static string toString(const value_type01& value) noexcept {
 		string returnString{};
 		returnString.resize(64);
 		if constexpr (sizeof(value_type01) == 8) {

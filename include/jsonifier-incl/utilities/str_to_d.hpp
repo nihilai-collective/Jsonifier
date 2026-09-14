@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/str_to_d.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/str_to_d.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/fast_float.hpp>
@@ -214,5 +216,5 @@ namespace jsonifier::internal {
 			return iter;
 		}
 	};
-	
+
 }

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/add_tape_values.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/add_tape_values.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -62,8 +64,7 @@ namespace add_tape_values_tests {
 			bitsArr[1] = (1ull << 0) | (1ull << 5) | (1ull << 30);
 			bitsArr[2] = (1ull << 63);
 			auto tape  = runAddTapeValues(bitsArr, 500);
-			return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 &&
-				tape[5] == 500 + 128 + 63;
+			return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 && tape[5] == 500 + 128 + 63;
 		});
 
 		rt_ut::unit_test<"add_tape_values_empty_bitmask_produces_no_entries", true>::assert_eq(true, [] {
@@ -75,8 +76,8 @@ namespace add_tape_values_tests {
 		rt_ut::unit_test<"add_tape_values_last_block_populated_only", true>::assert_eq(true, [] {
 			jsonifier::internal::array<uint64_t, jsonifier::simdBlocksPerStep> bitsArr{};
 			bitsArr[jsonifier::simdBlocksPerStep - 1] = (1ull << 7) | (1ull << 40);
-			auto tape								   = runAddTapeValues(bitsArr, 0);
-			const uint64_t base						   = (jsonifier::simdBlocksPerStep - 1) * 64;
+			auto tape								  = runAddTapeValues(bitsArr, 0);
+			const uint64_t base						  = (jsonifier::simdBlocksPerStep - 1) * 64;
 			return tape.size() == 2 && tape[0] == base + 7 && tape[1] == base + 40;
 		});
 

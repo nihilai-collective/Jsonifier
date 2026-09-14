@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/core/fastio.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/core/fastio.hpp
+ */
 #pragma once
 
 namespace jsonifier::internal {
@@ -10,9 +12,9 @@ namespace jsonifier::internal {
 
 	inline size_t rawWrite(stream_target target, const char* data, size_t len) {
 #if JSONIFIER_PLATFORM_WINDOWS
-		HANDLE handle	  = GetStdHandle(target == stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
-		DWORD written	  = 0;
-		size_t total = 0;
+		HANDLE handle = GetStdHandle(target == stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
+		DWORD written = 0;
+		size_t total  = 0;
 		while (total < len) {
 			DWORD chunk = static_cast<DWORD>(len - total);
 			if (!WriteFile(handle, data + total, chunk, &written, nullptr)) {
@@ -25,7 +27,7 @@ namespace jsonifier::internal {
 		}
 		return total;
 #else
-		int fd			  = target == stream_target::stdout_target ? 1 : 2;
+		int fd		 = target == stream_target::stdout_target ? 1 : 2;
 		size_t total = 0;
 		while (total < len) {
 			ssize_t result = write(fd, data + total, len - total);
@@ -36,7 +38,7 @@ namespace jsonifier::internal {
 		}
 		return total;
 #endif
-	}	
+	}
 
 	static constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
 		9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
@@ -79,7 +81,7 @@ namespace jsonifier::internal {
 			char* out_local = dest;
 			if (value < 0) {
 				*out_local++ = '-';
-				magnitude = ~static_cast<uint64_t>(value) + 1;
+				magnitude	 = ~static_cast<uint64_t>(value) + 1;
 			} else {
 				magnitude = static_cast<uint64_t>(value);
 			}
@@ -89,8 +91,8 @@ namespace jsonifier::internal {
 			return static_cast<size_t>(end - dest);
 		} else {
 			uint64_t magnitude = static_cast<uint64_t>(value);
-			auto count				= fastDigitCount(magnitude);
-			char* end				= dest + count;
+			auto count		   = fastDigitCount(magnitude);
+			char* end		   = dest + count;
 			writeUnsigned(end, magnitude);
 			return count;
 		}

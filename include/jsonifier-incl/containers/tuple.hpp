@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/containers/tuple.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/containers/tuple.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/forward.hpp>
@@ -29,8 +31,10 @@ namespace jsonifier::internal {
 			return static_cast<const value_type&&>(value);
 		}
 
-		JSONIFIER_INLINE friend constexpr type_list_elem getForType(type_list_elem*, tag<index>) noexcept {
-			return {};
+	  protected:
+		template<uint64_t index, typename type_list_type> friend struct type_list_element;
+		JSONIFIER_INLINE static constexpr type_list_elem getForType(tag<index>) {
+			return type_list_elem{};
 		}
 	};
 
@@ -54,14 +58,17 @@ namespace jsonifier::internal {
 			return static_cast<const value_type&&>(*this);
 		}
 
-		JSONIFIER_INLINE friend constexpr type_list_elem getForType(type_list_elem*, tag<index>) noexcept {
-			return {};
+	  protected:
+		template<uint64_t index, typename type_list_type> friend struct type_list_element;
+		JSONIFIER_INLINE static constexpr type_list_elem getForType(tag<index>) {
+			return type_list_elem{};
 		}
 	};
 
 	template<typename... value_types> struct type_list_impl : public value_types... {
 		static constexpr uint64_t size{ sizeof...(value_types) };
 		using value_types::operator[]...;
+		using value_types::getForType...;
 	};
 
 	template<typename integer_sequence, typename... value_types> struct tuple_type_list;
@@ -73,10 +80,10 @@ namespace jsonifier::internal {
 	template<typename... value_types> using type_list_t = typename tuple_type_list<make_integer_sequence<sizeof...(value_types)>, value_types...>::type;
 
 	template<uint64_t index, typename type_list_type> struct type_list_element {
-		using type = typename decltype(getForType(static_cast<remove_cvref_t<type_list_type>*>(nullptr), tag<index>{}))::value_type;
+		using type = typename decltype(remove_pointer_t<remove_cvref_t<type_list_type>>::getForType(tag<index>{}))::value_type;
 	};
 
-	template<uint64_t index, typename type_list_type> using type_list_element_t = typename type_list_element<index, type_list_type>::type;
+	template<uint64_t index, typename type_list_type> using type_list_element_t = type_list_element<index, type_list_type>::type;
 
 	template<uint64_t index, typename tuple_type> using tuple_element_t = type_list_element_t<index, tuple_type>;
 
@@ -411,7 +418,7 @@ namespace jsonifier::internal {
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
 				return (*tuplePtr)[tag<localIdx>{}];
 			} else {
-				return internal::move((*tuplePtr)[tag<localIdx>{}]);
+				return std::move((*tuplePtr)[tag<localIdx>{}]);
 			}
 		}
 

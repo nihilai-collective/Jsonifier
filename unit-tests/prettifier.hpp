@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/prettifier.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/prettifier.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -85,10 +87,9 @@ namespace prettifier_tests {
 			return result.empty() && !parser.getErrors().empty();
 		});
 
-		rt_ut::unit_test<"prettify_custom_indent_size_and_char", true>::assert_eq(
-			std::string{ "{\n\t\t\"a\":\t1,\n\t\t\"b\":\t[\n\t\t\t\t1,\n\t\t\t\t2\n\t\t]\n}" }, [&] {
-				return parser.prettifyJson<jsonifier::prettify_options{ .indentSize = 2, .indentChar = '\t' }>(std::string{ R"({"a":1,"b":[1,2]})" });
-			});
+		rt_ut::unit_test<"prettify_custom_indent_size_and_char", true>::assert_eq(std::string{ "{\n\t\t\"a\":\t1,\n\t\t\"b\":\t[\n\t\t\t\t1,\n\t\t\t\t2\n\t\t]\n}" }, [&] {
+			return parser.prettifyJson<jsonifier::prettify_options{ .indentSize = 2, .indentChar = '\t' }>(std::string{ R"({"a":1,"b":[1,2]})" });
+		});
 
 		rt_ut::unit_test<"prettify_buffer_overload_writes_into_existing_buffer", true>::assert_eq(std::string{ "{\n   \"a\": 1,\n   \"b\": 2\n}" }, [&] {
 			std::string buffer{ "stale contents that should be overwritten" };

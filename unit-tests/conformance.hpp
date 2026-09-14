@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/conformance.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/conformance.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -13,6 +15,7 @@ namespace conformance_tests {
 	inline static void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
+		parser.getErrors().clear();
 		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .validateUtf8 = true, .nullTerminated = nullTerminated }>(valueNew,
 			dataToParse);
 		rt_ut::unit_test<testName, true>::template assert_eq<parse_error>([&]() {
@@ -162,7 +165,7 @@ namespace conformance_tests {
 				jsonTests["fail68.json"].fileContents, parser);
 			runConformanceTest<"fail69.json", partial, knownOrder, nullTerminated, bool, jsonifier::internal::parse_statuses::invalid_bool_value>(
 				jsonTests["fail69.json"].fileContents, parser);
-			runConformanceTest<"fail70.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::no_input>(
+			runConformanceTest<"fail70.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
 				jsonTests["fail70.json"].fileContents, parser);
 			runConformanceTest<"fail71.json", partial, knownOrder, nullTerminated, std::string, jsonifier::internal::parse_statuses::invalid_string_characters>(
 				jsonTests["fail71.json"].fileContents, parser);

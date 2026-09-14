@@ -8,7 +8,7 @@
 
 A high-performance C++ library for validating, serializing, parsing, prettifying, and minifying JSON data — **very rapidly**.
 
-It achieves this through the usage of [SIMD instructions](./include/jsonifier-incl/simd) as well as compile-time [hash maps](/include/jsonifier-incl/utilities/hash_map.hpp) for efficient key lookups during parsing.
+It achieves this through the usage of [SIMD instructions](./include/jsonifier-incl/simd) as well as compile-time [hash maps](./include/jsonifier-incl/utilities/hash_map.hpp) for efficient key lookups during parsing.
 
 - [Stage-1 Document](./Batched-Drain.md)
 - [Full Arch Document](./Two-Stages.md)
@@ -45,11 +45,9 @@ Jsonifier automatically detects and optimizes for your CPU architecture:
 - **AVX-512** — 512-bit vector registers for maximum parallelism (requires F + BW + VBMI2 support detected together)
 - **PCLMULQDQ** — carry-less multiplication support, detected and used where available
 - **ARM-NEON** — SIMD instructions for ARM processors
-- **ARM-SVE2** — scalable vector extensions for ARM processors ⚠️ **experimental** — see note below
+- **ARM-SVE2** — scalable vector extensions for ARM processors ⚠️ **experimental** — the SVE2 backend is new and still under active development; a handful of parsing cases are not yet handled correctly. NEON remains the recommended path for production ARM builds until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
 Manual configuration is also available via `JSONIFIER_CPU_FLAGS` in CMake, and cross-compilation is supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` to skip native feature detection.
-
-> **A note on SVE2:** the SVE2 backend is new and still under active development. A handful of parsing cases are not yet handled correctly under SVE2. If you're building for ARM, **NEON remains the recommended path for production use** until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
 ---
 
@@ -186,7 +184,7 @@ cmake --build build --target jsonifier-unit-tests
 ## Quick Example
 
 ```cpp
-#include <jsonifier>
+#include <jsonifier/jsonifier.hpp>
 
 struct event {
     int64_t id{};
@@ -202,7 +200,7 @@ struct catalog {
 
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::logo,
@@ -211,7 +209,7 @@ template<> struct jsonifier::core<event> {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::events,
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
@@ -268,10 +266,10 @@ The `jsonifier_core<>` type is now templated on an initial scratch-buffer size i
 ## Requirements
 
 - CMake 3.28 or later
-- C++20 compliant compiler (MSVC 2022+, GCC 11+, Clang 14+)
+- C++20 compliant compiler (MSVC 2022+, GCC 11+, Clang 16+)
 - Supported CPU (x64, ARM64 with NEON or SVE2*)
 
-<sub>* SVE2 support is experimental — see the CPU Architecture Support note above.</sub>
+<sub>* SVE2 support is experimental — see the CPU Architecture Support section above.</sub>
 
 ---
 
@@ -289,6 +287,7 @@ This library is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - FastFloat for number parsing
 - Unit test harness: [rt-ut](https://github.com/realtimechris/rt-ut)
 - Raymond, because, Thanks.
+- Paul Mandarino. "Back yourself up, back your words up."
 
 ---
 

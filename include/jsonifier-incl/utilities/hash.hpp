@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/hash.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/hash.hpp
+ */
 #pragma once
 
 namespace jsonifier::internal {
@@ -74,7 +76,7 @@ namespace jsonifier::internal {
 		char values[sizeof(value_type)]{};
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
-		if constexpr (std::endian::native==std::endian::big) {
+		if constexpr (std::endian::native == std::endian::big) {
 			result = byteswap(result);
 		}
 		return result;

@@ -1,5 +1,4 @@
 name: Fallback Unit Tests
-
 on:
   push:
     branches: [ "**" ]
@@ -9,8 +8,6 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +28,8 @@ jobs:
             compiler: msvc
             name: "Windows MSVC"
 
+    runs-on: ${{ matrix.os }}
+    name: Build on ${{ matrix.name }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -101,23 +100,23 @@ jobs:
 
       - name: Install
         run: |
-          ${{ runner.os != 'Windows' && 'sudo' || '' }} cmake --install ./Build --config=Debug
-
+          ${{ runner.os != 'Windows' && 'sudo' || '' }} cmake --install ./Build --config=Debug 
+    
       - name: Run the Test (Unix)
         if: matrix.os != 'windows-latest'
         run: |
-          sudo chmod +x /usr/local/bin/jsonifier-unit-tests
-          set +e
-          ASAN_OPTIONS=symbolize=1:detect_leaks=0:abort_on_error=1 /usr/local/bin/jsonifier-unit-tests 2>&1 | tee asan.log
-          TEST_EXIT=${PIPESTATUS[0]}
-          set -e
-          if [ "$TEST_EXIT" -ne 0 ]; then
-            echo "TESTS DIED WITH EXIT CODE $TEST_EXIT - running under lldb"
-            lldb -o run -o "bt all" -o quit /usr/local/bin/jsonifier-unit-tests 2>&1 | tail -100
-            exit $TEST_EXIT
-          fi
-
+            sudo chmod +x /usr/local/bin/jsonifier-unit-tests
+            set +e
+            ASAN_OPTIONS=symbolize=1:detect_leaks=0:abort_on_error=1 /usr/local/bin/jsonifier-unit-tests 2>&1 | tee asan.log
+            TEST_EXIT=${PIPESTATUS[0]}
+            set -e
+            if [ "$TEST_EXIT" -ne 0 ]; then
+              echo "TESTS DIED WITH EXIT CODE $TEST_EXIT - running under lldb"
+              lldb -o run -o "bt all" -o quit /usr/local/bin/jsonifier-unit-tests 2>&1 | tail -100
+              exit $TEST_EXIT
+            fi
+    
       - name: Run the Test (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          & "C:/Program Files (x86)/jsonifier/bin/jsonifier-unit-tests.exe"
+            & "C:/Program Files (x86)/jsonifier/bin/jsonifier-unit-tests.exe"

@@ -1,26 +1,18 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/get_enum_name.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/get_enum_name.hpp
+ */
 #pragma once
 
 #include "common.hpp"
 
 namespace enum_name_tests {
 
-	enum class shape_kind : uint8_t {
-		circle,
-		square,
-		triangle,
-		count
-	};
+	enum class shape_kind : uint8_t { circle, square, triangle, count };
 
-	enum class sparse_kind : uint32_t {
-		alpha = 0,
-		beta  = 2,
-		gamma = 4,
-		count = 5
-	};
+	enum class sparse_kind : uint32_t { alpha = 0, beta = 2, gamma = 4, count = 5 };
 
 	inline static void runTests() {
 		std::cout << "Enum Name Reflection Tests" << std::endl;
@@ -53,8 +45,7 @@ namespace enum_name_tests {
 		});
 
 		rt_ut::unit_test<"enum_name_sparse_gap_values_are_unknown", true>::assert_eq(true, [] {
-			return jsonifier::internal::getName(static_cast<sparse_kind>(1)) == "Unknown Type" &&
-				jsonifier::internal::getName(static_cast<sparse_kind>(3)) == "Unknown Type";
+			return jsonifier::internal::getName(static_cast<sparse_kind>(1)) == "Unknown Type" && jsonifier::internal::getName(static_cast<sparse_kind>(3)) == "Unknown Type";
 		});
 
 		rt_ut::unit_test<"enum_name_sparse_valid_count_skips_gaps", true>::assert_eq(static_cast<uint64_t>(3), [] {

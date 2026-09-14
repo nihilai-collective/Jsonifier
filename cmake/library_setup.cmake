@@ -1,4 +1,4 @@
-# MIT License @ /License.md
+# SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Nihilai Collective Corp
 # https://github.com/nihilai-collective/jsonifier
 # cmake/library_setup.cmake
@@ -6,7 +6,12 @@
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+if(NOT DEFINED JSONIFIER_SVE2_VECTOR_BITS)
+    set(JSONIFIER_SVE2_VECTOR_BITS 128)
+endif()
+
 set(JSONIFIER_COMPILE_DEFINITIONS
+    JSONIFIER_SVE2_VECTOR_BITS=${JSONIFIER_SVE2_VECTOR_BITS}
     JSONIFIER_ARCH_X64=$<IF:$<OR:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>,$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},AMD64>>,1,0>
     JSONIFIER_ARCH_ARM64=$<IF:$<OR:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},ARM64>,$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>>,1,0>
     JSONIFIER_PLATFORM_WINDOWS=$<IF:$<PLATFORM_ID:Windows>,1,0>
@@ -19,6 +24,7 @@ set(JSONIFIER_COMPILE_DEFINITIONS
     JSONIFIER_OPTIMIZED=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,1,0>
     "JSONIFIER_DISPATCH_TABLE_COUNT=$<IF:$<PLATFORM_ID:Darwin>,$<IF:$<CXX_COMPILER_ID:GNU>,4,0>,2>"
     "JSONIFIER_INLINE=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::forceinline]] inline,inline __attribute__((always_inline))>,inline>"
+    "JSONIFIER_LAMBDA_INLINE=$<IF:$<CXX_COMPILER_ID:MSVC>,noexcept [[msvc::forceinline]],__attribute__((always_inline)) noexcept>"
     "JSONIFIER_LIFETIME_BOUND=$<IF:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>,[[clang::lifetimebound]],$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::lifetimebound]],>>"
     $<$<PLATFORM_ID:Windows>:NOMINMAX;WIN32_LEAN_AND_MEAN>
 )

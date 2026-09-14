@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/serializing/serialize_impl.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/serializing/serialize_impl.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/serializing/serializer.hpp>
@@ -12,7 +14,7 @@
 namespace jsonifier::internal {
 
 	template<typename value_type> consteval uint64_t getValueSize(value_type value) {
-		if constexpr (integral_types<value_type>) {
+		if constexpr (integral_t<value_type>) {
 			return sizeof(value_type);
 		} else {
 			return value.size();
@@ -273,7 +275,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<num_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+	template<number_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr uint64_t staticSize{ 32 };
 
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&, size_context& context) noexcept {
@@ -792,7 +794,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<num_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
+	template<number_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
 			if constexpr (sizeof(value_type) == 8) {
 				context.bufferPtr = to_chars<std::remove_cvref_t<value_type_new>>::impl(context.bufferPtr, value);

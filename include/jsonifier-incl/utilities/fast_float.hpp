@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/fast_float.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/fast_float.hpp
+ */
 #pragma once
 
 // jsonifier_fast_float by Daniel Lemire
@@ -330,8 +332,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename U> struct binary_format_lookup_tables<double, U> {
-		static constexpr double powers_of_ten[]{ 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21,
-			1e22 };
+		static constexpr double powers_of_ten[]{ 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22 };
 
 		// Largest integer value v so that (5**index * v) <= 1<<53.
 		// 0x20000000000000 == 1 << 53
@@ -355,9 +356,9 @@ namespace jsonifier::internal {
 
 		// Largest integer value v so that (5**index * v) <= 1<<24.
 		// 0x1000000 == 1<<24
-		static constexpr uint64_t max_mantissa[]{ 0x1000000, 0x1000000 / 5, 0x1000000 / (5 * 5), 0x1000000 / (5 * 5 * 5), 0x1000000 / (5 * 5 * 5 * 5),
-			0x1000000 / (constant_55555), 0x1000000 / (constant_55555 * 5), 0x1000000 / (constant_55555 * 5 * 5), 0x1000000 / (constant_55555 * 5 * 5 * 5),
-			0x1000000 / (constant_55555 * 5 * 5 * 5 * 5), 0x1000000 / (constant_55555 * constant_55555), 0x1000000 / (constant_55555 * constant_55555 * 5) };
+		static constexpr uint64_t max_mantissa[]{ 0x1000000, 0x1000000 / 5, 0x1000000 / (5 * 5), 0x1000000 / (5 * 5 * 5), 0x1000000 / (5 * 5 * 5 * 5), 0x1000000 / (constant_55555),
+			0x1000000 / (constant_55555 * 5), 0x1000000 / (constant_55555 * 5 * 5), 0x1000000 / (constant_55555 * 5 * 5 * 5), 0x1000000 / (constant_55555 * 5 * 5 * 5 * 5),
+			0x1000000 / (constant_55555 * constant_55555), 0x1000000 / (constant_55555 * constant_55555 * 5) };
 	};
 
 	template<typename value_type> JSONIFIER_INLINE static constexpr void to_float(bool negative, adjusted_mantissa am, value_type& value) noexcept {
@@ -374,17 +375,17 @@ namespace jsonifier::internal {
 	template<typename char_t> static constexpr int32_t int_cmp_len{ sizeof(uint64_t) / sizeof(char_t) };
 
 	template<typename = void> struct int_luts {
-		static constexpr uint8_t chdigit[]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255, 255, 255, 255, 255,
-			255, 255, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 10, 11, 12, 13, 14, 15,
-			16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		static constexpr uint8_t chdigit[]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255, 255, 255, 255, 255, 255,
+			255, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 10, 11, 12, 13, 14, 15, 16,
+			17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
 
-		static constexpr uint64_t maxdigits_u64[]{ 64, 41, 32, 28, 25, 23, 22, 21, 20, 19, 18, 18, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 13, 13,
-			13, 13, 13, 13 };
+		static constexpr uint64_t maxdigits_u64[]{ 64, 41, 32, 28, 25, 23, 22, 21, 20, 19, 18, 18, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13,
+			13, 13, 13 };
 
 		static constexpr uint64_t min_safe_u64[]{ 9223372036854775808ull, 12157665459056928801ull, 4611686018427387904, 7450580596923828125, 4738381338321616896,
 			3909821048582988049, 9223372036854775808ull, 12157665459056928801ull, 10000000000000000000ull, 5559917313492231481, 2218611106740436992, 8650415919381337933,
@@ -402,14 +403,14 @@ namespace jsonifier::internal {
 	// Read 8 UC into a u64. Truncates UC if not char.
 	template<typename UC> JSONIFIER_INLINE static constexpr uint64_t read8_to_u64(UC const* chars) {
 		uint64_t val;
-		::memcpy(&val, chars, sizeof(uint64_t));
+		std::memcpy(&val, chars, sizeof(uint64_t));
 		return val;
 	}
 
 	// Read 8 UC into a u64. Truncates UC if not char.
 	template<typename UC> JSONIFIER_INLINE static constexpr uint64_t read2_to_u64(UC const* chars) {
 		uint64_t val;
-		::memcpy(&val, chars, 2);
+		std::memcpy(&val, chars, 2);
 		return val;
 	}
 
@@ -1142,7 +1143,7 @@ namespace jsonifier::internal {
 	}
 
 	template<typename = void> struct pow5_tables {
-		static constexpr uint32_t large_step		 = 135;
+		static constexpr uint32_t large_step = 135;
 		static constexpr uint64_t small_power_of_5[]{
 			1UL,
 			5UL,
@@ -1354,9 +1355,8 @@ namespace jsonifier::internal {
 	};
 
 	// 1e0 to 1e19
-	static constexpr uint64_t powers_of_ten_uint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL,
-		100000000000UL, 1000000000000UL, 10000000000000UL, 100000000000000UL, 1000000000000000UL, 10000000000000000UL, 100000000000000000UL, 1000000000000000000UL,
-		10000000000000000000UL };
+	static constexpr uint64_t powers_of_ten_uint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL, 100000000000UL,
+		1000000000000UL, 10000000000000UL, 100000000000000UL, 1000000000000000UL, 10000000000000000UL, 100000000000000000UL, 1000000000000000000UL, 10000000000000000000UL };
 
 	// calculate the exponent, in scientific notation, of the number.
 	// this algorithm is not even close to optimized, but it has no practical
@@ -1472,7 +1472,7 @@ namespace jsonifier::internal {
 		constexpr auto cmpZeros{ int_cmp_zeros<char_t> };
 		uint64_t val;
 		while (last - first >= cmpLength) {
-			::memcpy(&val, first, sizeof(uint64_t));
+			std::memcpy(&val, first, sizeof(uint64_t));
 			if (val != cmpZeros) {
 				break;
 			}
@@ -1493,7 +1493,7 @@ namespace jsonifier::internal {
 		constexpr auto cmpZeros{ int_cmp_zeros<char_t> };
 		uint64_t val;
 		while (last - first >= cmpLength) {
-			::memcpy(&val, first, sizeof(uint64_t));
+			std::memcpy(&val, first, sizeof(uint64_t));
 			if (val != cmpZeros) {
 				return true;
 			}

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/printer.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/printer.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -208,7 +210,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_nested_object_recurses_into_inner_fields", true>::assert_eq(true, [&] {
 			nested_printer_struct obj{};
-			obj.inner = { 3, "nested" };
+			obj.inner	= { 3, "nested" };
 			obj.numbers = { 1, 2 };
 			std::ostringstream os{};
 			parser.printJsonImpl(obj, os);

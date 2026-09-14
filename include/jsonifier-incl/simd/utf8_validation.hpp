@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/simd/utf8_validation.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/utf8_validation.hpp
+ */
 // The code below drew heavy inspiration from Dr.Lemire's library, simdjson (https://github.com/simdjson/simdjson)
 #pragma once
 

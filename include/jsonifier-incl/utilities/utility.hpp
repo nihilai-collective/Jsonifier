@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/utility.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/utility.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/containers/array.hpp>
@@ -222,13 +224,11 @@ namespace jsonifier::internal {
 		visitImpl<function>(seq_t{}, internal::forward<variant_type>(variant), internal::forward<arg_types>(args)...);
 	}
 
-	template<integral_types value_type01, integral_types value_type02>
-	JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
+	template<integral_t value_type01, integral_t value_type02> JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
 		return value1 > static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	template<integral_types value_type01, integral_types value_type02>
-	JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) noexcept {
+	template<integral_t value_type01, integral_t value_type02> JSONIFIER_INLINE constexpr value_type01 min(value_type01 value1, value_type02 value2) noexcept {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
@@ -242,6 +242,48 @@ namespace jsonifier::internal {
 		return returnVal;
 	}
 
+	template<typename value_type> struct digit_sizes;
+
+	template<uint64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 20 };
+	};
+
+	template<int64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 20 };
+	};
+
+	template<uint32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 10 };
+	};
+
+	template<int32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 11 };
+	};
+
+	template<uint16_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 5 };
+	};
+
+	template<int16_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 5 };
+	};
+
+	template<uint8_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 3 };
+	};
+
+	template<int8_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 3 };
+	};
+
+	template<float32_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 32 };
+	};
+
+	template<float64_types value_type> struct digit_sizes<value_type> {
+		static constexpr uint64_t value{ 32 };
+	};
+
 }
 
 #include <jsonifier-incl/containers/tuple.hpp>
@@ -253,15 +295,15 @@ namespace jsonifier::internal::simd {
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/fastio.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/fastio.hpp
+ */
 #pragma once
 
 #if !JSONIFIER_PLATFORM_WINDOWS
@@ -17,7 +19,7 @@ namespace fastio_tests {
 		explicit stream_capture(jsonifier::internal::stream_target target) : target_{ target } {
 			jsonifier::internal::out.flushNow();
 			jsonifier::internal::err.flushNow();
-			tempPath = (std::filesystem::temp_directory_path() / "jsonifier_fastio_capture.tmp").string();
+			tempPath			= (std::filesystem::temp_directory_path() / "jsonifier_fastio_capture.tmp").string();
 			const bool isStdout = target_ == jsonifier::internal::stream_target::stdout_target;
 #if JSONIFIER_PLATFORM_WINDOWS
 			savedHandle = GetStdHandle(isStdout ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);

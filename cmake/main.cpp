@@ -1,8 +1,10 @@
 // The following code was based heavily on this code: https://github.com/simdjson/simdjson/blob/master/src/internal/isadetection.h
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// cmake/main.cpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * cmake/main.cpp
+ */
 
 #include <iostream>
 #include <cstdint>

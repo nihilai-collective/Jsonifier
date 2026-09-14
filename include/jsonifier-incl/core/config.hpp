@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/core/config.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/core/config.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
@@ -12,7 +14,6 @@
 #include <optional>
 #include <variant>
 #include <cstring>
-#include <utility>
 #include <chrono>
 #include <cfloat>
 #include <atomic>
@@ -38,11 +39,9 @@
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize> struct prixon_core;
-
-#define reinterpret_cast static_assert(false, "Sorry, but reinterpret_cast is banned in this codebase!")
-#define const_cast static_assert(false, "Sorry, but const_cast is banned in this codebase!")
-#define dynamic_cast static_assert(false, "Sorry, but dynamic_cast is banned in this codebase!")
+#define reinterpret_cast static_assert(false, "Sorry, but reinterpret_cast is banned in this library!")
+#define const_cast static_assert(false, "Sorry, but const_cast is banned in this library!")
+#define dynamic_cast static_assert(false, "Sorry, but dynamic_cast is banned in this library!")
 
 	JSONIFIER_INLINE static consteval bool is_power_of_2(uint64_t value) noexcept {
 		return value != 0 && (value & (value - 1)) == 0;

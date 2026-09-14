@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/string_utils.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/string_utils.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/simd/utf8_validation.hpp>
@@ -417,7 +419,7 @@ namespace jsonifier::internal {
 					const uint8_t foundChar = static_cast<uint8_t>(string1Start[offset]);
 					if (foundChar < 32) [[unlikely]] {
 						scanState.outLength = std::numeric_limits<uint64_t>::max();
-						scanState.complete = true;
+						scanState.complete	= true;
 						return nullptr;
 					}
 					validator.checkPartial(registerStart, offset);
@@ -425,7 +427,7 @@ namespace jsonifier::internal {
 					string2 += offset;
 					if (validator.errors()) [[unlikely]] {
 						scanState.outLength = std::numeric_limits<uint64_t>::max();
-						scanState.complete = true;
+						scanState.complete	= true;
 						return nullptr;
 					}
 					if (foundChar == '"') {
@@ -436,12 +438,12 @@ namespace jsonifier::internal {
 					}
 					if (string1Start + 1 >= string1End) [[unlikely]] {
 						scanState.outLength = std::numeric_limits<uint64_t>::max();
-						scanState.complete = true;
+						scanState.complete	= true;
 						return nullptr;
 					}
 					if (!handleEscape(string1Start, string1End, string2)) [[unlikely]] {
 						scanState.outLength = std::numeric_limits<uint64_t>::max();
-						scanState.complete = true;
+						scanState.complete	= true;
 						return nullptr;
 					}
 					validator.reset();
@@ -493,7 +495,7 @@ namespace jsonifier::internal {
 
 					validator.flush();
 					scanState.outLength = std::numeric_limits<uint64_t>::max();
-					scanState.complete = true;
+					scanState.complete	= true;
 				}
 
 				return string1Start;

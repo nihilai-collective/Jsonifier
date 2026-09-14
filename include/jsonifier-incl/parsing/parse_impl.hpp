@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/parsing/parse_impl.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/parsing/parse_impl.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/number_utils.hpp>
@@ -55,7 +57,8 @@ namespace jsonifier::internal {
 			if constexpr (structural_context<context_type>) {
 				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
-				if ((context.currentPtr() + quotedKeySize) < context.endPtr() && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(context.currentPtr())) [[likely]] {
+				if ((context.currentPtr() + quotedKeySize) < context.endPtr() && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(context.currentPtr()))
+					[[likely]] {
 					++context.currentIterPtr();
 					if (!context.collectObjectColon()) [[unlikely]] {
 						return parse_result::failed;
@@ -178,7 +181,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 				}
 				if constexpr (options.knownOrder) {
@@ -282,7 +285,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 					return context.skipRemainingObject();
 				}
@@ -305,7 +308,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 					return context.skipRemainingObject();
 				}
@@ -665,7 +668,7 @@ namespace jsonifier::internal {
 	template<string_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		JSONIFIER_INLINE static bool rootImpl(value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (!context.template checkChar<'"'>()) [[unlikely]] {
 				return context.template reject<parse_statuses::invalid_string_characters>();
@@ -720,7 +723,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<num_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
+	template<number_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		JSONIFIER_INLINE static bool rootImpl(value_type& value, context_type& context) noexcept {
 			return context.iterateRootNumber(value);
 		}
@@ -762,7 +765,7 @@ namespace jsonifier::internal {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), context);
 				} else if constexpr (bool_t<element_type> && type == json_type::boolean) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), context);
-				} else if constexpr ((num_t<element_type> || enum_t<element_type>) && type == json_type::number) {
+				} else if constexpr ((number_t<element_type> || enum_t<element_type>) && type == json_type::number) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), context);
 				} else if constexpr (always_null_t<element_type> && type == json_type::null) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), context);
@@ -776,7 +779,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool rootImpl(value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (context.hasMoreInput()) [[likely]] {
 				switch (static_cast<uint8_t>(*context.currentPtr())) {
@@ -835,7 +838,7 @@ namespace jsonifier::internal {
 
 	template<typename context_type, parse_options options> JSONIFIER_INLINE static bool isNullValue(context_type& context) noexcept {
 		if constexpr (!options.minified && !structural_context<context_type>) {
-			context.skipWhitespace();
+			context.skipWhitespaceScalar();
 		}
 		return !context.notAtEndPre() || *context.currentPtr() == 'n';
 	}
@@ -907,7 +910,7 @@ namespace jsonifier::internal {
 	template<raw_json_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		JSONIFIER_INLINE static bool rootImpl([[maybe_unused]] value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (context.hasMoreInput()) [[likely]] {
 				string_view_ptr newPtr = context.currentPtr();

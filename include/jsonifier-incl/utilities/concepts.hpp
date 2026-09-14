@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/concepts.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/concepts.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/forward.hpp>
@@ -68,7 +70,7 @@ namespace jsonifier::internal {
 	concept enum_types = std::is_enum_v<base_t<value_type>> && std::is_unsigned_v<std::underlying_type_t<base_t<value_type>>>;
 
 	template<typename value_type>
-	concept integral_types = std::is_integral_v<base_t<value_type>> && !same_as_types<base_t<value_type>, bool>;
+	concept integral_t = std::is_integral_v<base_t<value_type>> && !same_as_types<base_t<value_type>, bool>;
 
 	template<typename value_type>
 	concept trivially_copyable_types = __is_trivial(base_t<value_type>) || std::is_standard_layout_v<base_t<value_type>>;
@@ -84,7 +86,7 @@ namespace jsonifier::internal {
 		trivially_constructible_types<value_type> && trivially_copyable_types<value_type> && trivially_destructible_types<value_type>;
 
 	template<typename value_type>
-	concept int_types = std::is_signed_v<base_t<value_type>> && integral_types<value_type>;
+	concept int_types = std::is_signed_v<base_t<value_type>> && integral_t<value_type>;
 
 	template<typename value_type>
 	concept int8_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 1;
@@ -99,7 +101,7 @@ namespace jsonifier::internal {
 	concept int64_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
 
 	template<typename value_type>
-	concept uint_types = std::is_unsigned_v<base_t<value_type>> && integral_types<value_type>;
+	concept uint_types = std::is_unsigned_v<base_t<value_type>> && integral_t<value_type>;
 
 	template<typename value_type>
 	concept uint8_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 1;
@@ -114,6 +116,15 @@ namespace jsonifier::internal {
 	concept uint64_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
 
 	template<typename value_type>
+	concept float_t = std::floating_point<base_t<value_type>> && (std::numeric_limits<base_t<value_type>>::radix == 2) && std::numeric_limits<base_t<value_type>>::is_iec559;
+
+	template<typename value_type>
+	concept float64_types = float_t<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
+
+	template<typename value_type>
+	concept float32_types = float_t<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 4;
+
+	template<typename value_type>
 	concept uintegral_or_enum_types = uint_types<value_type> || enum_types<value_type>;
 
 	template<typename value_type_01, typename value_type_02>
@@ -121,7 +132,14 @@ namespace jsonifier::internal {
 
 	template<typename value_type_01, typename value_type_02>
 	concept indexable_types =
-		at_least_one_enum_types<value_type_01, value_type_02> || same_as_types<value_type_01, value_type_02> || (integral_types<value_type_01> && integral_types<value_type_02>);
+		at_least_one_enum_types<value_type_01, value_type_02> || same_as_types<value_type_01, value_type_02> || (integral_t<value_type_01> && integral_t<value_type_02>);
+
+	template<typename value_type>
+	concept has_resize_and_overwrite = requires(value_type value) {
+		value.resize_and_overwrite(uint64_t{}, [](typename value_type::pointer, uint64_t) noexcept {
+			return uint64_t{};
+		});
+	};
 
 	template<typename value_type>
 	concept skip_t = std::is_same_v<base_t<value_type>, skip>;
@@ -134,9 +152,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type>
 	concept map_subscriptable = requires(base_t<value_type> value) {
-		{
-			value[typename base_t<value_type>::key_type{}]
-		} -> std::same_as<const typename base_t<value_type>::mapped_type&>;
+		{ value[typename base_t<value_type>::key_type{}] } -> std::same_as<const typename base_t<value_type>::mapped_type&>;
 	} || requires(base_t<value_type> value) {
 		{ value[typename base_t<value_type>::key_type{}] } -> std::same_as<typename base_t<value_type>::mapped_type&>;
 	};
@@ -182,22 +198,16 @@ namespace jsonifier::internal {
 	concept stateless = std::is_empty_v<base_t<value_type>>;
 
 	template<typename value_type>
-	concept bool_t =
-		std::same_as<base_t<value_type>, bool> || std::same_as<base_t<value_type>, std::vector<bool>::reference> ||
+	concept bool_t = std::same_as<base_t<value_type>, bool> || std::same_as<base_t<value_type>, std::vector<bool>::reference> ||
 		std::same_as<base_t<value_type>, std::vector<bool>::const_reference>;
 
 	template<typename value_type>
-	concept always_null_t = std::same_as<base_t<value_type>, std::nullptr_t> ||
-		std::same_as<base_t<value_type>, std::monostate> || std::same_as<base_t<value_type>, std::nullopt_t>;
+	concept always_null_t =
+		std::same_as<base_t<value_type>, std::nullptr_t> || std::same_as<base_t<value_type>, std::monostate> || std::same_as<base_t<value_type>, std::nullopt_t>;
 
 	template<typename value_type>
-	concept pointer_t = (std::is_pointer_v<base_t<value_type>> ||
-							( std::is_null_pointer_v<base_t<value_type>> && !std::is_array_v<base_t<value_type>> )) &&
-		!always_null_t<value_type>;
-
-	template<typename value_type>
-	concept float_t = std::floating_point<base_t<value_type>> && (std::numeric_limits<base_t<value_type>>::radix == 2) &&
-		std::numeric_limits<base_t<value_type>>::is_iec559;
+	concept pointer_t =
+		(std::is_pointer_v<base_t<value_type>> || ( std::is_null_pointer_v<base_t<value_type>> && !std::is_array_v<base_t<value_type>> )) && !always_null_t<value_type>;
 
 	template<typename value_type>
 	concept void_t = std::is_void_v<base_t<value_type>>;
@@ -206,13 +216,11 @@ namespace jsonifier::internal {
 	concept char_t = std::same_as<base_t<value_type>, char>;
 
 	template<typename value_type>
-	concept num_t = (float_t<value_type> || uint_types<value_type> || int_types<value_type>) && !char_t<value_type>;
+	concept number_t = (float_t<value_type> || uint_types<value_type> || int_types<value_type>) && !char_t<value_type>;
 
 	template<typename value_type>
 	concept has_substr = requires(base_t<value_type> value) {
-		{
-			value.substr(typename base_t<value_type>::size_type{}, typename base_t<value_type>::size_type{})
-		} -> std::same_as<base_t<value_type>>;
+		{ value.substr(typename base_t<value_type>::size_type{}, typename base_t<value_type>::size_type{}) } -> std::same_as<base_t<value_type>>;
 	};
 
 	template<typename value_type>
@@ -221,9 +229,7 @@ namespace jsonifier::internal {
 	} || requires(base_t<value_type> value) {
 		{ value.find(typename base_t<value_type>::key_type{}) } -> std::same_as<typename base_t<value_type>::iterator>;
 	} || requires(base_t<value_type> value) {
-		{
-			value.find(typename base_t<value_type>::key_type{})
-		} -> std::same_as<typename base_t<value_type>::const_iterator>;
+		{ value.find(typename base_t<value_type>::key_type{}) } -> std::same_as<typename base_t<value_type>::const_iterator>;
 	};
 
 	template<typename value_type>
@@ -244,9 +250,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type>
 	concept has_emplace_back = requires(base_t<value_type> value) {
-		{
-			value.emplace_back(typename base_t<value_type>::value_type{})
-		} -> std::same_as<typename base_t<value_type>::reference>;
+		{ value.emplace_back(typename base_t<value_type>::value_type{}) } -> std::same_as<typename base_t<value_type>::reference>;
 	};
 
 	template<typename value_type>
@@ -271,7 +275,7 @@ namespace jsonifier::internal {
 	concept unique_ptr_t = requires(base_t<value_type> value) {
 		typename base_t<value_type>::element_type;
 		typename base_t<value_type>::deleter_type;
-	} && has_release<value_type> && has_get<value_type>;	
+	} && has_release<value_type> && has_get<value_type>;
 
 	template<typename value_type>
 	concept shared_ptr_t = has_reset<value_type> && has_get<value_type> && copyable<value_type>;
@@ -297,9 +301,8 @@ namespace jsonifier::internal {
 	concept raw_json_t = std::same_as<base_t<value_type>, raw_json_data>;
 
 	template<typename value_type01, typename value_type02>
-	concept same_character_size = requires {
-		sizeof(typename base_t<value_type01>::value_type) == sizeof(typename base_t<value_type02>::value_type);
-	} && string_t<value_type01> && string_t<value_type02>;
+	concept same_character_size =
+		requires { sizeof(typename base_t<value_type01>::value_type) == sizeof(typename base_t<value_type02>::value_type); } && string_t<value_type01> && string_t<value_type02>;
 
 	template<typename value_type> constexpr bool hasSizeEqualToZero{ std::tuple_size_v<base_t<value_type>> == 0 };
 
@@ -322,9 +325,7 @@ namespace jsonifier::internal {
 		{ opt.value() } -> std::same_as<typename base_t<value_type>::value_type&>;
 		{ *opt } -> std::same_as<typename base_t<value_type>::value_type&>;
 		{ opt.reset() } -> std::same_as<void>;
-		{
-			opt.emplace(typename base_t<value_type>::value_type{})
-		} -> std::same_as<typename base_t<value_type>::value_type&>;
+		{ opt.emplace(typename base_t<value_type>::value_type{}) } -> std::same_as<typename base_t<value_type>::value_type&>;
 	};
 
 	template<typename value_type>
@@ -353,8 +354,7 @@ namespace jsonifier::internal {
 	concept time_t = internal::is_specialization_v<std::chrono::duration<base_t<value_type>>, std::chrono::duration>;
 
 	template<typename value_type>
-	concept integer_t =
-		std::integral<base_t<value_type>> && !bool_t<value_type> && !std::floating_point<base_t<value_type>>;
+	concept integer_t = std::integral<base_t<value_type>> && !bool_t<value_type> && !std::floating_point<base_t<value_type>>;
 
 	template<typename value_type>
 	concept json_object_t = jsonifier_object_t<value_type> || map_t<value_type>;
@@ -369,7 +369,7 @@ namespace jsonifier::internal {
 	concept json_string_t = string_t<value_type> || string_view_t<value_type>;
 
 	template<typename value_type>
-	concept json_number_t = num_t<value_type>;
+	concept json_number_t = number_t<value_type>;
 
 	template<typename value_type>
 	concept json_null_t = always_null_t<value_type>;
@@ -389,7 +389,7 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept integral_constant_types = requires {
 		{ base_t<value_type>::value } -> std::convertible_to<uint64_t>;
-	};	
+	};
 
 	template<typename value_type>
 	concept equals_0 = base_t<value_type>::length == 0;
@@ -413,7 +413,7 @@ namespace jsonifier::internal {
 	concept eq_64 = base_t<value_type>::length == 64 && simdBytesPerRegister >= 64;
 
 	template<typename value_type>
-	concept gt_16 = base_t<value_type>::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;	
+	concept gt_16 = base_t<value_type>::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;
 
 	template<typename value_type>
 	concept has_name = requires(base_t<value_type> value) { value.name; };

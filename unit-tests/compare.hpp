@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/compare.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/compare.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -11,7 +13,7 @@ namespace compare_tests {
 	template<uint64_t length> inline static bool memcharFindsNeedleAtEveryPosition() {
 		for (uint64_t pos = 0; pos < length; ++pos) {
 			std::string buffer(length, 'x');
-			buffer[pos] = '"';
+			buffer[pos]		   = '"';
 			const auto* result = jsonifier::internal::char_comparison<'"', char>::memchar(buffer.data(), length);
 			if (result != buffer.data() + pos) {
 				std::cout << "MEMCHAR failed to find needle at position " << pos << " for length " << length << std::endl;
@@ -92,7 +94,7 @@ namespace compare_tests {
 
 		rt_ut::unit_test<"memchar_different_needle_character_still_matches", true>::assert_eq(true, [] {
 			std::string buffer(40, 'x');
-			buffer[23] = '\n';
+			buffer[23]		   = '\n';
 			const auto* result = jsonifier::internal::char_comparison<'\n', char>::memchar(buffer.data(), buffer.size());
 			return result == buffer.data() + 23;
 		});

@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// unit-tests/reflection.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/reflection.hpp
+ */
 #pragma once
 
 #include "common.hpp"
@@ -60,9 +62,8 @@ namespace reflection_tests {
 			return extractName(jsonifier::internal::getName<&simple_struct::name>());
 		});
 
-		rt_ut::unit_test<"reflection_five_distinct_members_no_cross_contamination", true>::assert_eq(std::make_tuple(std::string{ "a" }, std::string{ "b" }, std::string{ "c" },
-																				   std::string{ "d" }, std::string{ "e" }),
-			[] {
+		rt_ut::unit_test<"reflection_five_distinct_members_no_cross_contamination", true>::assert_eq(
+			std::make_tuple(std::string{ "a" }, std::string{ "b" }, std::string{ "c" }, std::string{ "d" }, std::string{ "e" }), [] {
 				return std::make_tuple(extractName(jsonifier::internal::getName<&many_members_struct::a>()), extractName(jsonifier::internal::getName<&many_members_struct::b>()),
 					extractName(jsonifier::internal::getName<&many_members_struct::c>()), extractName(jsonifier::internal::getName<&many_members_struct::d>()),
 					extractName(jsonifier::internal::getName<&many_members_struct::e>()));

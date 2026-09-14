@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/compare.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/compare.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/string_literal.hpp>
@@ -393,18 +395,19 @@ namespace jsonifier::internal {
 			return status;
 		}
 
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
-			return (static_cast<void>(
-						((str = string_literal_comparator_impl<decltype(string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string),
-							  string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string>::impl(str),
-							 str != nullptr) &&
-							...)),
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
+			return (
+				static_cast<void>(
+					((str = string_literal_comparator_impl<decltype(string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string),
+						  string_literal_splitter_impl<get_split_string_status(indices, stringNew.size()), stringNew, split_mod>::string>::impl(str),
+						 str != nullptr) &&
+						...)),
 				str);
 		}
 	};
 
 	template<equals_0 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
 			return str;
 		}
 	};
@@ -479,7 +482,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_128 data1{ simd::gatherValuesU<jsonifier_simd_int_128>(str) };
@@ -491,7 +494,7 @@ namespace jsonifier::internal {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 
 	template<eq_32 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_256 data1{ simd::gatherValuesU<jsonifier_simd_int_256>(str) };
@@ -504,7 +507,7 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 	template<eq_64 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_512 data1{ simd::gatherValuesU<jsonifier_simd_int_512>(str) };
@@ -518,13 +521,13 @@ namespace jsonifier::internal {
 		static constexpr uint64_t split_mod{ getOffsetIntoLiteralSize(stringNew.size()) };
 		static constexpr auto string_count{ getSplitStringCount<split_mod>(stringNew) };
 
-		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict  str) noexcept {
+		JSONIFIER_INLINE static string_view_ptr impl(string_view_ptr __restrict str) noexcept {
 			return string_literal_splitter<make_integer_sequence<string_count>, stringNew, split_mod>::impl(str);
 		}
 	};
 
 	template<auto string> struct string_literal_comparator {
-		JSONIFIER_INLINE static bool impl(string_view_ptr __restrict  str, uint64_t string_length) noexcept {
+		JSONIFIER_INLINE static bool impl(string_view_ptr __restrict str, uint64_t string_length) noexcept {
 			using sl_type = decltype(string);
 			return string_length >= string.size() ? string_literal_comparator_impl<sl_type, string>::impl(str) != nullptr : false;
 		}

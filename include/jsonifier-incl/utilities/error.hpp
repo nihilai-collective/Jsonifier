@@ -1,7 +1,9 @@
-// MIT License @ /License.md
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/utilities/error.hpp
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/error.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/get_enum_name.hpp>
@@ -186,20 +188,20 @@ namespace jsonifier::internal {
 
 		inline error() noexcept = default;
 
-		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, string_view_ptr rootIterNew, string_view_ptr errorPosNew,
-			string_view_ptr endIterNew, error_class typeNew) noexcept
+		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, string_view_ptr rootIterNew,
+			string_view_ptr errorPosNew, string_view_ptr endIterNew, error_class typeNew) noexcept
 			: sourceLocation{ sourceLocationNew }, errorClass{ errorClassNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
 			  errorType{ static_cast<uint64_t>(typeNew) } {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> static inline error constructError(error_class typeNew, string_view_ptr rootIter, string_view_ptr errorPos,
-			string_view_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
+		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, string_view_ptr rootIter,
+			string_view_ptr errorPos, string_view_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> static inline error constructError(string_view_ptr rootIter, string_view_ptr errorPos, string_view_ptr endIter,
-			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
+		template<status_classes errorClassNew, auto typeNew> inline static error constructError(string_view_ptr rootIter, string_view_ptr errorPos,
+			string_view_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
@@ -281,7 +283,7 @@ namespace jsonifier::internal {
 			reportString = stream;
 		}
 
-		static inline void collectValues(string& stream, const string& inputValues) {
+		inline static void collectValues(string& stream, const string& inputValues) {
 			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
 				stream += "'";
 				appendEscapedByte(stream, inputValues[i]);
