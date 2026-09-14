@@ -44,22 +44,23 @@ namespace jsonifier::internal {
 
 	template<typename derived_type_new> class parser {
 	  public:
-		using derived_type = derived_type_new;
-		friend derived_type;
-
 		friend class jsonifier::raw_json_data;
+
+		using derived_type = derived_type_new;
+
+		parser& operator=(const parser& other) = delete;
+		parser(const parser& other)			   = delete;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
 		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
-			derived_type& selfRef{ getSelfRef() };
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
-			selfRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			object.indices.resize(selfRef.section.getTapeCount());
-			std::copy_n(selfRef.section.begin(), object.indices.size(), object.indices.data());
-			json_iterator<parseOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(), selfRef.section.begin(),
-				selfRef.section.end(), selfRef.section.begin(), rootIter, endIter };
+			derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			object.indices.resize(derivedRef.section.getTapeCount());
+			std::copy_n(derivedRef.section.begin(), object.indices.size(), object.indices.data());
+			json_iterator<parseOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(), derivedRef.section.begin(),
+				derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
 			auto newSize = static_cast<uint64_t>(*endIter) / 2;
 			if (getStringBuffer().size() < newSize) {
 				getStringBuffer().resize(newSize);
@@ -69,22 +70,20 @@ namespace jsonifier::internal {
 
 		template<parse_options options = parse_options{}, typename buffer_type> inline structural_index_ptr collectStructurals(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
-			derived_type& selfRef{ getSelfRef() };
 			auto rootIter = getBeginIter(in);
 			auto endIter  = getEndIter(in);
-			selfRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			return selfRef.section.begin();
+			derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			return derivedRef.section.begin();
 		}
 
 		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
-			derived_type& selfRef{ getSelfRef() };
 			if constexpr (parseOpts.partialRead) {
 				auto rootIter = getBeginIter(in);
 				auto endIter  = getEndIter(in);
-				selfRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 				json_iterator<parseOpts, structural_index_ptr, remove_reference_t<decltype(getStringBuffer())>> context{ &getStringBuffer(), &getErrors(),
-					selfRef.section.begin(), selfRef.section.end(), selfRef.section.begin(), rootIter, endIter };
+					derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
 				auto newSize = static_cast<uint64_t>(*endIter);
 				if (getStringBuffer().size() < newSize) {
 					getStringBuffer().resize(newSize);
@@ -115,28 +114,25 @@ namespace jsonifier::internal {
 			}
 		}
 
-	  private:
+	  protected:
 		std::vector<error>& getErrors() noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			return selfRef.getErrors();
+			return derivedRef.getErrors();
 		}
 
 		JSONIFIER_INLINE auto& getStringBuffer() noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			return selfRef.stringBuffer;
+			return derivedRef.stringBuffer;
 		}
 
-		parser()							 = default;
-		parser(const parser&)				 = default;
-		parser& operator=(const parser&)	 = default;
-		parser(parser&&) noexcept			 = default;
-		parser& operator=(parser&&) noexcept = default;
-		~parser()							 = default;
+		derived_type& derivedRef{ initializeSelfRef() };
 
-		JSONIFIER_INLINE derived_type& getSelfRef() noexcept {
+		parser() noexcept {
+		}
+
+		derived_type& initializeSelfRef() noexcept {
 			return *static_cast<derived_type*>(this);
 		}
 
+		~parser() noexcept = default;
 	};
 
 }

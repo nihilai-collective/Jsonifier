@@ -178,7 +178,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 				}
 				if constexpr (options.knownOrder) {
@@ -282,7 +282,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 					return context.skipRemainingObject();
 				}
@@ -305,7 +305,7 @@ namespace jsonifier::internal {
 						return false;
 					}
 					if constexpr (!options.minified && !structural_context<context_type>) {
-						context.skipWhitespace();
+						context.skipWhitespaceScalar();
 					}
 					return context.skipRemainingObject();
 				}
@@ -665,7 +665,7 @@ namespace jsonifier::internal {
 	template<string_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		JSONIFIER_INLINE static bool rootImpl(value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (!context.template checkChar<'"'>()) [[unlikely]] {
 				return context.template reject<parse_statuses::invalid_string_characters>();
@@ -776,7 +776,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool rootImpl(value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (context.hasMoreInput()) [[likely]] {
 				switch (static_cast<uint8_t>(*context.currentPtr())) {
@@ -835,7 +835,7 @@ namespace jsonifier::internal {
 
 	template<typename context_type, parse_options options> JSONIFIER_INLINE static bool isNullValue(context_type& context) noexcept {
 		if constexpr (!options.minified && !structural_context<context_type>) {
-			context.skipWhitespace();
+			context.skipWhitespaceScalar();
 		}
 		return !context.notAtEndPre() || *context.currentPtr() == 'n';
 	}
@@ -907,7 +907,7 @@ namespace jsonifier::internal {
 	template<raw_json_t value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		JSONIFIER_INLINE static bool rootImpl([[maybe_unused]] value_type& value, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
-				context.skipWhitespace();
+				context.skipWhitespaceScalar();
 			}
 			if (context.hasMoreInput()) [[likely]] {
 				string_view_ptr newPtr = context.currentPtr();

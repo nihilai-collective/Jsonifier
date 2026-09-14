@@ -12,7 +12,6 @@
 #include <optional>
 #include <variant>
 #include <cstring>
-#include <utility>
 #include <chrono>
 #include <cfloat>
 #include <atomic>
@@ -37,12 +36,6 @@
 #endif
 
 namespace jsonifier {
-
-	template<uint64_t initialBufferSize> struct prixon_core;
-
-#define reinterpret_cast static_assert(false, "Sorry, but reinterpret_cast is banned in this codebase!")
-#define const_cast static_assert(false, "Sorry, but const_cast is banned in this codebase!")
-#define dynamic_cast static_assert(false, "Sorry, but dynamic_cast is banned in this codebase!")
 
 	JSONIFIER_INLINE static consteval bool is_power_of_2(uint64_t value) noexcept {
 		return value != 0 && (value & (value - 1)) == 0;

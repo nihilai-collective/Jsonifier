@@ -109,32 +109,6 @@ namespace jsonifier::internal {
 			capacity = initialBufferSize;
 		}
 
-		simd_string_reader(const simd_string_reader&)			 = delete;
-		simd_string_reader& operator=(const simd_string_reader&) = delete;
-
-		JSONIFIER_INLINE simd_string_reader(simd_string_reader&& other) noexcept
-			: simd::rope_detector<rope_block>(internal::move(other)), string_block_reader(internal::move(other)), add_tape_values<make_integer_sequence<simdBlocksPerStep>>(internal::move(other)),
-			  alloc_wrapper<uint32_t>(internal::move(other)), tape(std::exchange(other.tape, nullptr)), tapeCount(std::exchange(other.tapeCount, 0)),
-			  capacity(std::exchange(other.capacity, 0)) {
-		}
-
-		JSONIFIER_INLINE simd_string_reader& operator=(simd_string_reader&& other) noexcept {
-			if (this != &other) {
-				if (tape) {
-					allocator::deallocate(tape, capacity);
-				}
-				simd::rope_detector<rope_block>::operator=(internal::move(other));
-				string_block_reader::operator=(internal::move(other));
-				add_tape_values<make_integer_sequence<simdBlocksPerStep>>::operator=(internal::move(other));
-				alloc_wrapper<uint32_t>::operator=(internal::move(other));
-
-				tape	  = std::exchange(other.tape, nullptr);
-				tapeCount = std::exchange(other.tapeCount, 0);
-				capacity  = std::exchange(other.capacity, 0);
-			}
-			return *this;
-		}
-
 		template<bool minified> JSONIFIER_INLINE void reset(string_view_ptr __restrict rootIter, uint64_t stringLength) noexcept {
 			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {

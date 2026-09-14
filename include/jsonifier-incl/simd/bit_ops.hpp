@@ -60,58 +60,6 @@ namespace jsonifier::internal::simd {
 #endif
 	}
 
-	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countlZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_clz(value) - 16);
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__lzcnt16(static_cast<uint16_t>(value)));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountLeadingZeros16(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-#endif
-	}
-
-	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countlZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
-		return static_cast<uint64_t>(_lzcnt_u32(value));
-	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
-		return static_cast<uint64_t>(__lzcnt(value));
-	#elif JSONIFIER_ARCH_ARM64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
-		return static_cast<uint64_t>(__builtin_clz(value));
-	#elif JSONIFIER_ARCH_ARM64 && JSONIFIER_COMPILER_MSVC
-		return static_cast<uint64_t>(_CountLeadingZeros(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-#endif
-	}
-
-	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countlZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
-		return static_cast<uint64_t>(_lzcnt_u64(value));
-	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
-		return static_cast<uint64_t>(__lzcnt64(value));
-	#elif JSONIFIER_ARCH_ARM64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
-		return static_cast<uint64_t>(__builtin_clzll(value));
-	#elif JSONIFIER_ARCH_ARM64 && JSONIFIER_COMPILER_MSVC
-		return static_cast<uint64_t>(_CountLeadingZeros64(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-#endif
-	}
-
 	template<uint16_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
 		return static_cast<uint64_t>(value & (value - 1));
 	}

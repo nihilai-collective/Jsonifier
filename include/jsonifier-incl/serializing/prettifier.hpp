@@ -28,32 +28,31 @@ namespace jsonifier::internal {
 		int64_t indent{};
 	};
 
-	template<typename derived_type_new> class prettifier {
+	template<typename derived_type> class prettifier {
 	  public:
-		using derived_type = derived_type_new;
-		friend derived_type;
+		inline prettifier& operator=(const prettifier& other) = delete;
+		inline prettifier(const prettifier& other)			  = delete;
 
 		template<prettify_options options = prettify_options{}, string_t string_type> inline base_t<string_type> prettifyJson(string_type&& in) noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			if (selfRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
-				selfRef.stringBuffer.resize(in.size() * 5);
+			if (derivedRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
+				derivedRef.stringBuffer.resize(in.size() * 5);
 			}
 			static constexpr prettify_options optionsFinal{ options };
 			const auto* dataPtr = in.data();
-			selfRef.errors.clear();
+			derivedRef.errors.clear();
 			rootIter = dataPtr;
 			endIter	 = dataPtr + in.size();
-			selfRef.section.template reset<true>(dataPtr, in.size());
-			structural_index_ptr iter{ selfRef.section.begin() };
-			auto* endStructural = selfRef.section.end();
+			derivedRef.section.template reset<true>(dataPtr, in.size());
+			structural_index_ptr iter{ derivedRef.section.begin() };
+			auto* endStructural = derivedRef.section.end();
 			base_t<string_type> newString{};
 			if (iter == endStructural) [[unlikely]] {
 				getErrors().emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
 			} else {
-				auto index = impl<optionsFinal>(iter, endStructural, dataPtr, selfRef.stringBuffer);
+				auto index = impl<optionsFinal>(iter, endStructural, dataPtr, derivedRef.stringBuffer);
 				if (index != std::numeric_limits<uint64_t>::max()) [[likely]] {
 					newString.resize(index);
-					std::memcpy(newString.data(), selfRef.stringBuffer.data(), index);
+					std::memcpy(newString.data(), derivedRef.stringBuffer.data(), index);
 				}
 			}
 			return newString;
@@ -61,52 +60,47 @@ namespace jsonifier::internal {
 
 		template<prettify_options options = prettify_options{}, string_t input_string_type, string_t output_buffer_type>
 		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			if (selfRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
-				selfRef.stringBuffer.resize(in.size() * 5);
+			if (derivedRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
+				derivedRef.stringBuffer.resize(in.size() * 5);
 			}
 			static constexpr prettify_options optionsFinal{ options };
-			selfRef.errors.clear();
+			derivedRef.errors.clear();
 			const auto* dataPtr = in.data();
 			rootIter			= dataPtr;
 			endIter				= dataPtr + in.size();
-			selfRef.section.template reset<true>(dataPtr, in.size());
-			structural_index_ptr iter{ selfRef.section.begin() };
-			auto* endStructural = selfRef.section.end();
+			derivedRef.section.template reset<true>(dataPtr, in.size());
+			structural_index_ptr iter{ derivedRef.section.begin() };
+			auto* endStructural = derivedRef.section.end();
 			if (iter == endStructural) [[unlikely]] {
 				getErrors().emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
 				return false;
 			}
-			auto index = impl<optionsFinal>(iter, endStructural, dataPtr, selfRef.stringBuffer);
+			auto index = impl<optionsFinal>(iter, endStructural, dataPtr, derivedRef.stringBuffer);
 			if (index != std::numeric_limits<uint64_t>::max()) [[likely]] {
 				if (buffer.size() != index) [[likely]] {
 					buffer.resize(index);
 				}
-				std::memcpy(buffer.data(), selfRef.stringBuffer.data(), index);
+				std::memcpy(buffer.data(), derivedRef.stringBuffer.data(), index);
 				return true;
 			} else {
 				return false;
 			}
 		}
 
-	  private:
+	  protected:
+		derived_type& derivedRef{ initializeSelfRef() };
 		string_view_ptr rootIter{};
 		string_view_ptr endIter{};
 
-		prettifier()								 = default;
-		prettifier(const prettifier&)				 = default;
-		prettifier& operator=(const prettifier&)	 = default;
-		prettifier(prettifier&&) noexcept			 = default;
-		prettifier& operator=(prettifier&&) noexcept = default;
-		~prettifier()								 = default;
+		inline prettifier() noexcept {
+		}
 
-		JSONIFIER_INLINE derived_type& getSelfRef() noexcept {
+		inline derived_type& initializeSelfRef() noexcept {
 			return *static_cast<derived_type*>(this);
 		}
 
 		inline std::vector<error>& getErrors() noexcept {
-			derived_type& selfRef{ getSelfRef() };
-			return selfRef.errors;
+			return derivedRef.errors;
 		}
 
 		template<prettify_options options, string_t string_type, typename iterator, typename iterator_end>
@@ -270,6 +264,8 @@ namespace jsonifier::internal {
 			}
 			return status.index;
 		}
+
+		inline ~prettifier() noexcept = default;
 	};
 
 }// namespace internal
