@@ -45,7 +45,7 @@ namespace jsonifier::internal {
 	template<float_t value_type> struct float_parser;
 
 	template<float_t value_type> struct float_parser {
-		JSONIFIER_INLINE static string_view_ptr parseFloat(value_type& value, string_view_ptr iter, string_view_ptr end = nullptr) noexcept {
+		JSONIFIER_INLINE static read_buffer_ptr parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
 			using namespace jsonifier::internal;
 			span<char> fraction;
 

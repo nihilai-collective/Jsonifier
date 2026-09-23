@@ -108,11 +108,7 @@ namespace utf8_validation_tests {
 		rt_ut::unit_test<testName, true>::assert_eq(expected, jsonifier::validateUtf8, bytes.data(), bytes.size());
 	}
 
-	static constexpr jsonifier::parse_options utf8ValidatedOpts{ [] {
-		jsonifier::parse_options opts{};
-		opts.validateUtf8 = true;
-		return opts;
-	}() };
+	static constexpr jsonifier::parse_options utf8ValidatedOpts{};
 
 	inline static bool runValidatedStringParseWithScratch(const std::vector<uint8_t>& contentBytes, std::vector<uint8_t>& sourceScratch, std::vector<char>& destScratch) {
 		sourceScratch.clear();
@@ -123,8 +119,8 @@ namespace utf8_validation_tests {
 		if (destScratch.size() < neededDestSize) {
 			destScratch.assign(neededDestSize, 0);
 		}
-		jsonifier::string_view_ptr string1Start = std::bit_cast<jsonifier::string_view_ptr>(sourceScratch.data());
-		jsonifier::string_buffer_ptr string2	= destScratch.data();
+		jsonifier::read_buffer_ptr string1Start = std::bit_cast<jsonifier::read_buffer_ptr>(sourceScratch.data());
+		jsonifier::write_buffer_ptr string2		= destScratch.data();
 		using scanner_type						= jsonifier::internal::string_scanner<utf8ValidatedOpts>;
 		const auto res							= scanner_type::impl(string1Start, string1Start + sourceScratch.size(), string2);
 		return res.outLength != std::numeric_limits<uint64_t>::max();
@@ -274,7 +270,7 @@ namespace utf8_validation_tests {
 
 	inline static void runUnalignedInvalidSequenceSweep() {
 		struct named_invalid_seq {
-			jsonifier::string_view_ptr label;
+			jsonifier::read_buffer_ptr label;
 			std::vector<uint8_t> bytes;
 		};
 

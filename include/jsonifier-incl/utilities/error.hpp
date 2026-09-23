@@ -189,19 +189,19 @@ namespace jsonifier::internal {
 
 		inline error() noexcept = default;
 
-		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, string_view_ptr rootIterNew, string_view_ptr errorPosNew,
-			string_view_ptr endIterNew, error_class typeNew) noexcept
+		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
+			read_buffer_ptr endIterNew, error_class typeNew) noexcept
 			: sourceLocation{ sourceLocationNew }, errorClass{ errorClassNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
 			  errorType{ static_cast<uint64_t>(typeNew) } {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, string_view_ptr rootIter, string_view_ptr errorPos,
-			string_view_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
+		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
+			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> inline static error constructError(string_view_ptr rootIter, string_view_ptr errorPos, string_view_ptr endIter,
+		template<status_classes errorClassNew, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
 			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
@@ -221,9 +221,9 @@ namespace jsonifier::internal {
 	  protected:
 		std::source_location sourceLocation{};
 		status_classes errorClass{};
-		string_view_ptr rootIter{};
-		string_view_ptr errorPos{};
-		string_view_ptr endIter{};
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr errorPos{};
+		read_buffer_ptr endIter{};
 		uint64_t localIndex{};
 		string reportString{};
 		uint64_t errorIndex{};
@@ -240,7 +240,7 @@ namespace jsonifier::internal {
 
 				line = static_cast<uint64_t>(std::count(rootIter, errorPos, '\n') + 1);
 
-				string_view_ptr scan		   = errorPos;
+				read_buffer_ptr scan		   = errorPos;
 				uint64_t distanceFromLineStart = 0;
 				while (scan > rootIter && *(scan - 1) != '\n') {
 					--scan;

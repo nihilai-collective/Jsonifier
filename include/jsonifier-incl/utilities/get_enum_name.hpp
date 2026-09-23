@@ -21,9 +21,9 @@ namespace jsonifier::internal {
 		return str.substr(start);
 #else
 	#if JSONIFIER_COMPILER_MSVC
-		constexpr string_view_ptr prettyFunctionTailLocal{ ">(void)" };
+		constexpr read_buffer_ptr prettyFunctionTailLocal{ ">(void)" };
 	#elif JSONIFIER_COMPILER_CLANG
-		constexpr string_view_ptr prettyFunctionTailLocal{ "]" };
+		constexpr read_buffer_ptr prettyFunctionTailLocal{ "]" };
 	#endif
 		str			   = str.substr(str.find("=") + 2);
 		uint64_t start = str.findLastOf(':') + 1;
@@ -93,7 +93,8 @@ namespace jsonifier::internal {
 		return "Unknown Type";
 	}
 
-	template<printable_enum_types enum_type, size_t buffer_size> JSONIFIER_INLINE static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, enum_type type) noexcept {
+	template<printable_enum_types enum_type, size_t buffer_size>
+	JSONIFIER_INLINE static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, enum_type type) noexcept {
 		os << getName(type).operator std::basic_string_view<char>();
 		return os;
 	}

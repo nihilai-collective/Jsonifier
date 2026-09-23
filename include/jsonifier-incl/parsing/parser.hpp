@@ -44,7 +44,30 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename derived_type_new> class parser {
+	template<parse_options options, typename value_type, typename iterator_type> struct string_scan_context {
+		using scan_result = typename string_scanner<options>::scan_result;
+
+		inline string_scan_context() noexcept									   = default;
+		inline string_scan_context& operator=(const string_scan_context&) noexcept = delete;
+		inline string_scan_context(const string_scan_context&) noexcept			   = delete;
+		inline string_scan_context& operator=(string_scan_context&&) noexcept	   = delete;
+		inline string_scan_context(string_scan_context&&) noexcept				   = delete;
+
+		inline string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
+			: result{ resultNew }, strIter{ strIterNew }, endIter{ endIterNew } {
+		}
+
+		JSONIFIER_INLINE uint64_t operator()(remove_pointer_t<typename value_type::pointer>* __restrict ptrNew, uint64_t) noexcept {
+			result = string_scanner<options>::impl(strIter, endIter, ptrNew);
+			return result.outLength == std::numeric_limits<uint64_t>::max() ? uint64_t{} : result.outLength;
+		}
+
+		scan_result& result;
+		iterator_type strIter{};
+		iterator_type endIter{};
+	};
+
+	template<typename derived_type_new> struct parser {
 	  public:
 		friend class jsonifier::raw_json_data;
 
@@ -75,141 +98,171 @@ namespace jsonifier::internal {
 			return derivedRef.section.begin();
 		}
 
-		template<parse_options options = parse_options{}, string_t value_type, typename buffer_type>
-		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
-			using str_type			  = remove_cvref_t<value_type>;
+		template<parse_options options = parse_options{}, typename buffer_type> inline structural_index_ptr collectStructuralsSingle(buffer_type&& in) noexcept {
+			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = getBeginIter(in);
 			auto* __restrict endIter  = getEndIter(in);
-			if (rootIter >= endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
-				return false;
-			}
-			if (*rootIter != '"') [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, rootIter, endIter));
-				return false;
-			}
-			++rootIter;
-			if (rootIter >= endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
-				return false;
-			}
-			const auto needed = static_cast<uint64_t>(endIter - rootIter) + simdBytesPerStep;
-			typename string_scanner<options>::scan_result res{};
-			if constexpr (has_resize_and_overwrite<str_type>) {
-				object.resize_and_overwrite(needed, [&](auto* __restrict ptr, uint64_t) noexcept {
-					res = string_scanner<options>::impl(rootIter, endIter, ptr);
-					return res.outLength == std::numeric_limits<uint64_t>::max() ? uint64_t{} : res.outLength;
-				});
+			derivedRef.podSection.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			return derivedRef.podSection.begin();
+		}
+
+		template<parse_options options = parse_options{}, string_t value_type, typename buffer_type>
+		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
+			static constexpr parse_options parseOpts{ options };
+			if constexpr (parseOpts.partialRead) {
+				derivedRef.errors.clear();
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				if (!rootIter || rootIter == endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::no_input>(rootIter, rootIter, endIter));
+					return false;
+				}
+				const structural_index_ptr tapeIter = indexStructurals<parseOpts.minified>(rootIter, endIter);
+				auto* __restrict valueIter			= rootIter + *tapeIter;
+				if (tapeIter == derivedRef.podSection.end() || *valueIter != '"') [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, valueIter, endIter));
+					return false;
+				}
+				if (valueIter + 1 >= endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, valueIter, endIter));
+					return false;
+				}
+				if (scanString<options>(object, valueIter + 1, endIter).outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, valueIter, endIter));
+					return false;
+				}
+				const structural_index_ptr nextTapeIter = tapeIter + 1;
+				if (nextTapeIter < derivedRef.podSection.end() && rootIter + *nextTapeIter != endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unfinished_input>(rootIter, rootIter + *nextTapeIter, endIter));
+					return false;
+				}
+				return true;
 			} else {
-				if (object.size() < needed) [[unlikely]] {
-					object.resize(needed);
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				if (rootIter >= endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::no_input>(rootIter, rootIter, endIter));
+					return false;
 				}
-				res = string_scanner<options>::impl(rootIter, endIter, object.data());
-				if (res.outLength != std::numeric_limits<uint64_t>::max()) [[likely]] {
-					object.resize(res.outLength);
+				if (*rootIter != '"') [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, rootIter, endIter));
+					return false;
 				}
-			}
-			if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, rootIter, endIter));
-				return false;
-			}
-			rootIter += res.rawLength + 1;
-			if (rootIter > endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
-				return false;
-			}
-			if constexpr (!options.minified) {
-				while (rootIter < endIter && whitespaceTable[static_cast<uint8_t>(*rootIter)]) {
-					++rootIter;
+				++rootIter;
+				if (rootIter >= endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
+					return false;
 				}
+				const auto res = scanString<options>(object, rootIter, endIter);
+				if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, rootIter, endIter));
+					return false;
+				}
+				rootIter += res.rawLength + 1;
+				if (rootIter > endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
+					return false;
+				}
+				if constexpr (!options.minified) {
+					while (rootIter < endIter && whitespaceTable[static_cast<uint8_t>(*rootIter)]) {
+						++rootIter;
+					}
+				}
+				if (rootIter != endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unfinished_input>(rootIter, rootIter, endIter));
+					return false;
+				}
+				return true;
 			}
-			if (rootIter != endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unfinished_input>(rootIter, rootIter, endIter));
-				return false;
-			}
-			return true;
 		}
 
 		template<parse_options options = parse_options{}, bool_t value_type, typename buffer_type>
 		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
-			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
-			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
-			auto* __restrict rootIter = getBeginIter(in);
-			auto* __restrict endIter  = getEndIter(in);
-			if (endIter - rootIter < 4) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
+			static constexpr parse_options parseOpts{ options };
+			if constexpr (parseOpts.partialRead) {
+				derivedRef.errors.clear();
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				if (!rootIter || rootIter == endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::no_input>(rootIter, rootIter, endIter));
+					return false;
+				}
+				const structural_index_ptr tapeIter = indexStructurals<parseOpts.minified>(rootIter, endIter);
+				auto* __restrict valueIter			= rootIter + *tapeIter;
+				static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+				static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+				const auto remaining = endIter - valueIter;
+				if (remaining < 4) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, valueIter, endIter));
+					return false;
+				}
+				uint32_t comparison;
+				pow2_memcpy_wrapper<4>(&comparison, valueIter);
+				if constexpr (std::endian::native == std::endian::big) {
+					comparison = byteswap(comparison);
+				}
+				if (comparison == trueVal && remaining == 4) {
+					object = true;
+					return true;
+				} else if (comparison == falseVal && remaining == 5 && valueIter[4] == 'e') [[likely]] {
+					object = false;
+					return true;
+				}
+				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, valueIter, endIter));
 				return false;
-			}
-			uint32_t comparison;
-			pow2_memcpy_wrapper<4>(&comparison, rootIter);
-			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
-			}
-			rootIter += 4;
-			if (comparison == trueVal) {
-				object = true;
-			} else if (rootIter == endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
-				return false;
-			} else if (comparison == falseVal && (*rootIter == 'e')) [[likely]] {
-				object = false;
-				++rootIter;
 			} else {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
-				return false;
+				static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+				static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				if (endIter - rootIter < 4) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
+					return false;
+				}
+				uint32_t comparison;
+				pow2_memcpy_wrapper<4>(&comparison, rootIter);
+				if constexpr (std::endian::native == std::endian::big) {
+					comparison = byteswap(comparison);
+				}
+				rootIter += 4;
+				if (comparison == trueVal) {
+					object = true;
+				} else if (rootIter == endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
+					return false;
+				} else if (comparison == falseVal && (*rootIter == 'e')) [[likely]] {
+					object = false;
+					++rootIter;
+				} else {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
+					return false;
+				}
+				if (rootIter != endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
+					return false;
+				}
+				return true;
 			}
-			if (rootIter != endIter) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_bool_value>(rootIter, rootIter, endIter));
-				return false;
-			}
-			return true;
 		}
 
 		template<parse_options options = parse_options{}, number_t value_type, typename buffer_type>
 		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
-			using num_type			  = remove_cvref_t<value_type>;
-			auto* __restrict rootIter = getBeginIter(in);
-			auto* __restrict endIter  = getEndIter(in);
-			if constexpr (integer_t<num_type>) {
-				if constexpr (uint_types<num_type>) {
-					if constexpr (uint64_types<num_type>) {
-						if (auto iterNew = integer_parser<num_type>::parseInt(object, rootIter, endIter); iterNew) {
-							return finish<options.minified>(rootIter, iterNew, endIter);
-						}
-						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, rootIter, endIter));
-						return false;
-					} else {
-						uint64_t i;
-						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, rootIter, endIter); iterNew) {
-							object = static_cast<num_type>(i);
-							return finish<options.minified>(rootIter, iterNew, endIter);
-						}
-						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, rootIter, endIter));
-						return false;
-					}
-				} else {
-					if constexpr (int64_types<num_type>) {
-						if (auto iterNew = integer_parser<num_type>::parseInt(object, rootIter, endIter); iterNew) {
-							return finish<options.minified>(rootIter, iterNew, endIter);
-						}
-						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, rootIter, endIter));
-						return false;
-					} else {
-						int64_t i;
-						if (auto iterNew = integer_parser<int64_t>::parseInt(i, rootIter, endIter); iterNew) {
-							object = static_cast<num_type>(i);
-							return finish<options.minified>(rootIter, iterNew, endIter);
-						}
-						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, rootIter, endIter));
-						return false;
-					}
+			static constexpr parse_options parseOpts{ options };
+			if constexpr (parseOpts.partialRead) {
+				derivedRef.errors.clear();
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				if (!rootIter || rootIter == endIter) [[unlikely]] {
+					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::no_input>(rootIter, rootIter, endIter));
+					return false;
 				}
+				const structural_index_ptr tapeIter = indexStructurals<parseOpts.minified>(rootIter, endIter);
+				auto* __restrict valueIter			= rootIter + *tapeIter;
+				return parseRootNumber<options>(object, rootIter, valueIter, endIter);
 			} else {
-				if (auto iterNew = float_parser<num_type>::parseFloat(object, rootIter, endIter); iterNew) {
-					return finish<options.minified>(rootIter, iterNew, endIter);
-				}
-				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, rootIter, endIter));
-				return false;
+				auto* __restrict rootIter = getBeginIter(in);
+				auto* __restrict endIter  = getEndIter(in);
+				return parseRootNumber<options>(object, rootIter, rootIter, endIter);
 			}
 		}
 
@@ -234,7 +287,7 @@ namespace jsonifier::internal {
 					return false;
 				}
 			} else {
-				json_iterator<parseOpts, string_view_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
+				json_iterator<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
 					endIter };
 				if (context.anyInput()) {
 					parse<parseOpts>::rootImpl(object, context);
@@ -255,6 +308,76 @@ namespace jsonifier::internal {
 		parser& operator=(parser&& other)	   = delete;
 		parser(parser&& other)				   = delete;
 		~parser() noexcept					   = default;
+
+		template<bool minified> JSONIFIER_INLINE structural_index_ptr indexStructurals(auto* rootIter, const auto* endIter) noexcept {
+			derivedRef.podSection.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			return derivedRef.podSection.begin();
+		}
+
+		template<parse_options options, typename value_type>
+		JSONIFIER_INLINE static typename string_scanner<options>::scan_result scanString(value_type& object, auto* strIter, const auto* endIter) noexcept {
+			using context_type = string_scan_context<options, value_type, decltype(strIter)>;
+			const auto needed  = static_cast<uint64_t>(endIter - strIter) + simdBytesPerStep;
+			typename string_scanner<options>::scan_result res{};
+			if constexpr (has_resize_and_overwrite<value_type>) {
+				object.resize_and_overwrite(needed, context_type{ res, strIter, endIter });
+			} else {
+				if (object.size() < needed) [[unlikely]] {
+					object.resize(needed);
+				}
+				context_type context{ res, strIter, endIter };
+				if (const uint64_t newLength = context(object.data(), needed); res.outLength != std::numeric_limits<uint64_t>::max()) [[likely]] {
+					object.resize(newLength);
+				}
+			}
+			return res;
+		}
+
+		template<parse_options options, typename value_type>
+		JSONIFIER_INLINE bool parseRootNumber(value_type& object, auto* rootIter, auto* valueIter, const auto* endIter) noexcept {
+			using num_type = remove_cvref_t<value_type>;
+			if constexpr (integer_t<num_type>) {
+				if constexpr (uint_types<num_type>) {
+					if constexpr (uint64_types<num_type>) {
+						if (auto iterNew = integer_parser<num_type>::parseInt(object, valueIter, endIter); iterNew) {
+							return finish<options.minified>(rootIter, iterNew, endIter);
+						}
+						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, valueIter, endIter));
+						return false;
+					} else {
+						uint64_t i;
+						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, valueIter, endIter); iterNew) {
+							object = static_cast<num_type>(i);
+							return finish<options.minified>(rootIter, iterNew, endIter);
+						}
+						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, valueIter, endIter));
+						return false;
+					}
+				} else {
+					if constexpr (int64_types<num_type>) {
+						if (auto iterNew = integer_parser<num_type>::parseInt(object, valueIter, endIter); iterNew) {
+							return finish<options.minified>(rootIter, iterNew, endIter);
+						}
+						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, valueIter, endIter));
+						return false;
+					} else {
+						int64_t i;
+						if (auto iterNew = integer_parser<int64_t>::parseInt(i, valueIter, endIter); iterNew) {
+							object = static_cast<num_type>(i);
+							return finish<options.minified>(rootIter, iterNew, endIter);
+						}
+						derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, valueIter, endIter));
+						return false;
+					}
+				}
+			} else {
+				if (auto iterNew = float_parser<num_type>::parseFloat(object, valueIter, endIter); iterNew) {
+					return finish<options.minified>(rootIter, iterNew, endIter);
+				}
+				derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_number_value>(rootIter, valueIter, endIter));
+				return false;
+			}
+		}
 
 		template<bool minified> JSONIFIER_INLINE bool finish(auto* rootIter, auto* iterNew, const auto* endIter) noexcept {
 			if constexpr (!minified) {

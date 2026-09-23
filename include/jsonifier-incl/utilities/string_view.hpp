@@ -194,7 +194,8 @@ namespace jsonifier {
 
 	using string_view = string_view_base;
 
-	template<size_t buffer_size> JSONIFIER_INLINE static internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
+	template<size_t buffer_size>
+	JSONIFIER_INLINE static internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
 		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
@@ -204,7 +205,7 @@ namespace jsonifier {
 		return os;
 	}
 
-	JSONIFIER_INLINE constexpr string_view operator""_sv(string_view_ptr stringNew, size_t lengthNew) noexcept {
+	JSONIFIER_INLINE constexpr string_view operator""_sv(read_buffer_ptr stringNew, size_t lengthNew) noexcept {
 		return string_view(stringNew, lengthNew);
 	}
 

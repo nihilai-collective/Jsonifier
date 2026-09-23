@@ -60,7 +60,7 @@ Structures are registered via template specialization using member pointers as n
 Structural indexing runs through a batched-drain, fused-scan architecture: character classification, quote-scope tracking, and UTF-8 validation happen in the same pass over the input, with cross-SIMD-width validation state carried between blocks via a dedicated register-scoped validator. The structural index itself is stored as a compact array of offsets into the source buffer rather than raw pointers, keeping the index footprint small and cache-friendly. Everything the compiler can know statically about the target architecture — cache-line size, vector width, alignment — is baked into the binary as constexpr.
 
 ### UTF-8 Validation, By Default
-Full UTF-8 validation runs as part of every parse by default (`parse_options::validateUtf8 = true`), built on a Lemire/simdjson-derived table-lookup validator with both a bulk-buffer path and a streaming, register-scoped path that carries state across chunk boundaries. Validation is fused directly into string scanning rather than requiring a separate pass. Correctness is backed by the full Markus Kuhn UTF-8 stress-test corpus, alignment-sweep fuzzing, and page-boundary overrun checks.
+Full UTF-8 validation runs as part of every parse, always, built on a Lemire/simdjson-derived table-lookup validator with both a bulk-buffer path and a streaming, register-scoped path that carries state across chunk boundaries. Validation is fused directly into string scanning rather than requiring a separate pass. Correctness is backed by the full Markus Kuhn UTF-8 stress-test corpus, alignment-sweep fuzzing, and page-boundary overrun checks.
 
 ### Purpose-Built Hash Maps
 Key lookups during parsing use compile-time-generated hash maps specialized for object size (1, 2, 3+ fields), each picking a different strategy based on what's fastest for that cardinality. No runtime hashing, no bucket walks — the lookup is generated for the specific set of keys your struct declares.
@@ -230,7 +230,7 @@ int main() {
 
 Note the `makeJsonEntity<&value_type::schema_version, "schema-version">()` — Jsonifier maps the C++-legal `schema_version` member to the kebab-case `"schema-version"` key in JSON entirely at compile time, with zero runtime cost.
 
-Other Note You must never manually include any header besides the top-level <jsonifier> include, or it will likely break your entire build.
+Warning: Include only <jsonifier>. Direct inclusion of internal headers may cause unrelated code in the including translation unit to become uncompilable.
 
 The `jsonifier_core<>` type is now templated on an initial scratch-buffer size in bytes (default 1MB) — e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents.
 

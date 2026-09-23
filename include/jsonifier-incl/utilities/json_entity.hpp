@@ -35,10 +35,14 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<auto... values, uint64_t... indices> static constexpr auto createValueImpl(jsonifier::internal::integer_sequence<indices...>) {
-		static_assert((convertible_to_json_entity<decltype(values)> && ...), "All arguments passed to createValue must be convertible to a json_entity.");
-		return makeTuple(makeJsonEntityAuto<sizeof...(values), indices, values>()...);
-	}
+	template<typename sequence_type, auto... values> struct create_value_impl;
+
+	template<uint64_t... indices, auto... values> struct create_value_impl<integer_sequence<indices...>, values...> {
+		static constexpr auto impl() {
+			static_assert((convertible_to_json_entity<decltype(values)> && ...), "All arguments passed to createValue must be convertible to a json_entity.");
+			return makeTuple(makeJsonEntityAuto<sizeof...(values), indices, values>()...);
+		}
+	};
 
 	template<auto element, typename value_type_new> JSONIFIER_INLINE decltype(auto) getMember(value_type_new& value) noexcept {
 		using value_type = remove_cvref_t<decltype(element)>;
@@ -60,7 +64,7 @@ namespace jsonifier {
 	}
 
 	template<auto... values> static constexpr auto createValue() noexcept {
-		return internal::createValueImpl<values...>(jsonifier::internal::make_integer_sequence<sizeof...(values)>{});
+		return internal::create_value_impl<jsonifier::internal::make_integer_sequence<sizeof...(values)>, values...>::impl();
 	}
 
 }

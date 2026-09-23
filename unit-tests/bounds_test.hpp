@@ -91,8 +91,7 @@ namespace bounds_tests {
 		rt_ut::unit_test<testNameRtUt, true>::run(
 			[&](std::string s) {
 				test_data_type jsonifierValue;
-				parser.parseJson<
-					jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .validateUtf8 = true, .nullTerminated = nullTerminated }>(
+				parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
 					jsonifierValue, s);
 				if (parser.getErrors().size()) {
 					std::cout << "FULL PARSE FAILURE: " << parser.getErrors()[0].reportError() << std::endl;
@@ -102,8 +101,7 @@ namespace bounds_tests {
 				s.pop_back();
 				test_data_type jsonifierValueLocal;
 				while (!s.empty()) {
-					parser.parseJson<jsonifier::
-							parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .validateUtf8 = true, .nullTerminated = nullTerminated }>(
+					parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
 						jsonifierValueLocal, s);
 					if (!parser.getErrors().size()) {
 						std::cout << "BOUNDS TEST FAILURE, test: " << testNameRtUt.operator std::string() << ", repro seed: " << randomDie.getSeed() << std::endl;

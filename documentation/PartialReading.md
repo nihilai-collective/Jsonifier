@@ -91,7 +91,6 @@ You get back a `twitter_partial_message` with just the three fields per status y
 
 - **`knownOrder`** — Works with Partial Reading. The adaptive memoization applies to whichever fields you did register. Some of the fastest-fast-path optimizations described in [Known Order Parsing](Known_Order.md) are specific to the non-partial mode, so if you're on the peak-throughput path, benchmark both.
 - **`minified`** — Fully compatible. Stage-1 still runs; stage-2 skips the whitespace-handling paths.
-- **`validateUtf8`** — Fully compatible.
 - **`nullTerminated`** — Same rules as the default parser. See the [Serializing & Parsing](Usage_Serializing_Parsing.md#-the-nullterminated-footgun) warning.
 
 ## When to Measure

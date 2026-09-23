@@ -38,7 +38,7 @@ namespace string_literal_comparator_impl_tests {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		std::string buffer{ localLiteral.data(), localLiteral.size() };
-		const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
+		jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 		return result == buffer.data() + localLiteral.size();
 	}
 
@@ -48,8 +48,8 @@ namespace string_literal_comparator_impl_tests {
 		static constexpr uint64_t len	   = localLiteral.size();
 		for (uint64_t pos = 0; pos < len; ++pos) {
 			std::string buffer{ localLiteral.data(), localLiteral.size() };
-			buffer[pos]		   = static_cast<char>(~buffer[pos]);
-			const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
+			buffer[pos]						  = static_cast<char>(~buffer[pos]);
+			jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 			if (result != nullptr) {
 				std::cout << "STRING_LITERAL_COMPARATOR_IMPL failed to detect corruption at position " << pos << " for length " << len << std::endl;
 				return false;
@@ -65,7 +65,7 @@ namespace string_literal_comparator_impl_tests {
 		for (uint64_t pattern = 0; pattern < 4; ++pattern) {
 			std::string buffer{ localLiteral.data(), len };
 			buffer.append(64, static_cast<char>(pattern == 0 ? 0x00 : pattern == 1 ? 0xFF : pattern == 2 ? 0x41 : 0x7F));
-			const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
+			jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 			if (result != buffer.data() + len) {
 				std::cout << "STRING_LITERAL_COMPARATOR_IMPL trailing-garbage failure, pattern " << pattern << " for length " << len << std::endl;
 				return false;
@@ -87,7 +87,7 @@ namespace string_literal_comparator_impl_tests {
 					continue;
 				}
 				std::swap(buffer[pos], buffer[pos + 1]);
-				const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
+				jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 				if (result != nullptr) {
 					std::cout << "STRING_LITERAL_COMPARATOR_IMPL failed to detect transposition at position " << pos << " for length " << len << std::endl;
 					return false;
@@ -107,9 +107,9 @@ namespace string_literal_comparator_impl_tests {
 			for (uint64_t first = 0; first < len; ++first) {
 				for (uint64_t second = first + 1; second < len; ++second) {
 					std::string buffer{ localLiteral.data(), len };
-					buffer[first]	   = static_cast<char>(~buffer[first]);
-					buffer[second]	   = static_cast<char>(~buffer[second]);
-					const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
+					buffer[first]					  = static_cast<char>(~buffer[first]);
+					buffer[second]					  = static_cast<char>(~buffer[second]);
+					jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buffer.data());
 					if (result != nullptr) {
 						std::cout << "STRING_LITERAL_COMPARATOR_IMPL failed to detect double corruption at " << first << "," << second << " for length " << len << std::endl;
 						return false;
@@ -121,12 +121,12 @@ namespace string_literal_comparator_impl_tests {
 	}
 
 	struct guarded_buffer {
-		char* ptr{};
+		jsonifier::write_buffer_ptr ptr{};
 		uint64_t len{};
 		void* region{};
 		uint64_t regionSize{};
 
-		guarded_buffer(const char* src, uint64_t lengthNew) : len{ lengthNew } {
+		guarded_buffer(jsonifier::read_buffer_ptr src, uint64_t lengthNew) : len{ lengthNew } {
 			const uint64_t pageSize{ 4096 };
 			regionSize = pageSize * 2;
 #if defined(_WIN32)
@@ -136,7 +136,7 @@ namespace string_literal_comparator_impl_tests {
 			region = mmap(nullptr, regionSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 			mprotect(region, pageSize, PROT_READ | PROT_WRITE);
 #endif
-			ptr = static_cast<char*>(region) + pageSize - len;
+			ptr = static_cast<jsonifier::write_buffer_ptr>(region) + pageSize - len;
 			jsonifier::memcpy_wrapper(ptr, src, len);
 		}
 
@@ -158,7 +158,7 @@ namespace string_literal_comparator_impl_tests {
 			return true;
 		} else {
 			guarded_buffer buf{ localLiteral.data(), len };
-			const char* result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buf.ptr);
+			jsonifier::read_buffer_ptr result = jsonifier::internal::string_literal_comparator_impl<sl_type, localLiteral>::impl(buf.ptr);
 			return result == buf.ptr + len;
 		}
 	}

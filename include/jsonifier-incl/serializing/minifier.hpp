@@ -38,15 +38,17 @@ namespace jsonifier::internal {
 		return returnValues;
 	}();
 
-	template<typename derived_type> class minifier {
+	template<typename derived_type_new> struct minifier {
 	  public:
+		using derived_type = derived_type_new;
+
 		template<string_t string_type> inline base_t<string_type> minifyJson(string_type&& in) noexcept {
 			if (derivedRef.stringBuffer.size() < in.size()) [[unlikely]] {
 				derivedRef.stringBuffer.resize(in.size());
 			}
 			derivedRef.errors.clear();
-			string_view_ptr rootIter = in.data();
-			string_view_ptr endIter	 = rootIter + in.size();
+			read_buffer_ptr rootIter = in.data();
+			read_buffer_ptr endIter	 = rootIter + in.size();
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			structural_index_ptr endStructural = derivedRef.section.end();
@@ -68,8 +70,8 @@ namespace jsonifier::internal {
 				derivedRef.stringBuffer.resize(in.size());
 			}
 			derivedRef.errors.clear();
-			string_view_ptr rootIter = in.data();
-			string_view_ptr endIter	 = rootIter + in.size();
+			read_buffer_ptr rootIter = in.data();
+			read_buffer_ptr endIter	 = rootIter + in.size();
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			structural_index_ptr endStructural = derivedRef.section.end();
@@ -99,20 +101,20 @@ namespace jsonifier::internal {
 		minifier(minifier&& other)				   = delete;
 		~minifier() noexcept					   = default;
 
-		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, string_view_ptr previousPtr) noexcept {
+		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, read_buffer_ptr previousPtr) noexcept {
 			while (whitespaceTable[static_cast<uint8_t>(previousPtr[--currentDistance])]) {
 			}
 		}
 
 		template<typename iterator_type>
-		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, string_view_ptr& previousPtr, iterator_type iter, string_view_ptr rootIter) noexcept {
+		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, read_buffer_ptr& previousPtr, iterator_type iter, read_buffer_ptr rootIter) noexcept {
 			currentDistance = (rootIter + *iter) - previousPtr;
 			skipWs(currentDistance, previousPtr);
 			++currentDistance;
 		}
 
 		template<string_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural,
-			string_type&& outBuffer, string_view_ptr rootIter, string_view_ptr endIter) noexcept {
+			string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) noexcept {
 			using enum json_structural_type;
 			auto previousPtr = rootIter + *iter;
 			int64_t currentDistance{};

@@ -93,7 +93,7 @@ namespace jsonifier::internal {
 
 	template<bool condition, typename type01, typename type02> using conditional_t = conditional<condition, type01, type02>::type;
 
-	template<typename derived_type> class parser;
+	template<typename derived_type_new> struct parser;
 
 	enum class avx_type { m128 = 0, m256 = 1, m512 = 2 };
 

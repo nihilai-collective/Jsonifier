@@ -39,25 +39,55 @@
 	#include <unistd.h>
 #endif
 
+template<typename... arg_types> void jsonifier_fail_memcpy_impl(arg_types&&...) {
+	static_assert(sizeof...(arg_types) == 0,
+		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
+		"the std library include you just added.");
+}
+
+namespace std {
+
+	template<typename... arg_types> void jsonifier_fail_memcpy_impl(arg_types&&... args) {
+		::jsonifier_fail_memcpy_impl(args...);
+	}
+
+}
+
 namespace jsonifier {
 
-	JSONIFIER_INLINE static consteval bool is_power_of_2(uint64_t value) noexcept {
-		return value != 0 && (value & (value - 1)) == 0;
-	}
-
-	template<uint64_t size, typename value_type_01, typename value_type_02> JSONIFIER_INLINE void pow2_memcpy_wrapper(value_type_01* dst, const value_type_02* src) noexcept {
-		static_assert(is_power_of_2(size), "Sorry, but you can only memcpy a power-of-2 size.");
+	template<uint64_t size, typename value_type_01, typename value_type_02>
+	JSONIFIER_INLINE void pow2_memcpy_wrapper(value_type_01* __restrict dst, const value_type_02* __restrict src) noexcept {
+		static_assert(std::has_single_bit(size), "Sorry, but you can only memcpy a power-of-2 size.");
 		std::memcpy(dst, src, size);
 	}
 
-	template<typename value_type_01, typename value_type_02> JSONIFIER_INLINE void memcpy_wrapper(value_type_01* dst, const value_type_02* src, uint64_t size) noexcept {
+	template<typename value_type_01, typename value_type_02>
+	JSONIFIER_INLINE void memcpy_wrapper(value_type_01* __restrict dst, const value_type_02* __restrict src, uint64_t size) noexcept {
 		std::memcpy(dst, src, size);
 	}
 
-#define reinterpret_cast static_assert(false, "Sorry, but reinterpret_cast is banned in this library!")
-#define const_cast static_assert(false, "Sorry, but const_cast is banned in this library!")
-#define dynamic_cast static_assert(false, "Sorry, but dynamic_cast is banned in this library!")
-#define memcpy static_assert(false, "Sorry, but un-constrained memcpy is banned in this library!")
+	template<typename... arg_types> struct banned_reinterpret_cast {
+		static_assert(sizeof...(arg_types) == 0,
+			"Sorry, but reinterpret_cast is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
+			"the std library include you just added.");
+	};
+
+	template<typename... arg_types> struct banned_const_cast {
+		static_assert(sizeof...(arg_types) == 0,
+			"Sorry, but const_cast is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
+			"the std library include you just added.");
+	};
+
+	template<typename... arg_types> struct banned_dynamic_cast {
+		static_assert(sizeof...(arg_types) == 0,
+			"Sorry, but dynamic_cast is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
+			"the std library include you just added.");
+	};
+
+#define reinterpret_cast jsonifier::banned_reinterpret_cast
+#define const_cast jsonifier::banned_const_cast
+#define dynamic_cast jsonifier::banned_dynamic_cast
+#define memcpy(...) jsonifier_fail_memcpy_impl(__VA_ARGS__)
 
 	struct serialize_options {
 		uint64_t indentSize{ 3 };
@@ -70,7 +100,6 @@ namespace jsonifier {
 		bool partialRead{};
 		bool knownOrder{};
 		bool minified{};
-		bool validateUtf8{ true };
 		bool nullTerminated{ true };
 		uint64_t maxDepth{ 1024 };
 	};

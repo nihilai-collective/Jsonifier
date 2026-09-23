@@ -30,8 +30,10 @@ namespace jsonifier::internal {
 		int64_t indent{};
 	};
 
-	template<typename derived_type> class prettifier {
+	template<typename derived_type_new> struct prettifier {
 	  public:
+		using derived_type = derived_type_new;
+
 		template<prettify_options options = prettify_options{}, string_t string_type> inline base_t<string_type> prettifyJson(string_type&& in) noexcept {
 			if (derivedRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
 				derivedRef.stringBuffer.resize(in.size() * 5);
@@ -39,8 +41,8 @@ namespace jsonifier::internal {
 			static constexpr prettify_options optionsFinal{ options };
 			const auto* dataPtr = in.data();
 			derivedRef.errors.clear();
-			string_view_ptr rootIter = dataPtr;
-			string_view_ptr endIter	 = dataPtr + in.size();
+			read_buffer_ptr rootIter = dataPtr;
+			read_buffer_ptr endIter	 = dataPtr + in.size();
 			derivedRef.section.template reset<true>(dataPtr, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			auto* endStructural = derivedRef.section.end();
@@ -65,8 +67,8 @@ namespace jsonifier::internal {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
 			const auto* dataPtr		 = in.data();
-			string_view_ptr rootIter = dataPtr;
-			string_view_ptr endIter	 = dataPtr + in.size();
+			read_buffer_ptr rootIter = dataPtr;
+			read_buffer_ptr endIter	 = dataPtr + in.size();
 			derivedRef.section.template reset<true>(dataPtr, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			auto* endStructural = derivedRef.section.end();
@@ -97,13 +99,13 @@ namespace jsonifier::internal {
 		~prettifier() noexcept						   = default;
 
 		template<prettify_options options, string_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
-			iterator_end* __restrict endStructural, string_view_ptr __restrict stringRootIter, string_type&& outBuffer, string_view_ptr rootIter,
-			string_view_ptr endIter) noexcept {
+			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter,
+			read_buffer_ptr endIter) noexcept {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;
 			using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
 			using enum json_structural_type;
-			string_view_ptr newPtr{};
+			read_buffer_ptr newPtr{};
 			prettify_status status{};
 			while (iter < endStructural) {
 				switch (static_cast<uint64_t>(jsonTypes[static_cast<uint8_t>(stringRootIter[*iter])])) {
@@ -116,7 +118,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(comma): {
-						string_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr = outBuffer.data() + status.index;
 						comma_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 						status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
 						++iter;
@@ -145,7 +147,7 @@ namespace jsonifier::internal {
 						++status.array_depth;
 						status.indent += options.indentSize;
 						if (stringRootIter[*iter] != ']') [[likely]] {
-							string_buffer_ptr outPtr = outBuffer.data() + status.index;
+							write_buffer_ptr outPtr = outBuffer.data() + status.index;
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 							status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
 						} else {
@@ -171,7 +173,7 @@ namespace jsonifier::internal {
 								rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
-						string_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr = outBuffer.data() + status.index;
 						close_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 						status.index			= static_cast<uint64_t>(outPtr - outBuffer.data());
 						outBuffer[status.index] = ']';
@@ -207,7 +209,7 @@ namespace jsonifier::internal {
 						++iter;
 						status.indent += options.indentSize;
 						if (stringRootIter[*iter] != '}') {
-							string_buffer_ptr outPtr = outBuffer.data() + status.index;
+							write_buffer_ptr outPtr = outBuffer.data() + status.index;
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 							status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
 						} else {
@@ -227,7 +229,7 @@ namespace jsonifier::internal {
 								rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
-						string_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr = outBuffer.data() + status.index;
 						close_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 						status.index			= static_cast<uint64_t>(outPtr - outBuffer.data());
 						outBuffer[status.index] = '}';

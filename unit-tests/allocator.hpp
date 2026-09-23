@@ -119,11 +119,13 @@ namespace allocator_tests {
 			bool nonNull  = (p != nullptr);
 			bool aligned  = nonNull && (std::bit_cast<uintptr_t>(p) % alloc_t::alignment == 0);
 			if (nonNull) {
-				for (uint64_t i = 0; i < 4; ++i)
+				for (uint64_t i = 0; i < 4; ++i) {
 					p[i] = i * 11;
+				}
 				bool valuesOk = true;
-				for (uint64_t i = 0; i < 4; ++i)
+				for (uint64_t i = 0; i < 4; ++i) {
 					valuesOk = valuesOk && (p[i] == i * 11);
+				}
 				alloc_t::deallocate(p, 4);
 				return aligned && valuesOk;
 			}

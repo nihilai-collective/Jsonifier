@@ -45,8 +45,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> inline static double strToDouble(const string& stringNew) noexcept {
 		double newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = static_cast<string_view_ptr>(stringNew.data());
-			auto end  = static_cast<string_view_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = static_cast<read_buffer_ptr>(stringNew.data());
+			auto end  = static_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::float_parser<double>::parseFloat(newValue, iter, end);
 		}
 		return newValue;
@@ -63,8 +63,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> inline static int64_t strToInt64(const string& stringNew) noexcept {
 		int64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = static_cast<string_view_ptr>(stringNew.data());
-			auto end  = static_cast<string_view_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = static_cast<read_buffer_ptr>(stringNew.data());
+			auto end  = static_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::integer_parser<int64_t>::parseInt(newValue, iter, end);
 		}
 		return newValue;
@@ -81,8 +81,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> inline static uint64_t strToUint64(const string& stringNew) noexcept {
 		uint64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = static_cast<string_view_ptr>(stringNew.data());
-			auto end  = static_cast<string_view_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = static_cast<read_buffer_ptr>(stringNew.data());
+			auto end  = static_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::integer_parser<uint64_t>::parseInt(newValue, iter, end);
 		}
 		return newValue;

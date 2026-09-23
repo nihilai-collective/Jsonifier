@@ -10,7 +10,7 @@ Walking through `json_entity_parse::processIndex`:
 
 **This is genuinely brilliant.** It's not "assume declaration order" — it's "assume the LAST seen order for this position, and self-correct if wrong." Adaptive memoization at parse position level.
 
-## The Fast-Fast Path (minified + knownOrder + string_view_ptr)
+## The Fast-Fast Path (minified + knownOrder + read_buffer_ptr)
 
 There's a SPECIAL fast path when ALL of: `options.minified && options.knownOrder && !structural_context<context_type>`:
 
@@ -109,7 +109,6 @@ parser.parseJson<jsonifier::parse_options{
 
 - **`partialRead`** — Known Order applies in both partial and non-partial modes, but the fastest fast-fast path (with the fused string-literal compare) only kicks in for non-partial mode.
 - **`minified`** — Combining with `knownOrder` unlocks the fast-fast path described above.
-- **`validateUtf8`** — Fully compatible. Known Order doesn't touch string content, only object key dispatch.
 
 ## A Simple Test
 

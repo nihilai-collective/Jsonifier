@@ -86,13 +86,13 @@ namespace jsonifier::internal {
 	};
 
 	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
-	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(string_view_ptr string1) noexcept {
+	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
 		return digit_tables<>::digitToVal32[630ull + static_cast<uint64_t>(string1[0])] | digit_tables<>::digitToVal32[420ull + static_cast<uint64_t>(string1[1])] |
 			digit_tables<>::digitToVal32[210ull + static_cast<uint64_t>(string1[2])] | digit_tables<>::digitToVal32[0ull + static_cast<uint64_t>(string1[3])];
 	}
 
 	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
-	JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, string_buffer_ptr c) noexcept {
+	JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, write_buffer_ptr c) noexcept {
 		if (cp <= 0x7F) {
 			c[0] = static_cast<char>(cp);
 			return 1;
@@ -151,26 +151,6 @@ namespace jsonifier::internal {
 		const uint64_t offset = codePointToUtf8(codePoint, dstPtr);
 		dstPtr += offset;
 		return offset > 0;
-	}
-
-	template<char threshold, typename simd_type> [[maybe_unused]] JSONIFIER_INLINE static bool hasByteLessThanValue(const simd_type values) noexcept {
-		return simd::opCmpLt(values, simd::gatherValue<simd_type>(threshold)) != 0;
-	}
-
-	template<auto maskValue, typename simd_type, typename integer_type>
-	[[maybe_unused]] JSONIFIER_INLINE static integer_type findParse(simd_type simdValue, simd_type simdValues01, simd_type simdValues02) noexcept {
-		auto result01 = simd::opOr(simd::opCmpEqRaw(simdValue, simdValues02), simd::opCmpEqRaw(simdValue, simdValues01));
-		return static_cast<integer_type>(simd::postCmpTzcnt(static_cast<integer_type>(simd::opBitMaskRaw(result01))));
-	}
-
-	template<uint_types simd_type, uint_types integer_type> [[maybe_unused]] JSONIFIER_INLINE static integer_type findParse(simd_type& simdValue) noexcept {
-		static constexpr integer_type mask{ repeatByte<0b01111111, integer_type>() };
-		static constexpr integer_type hiBits{ repeatByte<0b10000000, integer_type>() };
-		static constexpr integer_type quoteBits{ repeatByte<'"', integer_type>() };
-		static constexpr integer_type bsBits{ repeatByte<'\\', integer_type>() };
-		const integer_type lo7	= simdValue & mask;
-		const integer_type next = ~((((lo7 ^ quoteBits) + mask) & ((lo7 ^ bsBits) + mask)) | simdValue) & hiBits;
-		return static_cast<integer_type>(simd::countrZero(next) >> 3u);
 	}
 
 	template<typename simd_type, typename integer_type>
@@ -281,82 +261,7 @@ namespace jsonifier::internal {
 	};
 	template<uint64_t start, uint64_t end> using make_ascending_range = typename make_ascending_range_impl<start, end>::type;
 
-	template<parse_options options> struct string_scanner;
-
 	template<parse_options options> struct string_scanner {
-		struct scan_result {
-			uint64_t firstEscape{};
-			uint64_t rawLength{};
-			bool valid{};
-		};
-
-		static constexpr uint64_t npos{ std::numeric_limits<uint64_t>::max() };
-
-		template<typename basic_iterator01> JSONIFIER_INLINE static scan_result impl(basic_iterator01 string1Start, const basic_iterator01 string1End) noexcept {
-			using simd_list_local					 = type_list_element_t<list_size - 1, simd::avx_integer_list>;
-			using integer_type						 = typename simd_list_local::integer_type;
-			using simd_type							 = typename simd_list_local::type::type;
-			static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
-			static constexpr integer_type mask		 = simd_list_local::mask;
-
-			const auto stringStart	= string1Start;
-			const auto stringEndNew = string1End - bytesProcessed;
-			uint64_t firstEscape{ npos };
-			char escapeChar;
-			simd_type simdValue;
-			integer_type nextBackslashOrQuote;
-
-			const simd_type simdValues00 = simd::gatherValue<simd_type>('\\');
-			const simd_type simdValues01 = simd::gatherValue<simd_type>('"');
-
-			while (string1Start < stringEndNew) {
-				simdValue			 = simd::gatherValuesU<simd_type>(string1Start);
-				nextBackslashOrQuote = findParse<mask, simd_type, integer_type>(simdValue, simdValues00, simdValues01);
-				if (nextBackslashOrQuote != mask) [[likely]] {
-					escapeChar = string1Start[nextBackslashOrQuote];
-					if (escapeChar == '"') {
-						return { static_cast<uint64_t>(string1Start - stringStart) + nextBackslashOrQuote, firstEscape, true };
-					}
-					if (firstEscape == npos) {
-						firstEscape = static_cast<uint64_t>(string1Start - stringStart) + nextBackslashOrQuote;
-					}
-					string1Start += nextBackslashOrQuote + 2ull;
-				} else if (hasByteLessThanValue<32>(simdValue)) [[unlikely]] {
-					return {};
-				} else {
-					string1Start += bytesProcessed;
-				}
-			}
-			return shortImpl(stringStart, string1Start, string1End, firstEscape);
-		}
-
-		template<typename basic_iterator01> JSONIFIER_INLINE static scan_result shortImpl(const basic_iterator01 stringStart, basic_iterator01 string1Start,
-			const basic_iterator01 string1End, uint64_t firstEscape) noexcept {
-			char escapeChar;
-			while (string1Start < string1End) {
-				escapeChar = *string1Start;
-				if (escapeChar == '"') {
-					return { static_cast<uint64_t>(string1Start - stringStart), firstEscape, true };
-				}
-				if (escapeChar == '\\') {
-					if (firstEscape == npos) {
-						firstEscape = static_cast<uint64_t>(string1Start - stringStart);
-					}
-					string1Start += 2;
-					continue;
-				}
-				if (static_cast<uint8_t>(escapeChar) < 32) [[unlikely]] {
-					return {};
-				}
-				++string1Start;
-			}
-			return {};
-		}
-	};
-
-	template<parse_options options>
-		requires(options.validateUtf8)
-	struct string_scanner<options> {
 		struct scan_result {
 			uint64_t outLength{ std::numeric_limits<uint64_t>::max() };
 			uint64_t rawLength{};
@@ -517,7 +422,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	alignas(64) static constexpr array<string_view_ptr, 256> escapeTable{ { "", R"(\u0001)", R"(\u0002)", R"(\u0003)", R"(\u0004)", R"(\u0005)", R"(\u0006)", R"(\a)", R"(\b)",
+	alignas(64) static constexpr array<read_buffer_ptr, 256> escapeTable{ { "", R"(\u0001)", R"(\u0002)", R"(\u0003)", R"(\u0004)", R"(\u0005)", R"(\u0006)", R"(\a)", R"(\b)",
 		R"(\t)", R"(\n)", R"(\v)", R"(\f)", R"(\r)", R"(\u000E)", R"(\u000F)", R"(\u0010)", R"(\u0011)", R"(\u0012)", R"(\u0013)", R"(\u0014)", R"(\u0015)", R"(\u0016)",
 		R"(\u0017)", R"(\u0018)", R"(\u0019)", R"(\u001A)", R"(\u001B)", R"(\u001C)", R"(\u001D)", R"(\u001E)", R"(\u001F)", "", "", R"(\")", "", "", "", "", "", "", "", "", "",
 		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -545,7 +450,7 @@ namespace jsonifier::internal {
 				uint64_t nextSize;
 				uint8_t nextChar;
 				integer_type nextEscapeable;
-				string_view_ptr escapeChar;
+				read_buffer_ptr escapeChar;
 				const auto stringEndNew = string1End - bytesProcessed;
 
 				const simd_type simdValues01 = simd::gatherValue<simd_type>('"');
@@ -575,7 +480,7 @@ namespace jsonifier::internal {
 
 		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static basic_iterator02 shortImpl(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
-			string_view_ptr escapeChar;
+			read_buffer_ptr escapeChar;
 			uint8_t nextChar;
 			uint64_t escapeSize;
 			for (; string1Start < string1End; ++string1Start) {
@@ -602,7 +507,7 @@ namespace jsonifier::internal {
 	};
 
 	template<string_literal string> static consteval convert_length_to_int_t<string.size()> getStringAsInt() noexcept {
-		string_view_ptr stringNew = string.data();
+		read_buffer_ptr stringNew = string.data();
 		convert_length_to_int_t<string.size()> returnValue{};
 		for (uint64_t x = 0; x < string.size(); ++x) {
 			returnValue |= static_cast<convert_length_to_int_t<string.size()>>(stringNew[x]) << x * 8;
@@ -613,7 +518,7 @@ namespace jsonifier::internal {
 		return returnValue;
 	}
 
-	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(string_view_ptr src) {
+	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(read_buffer_ptr src) {
 		using integer_type = convert_length_to_int_t<stringNew.size()>;
 		static constexpr auto string{ stringNew };
 		static_assert(stringNew.size() == 4, "Sorry, but please only use a string with a length of 4 in this function!");
@@ -623,7 +528,7 @@ namespace jsonifier::internal {
 		return !static_cast<bool>(sourceVal ^ stringInt);
 	}
 
-	JSONIFIER_INLINE static bool validateBool(string_view_ptr context) noexcept {
+	JSONIFIER_INLINE static bool validateBool(read_buffer_ptr context) noexcept {
 		if (compareStringAsInt<"true">(context)) {
 			return true;
 		} else if (compareStringAsInt<"fals">(context) && context[4] == 'e') {
@@ -632,7 +537,7 @@ namespace jsonifier::internal {
 		return false;
 	}
 
-	JSONIFIER_INLINE static bool validateNull(string_view_ptr context) noexcept {
+	JSONIFIER_INLINE static bool validateNull(read_buffer_ptr context) noexcept {
 		if (compareStringAsInt<"null">(context)) [[likely]] {
 			return true;
 		} else {

@@ -44,8 +44,7 @@ namespace round_trip_tests {
 		test_type valueNew{};
 		std::string newString{};
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .validateUtf8 = true, .nullTerminated = nullTerminated }>(valueNew,
-			dataToParse);
+		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .nullTerminated = nullTerminated }>(valueNew, dataToParse);
 		for (auto& value: parser.getErrors()) {
 			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}

@@ -94,9 +94,10 @@ namespace jsonifier::internal {
 
 	template<uint64_t... indices> struct add_tape_values<integer_sequence<indices...>> {
 		using size_type = uint64_t;
+		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
 
-		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, simdBlocksPerStep>& __restrict bitsArr,
-			const array<uint64_t, simdBlocksPerStep>& __restrict cnts, structural_index_ptr __restrict tape, size_type strIdx) noexcept {
+		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
+			const array<uint64_t, blocksPerStep>& __restrict cnts, structural_index_ptr __restrict tape, size_type strIdx) noexcept {
 			uint64_t bits	   = bitsArr[tag<index>{}];
 			const uint64_t cnt = cnts[tag<index>{}];
 			static constexpr size_type bitTotal{ tag<index>{} * 64ull };
@@ -104,7 +105,7 @@ namespace jsonifier::internal {
 			functor_runner<write_indices_stepped_functor, make_stepped_range_sequence<0, 64, simdTapeStep>, simdTapeStep>::implAnd(base, bits, tape, cnt);
 		}
 
-		JSONIFIER_INLINE static void impl(const array<uint64_t, simdBlocksPerStep>& __restrict bitsArr, const array<uint64_t, simdBlocksPerStep>& __restrict cnts,
+		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
 			structural_index_ptr __restrict tape, size_type strIdx) noexcept {
 			uint64_t offset = 0;
 			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);

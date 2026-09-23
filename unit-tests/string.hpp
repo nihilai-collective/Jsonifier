@@ -58,7 +58,7 @@ namespace string_validation_tests {
 			return size_val;
 		}
 
-		constexpr jsonifier::string_view_ptr data() const {
+		constexpr jsonifier::read_buffer_ptr data() const {
 			return values;
 		}
 

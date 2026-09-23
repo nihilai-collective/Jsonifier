@@ -227,10 +227,12 @@ else()
 
 endif()
 
-file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp" "// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Nihilai Collective Corp
-// https://github.com/nihilai-collective/jsonifier
-// include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp
+file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp" "/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp
+ */
 #pragma once
 
 #undef JSONIFIER_CPU_INSTRUCTIONS

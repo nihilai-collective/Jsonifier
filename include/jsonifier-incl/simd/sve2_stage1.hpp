@@ -14,11 +14,11 @@ namespace jsonifier::internal::simd {
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128,
-		"This block collapses registersPerBlock registers into a single uint64_t bitmask, and SVE2 ADDP is segment-wise; both hold only at 128-bit VL.");
+		"This block collapses simdRegistersPerBlock registers into a single uint64_t bitmask, and SVE2 ADDP is segment-wise; both hold only at 128-bit VL.");
 
-	static constexpr internal::array<uint64_t, registersPerBlock> shiftAmounts{ [] {
-		internal::array<uint64_t, registersPerBlock> returnValue{};
-		for (uint64_t x = 0; x < registersPerBlock; ++x) {
+	static constexpr internal::array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
+		internal::array<uint64_t, simdRegistersPerBlock> returnValue{};
+		for (uint64_t x = 0; x < simdRegistersPerBlock; ++x) {
 			returnValue[x] = simdBytesPerRegister * x;
 		}
 		return returnValue;
@@ -114,10 +114,19 @@ namespace jsonifier::internal::simd {
 			return sve2CollapseMasked(masked_0, masked_1, masked_2, masked_3);
 		}
 
+		JSONIFIER_INLINE void finishNextNoInString() noexcept {
+			rope_block::inString = prevInString;
+		}
+
 		JSONIFIER_INLINE void finishNext() noexcept {
 			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
+		}
+
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
+			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
+			next(in_01, bsRegister, quoteRegister);
 		}
 
 		JSONIFIER_INLINE void next(const simd_array_t in_01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
@@ -143,7 +152,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes  = (quotesLocal & ~escaped);
 			rope_block::escaped	   = escaped;
 			rope_block::quotes	   = quotes;
-			return finishNext();
+			return quotes ? finishNext() : finishNextNoInString();
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCodeImpl(const uint64_t potentialEscape) noexcept {
@@ -172,6 +181,10 @@ namespace jsonifier::internal::simd {
 			return shifted;
 		}
 	};
+
+	template<uint64_t registerBytes, uint64_t registerCount> using pod_ws_collector = ws_collector;
+
+	template<uint64_t registerBytes, uint64_t registerCount> using scalar_op_collector = op_collector;
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {

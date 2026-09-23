@@ -166,8 +166,9 @@
 // rust style `try!()` macro, or `?` operator
 #define JSONIFIER_FASTFLOAT_TRY(x) \
 	{ \
-		if (!(x)) \
+		if (!(x)) { \
 			return false; \
+		} \
 	}
 
 #define JSONIFIER_FASTFLOAT_ENABLE_IF(...) typename std::enable_if<(__VA_ARGS__), int32_t>::type

@@ -268,7 +268,7 @@ template<typename parser_type> void printErrors(parser_type& parser) {
 namespace unit_tests {
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline static void unitTestsImpl() {
-		static constexpr jsonifier::parse_options opts{ .partialRead = partial, .knownOrder = knownOrder, .validateUtf8 = true, .nullTerminated = nullTerminated };
+		static constexpr jsonifier::parse_options opts{ .partialRead = partial, .knownOrder = knownOrder, .nullTerminated = nullTerminated };
 
 		static constexpr auto test_partial_basic = []() {
 			jsonifier::jsonifier_core<> parser{};

@@ -41,7 +41,6 @@ The full set:
 | `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Enables handling of unordered or partial JSON structures. See [Partial Reading](PartialReading.md). |
 | `knownOrder` | `false` | Enables adaptive memoization of field ordering, so repeated parses of the same shape hit a fast path. See [Known Order Parsing](Known_Order.md). |
 | `minified` | `false` | Tells the parser the input has no whitespace, eliminating all whitespace-skipping logic in the value walker. See [Optimizing For Minified JSON](Optimizing_For_Minified_Json.md). |
-| `validateUtf8` | `false` | Turns on UTF-8 validation during string parsing. See [UTF-8 Validation](UTF8_Validation.md). |
 | `nullTerminated` | `true` | Whether the input buffer has a trailing null byte. **See the warning below.** |
 | `maxDepth` | `1024` | Maximum JSON nesting depth. Enforced at runtime — inputs exceeding this depth are rejected with `parse_statuses::exceeded_max_depth`. Guards against stack exhaustion on adversarial input. |
 
@@ -51,8 +50,7 @@ Options compose — you can turn any combination on simultaneously:
 parser.parseJson<jsonifier::parse_options{
     .partialRead = true,
     .knownOrder = false,
-    .minified = true,
-    .validateUtf8 = true
+    .minified = true
 }>(data, json);
 ```
 
@@ -65,7 +63,7 @@ The template argument is evaluated at compile time, so different option sets pro
 - **`std::string`** — safe. Its underlying storage is guaranteed to be null-terminated since C++11.
 - **`std::string_view` into a string literal or `std::string`** — safe for the same reason.
 - **`std::vector<char>`** — **not safe by default.** No trailing null guarantee.
-- **Raw `char*` from a file read, socket, or arbitrary source** — **only safe if you know it's null-terminated.**
+- **Raw `write_buffer_ptr` from a file read, socket, or arbitrary source** — **only safe if you know it's null-terminated.**
 
 If your source doesn't have a trailing null, set `nullTerminated = false` explicitly:
 
@@ -239,7 +237,7 @@ int main() {
 - **[Known Order Parsing](Known_Order.md)** — the biggest single parsing optimization when applicable
 - **[Partial Reading](PartialReading.md)** — for unordered or partial JSON structures
 - **[Optimizing For Minified JSON](Optimizing_For_Minified_Json.md)** — details on the `minified` option
-- **[UTF-8 Validation](UTF8_Validation.md)** — the `validateUtf8` option and how the validator works
+- **[UTF-8 Validation](UTF8_Validation.md)** — what the always-on validator catches and how it works
 - **[Error Handling](Errors.md)** — full breakdown of the error type and `parse_statuses` enum
 - **[Prettifying](Prettifying.md)** and **[Minifying](Minifying.md)** — for reformatting JSON strings without going through typed objects
 

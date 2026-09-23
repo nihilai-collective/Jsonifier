@@ -19,8 +19,8 @@ namespace jsonifier {
 		}
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			const char* first = sv.data();
-			const char* last  = sv.data() + sv.size();
+			read_buffer_ptr first = sv.data();
+			read_buffer_ptr last  = sv.data() + sv.size();
 
 			if (sv.empty()) {
 				uint_val	= 0;
@@ -141,7 +141,7 @@ namespace jsonifier {
 		}
 
 		template<typename iterator_type> JSONIFIER_INLINE raw_json_data(iterator_type& iterator, const string& jsonDataNew) noexcept {
-			internal::json_iterator<parse_options{}, string_view_ptr, string_base<1024 * 1024>> localIterator{ &iterator.getStringBuffer(), &iterator.getErrors(),
+			internal::json_iterator<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localIterator{ &iterator.getStringBuffer(), &iterator.getErrors(),
 				jsonDataNew.data(), jsonDataNew.data() + jsonDataNew.size() };
 			constructValueFromRawJsonData(localIterator, jsonDataNew);
 		}

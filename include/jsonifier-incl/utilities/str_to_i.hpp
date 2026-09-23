@@ -559,7 +559,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static string_view_ptr parseInt(value_type& value, string_view_ptr iter, string_view_ptr end) noexcept {
+		JSONIFIER_INLINE static read_buffer_ptr parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
 				if (*iter == minus) {
 					++iter;
@@ -985,7 +985,7 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
-		JSONIFIER_INLINE static string_view_ptr parseInt(value_type& value, string_view_ptr iter, string_view_ptr end) noexcept {
+		JSONIFIER_INLINE static read_buffer_ptr parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
 				const uint8_t* resultPtr = parseInteger(value, std::bit_cast<const uint8_t*>(iter));
 				if (resultPtr) [[likely]] {

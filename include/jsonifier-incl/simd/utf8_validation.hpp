@@ -148,19 +148,19 @@ namespace jsonifier::internal {
 		};
 
 		JSONIFIER_INLINE void checkStepImpl(const uint8_t* __restrict src) {
-			simd_array_t chunks = chunk_loader<make_integer_sequence<registersPerBlock>>::impl(src);
+			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
 				error		   = opOr(error, prevIncomplete);
-				prevInput	   = chunks.template get<registersPerBlock - 1>();
+				prevInput	   = chunks.template get<simdRegistersPerBlock - 1>();
 				prevIncomplete = jsonifier_simd_int_t{};
 				return;
 			}
 
-			chunk_processor<make_integer_sequence<registersPerBlock>>::impl(*this, chunks, prevInput);
+			chunk_processor<make_integer_sequence<simdRegistersPerBlock>>::impl(*this, chunks, prevInput);
 
-			prevInput	   = chunks.template get<registersPerBlock - 1>();
-			prevIncomplete = checkIncomplete(chunks.template get<registersPerBlock - 1>());
+			prevInput	   = chunks.template get<simdRegistersPerBlock - 1>();
+			prevIncomplete = checkIncomplete(chunks.template get<simdRegistersPerBlock - 1>());
 		}
 
 		JSONIFIER_INLINE void checkStep(const uint8_t* __restrict src_new) {

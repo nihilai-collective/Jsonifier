@@ -29,13 +29,13 @@ namespace string_class_tests {
 		});
 
 		rt_ut::unit_test<"string_construct_from_pointer_and_size", true>::assert_eq(true, [] {
-			const char* raw = "hello world";
+			jsonifier::read_buffer_ptr raw = "hello world";
 			jsonifier::string s{ raw, 5 };
 			return s.size() == 5 && s == "hello";
 		});
 
 		rt_ut::unit_test<"string_construct_from_nullptr_pointer", true>::assert_eq(true, [] {
-			const char* raw = nullptr;
+			jsonifier::read_buffer_ptr raw = nullptr;
 			jsonifier::string s{ raw };
 			return s.empty() && s.size() == 0;
 		});
@@ -412,7 +412,7 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_append_pointer_and_size", true>::assert_eq(true, [] {
 			jsonifier::string s{ "start" };
-			const char* extra = "-more";
+			jsonifier::read_buffer_ptr extra = "-more";
 			s.append(extra, 5);
 			return s == "start-more" && s.size() == 10;
 		});

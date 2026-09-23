@@ -214,8 +214,9 @@ namespace intrinsics_tests {
 		static constexpr rt_ut::string_literal opSrLiShiftName{ "op_sr_li_shift" };
 		rt_ut::unit_test<opSrLiShiftName, true>::assert_eq(true, [] {
 			alignas(64) uint8_t src[activeWidth];
-			for (size_t i = 0; i < activeWidth; ++i)
+			for (size_t i = 0; i < activeWidth; ++i) {
 				src[i] = 0x80;
+			}
 			auto a	 = jsonifier::internal::simd::gatherValues<active_simd_t>(src);
 			auto res = jsonifier::internal::simd::opSrLi<4>(a);
 			alignas(64) uint8_t out[activeWidth];
@@ -271,8 +272,9 @@ namespace intrinsics_tests {
 		rt_ut::unit_test<storeRoundTripName, true>::assert_eq(true, [] {
 			alignas(64) uint8_t src[activeWidth];
 			alignas(64) uint8_t dst[activeWidth];
-			for (size_t i = 0; i < activeWidth; ++i)
+			for (size_t i = 0; i < activeWidth; ++i) {
 				src[i] = static_cast<uint8_t>(i * 7 + 1);
+			}
 			auto loaded = jsonifier::internal::simd::gatherValues<active_simd_t>(src);
 			jsonifier::internal::simd::store(loaded, dst);
 			return std::memcmp(src, dst, activeWidth) == 0;
@@ -282,15 +284,17 @@ namespace intrinsics_tests {
 		rt_ut::unit_test<storeURoundTripUnalignedName, true>::assert_eq(true, [] {
 			alignas(64) uint8_t srcBuf[activeWidth * 2];
 			alignas(64) uint8_t dstBuf[activeWidth * 2];
-			for (size_t i = 0; i < activeWidth * 2; ++i)
+			for (size_t i = 0; i < activeWidth * 2; ++i) {
 				srcBuf[i] = static_cast<uint8_t>(i * 3 + 2);
+			}
 			uint64_t failCount = 0;
 			for (size_t offset = 0; offset < activeWidth; ++offset) {
 				std::memset(dstBuf, 0x00, activeWidth * 2);
 				auto loaded = jsonifier::internal::simd::gatherValuesU<active_simd_t>(srcBuf + offset);
 				jsonifier::internal::simd::storeU(loaded, dstBuf + offset);
-				if (std::memcmp(srcBuf + offset, dstBuf + offset, activeWidth) != 0)
+				if (std::memcmp(srcBuf + offset, dstBuf + offset, activeWidth) != 0) {
 					++failCount;
+				}
 			}
 			return failCount == 0;
 		});

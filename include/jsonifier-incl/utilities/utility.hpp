@@ -68,8 +68,8 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	alignas(64) static constexpr array<string_view_ptr, 256> charEscapeTable{ [] {
-		array<string_view_ptr, 256> returnValue{};
+	alignas(64) static constexpr array<read_buffer_ptr, 256> charEscapeTable{ [] {
+		array<read_buffer_ptr, 256> returnValue{};
 		for (uint64_t x = 0; x < 256; ++x) {
 			returnValue[x] = +charEscapeStorage[x];
 		}
@@ -213,15 +213,19 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<auto function, typename variant_type, typename... arg_types, uint64_t... indices>
-	JSONIFIER_INLINE static constexpr void visitImpl(integer_sequence<indices...>, variant_type&& variant, arg_types&&... args) noexcept {
-		const auto idx = variant.index();
-		static_cast<void>(((idx == indices ? (function(std::get<indices>(internal::forward<variant_type>(variant)), internal::forward<arg_types>(args)...), true) : false) || ...));
-	}
+	template<typename function_type, typename sequence_type> struct visit_impl;
 
-	template<auto function, typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
-		using seq_t = make_integer_sequence<std::variant_size_v<base_t<variant_type>>>;
-		visitImpl<function>(seq_t{}, internal::forward<variant_type>(variant), internal::forward<arg_types>(args)...);
+	template<typename function_type, uint64_t... indices> struct visit_impl<function_type, integer_sequence<indices...>> {
+		template<typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void impl(variant_type&& variant, arg_types&&... args) noexcept {
+			const auto idx = variant.index();
+			static_cast<void>((
+				(idx == indices ? (function_type::impl(std::get<indices>(internal::forward<variant_type>(variant)), internal::forward<arg_types>(args)...), true) : false) || ...));
+		}
+	};
+
+	template<typename function_type, typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
+		visit_impl<function_type, make_integer_sequence<std::variant_size_v<base_t<variant_type>>>>::impl(internal::forward<variant_type>(variant),
+			internal::forward<arg_types>(args)...);
 	}
 
 	template<integral_t value_type01, integral_t value_type02> JSONIFIER_INLINE constexpr value_type01 max(value_type01 value1, value_type02 value2) noexcept {
@@ -232,7 +236,7 @@ namespace jsonifier::internal {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	JSONIFIER_INLINE constexpr uint64_t strLen(string_view_ptr input) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t strLen(read_buffer_ptr input) noexcept {
 		uint64_t returnVal{};
 		if (input) {
 			while (input[returnVal] != '\0') {

@@ -1,6 +1,6 @@
 # UTF-8 Validation
 
-Jsonifier ships with a high-performance SIMD UTF-8 validator that catches malformed byte sequences before they enter your program. It's available three ways: automatically inside `validateJson`, opt-in during parsing via `parse_options{ .validateUtf8 = true }`, and as a standalone `jsonifier::validateUtf8` function for validating arbitrary byte buffers.
+Jsonifier ships with a high-performance SIMD UTF-8 validator that catches malformed byte sequences before they enter your program. It runs automatically on every string during `parseJson` and inside `validateJson`, and it is also available as a standalone `jsonifier::validateUtf8` function for validating arbitrary byte buffers. There is no option to turn it off.
 
 ## Why UTF-8 Validation Matters
 
@@ -11,27 +11,27 @@ Malformed UTF-8 is a real-world security and correctness issue:
 - **Encodings that decode to surrogate code points** (U+D800–U+DFFF) violate Unicode and can crash downstream text handlers
 - **Truncated multi-byte sequences** at the end of an input can cause silent data loss or read-past-buffer bugs
 
-If your JSON is coming from an untrusted source — user uploads, external APIs, network messages — UTF-8 validation is a cheap safety net compared to what malformed sequences can do downstream.
+Jsonifier treats UTF-8 validation as part of what it means to parse JSON correctly, so it is always on.
 
-## Three Ways to Use It
+## Where It Runs
 
-### Automatic (inside `validateJson`)
+### Inside `parseJson`
 
-`validateJson` enables UTF-8 validation on string content internally. If you validate a JSON document with `validateJson`, string content is checked for UTF-8 correctness automatically — you don't opt in.
+Every string the parser materializes is validated as it is unescaped:
+
+```cpp
+parser.parseJson(data, json);
+```
+
+The validator is fused into the string-parsing SIMD path. Non-string JSON bytes (structural characters, numbers, keywords) are validated against JSON grammar during normal parsing, which implicitly guarantees they're 7-bit ASCII — so UTF-8 validation only needs to cover string content. If any string in the document contains malformed UTF-8, `parseJson` returns `false` and the error lands in `parser.getErrors()`.
+
+### Inside `validateJson`
+
+`validateJson` runs the same string validation, so a structurally valid document with malformed UTF-8 in a string is reported as invalid:
 
 ```cpp
 bool valid = parser.validateJson(json);
 ```
-
-### Opt-In (during `parseJson`)
-
-When you're extracting typed data, turn UTF-8 validation on via `parse_options`:
-
-```cpp
-parser.parseJson<jsonifier::parse_options{ .validateUtf8 = true }>(data, json);
-```
-
-This adds the validator to the string-parsing SIMD path. Non-string JSON bytes (structural characters, numbers, keywords) are validated against JSON grammar during normal parsing, which implicitly guarantees they're 7-bit ASCII — so UTF-8 validation only needs to cover string content. If any string in the document contains malformed UTF-8, `parseJson` returns `false` and the error lands in `parser.getErrors()`.
 
 ### Standalone (arbitrary byte buffers)
 
@@ -48,18 +48,18 @@ bool valid = jsonifier::validateUtf8(buffer, length);
 
 Unlike the JSON-integrated version (which only validates string content because the parser guarantees non-string bytes are ASCII), the standalone function **validates the entire byte range** as UTF-8. Every byte in the input is checked. No parser instance needed, no JSON assumptions.
 
-## What UTF-8 Validation Catches (vs. Doesn't)
+## What Gets Caught, and by What
 
-Understanding what changes when the `validateUtf8` flag is on vs. off during `parseJson` is important — because the parser catches a lot of malformed JSON even with UTF-8 validation off, and only certain classes of error require the validator.
+Most malformed JSON is rejected by the parser's grammar checks; the UTF-8 validator covers what grammar alone cannot.
 
-**Caught with the flag OFF (always, as part of normal parsing):**
+**Caught by normal parsing:**
 
 - JSON structural violations (missing brackets, commas, colons, etc.)
 - Invalid escape sequences (`\z`, malformed `\u` sequences, etc.)
 - Unescaped control characters (raw U+0000–U+001F inside strings)
 - Non-ASCII bytes outside of string content (JSON grammar requires all structural bytes to be 7-bit ASCII)
 
-**Only caught with the flag ON:**
+**Caught by the UTF-8 validator:**
 
 - Invalid UTF-8 lead-byte / continuation-byte patterns inside string content
 - Overlong encodings (e.g. encoding `/` as `0xC0 0xAF` instead of `0x2F`)
@@ -68,13 +68,11 @@ Understanding what changes when the `validateUtf8` flag is on vs. off during `pa
 - Encodings that decode to surrogate code points (U+D800–U+DFFF)
 - Truncated multi-byte sequences at buffer end
 
-If the flag is off and a JSON string contains malformed UTF-8, the parse succeeds and the malformed bytes end up in your destination `std::string` verbatim. Whether that's acceptable depends on what your downstream code does with the string.
-
 ## Performance
 
 When integrated into JSON parsing, UTF-8 validation scopes to **string content only**. Non-string bytes are validated against JSON grammar during normal parsing, which implicitly guarantees they're 7-bit ASCII — so there's no additional UTF-8 work outside string values.
 
-This means UTF-8 validation cost during parsing is proportional to **how much string content** is in the document, not the total document size. A JSON document that's mostly numbers, booleans, and structural characters pays almost nothing even with the flag on. A document that's mostly long string values pays more.
+This means UTF-8 validation cost during parsing is proportional to **how much string content** is in the document, not the total document size. A JSON document that's mostly numbers, booleans, and structural characters pays almost nothing for it. A document that's mostly long string values pays more.
 
 When running standalone via `jsonifier::validateUtf8`, every byte in the input is validated — cost is proportional to the full buffer size.
 
@@ -86,24 +84,25 @@ Jsonifier's UTF-8 validator is based on the [Keiser-Lemire algorithm](https://ar
 
 The core problem in SIMD UTF-8 validation is that codepoints can be up to 4 bytes long, and a codepoint can start near the end of one SIMD register and continue into the next. Naive per-register validation misses these boundary-crossing codepoints or produces false errors when it can't see the lead byte from the previous register.
 
-Jsonifier's validator solves this with a `utf8_validation_state` struct that carries state across register loads:
+Jsonifier's validators solve this by carrying three registers from one load to the next:
 
-- **`previousInputBlock`** — the previous register's bytes, kept so lookback operations (`prev1`, `prev2`, `prev3`) can reach across the boundary
-- **`previousIncomplete`** — a persistent bit-tracked state indicating whether the previous register ended with an incomplete codepoint (a lead byte in the last 1–3 positions with continuations expected in the next register)
-- **`error`** — an accumulated error register, OR'd across all validated blocks
+- **`prevInput`** — the previous register's bytes, so the byte-shifted lookbacks (`opPrev<15>`, `opPrev<14>`, `opPrev<13>`: one, two, and three bytes back) can reach across the boundary
+- **`incompleteRegister`** (`prevIncomplete` in the block validator) — nonzero when the previous register ended with an unfinished codepoint, i.e. a lead byte in its last 1–3 positions still waiting for continuation bytes
+- **`error`** — an accumulated error register, OR'd across everything validated so far
 
 For each register, the validator:
 
-1. **Fast-path check** — if `nonAsciiPresent` is false (all high bits clear), just update `previousIncomplete` state and skip the rest.
-2. **Cross-boundary lookback** — concatenate `previousInputBlock` with the current register to form `prev1`, so continuation bytes at the start of the current register can see the lead byte at the end of the previous one.
-3. **Byte classification** — classify each byte's role using the Keiser-Lemire lookup tables, with the boundary handled by the concat above.
-4. **Multi-byte length checks** — verify that 3-byte and 4-byte lead bytes are followed by the correct number of continuation bytes, using `prev2` and `prev3` position checks.
-5. **State update** — save the current register as `previousInputBlock`, and update `previousIncomplete` based on whether the last 4 bytes of this register indicate a codepoint spilling into the next register.
-6. **Finalize** — when the buffer ends, OR `previousIncomplete` into `error`, since ending with an unfinished codepoint is itself invalid.
+1. **ASCII fast path** — if every byte has its high bit clear, OR the pending incomplete carry into `error` (an unfinished codepoint followed by ASCII is invalid), save the register as `prevInput`, clear the carry, and skip the rest.
+2. **Byte classification** — classify each byte against the one-byte lookback (`opPrev<15>`) using the three Keiser-Lemire nibble tables (`byte1HighTable`, `byte1LowTable`, `byte2HighTable`).
+3. **Multi-byte length checks** — use the two- and three-byte lookbacks (`opPrev<14>`, `opPrev<13>`) to verify that 3- and 4-byte lead bytes are followed by the right number of continuation bytes.
+4. **State update** — save the register as `prevInput`, and recompute the incomplete carry with a saturating subtract against the `isIncompleteMax` thresholds (last byte ≥ 0xC0, second-to-last ≥ 0xE0, third-to-last ≥ 0xF0).
+5. **Finalize** — the input is invalid if either `error` or the incomplete carry is nonzero, since ending on an unfinished codepoint is itself invalid.
 
-The whole design is templated on the SIMD width, so the same `utf8_validation_state` shape works uniformly across SSE2 (16-byte registers), AVX2 (32-byte), AVX-512 (64-byte), and NEON (16-byte) — only the register operations differ per architecture. This is the "cross-SIMD-width validation state carry" that lets Jsonifier deploy the same validator logic across every supported target with no algorithmic changes.
+There are two validators built on this algorithm. The standalone `jsonifier::validateUtf8` uses `utf8_checker`, which works in 64-byte blocks and takes its ASCII fast path per block. The parser uses `utf8_register_validator`, which works one register at a time inside the string-scanning loop, at whatever width that loop is using: 16 bytes on SSE, NEON, and SVE2, 32 on AVX2, and 64 on AVX-512.
 
-For arbitrary-length strings that don't fit exactly into a whole number of SIMD registers, the tail is handled by copying the remaining bytes into a zero-padded temporary register-sized buffer and validating that. Zero bytes are valid UTF-8, so the padding doesn't introduce false errors.
+On AVX2 and AVX-512 the string loop cascades from its widest register down to 16 bytes, so the carry has to survive a change of register width. The small `utf8_validation_state` struct handles this: it stores the last three bytes of the previous register (`prevBytes[3]`), an incomplete flag, and a sticky error bit. Each width flushes into it on exit, and the next width's validator reseeds its registers from it. Three bytes are enough because the lookbacks never reach further than that.
+
+Input that doesn't fill a whole register is copied into a register-sized scratch buffer padded with plain ASCII and validated through the same path: spaces (0x20) in the string scanner and `A` (0x41) in the standalone validator. ASCII padding is always valid UTF-8, so it can't create false errors, while a truncated codepoint just before the padding is still caught by the incomplete carry.
 
 ## Full Example
 
@@ -124,11 +123,11 @@ int main() {
     struct event { std::string name; int64_t id; };
     event e;
 
-    if (parser.parseJson<jsonifier::parse_options{ .validateUtf8 = true }>(e, json_valid)) {
+    if (parser.parseJson(e, json_valid)) {
         std::cout << "Valid JSON parsed: " << e.name << std::endl;
     }
 
-    if (!parser.parseJson<jsonifier::parse_options{ .validateUtf8 = true }>(e, json_bad_utf8)) {
+    if (!parser.parseJson(e, json_bad_utf8)) {
         std::cout << "Malformed UTF-8 caught:" << std::endl;
         for (auto& err : parser.getErrors()) {
             std::cout << err << std::endl;
@@ -145,18 +144,10 @@ int main() {
 
 The `event` registration is omitted from this snippet — see [Reflection](Reflection.md) for the setup.
 
-## When to Enable UTF-8 Validation
-
-**Untrusted input:** always on. The cost is small on ASCII-heavy content and the safety benefit is significant.
-
-**Semi-trusted input:** judgment call. Data from your own services that you know is well-formed may not need the validation cost, but consider whether "your own services" includes anything that transits systems you don't fully control.
-
-**Trusted internal-only input:** off is fine. If you're parsing your own serialized output that was already produced by Jsonifier or another correctness-guaranteeing library, the validation is redundant.
-
 ## What's Next
 
 - **[Validating](Validating.md)** — the pure structural-check function that includes UTF-8 validation automatically
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)** — the full `parse_options` reference including the `validateUtf8` flag
+- **[Serializing & Parsing](Usage_Serializing_Parsing.md)** — the full `parse_options` reference
 - **[Error Handling](Errors.md)** — how UTF-8 errors are reported through `parser.getErrors()`
 
 ---

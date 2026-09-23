@@ -12,27 +12,29 @@
 
 namespace jsonifier::internal {
 
-	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type value) noexcept {
 		return value + strLen(value);
 	}
 
-	template<pointer_t value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type value) noexcept {
-		return std::bit_cast<string_view_ptr>(value);
+	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type value) noexcept {
+		return std::bit_cast<read_buffer_ptr>(value);
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getEndIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type& value) noexcept {
 		return value.data() + value.size();
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static string_view_ptr getBeginIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type& value) noexcept {
 		return value.data();
 	}
 
 	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
 
-	template<typename derived_type> class validator {
+	template<typename derived_type_new> struct validator {
 	  public:
-		template<json_structural_type, typename derived_type_new> friend struct validate_impl;
+		using derived_type = derived_type_new;
+
+		template<json_structural_type, typename derived_type_newer> friend struct validate_impl;
 
 		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
 			static constexpr parse_options validateOpts{};

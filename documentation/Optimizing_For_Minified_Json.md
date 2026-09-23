@@ -55,7 +55,6 @@ If you're not sure whether your input is minified, either:
 
 - **`knownOrder`** — Combining `minified = true` with `knownOrder = true` unlocks the fastest parsing path Jsonifier offers. When both are set (and `partialRead` is off), object parsing uses compile-time-generated string literals for each field including the surrounding punctuation, letting the parser check the next expected field with a single `memcmp` against the raw stream. See [Known Order Parsing](Known_Order.md).
 - **`partialRead`** — Fully compatible. Stage-1's tape is still built (needed for partial mode), just without the whitespace-tracking work.
-- **`validateUtf8`** — Fully compatible. UTF-8 validation runs alongside string parsing regardless of the `minified` flag.
 - **`nullTerminated`** — Independent knob; see the [Serializing & Parsing](Usage_Serializing_Parsing.md#-the-nullterminated-footgun) warning.
 
 ## Example: Dispatching on Whether Input Is Minified

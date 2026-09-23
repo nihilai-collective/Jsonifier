@@ -345,19 +345,22 @@ namespace jsonifier::internal {
 			const auto size	   = rawJson.size();
 			context.requiredSize += size;
 		}
+	};	
+
+	template<serialize_options options> struct get_size_visit_functor {
+		template<typename value_type, typename context_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, context_type&& contextNew) {
+			get_size<options>::impl(valueNewer, contextNew);
+		}
 	};
 
 	template<variant_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
-			static constexpr auto lambda = [](auto& valueNewer, auto& contextNew) {
-				get_size<options>::impl(valueNewer, contextNew);
-			};
-			visit<lambda>(value, context);
+			internal::visit<get_size_visit_functor<options>>(value, context);
 		}
 	};
 
 	template<auto data> struct indent_blitter {
-		template<uint64_t index> JSONIFIER_INLINE static bool impl([[maybe_unused]] string_buffer_ptr __restrict& bufferPtr, uint64_t& remainingLength) {
+		template<uint64_t index> JSONIFIER_INLINE static bool impl([[maybe_unused]] write_buffer_ptr __restrict& bufferPtr, uint64_t& remainingLength) {
 			static constexpr const uint64_t* ptr = data.data() + index;
 			static constexpr uint64_t sizeToCopy{ sizeof(uint64_t) };
 			static constexpr uint64_t offset{ index * sizeof(uint64_t) };
@@ -388,7 +391,7 @@ namespace jsonifier::internal {
 			return arr;
 		}() };
 
-		JSONIFIER_INLINE static void blitWithOverflow(string_buffer_ptr __restrict& bufferPtr, uint64_t totalIndent) noexcept {
+		JSONIFIER_INLINE static void blitWithOverflow(write_buffer_ptr __restrict& bufferPtr, uint64_t totalIndent) noexcept {
 			const uint64_t capped  = totalIndent < maxIndentBytes ? totalIndent : maxIndentBytes;
 			const uint64_t advance = prefix.size() + capped;
 			uint64_t copyLen	   = (advance + 7) & ~uint64_t{ 7 };
@@ -448,7 +451,7 @@ namespace jsonifier::internal {
 			}
 		}() };
 
-		JSONIFIER_INLINE static void blit(string_buffer_ptr __restrict& bufferPtr) noexcept {
+		JSONIFIER_INLINE static void blit(write_buffer_ptr __restrict& bufferPtr) noexcept {
 			if constexpr (isScalar) {
 				pow2_memcpy_wrapper<lengthToCopy>(bufferPtr, &value);
 			} else {
@@ -861,12 +864,15 @@ namespace jsonifier::internal {
 		}
 	};
 
+	template<serialize_options options> struct serialize_visit_functor {
+		template<typename value_type, typename context_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, context_type&& contextNew) {
+			serialize<options>::impl(valueNewer, contextNew);
+		}
+	};
+
 	template<variant_t value_type, typename context_type, serialize_options options> struct serialize_impl<value_type, context_type, options> {
 		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new&& value, context_type& context) noexcept {
-			static constexpr auto lambda = [](auto&& valueNewer, auto&& contextNew) {
-				serialize<options>::impl(valueNewer, contextNew);
-			};
-			visit<lambda>(value, context);
+			internal::visit<serialize_visit_functor<options>>(value, context);
 		}
 	};
 }

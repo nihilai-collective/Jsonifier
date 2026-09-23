@@ -26,7 +26,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	struct json_printer {
+	template<typename derived_type_new> struct json_printer {
 		template<typename value_type_new> inline static void printJson(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
 			os << "Printing Json" << endl;
 			print::impl(internal::forward<value_type_new>(value), os, depth);
@@ -241,13 +241,16 @@ namespace jsonifier::internal {
 		}
 	};
 
+	struct print_visit_functor {
+		template<typename value_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, basic_stream<>& osNew, uint64_t depthNew) {
+			print::impl(valueNewer, osNew, depthNew);
+		}
+	};
+
 	template<variant_t value_type> struct print_impl<value_type> {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			os << "variant (active index: " << value.index() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << "): ";
-			static constexpr auto lambda = [](auto&& valueNewer, basic_stream<>& osNew, uint64_t depthNew) {
-				print::impl(valueNewer, osNew, depthNew);
-			};
-			visit<lambda>(value, os, depth);
+			internal::visit<print_visit_functor>(value, os, depth);
 		}
 	};
 

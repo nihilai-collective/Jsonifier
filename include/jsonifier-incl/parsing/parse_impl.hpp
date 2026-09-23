@@ -118,7 +118,7 @@ namespace jsonifier::internal {
 	template<uint64_t memberCount, typename value_type>
 	thread_local constinit static array<uint64_t, (memberCount > 0 ? memberCount : 1)> antiHashStatesNew{ generateAntiHashStatesTableNew<memberCount>() };
 
-	template<typename value_type, typename context_type> JSONIFIER_INLINE static string_view_ptr getStringRoot(context_type& context) noexcept {
+	template<typename value_type, typename context_type> JSONIFIER_INLINE static read_buffer_ptr getStringRoot(context_type& context) noexcept {
 		if constexpr (structural_context<context_type>) {
 			return context.currentPtr() - *context.currentIterPtr();
 		} else {
@@ -205,7 +205,7 @@ namespace jsonifier::internal {
 								return result == parse_result::active_member;
 							}
 							const auto stringEnd = context.endPtr();
-							if (auto indexNew2 = hash_map<value_type, string_view_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
+							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
 								if (auto result2 = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value,
 										context, indexNew2);
 									result2 != parse_result::inactive_member) {
@@ -218,7 +218,7 @@ namespace jsonifier::internal {
 						}
 					} else {
 						const auto stringEnd = context.endPtr();
-						if (auto indexNew2 = hash_map<value_type, string_view_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
+						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(context.currentPtr() + 1, stringEnd); indexNew2 < memberCount) [[likely]] {
 							if (auto result2 = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>::impl(value,
 									context, indexNew2);
 								result2 != parse_result::inactive_member) {
@@ -278,7 +278,7 @@ namespace jsonifier::internal {
 					return true;
 				}
 				if (parse_base_t<options, value_type, context_type>::iterateValues(value, context)) {
-					if (context.objectMaybeEnd()) {
+					if (context.objectMaybeEndAfterValue()) {
 						return true;
 					}
 					if (!context.collectObjectComma()) [[unlikely]] {
@@ -301,7 +301,7 @@ namespace jsonifier::internal {
 					return true;
 				}
 				if (parse_base_t<options, value_type, context_type>::iterateValues(value, context)) {
-					if (context.objectMaybeEnd()) {
+					if (context.objectMaybeEndAfterValue()) {
 						return true;
 					}
 					if (!context.collectObjectComma()) [[unlikely]] {
@@ -542,7 +542,7 @@ namespace jsonifier::internal {
 					auto iterNew = std::begin(value);
 					for (uint64_t i = 0; i < nLocal; ++i) {
 						if (parse<options>::impl(*(iterNew++), context)) [[likely]] {
-							if (context.arrayMaybeEnd()) [[unlikely]] {
+							if (context.arrayMaybeEndAfterValue()) [[unlikely]] {
 								return true;
 							}
 							if (!context.collectArrayComma()) [[unlikely]] {
@@ -555,7 +555,7 @@ namespace jsonifier::internal {
 				}
 				while (context.notAtEndPre()) {
 					if (context.skipValue()) [[likely]] {
-						if (context.arrayMaybeEnd()) [[unlikely]] {
+						if (context.arrayMaybeEndAfterValue()) [[unlikely]] {
 							return true;
 						}
 						if (!context.collectArrayComma()) [[unlikely]] {
@@ -579,7 +579,7 @@ namespace jsonifier::internal {
 					auto iterNew = std::begin(value);
 					for (uint64_t i = 0; i < nLocal; ++i) {
 						if (parse<options>::impl(*(iterNew++), context)) [[likely]] {
-							if (context.arrayMaybeEnd()) [[unlikely]] {
+							if (context.arrayMaybeEndAfterValue()) [[unlikely]] {
 								return true;
 							}
 							if (!context.collectArrayComma()) [[unlikely]] {
@@ -592,7 +592,7 @@ namespace jsonifier::internal {
 				}
 				while (context.notAtEndPre()) {
 					if (context.skipValue()) [[likely]] {
-						if (context.arrayMaybeEnd()) [[unlikely]] {
+						if (context.arrayMaybeEndAfterValue()) [[unlikely]] {
 							return true;
 						}
 						if (!context.collectArrayComma()) [[unlikely]] {
@@ -643,7 +643,7 @@ namespace jsonifier::internal {
 						}
 					}
 				}
-				while (!context.arrayMaybeEnd()) {
+				while (!context.arrayMaybeEndAfterValue()) {
 					if (!context.notAtEndPre()) [[unlikely]] {
 						return context.template reject<parse_statuses::unexpected_string_end>();
 					}
@@ -913,15 +913,15 @@ namespace jsonifier::internal {
 				context.skipWhitespaceScalar();
 			}
 			if (context.hasMoreInput()) [[likely]] {
-				string_view_ptr newPtr = context.currentPtr();
-				[[maybe_unused]] string_view_ptr stringRoot{};
+				read_buffer_ptr newPtr = context.currentPtr();
+				[[maybe_unused]] read_buffer_ptr stringRoot{};
 				if constexpr (structural_context<context_type>) {
 					stringRoot = context.currentPtr() - *context.currentIterPtr();
 				}
 				if (!context.skipValue()) [[unlikely]] {
 					return false;
 				}
-				string_view_ptr endPtr;
+				read_buffer_ptr endPtr;
 				if constexpr (structural_context<context_type>) {
 					endPtr = context.notAtEndPre() ? context.currentPtr() : stringRoot + *context.endPtr();
 				} else {
