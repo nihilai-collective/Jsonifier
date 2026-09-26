@@ -42,24 +42,22 @@ namespace jsonifier::internal {
 		standard,
 	};
 
-	template<trivially_constructible_copyable_destructible_types value_type_new> class alloc_wrapper {
-	  public:
-		using value_type	   = value_type_new;
-		using pointer		   = value_type*;
-		using const_pointer	   = const value_type*;
-		using size_type		   = uint64_t;
-		using difference_type  = ptrdiff_t;
-		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
-		template<typename U> struct rebind {
-			using other = alloc_wrapper<U>;
-		};
-
+	template<trivially_constructible_copyable_destructible_types value_type_new> struct alloc_wrapper {
+		using value_type					= value_type_new;
+		using pointer						= value_type*;
+		using const_pointer					= const value_type*;
+		using size_type						= uint64_t;
+		using difference_type				= ptrdiff_t;
 		static constexpr uint64_t alignment = (alignof(value_type_new) > simdBytesPerRegister) ? alignof(value_type_new) : simdBytesPerRegister;
 
-		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
+		struct allocation_header {
+			allocated_memory_types type{};
+			size_type totalBytes{};
+		};
 
-		template<typename U> JSONIFIER_INLINE alloc_wrapper(const alloc_wrapper<U>&) noexcept {
-		}
+		static constexpr uint64_t headerSize		= roundUpToMultiple<alignment>(sizeof(allocation_header));
+		static constexpr uint64_t hugePageSize		= 2 * 1024 * 1024ULL;
+		static constexpr uint64_t hugePageThreshold = hugePageSize * 2;
 
 		JSONIFIER_INLINE static pointer allocate(size_type count) noexcept {
 			if (count == 0) [[unlikely]] {
@@ -156,6 +154,13 @@ namespace jsonifier::internal {
 			}
 		}
 
+		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
+			allocation_header* header = static_cast<allocation_header*>(base);
+			header->totalBytes		  = totalBytes;
+			header->type			  = type;
+			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
+		}
+
 		template<typename... arg_types> JSONIFIER_INLINE static void construct(pointer p, arg_types&&... args) noexcept {
 			new (p) value_type(internal::forward<arg_types>(args)...);
 		}
@@ -164,35 +169,29 @@ namespace jsonifier::internal {
 			return (static_cast<size_type>(-1) - headerSize - (alignment - 1)) / sizeof(value_type);
 		}
 
-		JSONIFIER_INLINE static void destroy(pointer) noexcept {
+		JSONIFIER_INLINE constexpr bool operator!=(const alloc_wrapper& other) const noexcept {
+			return !(*this == other);
 		}
 
 		JSONIFIER_INLINE constexpr bool operator==(const alloc_wrapper&) const noexcept {
 			return true;
 		}
 
-		JSONIFIER_INLINE constexpr bool operator!=(const alloc_wrapper& other) const noexcept {
-			return !(*this == other);
+		template<typename U> JSONIFIER_INLINE alloc_wrapper(const alloc_wrapper<U>&) noexcept {
 		}
 
-	  protected:
-		struct allocation_header {
-			allocated_memory_types type{};
-			size_type totalBytes{};
+		JSONIFIER_INLINE static void destroy(pointer) noexcept {
+		}
+
+		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
+
+		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
+
+		template<typename U> struct rebind {
+			using other = alloc_wrapper<U>;
 		};
 
-		static constexpr uint64_t headerSize		= roundUpToMultiple<alignment>(sizeof(allocation_header));
-		static constexpr uint64_t hugePageSize		= 2 * 1024 * 1024ULL;
-		static constexpr uint64_t hugePageThreshold = hugePageSize * 2;
-
 		static_assert(alignment >= alignof(allocation_header), "alignment must cover allocation_header's alignment requirement.");
-
-		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
-			allocation_header* header = static_cast<allocation_header*>(base);
-			header->totalBytes		  = totalBytes;
-			header->type			  = type;
-			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
-		}
 	};
 
 }// namespace internal

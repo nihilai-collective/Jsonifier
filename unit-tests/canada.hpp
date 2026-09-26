@@ -9,8 +9,8 @@
 #include "common.hpp"
 
 struct geometry_data {
-	std::string type{};
 	std::vector<std::vector<std::vector<double>>> coordinates{};
+	std::string type{};
 };
 
 struct properties_data {
@@ -18,14 +18,14 @@ struct properties_data {
 };
 
 struct feature {
-	std::string type{};
 	properties_data properties{};
 	geometry_data geometry{};
+	std::string type{};
 };
 
 struct canada_message {
-	std::string type{};
 	std::vector<feature> features{};
+	std::string type{};
 };
 
 template<> struct jsonifier::core<geometry_data> {

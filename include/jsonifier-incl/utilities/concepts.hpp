@@ -37,7 +37,9 @@ namespace jsonifier {
 namespace jsonifier::internal {
 
 	template<typename context_type>
-	concept structural_context = requires(context_type ctx) { ctx.currentIterPtr(); };
+	concept structural_context = std::same_as<typename context_type::iterator_type, structural_index_ptr>;
+
+	template<typename context_type> using context_iterator_t = typename context_type::iterator_type;
 
 	template<typename value_type>
 	concept simd_int_512_type = sizeof(value_type) == 64;
@@ -123,6 +125,9 @@ namespace jsonifier::internal {
 
 	template<typename value_type>
 	concept float32_types = float_t<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 4;
+
+	template<typename value_type>
+	concept convertible_to_string_view = std::convertible_to<base_t<value_type>, std::string_view>;
 
 	template<typename value_type>
 	concept uintegral_or_enum_types = uint_types<value_type> || enum_types<value_type>;
@@ -448,5 +453,16 @@ namespace jsonifier::internal {
 
 	template<typename value_type, template<typename...> typename template_type>
 	concept is_specialization_of_v = is_specialization_of_impl<value_type, template_type>::value;
+
+	template<typename value_type>
+	concept prettify_buffer_t = string_t<value_type> || std::is_convertible_v<value_type, write_buffer_ptr>;
+
+	template<typename value_type>
+	concept pod_t = string_t<value_type> || number_t<value_type> || bool_t<value_type> || always_null_t<value_type>;
+
+	template<typename value_type>
+	concept inline_contained_t = pod_t<remove_cvref_t<value_type>> || (has_contained_type_v<value_type> && pod_t<remove_cvref_t<contained_type_t<value_type>>>);
+
+	template<typename value_type> static constexpr bool inline_contained_v = inline_contained_t<value_type>;
 
 }

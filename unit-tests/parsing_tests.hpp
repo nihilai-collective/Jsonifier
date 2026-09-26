@@ -55,7 +55,7 @@ namespace parsing_tests {
 		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		std::string serializedJson{};
 		value_type jsonifier_value;
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(jsonifier_value,
+		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(jsonifier_value,
 			dataToParse);
 		parser.template serializeJson<jsonifier::serialize_options{ .prettify = prettified }>(jsonifier_value, serializedJson);
 		rt_ut::unit_test<testNameRtUt, true>::run([&]() {

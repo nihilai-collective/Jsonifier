@@ -422,6 +422,161 @@ namespace jsonifier::internal {
 		}
 	};
 
+	template<parse_options options> struct string_prescanner {
+		struct prescan_result {
+			uint64_t length{};
+			bool escaped{};
+			bool found{};
+			bool nonAscii{};
+			bool control{};
+		};
+
+		struct scan_state {
+			prescan_result result{};
+			bool complete{};
+		};
+
+		struct string_prescan_step {
+			template<uint64_t index, typename basic_iterator01> JSONIFIER_INLINE static basic_iterator01 impl(basic_iterator01& string1Start, const basic_iterator01 string1End,
+				const basic_iterator01 stringStart, scan_state& scanState) noexcept {
+				using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
+				using integer_type						 = typename simd_list_local::integer_type;
+				static constexpr auto simd_type			 = simd_list_local::type::simd_type;
+				using simd_type_local					 = typename simd_type_wrapper<simd_type>::type;
+				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
+				if (scanState.complete) {
+					return nullptr;
+				}
+				const simd_type_local simdValues00 = simd::gatherValue<simd_type_local>('\\');
+				const simd_type_local simdValues01 = simd::gatherValue<simd_type_local>('"');
+				const simd_type_local simdValues02 = simd::gatherValue<simd_type_local>(static_cast<char>(32));
+				const simd_type_local simdValues03 = simd::gatherValue<simd_type_local>(static_cast<char>(0x80));
+				const auto stringEndNew			   = string1End - bytesProcessed;
+				while (string1Start < stringEndNew) {
+					const simd_type_local simdValue = simd::gatherValuesU<simd_type_local>(string1Start);
+					const integer_type delimiters =
+						static_cast<integer_type>(simd::opBitMask(simd::opOr(simd::opCmpEqRaw(simdValue, simdValues00), simd::opCmpEqRaw(simdValue, simdValues01))));
+					const integer_type controls = static_cast<integer_type>(simd::opBitMask(simd::opCmpLtRaw(simdValue, simdValues02)));
+					const integer_type nonAscii = static_cast<integer_type>(~static_cast<integer_type>(simd::opBitMask(simd::opCmpLtRaw(simdValue, simdValues03))));
+					if (delimiters == static_cast<integer_type>(0)) {
+						scanState.result.control |= controls != static_cast<integer_type>(0);
+						scanState.result.nonAscii |= nonAscii != static_cast<integer_type>(0);
+						string1Start += bytesProcessed;
+						continue;
+					}
+					const uint64_t offset		 = static_cast<uint64_t>(simd::countrZero(delimiters));
+					const integer_type preceding = static_cast<integer_type>((static_cast<integer_type>(1) << offset) - static_cast<integer_type>(1));
+					scanState.result.control |= (controls & preceding) != static_cast<integer_type>(0);
+					scanState.result.nonAscii |= (nonAscii & preceding) != static_cast<integer_type>(0);
+					string1Start += offset;
+					if (*string1Start == '"') {
+						scanState.result.length = static_cast<uint64_t>(string1Start - stringStart);
+						scanState.result.found	= true;
+						scanState.complete		= true;
+						return nullptr;
+					}
+					scanState.result.escaped = true;
+					string1Start += 2;
+				}
+
+				if constexpr (index == 2) {
+					scanState.complete = true;
+					while (string1Start < string1End) {
+						const uint8_t currentChar = static_cast<uint8_t>(*string1Start);
+						if (currentChar == '"') {
+							scanState.result.length = static_cast<uint64_t>(string1Start - stringStart);
+							scanState.result.found	= true;
+							return nullptr;
+						}
+						if (currentChar == '\\') {
+							scanState.result.escaped = true;
+							string1Start += 2;
+							continue;
+						}
+						scanState.result.control |= currentChar < 32;
+						scanState.result.nonAscii |= currentChar >= 0x80;
+						++string1Start;
+					}
+					return nullptr;
+				} else {
+					return string1Start;
+				}
+			}
+		};
+
+		template<typename basic_iterator01> JSONIFIER_INLINE static prescan_result impl(basic_iterator01 string1Start, const basic_iterator01 string1End) noexcept {
+			const auto stringStart = string1Start;
+			scan_state scanState{};
+			string_parse_executor<string_prescan_step, make_ascending_range<start_index, list_size>>::impl(string1Start, string1End, stringStart, scanState);
+			return scanState.result;
+		}
+	};
+
+	template<parse_options options> struct string_validating_copier {
+		struct copy_state {
+			utf8_validation_state validationState{};
+			bool failed{};
+			bool complete{};
+		};
+
+		struct string_copy_step {
+			template<uint64_t index, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static basic_iterator01 impl(basic_iterator01& string1Start,
+				const basic_iterator01 string1End, basic_iterator02& string2, copy_state& copyState) noexcept {
+				using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
+				using integer_type						 = typename simd_list_local::integer_type;
+				static constexpr auto simd_type			 = simd_list_local::type::simd_type;
+				using simd_type_local					 = typename simd_type_wrapper<simd_type>::type;
+				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
+				if (copyState.complete) {
+					return nullptr;
+				}
+				utf8_register_validator<simd_type_wrapper<simd_type>> validator{ copyState.validationState };
+				const simd_type_local simdValues00 = simd::gatherValue<simd_type_local>(static_cast<char>(32));
+				while (static_cast<uint64_t>(string1End - string1Start) >= bytesProcessed) {
+					const simd_type_local simdValue = simd::gatherValuesU<simd_type_local>(string1Start);
+					if (static_cast<integer_type>(simd::opBitMask(simd::opCmpLtRaw(simdValue, simdValues00))) != static_cast<integer_type>(0)) [[unlikely]] {
+						copyState.failed   = true;
+						copyState.complete = true;
+						return nullptr;
+					}
+					validator.checkRegister(simdValue);
+					simd::storeU(simdValue, string2);
+					string1Start += bytesProcessed;
+					string2 += bytesProcessed;
+				}
+				validator.flush();
+
+				if constexpr (index == 2) {
+					copyState.complete		 = true;
+					const uint64_t remaining = static_cast<uint64_t>(string1End - string1Start);
+					for (uint64_t x = 0; x < remaining; ++x) {
+						if (static_cast<uint8_t>(string1Start[x]) < 32) [[unlikely]] {
+							copyState.failed = true;
+							return nullptr;
+						}
+					}
+					validator.checkPartial(string1Start, remaining);
+					if (validator.errors()) [[unlikely]] {
+						copyState.failed = true;
+						return nullptr;
+					}
+					memcpyWrapper(string2, string1Start, remaining);
+					return nullptr;
+				} else {
+					return string1Start;
+				}
+			}
+		};
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static bool impl(basic_iterator01 string1Start, uint64_t length, basic_iterator02 string2) noexcept {
+			const auto string1End = string1Start + length;
+			copy_state copyState{};
+			string_parse_executor<string_copy_step, make_ascending_range<start_index, list_size>>::impl(string1Start, string1End, string2, copyState);
+			return !copyState.failed;
+		}
+	};
+
 	alignas(64) static constexpr array<read_buffer_ptr, 256> escapeTable{ { "", R"(\u0001)", R"(\u0002)", R"(\u0003)", R"(\u0004)", R"(\u0005)", R"(\u0006)", R"(\a)", R"(\b)",
 		R"(\t)", R"(\n)", R"(\v)", R"(\f)", R"(\r)", R"(\u000E)", R"(\u000F)", R"(\u0010)", R"(\u0011)", R"(\u0012)", R"(\u0013)", R"(\u0014)", R"(\u0015)", R"(\u0016)",
 		R"(\u0017)", R"(\u0018)", R"(\u0019)", R"(\u001A)", R"(\u001B)", R"(\u001C)", R"(\u001D)", R"(\u001E)", R"(\u001F)", "", "", R"(\")", "", "", "", "", "", "", "", "", "",
@@ -460,13 +615,13 @@ namespace jsonifier::internal {
 					simdValue = simd::gatherValuesU<simd_type>(string1Start);
 					simd::storeU(simdValue, string2);
 					nextEscapeable = findSerialize<simd_type, integer_type>(simdValue, simdValues01, simdValues02, simdValues03);
-					if (nextEscapeable != mask) [[likely]] {
+					if (nextEscapeable != mask) [[unlikely]] {
 						nextChar   = static_cast<uint8_t>(string1Start[nextEscapeable]);
 						nextSize   = escapeTableSizes[nextChar];
 						escapeChar = escapeTable[nextChar];
 						string2 += nextEscapeable;
 						string1Start += nextEscapeable;
-						memcpy_wrapper(string2, escapeChar, nextSize);
+						memcpyWrapper(string2, escapeChar, nextSize);
 						string2 += nextSize;
 						++string1Start;
 					} else {
@@ -478,17 +633,26 @@ namespace jsonifier::internal {
 			}
 		};
 
+		JSONIFIER_INLINE static uint64_t flagMask(uint64_t word) noexcept {
+			static constexpr uint64_t lo7Mask  = 0x7F7F7F7F7F7F7F7FULL;
+			static constexpr uint64_t highBits = 0x8080808080808080ULL;
+			static constexpr uint64_t quotes   = 0x2222222222222222ULL;
+			static constexpr uint64_t slashes  = 0x5C5C5C5C5C5C5C5CULL;
+			static constexpr uint64_t bits56   = 0x6060606060606060ULL;
+			const uint64_t lo7				   = word & lo7Mask;
+			const uint64_t quote			   = (lo7 ^ quotes) + lo7Mask;
+			const uint64_t backslash		   = (lo7 ^ slashes) + lo7Mask;
+			const uint64_t less32			   = (word & bits56) + lo7Mask;
+			return ~((quote & backslash & less32) | word) & highBits;
+		}
+
 		template<typename basic_iterator01, typename basic_iterator02>
-		JSONIFIER_INLINE static basic_iterator02 shortImpl(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
-			read_buffer_ptr escapeChar;
-			uint8_t nextChar;
-			uint64_t escapeSize;
+		JSONIFIER_INLINE static basic_iterator02 scalarImpl(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
 			for (; string1Start < string1End; ++string1Start) {
-				nextChar   = static_cast<uint8_t>(*string1Start);
-				escapeSize = escapeTableSizes[nextChar];
+				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
+				const uint64_t escapeSize = escapeTableSizes[nextChar];
 				if (escapeSize > 0) {
-					escapeChar = escapeTable[nextChar];
-					memcpy_wrapper(string2, escapeChar, escapeSize);
+					memcpyWrapper(string2, escapeTable[nextChar], escapeSize);
 					string2 += escapeSize;
 				} else {
 					*string2 = *string1Start;
@@ -499,10 +663,102 @@ namespace jsonifier::internal {
 		}
 
 		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static basic_iterator02 swarFinish(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
+			while (string1End - string1Start >= 8) {
+				uint64_t word;
+				memcpyWrapper(&word, string1Start, 8);
+				memcpyWrapper(string2, &word, 8);
+				if constexpr (std::endian::native == std::endian::big) {
+					word = std::byteswap(word);
+				}
+				const uint64_t flags = flagMask(word);
+				if (!flags) {
+					string1Start += 8;
+					string2 += 8;
+					continue;
+				}
+				const uint64_t offset = static_cast<uint64_t>(std::countr_zero(flags)) >> 3;
+				string1Start += offset;
+				string2 += offset;
+				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
+				const uint64_t escapeSize = escapeTableSizes[nextChar];
+				memcpyWrapper(string2, escapeTable[nextChar], escapeSize);
+				string2 += escapeSize;
+				++string1Start;
+			}
+			const uint64_t remaining = static_cast<uint64_t>(string1End - string1Start);
+			if (remaining == 0) {
+				return string2;
+			}
+			if constexpr (std::endian::native == std::endian::little) {
+				uint64_t word;
+				memcpyWrapper(&word, string1End - 8, 8);
+				const uint64_t shift = (8 - remaining) * 8;
+				word >>= shift;
+				const uint64_t flags = flagMask(word) & (~uint64_t{ 0 } >> shift);
+				if (!flags) {
+					memcpyWrapper(string2, &word, 8);
+					string1Start = string1End;
+					return string2 + remaining;
+				}
+			}
+			return scalarImpl(string1Start, string1End, string2);
+		}
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static basic_iterator02 smallImpl(basic_iterator01& string1Start, const uint64_t length, basic_iterator02 string2) noexcept {
+			if (length >= 4) {
+				uint32_t lo;
+				uint32_t hi;
+				memcpyWrapper(&lo, string1Start, 4);
+				memcpyWrapper(&hi, string1Start + length - 4, 4);
+				uint64_t word = static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32);
+				if constexpr (std::endian::native == std::endian::big) {
+					word = std::byteswap(word);
+				}
+				if (!flagMask(word)) {
+					memcpyWrapper(string2, &lo, 4);
+					memcpyWrapper(string2 + length - 4, &hi, 4);
+					string1Start += length;
+					return string2 + length;
+				}
+			} else if (length >= 2) {
+				uint16_t lo;
+				uint16_t hi;
+				memcpyWrapper(&lo, string1Start, 2);
+				memcpyWrapper(&hi, string1Start + length - 2, 2);
+				uint64_t word = static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 16) | 0x8080808000000000ULL;
+				if constexpr (std::endian::native == std::endian::big) {
+					word = std::byteswap(word);
+				}
+				if (!flagMask(word)) {
+					memcpyWrapper(string2, &lo, 2);
+					memcpyWrapper(string2 + length - 2, &hi, 2);
+					string1Start += length;
+					return string2 + length;
+				}
+			} else if (length == 1) {
+				const uint8_t nextChar = static_cast<uint8_t>(*string1Start);
+				if (escapeTableSizes[nextChar] == 0) {
+					*string2 = *string1Start;
+					++string1Start;
+					return string2 + 1;
+				}
+			}
+			const basic_iterator01 string1End = string1Start + length;
+			return scalarImpl(string1Start, string1End, string2);
+		}
+
+		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static basic_iterator02 impl(basic_iterator01 string1Start, basic_iterator02 string2, uint64_t lengthNew) noexcept {
+			if (lengthNew < 8) {
+				return smallImpl(string1Start, lengthNew, string2);
+			}
 			const basic_iterator01 string1End = string1Start + lengthNew;
-			string_parse_executor<string_serialize_step, make_ascending_range<start_index, list_size>>::impl(string1Start, string1End, string2);
-			return shortImpl(string1Start, string1End, string2);
+			if (lengthNew >= 16) {
+				string_parse_executor<string_serialize_step, make_ascending_range<start_index, list_size>>::impl(string1Start, string1End, string2);
+			}
+			return swarFinish(string1Start, string1End, string2);
 		}
 	};
 
@@ -524,7 +780,7 @@ namespace jsonifier::internal {
 		static_assert(stringNew.size() == 4, "Sorry, but please only use a string with a length of 4 in this function!");
 		alignas(64) static constexpr auto stringInt{ getStringAsInt<string>() };
 		alignas(64) integer_type sourceVal;
-		pow2_memcpy_wrapper<string.size()>(&sourceVal, src);
+		pow2MemcpyWrapper<string.size()>(&sourceVal, src);
 		return !static_cast<bool>(sourceVal ^ stringInt);
 	}
 

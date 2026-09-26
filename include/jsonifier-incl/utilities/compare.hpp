@@ -15,11 +15,11 @@
 
 namespace jsonifier::internal {
 
-	template<uint8_t repeat, uint_types return_type> static constexpr return_type repeatByte() noexcept {
+	template<uint8_t repeat, uint_types return_type> inline static constexpr return_type repeatByte() noexcept {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
-	template<uint_types return_type> static constexpr return_type repeatByte(uint8_t repeat) noexcept {
+	template<uint_types return_type> inline static constexpr return_type repeatByte(uint8_t repeat) noexcept {
 		return static_cast<return_type>(static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat));
 	}
 
@@ -95,7 +95,7 @@ namespace jsonifier::internal {
 					static constexpr auto highBits{ repeatByte<0x80, uint64_t>() };
 					static constexpr auto lowBits{ repeatByte<0x01, uint64_t>() };
 					uint64_t simdValue;
-					pow2_memcpy_wrapper<sizeof(uint64_t)>(&simdValue, data);
+					pow2MemcpyWrapper<sizeof(uint64_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
@@ -115,7 +115,7 @@ namespace jsonifier::internal {
 					static constexpr auto highBits{ repeatByte<0x80, uint32_t>() };
 					static constexpr auto lowBits{ repeatByte<0x01, uint32_t>() };
 					uint32_t simdValue;
-					pow2_memcpy_wrapper<sizeof(uint32_t)>(&simdValue, data);
+					pow2MemcpyWrapper<sizeof(uint32_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
@@ -135,7 +135,7 @@ namespace jsonifier::internal {
 					static constexpr auto highBits{ repeatByte<0x80, uint16_t>() };
 					static constexpr auto lowBits{ repeatByte<0x01, uint16_t>() };
 					uint16_t simdValue;
-					pow2_memcpy_wrapper<sizeof(uint16_t)>(&simdValue, data);
+					pow2MemcpyWrapper<sizeof(uint16_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
 					auto next		 = ((chunk - lowBits) & ~chunk) & highBits;
 					if (next) {
@@ -217,8 +217,8 @@ namespace jsonifier::internal {
 				static constexpr uint64_t nBytes{ sizeof(uint64_t) };
 				if (lengthNew >= nBytes) {
 					uint64_t v1, v2;
-					pow2_memcpy_wrapper<nBytes>(&v1, lhs);
-					pow2_memcpy_wrapper<nBytes>(&v2, rhs);
+					pow2MemcpyWrapper<nBytes>(&v1, lhs);
+					pow2MemcpyWrapper<nBytes>(&v2, rhs);
 					if ((v1 ^ v2) != 0) {
 						return false;
 					}
@@ -231,8 +231,8 @@ namespace jsonifier::internal {
 				static constexpr uint64_t nBytes{ sizeof(uint32_t) };
 				if (lengthNew >= nBytes) {
 					uint32_t v1, v2;
-					pow2_memcpy_wrapper<nBytes>(&v1, lhs);
-					pow2_memcpy_wrapper<nBytes>(&v2, rhs);
+					pow2MemcpyWrapper<nBytes>(&v1, lhs);
+					pow2MemcpyWrapper<nBytes>(&v2, rhs);
 					if ((v1 ^ v2) != 0) {
 						return false;
 					}
@@ -245,8 +245,8 @@ namespace jsonifier::internal {
 				static constexpr uint64_t nBytes{ sizeof(uint16_t) };
 				if (lengthNew >= nBytes) {
 					uint16_t v1, v2;
-					pow2_memcpy_wrapper<nBytes>(&v1, lhs);
-					pow2_memcpy_wrapper<nBytes>(&v2, rhs);
+					pow2MemcpyWrapper<nBytes>(&v1, lhs);
+					pow2MemcpyWrapper<nBytes>(&v2, rhs);
 					if ((v1 ^ v2) != 0) {
 						return false;
 					}
@@ -262,7 +262,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> static constexpr uint64_t getPackingSize() {
+	template<uint64_t size> inline static constexpr uint64_t getPackingSize() {
 		if constexpr (size >= 64) {
 			return 64;
 		} else if constexpr (size >= 32) {
@@ -282,7 +282,7 @@ namespace jsonifier::internal {
 
 	template<string_literal string>
 		requires(string.length == 0)
-	static constexpr auto packValues() {
+	inline static constexpr auto packValues() {
 		return uint8_t{};
 	}
 
@@ -305,7 +305,7 @@ namespace jsonifier::internal {
 	template<auto string> struct pack_values;
 
 	template<gt_0_lte_8 auto string> struct pack_values<string> {
-		static constexpr decltype(auto) gen() {
+		inline static constexpr decltype(auto) gen() {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
 			for (uint64_t x = 0; x < string.length; ++x) {
@@ -322,7 +322,7 @@ namespace jsonifier::internal {
 
 	template<gt_8 auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, get_int_length_v<string.size()>>;
-		static constexpr array_type gen() {
+		inline static constexpr array_type gen() {
 			array_type out_local{};
 			for (uint64_t i = 0; i < string.size(); ++i) {
 				out_local[i] = static_cast<uint8_t>(string[i]);
@@ -337,7 +337,7 @@ namespace jsonifier::internal {
 		uint64_t currentIndex{};
 	};
 
-	template<auto string, uint64_t offset> static constexpr string_literal<((offset >= string.length) ? string.length : offset) + 1> offSetIntoLiteral() noexcept {
+	template<auto string, uint64_t offset> inline static constexpr string_literal<((offset >= string.length) ? string.length : offset) + 1> offSetIntoLiteral() noexcept {
 		constexpr uint64_t newSize = ((offset >= string.length) ? string.length : offset);
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
@@ -347,7 +347,7 @@ namespace jsonifier::internal {
 		return sl;
 	}
 
-	template<auto string, uint64_t offset> static constexpr string_literal<((offset >= string.length) ? 0 : string.length - offset) + 1> offSetNewLiteral() noexcept {
+	template<auto string, uint64_t offset> inline static constexpr string_literal<((offset >= string.length) ? 0 : string.length - offset) + 1> offSetNewLiteral() noexcept {
 		constexpr uint64_t newSize = (offset >= string.length) ? 0 : string.length - offset;
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
@@ -369,14 +369,14 @@ namespace jsonifier::internal {
 
 	template<typename sequence, auto stringNew, uint64_t split_mod> struct string_literal_splitter;
 
-	template<uint64_t index, typename string_type> static constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
+	template<uint64_t index, typename string_type> inline static constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
 		string_literal<index + 1> sl{};
 		std::copy_n(str.data(), str.size(), sl.values);
 		sl[index] = '\0';
 		return sl;
 	}
 
-	static constexpr auto getOffsetIntoLiteralSize(uint64_t inputSize) noexcept {
+	inline static constexpr auto getOffsetIntoLiteralSize(uint64_t inputSize) noexcept {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {
 			return 64ULL;
 		} else if (inputSize >= 32ULL && simdBytesPerRegister >= 32ULL) {
@@ -389,13 +389,6 @@ namespace jsonifier::internal {
 	template<typename sl_type, base_t<sl_type> stringNew, typename = void> struct string_literal_comparator_impl;
 
 	template<uint64_t... indices, auto stringNew, uint64_t split_mod> struct string_literal_splitter<integer_sequence<indices...>, stringNew, split_mod> {
-		static consteval string_status get_split_string_status(uint64_t index, uint64_t total_length) noexcept {
-			uint64_t currentIndex{ split_mod * index };
-			string_status status{ total_length, currentIndex };
-			status.remaining_length -= currentIndex;
-			return status;
-		}
-
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
 			return (
 				static_cast<void>(
@@ -404,6 +397,13 @@ namespace jsonifier::internal {
 						 str != nullptr) &&
 						...)),
 				str);
+		}
+
+		static consteval string_status get_split_string_status(uint64_t index, uint64_t total_length) noexcept {
+			uint64_t currentIndex{ split_mod * index };
+			string_status status{ total_length, currentIndex };
+			status.remaining_length -= currentIndex;
+			return status;
 		}
 	};
 
@@ -421,7 +421,7 @@ namespace jsonifier::internal {
 			static constexpr auto newCount{ stringLiteral.size() };
 			alignas(64) static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
 			jsonifier_simd_int_128 data1{};
-			memcpy_wrapper(&data1, str, newCount);
+			memcpyWrapper(&data1, str, newCount);
 			const jsonifier_simd_int_128 data2{ simd::gatherValues<jsonifier_simd_int_128>(valuesNew.data()) };
 			return simd::opTest(simd::opXor(data1, data2)) ? str + newCount : nullptr;
 		}
@@ -435,7 +435,7 @@ namespace jsonifier::internal {
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint64_t valuesNew{ pack_values<stringLiteral>::value };
 			uint64_t l;
-			pow2_memcpy_wrapper<8>(&l, str);
+			pow2MemcpyWrapper<8>(&l, str);
 			return !(l ^ valuesNew) ? str + newCount : nullptr;
 		}
 	};
@@ -451,8 +451,8 @@ namespace jsonifier::internal {
 			static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
 			static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
 			uint32_t lo, hi;
-			pow2_memcpy_wrapper<4>(&lo, str);
-			pow2_memcpy_wrapper<4>(&hi, str + 3);
+			pow2MemcpyWrapper<4>(&lo, str);
+			pow2MemcpyWrapper<4>(&hi, str + 3);
 			return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 		}
 	};
@@ -468,8 +468,8 @@ namespace jsonifier::internal {
 			static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
 			static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
 			uint32_t lo, hi;
-			pow2_memcpy_wrapper<4>(&lo, str);
-			pow2_memcpy_wrapper<4>(&hi, str + 2);
+			pow2MemcpyWrapper<4>(&lo, str);
+			pow2MemcpyWrapper<4>(&hi, str + 2);
 			return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 		}
 	};
@@ -485,8 +485,8 @@ namespace jsonifier::internal {
 			static constexpr uint32_t loValuesNew{ pack_values<loString>::value };
 			static constexpr uint32_t hiValuesNew{ pack_values<hiString>::value };
 			uint32_t lo, hi;
-			pow2_memcpy_wrapper<4>(&lo, str);
-			pow2_memcpy_wrapper<4>(&hi, str + 1);
+			pow2MemcpyWrapper<4>(&lo, str);
+			pow2MemcpyWrapper<4>(&hi, str + 1);
 			return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 		}
 	};
@@ -499,7 +499,7 @@ namespace jsonifier::internal {
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint32_t valuesNew{ pack_values<stringLiteral>::value };
 			uint32_t l;
-			pow2_memcpy_wrapper<4>(&l, str);
+			pow2MemcpyWrapper<4>(&l, str);
 			return !(l ^ valuesNew) ? str + newCount : nullptr;
 		}
 	};
@@ -515,8 +515,8 @@ namespace jsonifier::internal {
 			static constexpr uint16_t loValuesNew{ pack_values<loString>::value };
 			static constexpr uint16_t hiValuesNew{ pack_values<hiString>::value };
 			uint16_t lo, hi;
-			pow2_memcpy_wrapper<2>(&lo, str);
-			pow2_memcpy_wrapper<2>(&hi, str + 1);
+			pow2MemcpyWrapper<2>(&lo, str);
+			pow2MemcpyWrapper<2>(&hi, str + 1);
 			return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
 		}
 	};
@@ -529,7 +529,7 @@ namespace jsonifier::internal {
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint16_t valuesNew{ pack_values<stringLiteral>::value };
 			uint16_t l;
-			pow2_memcpy_wrapper<2>(&l, str);
+			pow2MemcpyWrapper<2>(&l, str);
 			return !(l ^ valuesNew) ? str + newCount : nullptr;
 		}
 	};

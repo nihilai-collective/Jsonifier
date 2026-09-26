@@ -9,19 +9,7 @@
 namespace jsonifier::internal {
 
 	struct xoshiro256 {
-		uint64_t state[4]{};
-
-		constexpr xoshiro256() noexcept {
-			constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
-			constexpr auto x01 = x ^ x << 25ull;
-			constexpr auto x02 = x01 ^ x01 >> 27ull;
-			uint64_t s		   = x02 * 0x2545F4914F6CDD1Dull;
-			for (uint64_t y = 0; y < 4; ++y) {
-				state[y] = splitmix64(s);
-			}
-		}
-
-		constexpr uint64_t operator()() noexcept {
+		inline constexpr uint64_t operator()() noexcept {
 			const uint64_t result = rotl(state[1ull] * 5ull, 7ull) * 9ull;
 			const uint64_t t	  = state[1ull] << 17ull;
 
@@ -37,17 +25,28 @@ namespace jsonifier::internal {
 			return result;
 		}
 
-	  protected:
-		constexpr uint64_t rotl(const uint64_t x, const uint64_t k) const noexcept {
-			return (x << k) | (x >> (64ull - k));
+		inline constexpr xoshiro256() noexcept {
+			constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
+			constexpr auto x01 = x ^ x << 25ull;
+			constexpr auto x02 = x01 ^ x01 >> 27ull;
+			uint64_t s		   = x02 * 0x2545F4914F6CDD1Dull;
+			for (uint64_t y = 0; y < 4; ++y) {
+				state[y] = splitmix64(s);
+			}
 		}
 
-		constexpr uint64_t splitmix64(uint64_t& seed64) const noexcept {
+		inline constexpr uint64_t splitmix64(uint64_t& seed64) const noexcept {
 			uint64_t result = seed64 += 0x9E3779B97F4A7C15ull;
 			result			= (result ^ (result >> 30ull)) * 0xBF58476D1CE4E5B9ull;
 			result			= (result ^ (result >> 27ull)) * 0x94D049BB133111EBull;
 			return result ^ (result >> 31ull);
 		}
+
+		inline constexpr uint64_t rotl(const uint64_t x, const uint64_t k) const noexcept {
+			return (x << k) | (x >> (64ull - k));
+		}
+
+		uint64_t state[4]{};
 	};
 
 	// These PRNs were generated using the above algorithm.
@@ -72,7 +71,7 @@ namespace jsonifier::internal {
 		7512972502278041818ull, 8724494295438506783ull, 9277533619161797917ull, 13495127262014153477ull, 2883303557104387784ull, 3039599040070277986ull, 4196273005435491662ull,
 		5417879022829474871ull, 6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
-	template<typename value_type> constexpr value_type readBitsCt(read_buffer_ptr ptr) noexcept {
+	template<typename value_type> inline constexpr value_type readBitsCt(read_buffer_ptr ptr) noexcept {
 		char values[sizeof(value_type)]{};
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
@@ -83,19 +82,7 @@ namespace jsonifier::internal {
 	}
 
 	struct ct_key_hasher {
-		uint64_t index{};
-		uint64_t seed{};
-
-		constexpr ct_key_hasher() noexcept {
-			updateSeed();
-		}
-
-		constexpr void updateSeed() noexcept {
-			seed = prns[index % prns.size()];
-			++index;
-		}
-
-		constexpr uint64_t hashKeyCt(read_buffer_ptr value, uint64_t length) const noexcept {
+		inline constexpr uint64_t hashKeyCt(read_buffer_ptr value, uint64_t length) const noexcept {
 			uint64_t seed64{ seed };
 
 			{
@@ -130,9 +117,21 @@ namespace jsonifier::internal {
 
 			return seed64 ^ (seed64 >> 32);
 		}
+
+		inline constexpr void updateSeed() noexcept {
+			seed = prns[index % prns.size()];
+			++index;
+		}
+
+		inline constexpr ct_key_hasher() noexcept {
+			updateSeed();
+		}
+
+		uint64_t index{};
+		uint64_t seed{};
 	};
 
-	template<typename value_type> inline static consteval value_type constEval(value_type value) {
+	template<typename value_type> static consteval value_type constEval(value_type value) {
 		return value;
 	}
 
@@ -145,7 +144,7 @@ namespace jsonifier::internal {
 			{
 				uint64_t chunk64{};
 				while (length >= 8) {
-					pow2_memcpy_wrapper<8>(&chunk64, value);
+					pow2MemcpyWrapper<8>(&chunk64, value);
 					seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
 					value += 8;
 					length -= 8;
@@ -154,7 +153,7 @@ namespace jsonifier::internal {
 
 			if (length >= 4) {
 				uint32_t chunk32{};
-				pow2_memcpy_wrapper<4>(&chunk32, value);
+				pow2MemcpyWrapper<4>(&chunk32, value);
 				seed64 ^= static_cast<uint64_t>(chunk32 * 0x9E3779B185EBCA87ull);
 				value += 4;
 				length -= 4;
@@ -162,7 +161,7 @@ namespace jsonifier::internal {
 
 			if (length >= 2) {
 				uint16_t chunk16{};
-				pow2_memcpy_wrapper<2>(&chunk16, value);
+				pow2MemcpyWrapper<2>(&chunk16, value);
 				seed64 ^= static_cast<uint64_t>(chunk16 * 0x9E3779B185EBCA87ull);
 				value += 2;
 				length -= 2;

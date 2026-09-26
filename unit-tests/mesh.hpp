@@ -9,22 +9,22 @@
 #include "common.hpp"
 
 struct batch {
-	std::vector<int64_t> indexRange{};
 	std::vector<int64_t> vertexRange{};
+	std::vector<int64_t> indexRange{};
 	std::vector<int64_t> usedBones{};
 };
 
 struct morph_targets {};
 
 struct mesh_message {
+	std::vector<std::vector<int64_t>> influences{};
+	std::vector<double> positions{};
+	std::vector<int64_t> indices{};
+	std::vector<int64_t> colors{};
+	std::vector<double> normals{};
 	std::vector<batch> batches{};
 	morph_targets morphTargets{};
-	std::vector<double> positions{};
 	std::vector<double> tex0{};
-	std::vector<int64_t> colors{};
-	std::vector<std::vector<int64_t>> influences{};
-	std::vector<double> normals{};
-	std::vector<int64_t> indices{};
 };
 
 template<> struct jsonifier::core<batch> {

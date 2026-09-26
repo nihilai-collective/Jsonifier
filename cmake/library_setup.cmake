@@ -24,7 +24,7 @@ set(JSONIFIER_COMPILE_DEFINITIONS
     JSONIFIER_OPTIMIZED=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,1,0>
     "JSONIFIER_DISPATCH_TABLE_COUNT=$<IF:$<PLATFORM_ID:Darwin>,$<IF:$<CXX_COMPILER_ID:GNU>,4,0>,2>"
     "JSONIFIER_INLINE=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::forceinline]] inline,inline __attribute__((always_inline))>,inline>"
-    "JSONIFIER_LAMBDA_INLINE=$<IF:$<CXX_COMPILER_ID:MSVC>,noexcept [[msvc::forceinline]],__attribute__((always_inline)) noexcept>"
+    "JSONIFIER_NON_HEAVY_INLINE=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,$<IF:$<CXX_COMPILER_ID:MSVC>,inline,$<IF:$<AND:$<PLATFORM_ID:Darwin>,$<CXX_COMPILER_ID:GNU>>,inline,inline __attribute__((always_inline))>>,inline>"
     "JSONIFIER_LIFETIME_BOUND=$<IF:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>,[[clang::lifetimebound]],$<IF:$<CXX_COMPILER_ID:MSVC>,[[msvc::lifetimebound]],>>"
     $<$<PLATFORM_ID:Windows>:NOMINMAX;WIN32_LEAN_AND_MEAN>
 )

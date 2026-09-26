@@ -19,11 +19,15 @@ namespace round_trip_tests {
 	};
 
 	struct Obj3 {
-		Obj3()						 = default;
 		Obj3& operator=(const Obj3&) = delete;
-		Obj3(const Obj3&)			 = delete;
-		std::unique_ptr<int32_t> a;
+
 		std::unique_ptr<std::string> foo;
+
+		Obj3(const Obj3&) = delete;
+
+		std::unique_ptr<int32_t> a;
+
+		Obj3() = default;
 	};
 }
 
@@ -44,7 +48,7 @@ namespace round_trip_tests {
 		test_type valueNew{};
 		std::string newString{};
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .nullTerminated = nullTerminated }>(valueNew, dataToParse);
+		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
 		for (auto& value: parser.getErrors()) {
 			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}

@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# .github/workflows/unit-tests-fallback.yml
+
 name: Fallback Unit Tests
 on:
   push:

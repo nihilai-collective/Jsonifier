@@ -25,13 +25,6 @@ namespace jsonifier {
 		friend struct internal::minifier<jsonifier_core<initialBufferSize>>;
 		friend struct internal::parser<jsonifier_core<initialBufferSize>>;
 
-		inline jsonifier_core() noexcept = default;
-
-		inline jsonifier_core(jsonifier_core&& other) noexcept
-			: podSection(internal::move(other.podSection)), section(internal::move(other.section)), stringBuffer(internal::move(other.stringBuffer)),
-			  errors(internal::move(other.errors)) {
-		}
-
 		inline jsonifier_core& operator=(jsonifier_core&& other) noexcept {
 			if (this != &other) [[likely]] {
 				podSection	 = internal::move(other.podSection);
@@ -40,9 +33,6 @@ namespace jsonifier {
 				errors		 = internal::move(other.errors);
 			}
 			return *this;
-		}
-
-		inline jsonifier_core(const jsonifier_core& other) noexcept : podSection(other.podSection), section(other.section), stringBuffer(other.stringBuffer), errors(other.errors) {
 		}
 
 		inline jsonifier_core& operator=(const jsonifier_core& other) noexcept {
@@ -55,15 +45,24 @@ namespace jsonifier {
 			return *this;
 		}
 
-		inline ~jsonifier_core() noexcept = default;
+		inline jsonifier_core(jsonifier_core&& other) noexcept
+			: podSection(internal::move(other.podSection)), section(internal::move(other.section)), stringBuffer(internal::move(other.stringBuffer)),
+			  errors(internal::move(other.errors)) {
+		}
 
-		inline std::vector<internal::error>& getErrors() noexcept {
-			return errors;
+		inline jsonifier_core(const jsonifier_core& other) noexcept : podSection(other.podSection), section(other.section), stringBuffer(other.stringBuffer), errors(other.errors) {
 		}
 
 		inline const std::vector<internal::error>& getErrors() const noexcept {
 			return errors;
 		}
+
+		inline std::vector<internal::error>& getErrors() noexcept {
+			return errors;
+		}
+
+		inline ~jsonifier_core() noexcept = default;
+		inline jsonifier_core() noexcept  = default;
 
 	  protected:
 		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};

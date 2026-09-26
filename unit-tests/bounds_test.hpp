@@ -12,31 +12,16 @@
 namespace bounds_tests {
 
 	struct random_die {
-	  public:
-		inline random_die() : seed{ static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) } {
-			seedState(seed);
-			std::cout << "random_die seed: " << seed << std::endl;
-		}
-
-		inline explicit random_die(uint64_t seedNew) : seed{ seedNew } {
-			seedState(seed);
-			std::cout << "random_die seed: " << seed << std::endl;
-		}
-
-		inline uint64_t operator()() {
-			return (next() % 8) + 1;
-		}
-
-		inline uint64_t getSeed() const {
-			return seed;
-		}
-
-	  private:
-		uint64_t seed;
-		uint64_t s[4];
-
-		inline static uint64_t rotl(uint64_t x, int32_t k) {
-			return (x << k) | (x >> (64 - k));
+		inline void seedState(uint64_t seedVal) {
+			uint64_t z = seedVal;
+			for (int32_t i = 0; i < 4; ++i) {
+				z += 0x9e3779b97f4a7c15ULL;
+				uint64_t x = z;
+				x		   = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+				x		   = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+				x		   = x ^ (x >> 31);
+				s[i]	   = x;
+			}
 		}
 
 		inline uint64_t next() {
@@ -51,17 +36,30 @@ namespace bounds_tests {
 			return result;
 		}
 
-		inline void seedState(uint64_t seedVal) {
-			uint64_t z = seedVal;
-			for (int32_t i = 0; i < 4; ++i) {
-				z += 0x9e3779b97f4a7c15ULL;
-				uint64_t x = z;
-				x		   = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
-				x		   = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
-				x		   = x ^ (x >> 31);
-				s[i]	   = x;
-			}
+		inline random_die() : seed{ static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) } {
+			seedState(seed);
+			std::cout << "random_die seed: " << seed << std::endl;
 		}
+
+		inline explicit random_die(uint64_t seedNew) : seed{ seedNew } {
+			seedState(seed);
+			std::cout << "random_die seed: " << seed << std::endl;
+		}
+
+		inline static uint64_t rotl(uint64_t x, int32_t k) {
+			return (x << k) | (x >> (64 - k));
+		}
+
+		inline uint64_t operator()() {
+			return (next() % 8) + 1;
+		}
+
+		inline uint64_t getSeed() const {
+			return seed;
+		}
+
+		uint64_t seed;
+		uint64_t s[4];
 	};
 
 	inline void sliceStringBySize(std::string& input, random_die& randomDie) {
@@ -91,7 +89,7 @@ namespace bounds_tests {
 		rt_ut::unit_test<testNameRtUt, true>::run(
 			[&](std::string s) {
 				test_data_type jsonifierValue;
-				parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
+				parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(
 					jsonifierValue, s);
 				if (parser.getErrors().size()) {
 					std::cout << "FULL PARSE FAILURE: " << parser.getErrors()[0].reportError() << std::endl;
@@ -101,7 +99,7 @@ namespace bounds_tests {
 				s.pop_back();
 				test_data_type jsonifierValueLocal;
 				while (!s.empty()) {
-					parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
+					parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(
 						jsonifierValueLocal, s);
 					if (!parser.getErrors().size()) {
 						std::cout << "BOUNDS TEST FAILURE, test: " << testNameRtUt.operator std::string() << ", repro seed: " << randomDie.getSeed() << std::endl;

@@ -11,19 +11,12 @@
 namespace string_validation_tests {
 
 	struct unit_test_string {
-		constexpr unit_test_string() noexcept = default;
-
-		template<uint64_t N> constexpr unit_test_string(const char (&string)[N]) : size_val(N - 1) {
-			static_assert(N <= 256, "unit_test_string: input exceeds buffer capacity");
-			std::copy_n(string, N - 1, values);
-		}
-
-		constexpr bool operator==(const unit_test_string& other) const {
-			if (size_val != other.size_val) {
+		template<typename string_type> constexpr friend bool operator==(const string_type& lhs, const unit_test_string& rhs) {
+			if (rhs.size_val != lhs.size()) {
 				return false;
 			}
-			for (uint64_t x = 0; x < size_val; ++x) {
-				if (values[x] != other.values[x]) {
+			for (uint64_t x = 0; x < rhs.size_val; ++x) {
+				if (rhs.values[x] != lhs[x]) {
 					return false;
 				}
 			}
@@ -42,28 +35,21 @@ namespace string_validation_tests {
 			return true;
 		}
 
-		template<typename string_type> constexpr friend bool operator==(const string_type& lhs, const unit_test_string& rhs) {
-			if (rhs.size_val != lhs.size()) {
+		constexpr bool operator==(const unit_test_string& other) const {
+			if (size_val != other.size_val) {
 				return false;
 			}
-			for (uint64_t x = 0; x < rhs.size_val; ++x) {
-				if (rhs.values[x] != lhs[x]) {
+			for (uint64_t x = 0; x < size_val; ++x) {
+				if (values[x] != other.values[x]) {
 					return false;
 				}
 			}
 			return true;
 		}
 
-		constexpr size_t size() const {
-			return size_val;
-		}
-
-		constexpr jsonifier::read_buffer_ptr data() const {
-			return values;
-		}
-
-		constexpr operator std::string_view() const {
-			return { values, size_val };
+		template<uint64_t N> constexpr unit_test_string(const char (&string)[N]) : size_val(N - 1) {
+			static_assert(N <= 256, "unit_test_string: input exceeds buffer capacity");
+			std::copy_n(string, N - 1, values);
 		}
 
 		inline friend std::ostream& operator<<(std::ostream& os, const unit_test_string& string) {
@@ -71,8 +57,22 @@ namespace string_validation_tests {
 			return os;
 		}
 
-		size_t size_val{};
+		constexpr operator std::string_view() const {
+			return { values, size_val };
+		}
+
+		constexpr jsonifier::read_buffer_ptr data() const {
+			return values;
+		}
+
+		constexpr size_t size() const {
+			return size_val;
+		}
+
+		constexpr unit_test_string() noexcept = default;
+
 		char values[256]{};
+		size_t size_val{};
 	};
 
 	constexpr jsonifier::internal::array<unit_test_string, 35> inputValues{ { "\"\"", "\"Hello\"", "\"Hello\\nWorld\"", "\"Hello\\u0000World\"", "\"\\\"\\\\/\\b\\f\\n\\r\\t\"",

@@ -15,5 +15,6 @@
 #include <jsonifier-incl/serializing/minifier.hpp>
 #include <jsonifier-incl/utilities/hash_map.hpp>
 #include <jsonifier-incl/parsing/parser.hpp>
+#include <jsonifier-incl/parsing/generic.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>

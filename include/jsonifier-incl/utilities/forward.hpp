@@ -114,4 +114,38 @@ namespace jsonifier::internal {
 		using type						= jsonifier_simd_int_512;
 	};
 
+	template<typename value_type> struct contained_type {
+		static constexpr bool value{ false };
+		using type = void;
+	};
+
+	template<typename value_type>
+		requires requires { typename value_type::value_type; }
+	struct contained_type<value_type> {
+		static constexpr bool value{ true };
+		using type = typename value_type::value_type;
+	};
+
+	template<typename value_type>
+		requires(
+			!requires { typename value_type::value_type; } && requires { typename value_type::element_type; })
+	struct contained_type<value_type> {
+		static constexpr bool value{ true };
+		using type = typename value_type::element_type;
+	};
+
+	template<typename value_type> struct contained_type<value_type*> {
+		static constexpr bool value{ true };
+		using type = value_type;
+	};
+
+	template<typename value_type, size_t size> struct contained_type<value_type[size]> {
+		static constexpr bool value{ true };
+		using type = value_type;
+	};
+
+	template<typename value_type> static constexpr bool has_contained_type_v = contained_type<remove_cvref_t<value_type>>::value;
+
+	template<typename value_type> using contained_type_t = typename contained_type<remove_cvref_t<value_type>>::type;
+
 }

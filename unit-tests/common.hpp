@@ -40,10 +40,11 @@ constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
 
 class test_base {
   public:
-	test_base() noexcept = default;
-
 	test_base(const std::string& fileContentsNew) : fileContents{ fileContentsNew } {
 	}
+
+	test_base() noexcept = default;
+
 	std::string fileContents{};
 };
 
@@ -77,30 +78,6 @@ inline static bool processFilesInFolder(std::unordered_map<std::string, test_bas
 
 class file_handler {
   public:
-	static void save_file(const std::string& data, const std::string& path) {
-		std::error_code errorCode{};
-		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
-		if (errorCode) {
-			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
-			return;
-		}
-		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
-		if (errorCode) {
-			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
-			return;
-		}
-		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
-		if (!stream.is_open()) {
-			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
-			return;
-		}
-		stream << data;
-		stream.flush();
-		const bool ok = stream.good();
-		stream.close();
-		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
-	}
-
 	static std::string get(const std::string& path) {
 		std::error_code errorCode{};
 		std::string contents{};
@@ -131,6 +108,30 @@ class file_handler {
 			std::cout << "File is empty: " << abs_path.string() << std::endl;
 		}
 		return contents;
+	}
+
+	static void save_file(const std::string& data, const std::string& path) {
+		std::error_code errorCode{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
+		if (errorCode) {
+			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+			return;
+		}
+		stream << data;
+		stream.flush();
+		const bool ok = stream.good();
+		stream.close();
+		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
 	}
 };
 

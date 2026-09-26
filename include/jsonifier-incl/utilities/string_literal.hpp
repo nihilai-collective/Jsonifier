@@ -18,27 +18,24 @@ namespace jsonifier::internal {
 		using const_pointer	  = const value_type*;
 		using pointer		  = value_type*;
 		using size_type		  = uint64_t;
-
 		static constexpr size_type length{ sizeVal > 0 ? sizeVal - 1 : 0 };
 
-		JSONIFIER_INLINE constexpr string_literal() noexcept = default;
-
-		JSONIFIER_INLINE constexpr string_literal(const char (&str)[sizeVal]) noexcept {
-			for (uint64_t x = 0; x < length; ++x) {
-				values[x] = str[x];
-			}
-			values[length] = '\0';
-		}
-
-		JSONIFIER_INLINE constexpr const_pointer data() const noexcept JSONIFIER_LIFETIME_BOUND {
-			return values;
-		}
-
-		JSONIFIER_INLINE constexpr pointer data() noexcept JSONIFIER_LIFETIME_BOUND {
-			return values;
+		template<uint64_t offset_new, uint64_t count, uint64_t new_size = count + 1> JSONIFIER_INLINE constexpr string_literal<new_size> substr() const {
+			static_assert(offset_new + count <= length);
+			string_literal<new_size> return_value{};
+			std::copy(values + offset_new, values + offset_new + count, return_value.values);
+			return_value.values[count] = '\0';
+			return return_value;
 		}
 
 		template<size_type sizeNew> JSONIFIER_INLINE constexpr string_literal<sizeNew + sizeVal - 1> operator+=(const string_literal<sizeNew>& str) const noexcept {
+			string_literal<sizeNew + sizeVal - 1> newLiteral{};
+			std::copy(values, values + size(), newLiteral.data());
+			std::copy(str.data(), str.data() + sizeNew, newLiteral.data() + size());
+			return newLiteral;
+		}
+
+		template<size_type sizeNew> JSONIFIER_INLINE constexpr string_literal<sizeNew + sizeVal - 1> operator+(const string_literal<sizeNew>& str) const noexcept {
 			string_literal<sizeNew + sizeVal - 1> newLiteral{};
 			std::copy(values, values + size(), newLiteral.data());
 			std::copy(str.data(), str.data() + sizeNew, newLiteral.data() + size());
@@ -49,13 +46,6 @@ namespace jsonifier::internal {
 			string_literal<sizeNew + sizeVal - 1> newLiteral{};
 			std::copy(values, values + size(), newLiteral.data());
 			std::copy(str, str + sizeNew, newLiteral.data() + size());
-			return newLiteral;
-		}
-
-		template<size_type sizeNew> JSONIFIER_INLINE constexpr string_literal<sizeNew + sizeVal - 1> operator+(const string_literal<sizeNew>& str) const noexcept {
-			string_literal<sizeNew + sizeVal - 1> newLiteral{};
-			std::copy(values, values + size(), newLiteral.data());
-			std::copy(str.data(), str.data() + sizeNew, newLiteral.data() + size());
 			return newLiteral;
 		}
 
@@ -70,47 +60,56 @@ namespace jsonifier::internal {
 			return string_literal<sizeNew>{ lhs } + str;
 		}
 
-		JSONIFIER_INLINE constexpr reference operator[](size_type index) noexcept JSONIFIER_LIFETIME_BOUND {
-			return values[index];
+		template<typename string_type> JSONIFIER_INLINE constexpr operator string_type() const noexcept {
+			alignas(64) string_type returnValues{ values, length };
+			return returnValues;
+		}
+
+		JSONIFIER_INLINE constexpr string_literal(const char (&str)[sizeVal]) noexcept {
+			for (uint64_t x = 0; x < length; ++x) {
+				values[x] = str[x];
+			}
+			values[length] = '\0';
 		}
 
 		JSONIFIER_INLINE constexpr const_reference operator[](size_type index) const noexcept JSONIFIER_LIFETIME_BOUND {
 			return values[index];
 		}
 
-		template<uint64_t offset_new, uint64_t count, uint64_t new_size = count + 1> JSONIFIER_INLINE constexpr string_literal<new_size> substr() const {
-			static_assert(offset_new + count <= length);
-			string_literal<new_size> return_value{};
-			std::copy(values + offset_new, values + offset_new + count, return_value.values);
-			return_value.values[count] = '\0';
-			return return_value;
+		JSONIFIER_INLINE constexpr reference operator[](size_type index) noexcept JSONIFIER_LIFETIME_BOUND {
+			return values[index];
+		}
+
+		JSONIFIER_INLINE constexpr const_pointer data() const noexcept JSONIFIER_LIFETIME_BOUND {
+			return values;
+		}
+
+		JSONIFIER_INLINE constexpr pointer data() noexcept JSONIFIER_LIFETIME_BOUND {
+			return values;
 		}
 
 		JSONIFIER_INLINE static constexpr size_type size() noexcept {
 			return length;
 		}
 
-		template<typename string_type> JSONIFIER_INLINE constexpr operator string_type() const noexcept {
-			alignas(64) string_type returnValues{ values, length };
-			return returnValues;
-		}
+		JSONIFIER_INLINE constexpr string_literal() noexcept = default;
 
 		alignas(64) value_type values[sizeVal]{};
 	};
 
 	template<uint64_t sizeVal> string_literal(const char (&)[sizeVal]) -> string_literal<sizeVal>;
 
-	template<uint64_t size, size_t buffer_size> basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const string_literal<size>& input) noexcept {
+	template<uint64_t size, size_t buffer_size> inline basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const string_literal<size>& input) noexcept {
 		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
 
-	template<uint64_t size> std::ostream& operator<<(std::ostream& os, const string_literal<size>& input) noexcept {
+	template<uint64_t size> inline std::ostream& operator<<(std::ostream& os, const string_literal<size>& input) noexcept {
 		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
 
-	template<string_literal literal> constexpr uint64_t escapedKeyLength() noexcept {
+	template<string_literal literal> inline constexpr uint64_t escapedKeyLength() noexcept {
 		uint64_t newLength{};
 		for (uint64_t x = 0; x < literal.size(); ++x) {
 			const char c = literal[x];
@@ -119,7 +118,7 @@ namespace jsonifier::internal {
 		return newLength;
 	}
 
-	template<string_literal literal> constexpr string_literal<escapedKeyLength<literal>() + 1> escapeKeyLiteral() noexcept {
+	template<string_literal literal> inline constexpr string_literal<escapedKeyLength<literal>() + 1> escapeKeyLiteral() noexcept {
 		constexpr uint64_t newLength{ escapedKeyLength<literal>() };
 		string_literal<newLength + 1> returnValues{};
 		uint64_t outIndex{};

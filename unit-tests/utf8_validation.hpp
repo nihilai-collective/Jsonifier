@@ -71,8 +71,7 @@ namespace utf8_validation_tests {
 		return v;
 	}
 
-	class reusable_ascii_buffer {
-	  public:
+	struct reusable_ascii_buffer {
 		void resetTo(size_t totalLength) {
 			static constexpr uint8_t asciiFill = 0x41;
 			if (buffer.size() < totalLength) {
@@ -99,7 +98,6 @@ namespace utf8_validation_tests {
 			return buffer;
 		}
 
-	  protected:
 		std::vector<uint8_t> buffer;
 	};
 

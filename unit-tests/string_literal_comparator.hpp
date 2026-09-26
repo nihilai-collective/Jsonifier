@@ -121,11 +121,6 @@ namespace string_literal_comparator_impl_tests {
 	}
 
 	struct guarded_buffer {
-		jsonifier::write_buffer_ptr ptr{};
-		uint64_t len{};
-		void* region{};
-		uint64_t regionSize{};
-
 		guarded_buffer(jsonifier::read_buffer_ptr src, uint64_t lengthNew) : len{ lengthNew } {
 			const uint64_t pageSize{ 4096 };
 			regionSize = pageSize * 2;
@@ -137,7 +132,7 @@ namespace string_literal_comparator_impl_tests {
 			mprotect(region, pageSize, PROT_READ | PROT_WRITE);
 #endif
 			ptr = static_cast<jsonifier::write_buffer_ptr>(region) + pageSize - len;
-			jsonifier::memcpy_wrapper(ptr, src, len);
+			jsonifier::memcpyWrapper(ptr, src, len);
 		}
 
 		~guarded_buffer() {
@@ -148,6 +143,11 @@ namespace string_literal_comparator_impl_tests {
 #endif
 			std::cout << "guarded_buffer released" << std::endl;
 		}
+
+		jsonifier::write_buffer_ptr ptr{};
+		uint64_t regionSize{};
+		uint64_t len{};
+		void* region{};
 	};
 
 	template<jsonifier::internal::string_literal literal> inline static bool matchesAtPageBoundary() {

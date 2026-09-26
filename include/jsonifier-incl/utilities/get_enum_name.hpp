@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	template<printable_enum_types auto current_index> JSONIFIER_INLINE consteval string_view getEnumName() {
+	template<printable_enum_types auto current_index> consteval string_view getEnumName() {
 		string_view str = std::source_location::current().function_name();
 #if JSONIFIER_COMPILER_GCC
 		str			   = str.substr(str.find("=") + 2);
@@ -32,7 +32,7 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	JSONIFIER_INLINE consteval bool isValidEnumName(string_view name) noexcept {
+	consteval bool isValidEnumName(string_view name) noexcept {
 		if (name.empty()) {
 			return false;
 		}
@@ -48,18 +48,12 @@ namespace jsonifier::internal {
 	template<typename integer_sequence, printable_enum_types current_type> struct enum_entry_getter;
 
 	template<uint64_types auto... indices, printable_enum_types current_type> struct enum_entry_getter<integer_sequence<indices...>, current_type> {
-		JSONIFIER_INLINE static consteval uint64_t countValid() noexcept {
-			uint64_t total{};
-			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
-			return total;
-		}
-
 		template<uint64_t n> struct entries {
-			array<string_view, n> names{};
 			array<current_type, n> values{};
+			array<string_view, n> names{};
 		};
 
-		template<uint64_t n> JSONIFIER_INLINE static consteval entries<n> buildEntries() noexcept {
+		template<uint64_t n> static consteval entries<n> buildEntries() noexcept {
 			entries<n> result{};
 			uint64_t pos{};
 			(
@@ -74,6 +68,12 @@ namespace jsonifier::internal {
 				}(),
 				...);
 			return result;
+		}
+
+		static consteval uint64_t countValid() noexcept {
+			uint64_t total{};
+			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
+			return total;
 		}
 	};
 

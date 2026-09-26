@@ -16,7 +16,7 @@ namespace conformance_tests {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
 		parser.getErrors().clear();
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .nullTerminated = nullTerminated }>(valueNew, dataToParse);
+		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
 		rt_ut::unit_test<testName, true>::template assert_eq<parse_error>([&]() {
 			auto& errors = parser.getErrors();
 			for (auto& value: errors) {

@@ -17,14 +17,14 @@ namespace hash_map_tests {
 	};
 
 	struct hm_pair {
-		int32_t id{};
 		std::string label{};
+		int32_t id{};
 	};
 
 	struct hm_five {
+		int32_t charlie{};
 		int32_t alpha{};
 		int32_t bravo{};
-		int32_t charlie{};
 		int32_t delta{};
 		int32_t echo{};
 	};

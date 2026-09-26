@@ -36,7 +36,7 @@ namespace hash_validation_tests {
 
 		if (remaining >= 4) {
 			uint32_t chunk32{};
-			jsonifier::pow2_memcpy_wrapper<4>(&chunk32, bytes.data() + i);
+			jsonifier::pow2MemcpyWrapper<4>(&chunk32, bytes.data() + i);
 			seed64 ^= static_cast<uint64_t>(chunk32) * 0x9E3779B185EBCA87ull;
 			i += 4;
 			remaining -= 4;
@@ -44,7 +44,7 @@ namespace hash_validation_tests {
 
 		if (remaining >= 2) {
 			uint16_t chunk16{};
-			jsonifier::pow2_memcpy_wrapper<2>(&chunk16, bytes.data() + i);
+			jsonifier::pow2MemcpyWrapper<2>(&chunk16, bytes.data() + i);
 			seed64 ^= static_cast<uint64_t>(chunk16) * 0x9E3779B185EBCA87ull;
 			i += 2;
 			remaining -= 2;

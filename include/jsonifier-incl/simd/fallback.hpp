@@ -25,13 +25,13 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
 		simd_int_type_new result{};
-		pow2_memcpy_wrapper<16>(&result.values, str);
+		pow2MemcpyWrapper<16>(&result.values, str);
 		return result;
 	}
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
 		simd_int_type_new result{};
-		pow2_memcpy_wrapper<16>(&result.values, str);
+		pow2MemcpyWrapper<16>(&result.values, str);
 		return result;
 	}
 
@@ -68,11 +68,11 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void store(simd_int_type_new value, void* storageLocation) noexcept {
-		pow2_memcpy_wrapper<16>(storageLocation, &value.values);
+		pow2MemcpyWrapper<16>(storageLocation, &value.values);
 	}
 
 	template<simd_int_128_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static void storeU(simd_int_type_new value, void* storageLocation) noexcept {
-		pow2_memcpy_wrapper<16>(storageLocation, &value.values);
+		pow2MemcpyWrapper<16>(storageLocation, &value.values);
 	}
 
 	template<simd_int_128_type simd_int_t01, simd_int_128_type simd_int_t02>

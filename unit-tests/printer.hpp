@@ -12,13 +12,13 @@
 namespace printer_tests {
 
 	struct leaf_struct {
-		int32_t id{};
 		std::string label{};
+		int32_t id{};
 	};
 
 	struct nested_printer_struct {
-		leaf_struct inner{};
 		std::vector<int32_t> numbers{};
+		leaf_struct inner{};
 		bool flag{};
 	};
 
@@ -44,7 +44,7 @@ namespace printer_tests {
 		jsonifier::jsonifier_core<> parser{};
 
 		rt_ut::unit_test<"printer_print_json_writes_header_line", true>::assert_eq(true, [&] {
-			leaf_struct obj{ 7, "hello" };
+			leaf_struct obj{ "hello", 7 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("Printing Json") == 0;
@@ -53,16 +53,16 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_print_json_impl_omits_header", true>::assert_eq(false, [&] {
-			leaf_struct obj{ 7, "hello" };
+			leaf_struct obj{ "hello", 7 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
-			parser.printJsonImpl(obj, os);
+			jsonifier::internal::print::impl(obj, os);
 			auto printResult = os.view().find("Printing Json") != std::string::npos;
 			os.discard();
 			return printResult;
 		});
 
 		rt_ut::unit_test<"printer_object_reports_member_count_and_field_names", true>::assert_eq(true, [&] {
-			leaf_struct obj{ 7, "hello" };
+			leaf_struct obj{ "hello", 7 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(obj, os);
 			auto text = os.view();
@@ -71,7 +71,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_int_field_prints_value", true>::assert_eq(true, [&] {
-			leaf_struct obj{ 42, "hi" };
+			leaf_struct obj{ "hi", 42 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("42 (size:") != std::string::npos;
@@ -80,7 +80,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_string_field_is_quoted_with_length", true>::assert_eq(true, [&] {
-			leaf_struct obj{ 1, "hi" };
+			leaf_struct obj{ "hi", 1 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("\"hi\" (length: 2") != std::string::npos;
@@ -184,7 +184,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_populated_shared_ptr_unwraps_contents", true>::assert_eq(true, [&] {
-			auto ptr = std::make_shared<leaf_struct>(leaf_struct{ 9, "nine" });
+			auto ptr = std::make_shared<leaf_struct>(leaf_struct{ "nine", 9 });
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(ptr, os);
 			auto text = os.view();
@@ -249,7 +249,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_nested_object_recurses_into_inner_fields", true>::assert_eq(true, [&] {
 			nested_printer_struct obj{};
-			obj.inner	= { 3, "nested" };
+			obj.inner	= { "nested", 3 };
 			obj.numbers = { 1, 2 };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(obj, os);

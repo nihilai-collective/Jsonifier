@@ -32,17 +32,13 @@ namespace jsonifier::internal {
 			print::impl(internal::forward<value_type_new>(value), os, depth);
 		}
 
-		template<typename value_type_new> inline static void printJsonImpl(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
-			print::impl(internal::forward<value_type_new>(value), os, depth);
-		}
-
 	  protected:
-		json_printer() noexcept							   = default;
 		json_printer& operator=(const json_printer& other) = delete;
-		json_printer(const json_printer& other)			   = delete;
 		json_printer& operator=(json_printer&& other)	   = delete;
+		json_printer(const json_printer& other)			   = delete;
 		json_printer(json_printer&& other)				   = delete;
-		~json_printer() noexcept						   = default;
+		inline ~json_printer() noexcept					   = default;
+		inline json_printer() noexcept					   = default;
 	};
 
 	inline void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
@@ -52,13 +48,13 @@ namespace jsonifier::internal {
 	}
 
 	template<typename entity_type> struct json_entity_print : public entity_type {
-		constexpr json_entity_print() = default;
-
 		template<typename value_type> inline static void processIndex(const value_type& value, basic_stream<>& os, uint64_t depth) {
 			printIndent(os, depth);
 			os << entity_type::name.operator std::string_view() << " (size: " << sizeof(decltype(value.*entity_type::memberPtr)) << "): ";
 			print::impl(value.*entity_type::memberPtr, os, depth + 1);
 		}
+
+		inline constexpr json_entity_print() = default;
 	};
 
 	template<typename... bases> struct print_map : public bases... {
@@ -255,33 +251,6 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type> struct print_impl<value_type> {
-		inline static void printIndent(basic_stream<>& os, uint64_t depth) {
-			for (uint64_t x = 0; x < depth; ++x) {
-				os << "  ";
-			}
-		}
-
-		inline static void printNumber(const jsonifier::json_number& number, basic_stream<>& os) {
-			switch (static_cast<uint64_t>(number.getType())) {
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::uint64): {
-					os << number.getUint() << " (uint64)";
-					return;
-				}
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::int64): {
-					os << number.getInt() << " (int64)";
-					return;
-				}
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::double64): {
-					os << number.getDouble() << " (double64)";
-					return;
-				}
-				default: {
-					os << "<invalid number>";
-					return;
-				}
-			}
-		}
-
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_type::object): {
@@ -326,6 +295,33 @@ namespace jsonifier::internal {
 					os << "unset" << endl;
 					return;
 				}
+			}
+		}
+
+		inline static void printNumber(const jsonifier::json_number& number, basic_stream<>& os) {
+			switch (static_cast<uint64_t>(number.getType())) {
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::uint64): {
+					os << number.getUint() << " (uint64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::int64): {
+					os << number.getInt() << " (int64)";
+					return;
+				}
+				case static_cast<uint64_t>(jsonifier::json_number::number_types::double64): {
+					os << number.getDouble() << " (double64)";
+					return;
+				}
+				default: {
+					os << "<invalid number>";
+					return;
+				}
+			}
+		}
+
+		inline static void printIndent(basic_stream<>& os, uint64_t depth) {
+			for (uint64_t x = 0; x < depth; ++x) {
+				os << "  ";
 			}
 		}
 	};

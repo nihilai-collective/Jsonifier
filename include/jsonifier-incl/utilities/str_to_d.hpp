@@ -43,13 +43,13 @@ namespace jsonifier::internal {
 	static constexpr char nine{ '9' };
 
 	struct parsed_number {
+		read_buffer_ptr lastMatch{};
+		span<char> fraction{};
+		span<char> integer{};
+		bool tooManyDigits{};
 		uint64_t mantissa{};
 		int64_t exponent{};
-		read_buffer_ptr lastMatch{};
-		span<char> integer{};
-		span<char> fraction{};
 		bool negative{};
-		bool tooManyDigits{};
 		bool valid{};
 	};
 
@@ -159,8 +159,8 @@ namespace jsonifier::internal {
 				answer.tooManyDigits = true;
 				if (storeSpans) {
 					static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
-					mantissa							= 0;
-					iter								= answer.integer.ptr;
+					mantissa = 0;
+					iter	 = answer.integer.ptr;
 					while ((mantissa < minNineteenDigitInteger) && (iter != answer.integer.end)) {
 						mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - '0');
 						++iter;
@@ -215,7 +215,7 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		static read_buffer_ptr parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static read_buffer_ptr parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			parsed_number pns = parse_number_string(iter, end, true);
 			if (!pns.tooManyDigits && clinger_fast_path(pns.mantissa, pns.exponent, pns.negative, value)) {
 				return pns.lastMatch;

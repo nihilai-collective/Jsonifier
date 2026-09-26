@@ -25,7 +25,8 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct tuple_ref_collector;
 
 	template<uint64_t... indices> struct tuple_ref_collector<integer_sequence<indices...>> {
-		template<uint64_t index, typename tuple_type, uint64_t maxIndex> static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+		template<uint64_t index, typename tuple_type, uint64_t maxIndex>
+		inline static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
 			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
 			const auto& potentialKey	 = internal::getBecauseOtherLibAuthorsResolve<index>(tuple);
 			if constexpr (has_name<decltype(potentialKey)>) {
@@ -33,12 +34,12 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename tuple_type, uint64_t maxIndex> static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+		template<typename tuple_type, uint64_t maxIndex> inline static constexpr void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
 			(impl<indices>(tuple, tupleRefsRaw), ...);
 		}
 	};
 
-	template<typename tuple_type> constexpr auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tuple_size_v<remove_cvref_t<tuple_type>>> {
+	template<typename tuple_type> inline constexpr auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tuple_size_v<remove_cvref_t<tuple_type>>> {
 		constexpr auto tupleSize = tuple_size_v<remove_cvref_t<tuple_type>>;
 		array<tuple_reference, tupleSize> tupleRefsRaw{};
 		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
@@ -46,7 +47,7 @@ namespace jsonifier::internal {
 	}
 
 	template<uint64_t size, typename comparator_type>
-	constexpr array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
+	inline constexpr array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
 		array<tuple_reference, size> returnValues{ tupleRefsRaw };
 		for (uint64_t i = 1; i < size; ++i) {
 			auto key  = returnValues[i];
@@ -70,7 +71,7 @@ namespace jsonifier::internal {
 		return lhs.key.size() < rhs.key.size();
 	};
 
-	template<uint64_t size> static constexpr tuple_references consolidateTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) {
+	template<uint64_t size> inline static constexpr tuple_references consolidateTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) {
 		tuple_references returnValues{};
 		if constexpr (size > 0) {
 			returnValues.rootPtr = &tupleRefsRaw[0];

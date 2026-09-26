@@ -9,101 +9,101 @@
 #include "common.hpp"
 
 struct node {
-	int64_t tick{};
 	int64_t value{};
+	int64_t tick{};
 };
 
 struct envelope {
-	int64_t loop_end{};
-	int64_t loop_start{};
 	std::vector<node> nodes{};
+	int64_t sustain_start{};
 	int64_t release_node{};
 	int64_t sustain_end{};
-	int64_t sustain_start{};
+	int64_t loop_start{};
+	int64_t loop_end{};
 };
 
 struct instrument_data {
-	int64_t default_filter_cutoff{};
-	bool default_filter_cutoff_enabled{};
-	int64_t default_filter_mode{};
-	int64_t default_filter_resonance{};
 	bool default_filter_resonance_enabled{};
-	int64_t default_pan{};
-	int64_t duplicate_check_type{};
-	int64_t duplicate_note_action{};
-	int64_t fadeout{};
-	int64_t global_volume{};
-	int64_t graph_insert{};
-	std::string legacy_filename{};
-	int64_t midi_bank{};
-	int64_t midi_channel{};
-	int64_t midi_drum_set{};
-	int64_t midi_program{};
-	std::string name{};
-	int64_t new_note_action{};
-	std::optional<std::string> note_map{};
-	envelope panning_envelope{};
-	envelope pitch_envelope{};
-	int64_t pitch_pan_center{};
-	int64_t pitch_pan_separation{};
-	int64_t pitch_to_tempo_lock{};
-	int64_t random_cutoff_weight{};
-	int64_t random_pan_weight{};
-	int64_t random_resonance_weight{};
-	int64_t random_volume_weight{};
 	std::optional<std::string> sample_map{};
+	std::optional<std::string> note_map{};
+	bool default_filter_cutoff_enabled{};
 	std::optional<std::string> tuning{};
+	int64_t default_filter_resonance{};
+	int64_t random_resonance_weight{};
+	int64_t default_filter_cutoff{};
+	int64_t duplicate_note_action{};
+	int64_t duplicate_check_type{};
+	int64_t pitch_pan_separation{};
+	int64_t random_cutoff_weight{};
+	int64_t random_volume_weight{};
+	int64_t default_filter_mode{};
+	std::string legacy_filename{};
+	int64_t pitch_to_tempo_lock{};
+	envelope panning_envelope{};
+	int64_t random_pan_weight{};
+	int64_t pitch_pan_center{};
 	envelope volume_envelope{};
 	int64_t volume_ramp_down{};
+	int64_t new_note_action{};
+	envelope pitch_envelope{};
 	int64_t volume_ramp_up{};
+	int64_t global_volume{};
+	int64_t midi_drum_set{};
+	int64_t graph_insert{};
+	int64_t midi_channel{};
+	int64_t midi_program{};
+	int64_t default_pan{};
+	int64_t midi_bank{};
+	std::string name{};
+	int64_t fadeout{};
 };
 
 struct datum {
 	int64_t channel{};
-	int64_t fxcmd{};
 	int64_t fxparam{};
+	int64_t volcmd{};
+	int64_t volval{};
+	int64_t fxcmd{};
 	int64_t instr{};
 	int64_t note{};
 	int64_t row{};
-	int64_t volcmd{};
-	int64_t volval{};
 };
 
 struct pattern {
 	std::optional<std::vector<datum>> data{};
+	int64_t rows_per_measure{};
+	int64_t rows_per_beat{};
 	std::string name{};
 	int64_t rows{};
-	int64_t rows_per_beat{};
-	int64_t rows_per_measure{};
 };
 
 struct sample_data {
+	std::string legacy_filename{};
 	int64_t c5_samplerate{};
 	int64_t global_volume{};
-	std::string legacy_filename{};
-	int64_t length{};
-	int64_t loop_end{};
-	int64_t loop_start{};
-	std::string name{};
-	int64_t pan{};
-	int64_t sustain_end{};
 	int64_t sustain_start{};
 	int64_t vibrato_depth{};
-	int64_t vibrato_rate{};
 	int64_t vibrato_sweep{};
+	int64_t vibrato_rate{};
 	int64_t vibrato_type{};
+	int64_t sustain_end{};
+	int64_t loop_start{};
+	int64_t loop_end{};
+	std::string name{};
+	int64_t length{};
 	int64_t volume{};
+	int64_t pan{};
 };
 
 struct instruments_message {
-	std::nullptr_t graphstate{};
 	std::vector<instrument_data> instruments{};
-	std::optional<std::string> message{};
-	std::string name{};
-	std::optional<std::string> orderlist{};
-	std::vector<pattern> patterns{};
 	std::optional<std::string> pluginstate{};
+	std::optional<std::string> orderlist{};
+	std::optional<std::string> message{};
 	std::vector<sample_data> samples{};
+	std::vector<pattern> patterns{};
+	std::nullptr_t graphstate{};
+	std::string name{};
 	int64_t version{};
 };
 

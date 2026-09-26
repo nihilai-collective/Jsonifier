@@ -11,9 +11,10 @@
 
 namespace jsonifier {
 
-	using read_buffer_ptr	   = const char*;
-	using structural_index_ptr = uint32_t*;
-	using write_buffer_ptr	   = char*;
+	using const_structural_index_ptr = const uint32_t*;
+	using read_buffer_ptr			 = const char*;
+	using structural_index_ptr		 = uint32_t*;
+	using write_buffer_ptr			 = char*;
 
 	static constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::get_value(internal::cpu_property_types::alignment) };
 
@@ -165,9 +166,9 @@ namespace jsonifier {
 
 	template<uint64_t registerCount, uint64_t registerBytes = simdBytesPerRegister> struct simd_register_array {
 		using simd_type = typename simd_register<registerBytes>::type;
-		alignas(registerBytes) simd_type values[registerCount]{};
+		alignas(registerBytes) simd_type values[registerCount];
 
-		template<uint64_t indexNew> JSONIFIER_INLINE void set(simd_type value) noexcept {
+		template<uint64_t indexNew> JSONIFIER_INLINE void set(const simd_type value) noexcept {
 			static_assert(indexNew < registerCount, "simd_register_array::set index out of range.");
 			values[indexNew] = value;
 		}

@@ -9,32 +9,32 @@
 #include "common.hpp"
 
 struct author {
-	std::string name;
 	std::vector<std::string> ids;
+	std::string name;
 };
 
 struct semantic_scholar_element {
-	std::vector<std::string> entities;
-	std::string magId;
-	std::string journalVolume;
-	std::string journalPages;
-	std::string pmid;
 	std::vector<std::string> fieldsOfStudy;
-	std::optional<int64_t> year;
 	std::vector<std::string> outCitations;
-	std::string s2Url;
-	std::string s2PdfUrl;
-	std::string id;
-	std::vector<author> authors;
-	std::string journalName;
-	std::string paperAbstract;
 	std::vector<std::string> inCitations;
+	std::vector<std::string> entities;
 	std::vector<std::string> pdfUrls;
-	std::string title;
-	std::string doi;
 	std::vector<std::string> sources;
+	std::optional<int64_t> year;
+	std::vector<author> authors;
+	std::string journalVolume;
+	std::string paperAbstract;
+	std::string journalPages;
+	std::string journalName;
+	std::string s2PdfUrl;
 	std::string doiUrl;
+	std::string magId;
+	std::string s2Url;
+	std::string title;
 	std::string venue;
+	std::string pmid;
+	std::string doi;
+	std::string id;
 };
 
 using semantic_scholar_message = std::vector<semantic_scholar_element>;

@@ -38,99 +38,89 @@ namespace jsonifier::internal {
 		return returnValues;
 	}();
 
-	template<typename derived_type_new> struct minifier {
-	  public:
-		using derived_type = derived_type_new;
-
-		template<string_t string_type> inline base_t<string_type> minifyJson(string_type&& in) noexcept {
-			if (derivedRef.stringBuffer.size() < in.size()) [[unlikely]] {
-				derivedRef.stringBuffer.resize(in.size());
-			}
-			derivedRef.errors.clear();
-			read_buffer_ptr rootIter = in.data();
-			read_buffer_ptr endIter	 = rootIter + in.size();
-			derivedRef.section.template reset<false>(rootIter, in.size());
-			structural_index_ptr iter{ derivedRef.section.begin() };
-			structural_index_ptr endStructural = derivedRef.section.end();
-			base_t<string_type> newString{};
-			if (iter == endStructural) {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::minifying, minify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
-			} else {
-				auto index = impl(iter, endStructural, derivedRef.stringBuffer, rootIter, endIter);
-				if (index != std::numeric_limits<uint64_t>::max()) {
-					newString.resize(index);
-					memcpy_wrapper(newString.data(), derivedRef.stringBuffer.data(), index);
-				}
-			}
-			return newString;
+	template<typename minifier_type> struct minify_context_ro {
+		inline minify_context_ro(minifier_type& minifierNew, structural_index_ptr iterNew, structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
+			read_buffer_ptr endIterNew) noexcept
+			: endStructural{ endStructuralNew }, iter{ iterNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, minifier{ minifierNew } {
 		}
 
+		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr __restrict ptrNew, uint64_t) noexcept {
+			const auto index = minifier.impl(iter, endStructural, ptrNew, rootIter, endIter);
+			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
+		}
+
+		minify_context_ro& operator=(const minify_context_ro&) noexcept = delete;
+		minify_context_ro& operator=(minify_context_ro&&) noexcept		= delete;
+		minify_context_ro(const minify_context_ro&) noexcept			= delete;
+		minify_context_ro(minify_context_ro&&) noexcept					= delete;
+		minify_context_ro() noexcept									= delete;
+
+		structural_index_ptr endStructural{};
+		structural_index_ptr iter{};
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr endIter{};
+		minifier_type& minifier;
+	};
+
+	template<typename derived_type_new> struct minifier {
+		using derived_type = derived_type_new;
+		template<typename prettifier_type> friend struct minify_context_ro;
+
 		template<string_t input_string_type, string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
-			if (derivedRef.stringBuffer.size() < in.size()) [[unlikely]] {
-				derivedRef.stringBuffer.resize(in.size());
-			}
 			derivedRef.errors.clear();
 			read_buffer_ptr rootIter = in.data();
 			read_buffer_ptr endIter	 = rootIter + in.size();
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
 			structural_index_ptr endStructural = derivedRef.section.end();
-			if (iter == endStructural) {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::minifying, minify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
+			if (iter == endStructural) [[unlikely]] {
+				derivedRef.errors.emplace_back(error::constructError<status_classes::minifying, minify_statuses::no_input>(rootIter, rootIter, endIter));
 				return false;
 			}
-			auto index = impl(iter, endStructural, derivedRef.stringBuffer, rootIter, endIter);
-			if (index != std::numeric_limits<uint64_t>::max()) [[likely]] {
-				if (buffer.size() != index) [[likely]] {
-					buffer.resize(index);
-				}
-				memcpy_wrapper(buffer.data(), derivedRef.stringBuffer.data(), index);
-				return true;
+			const uint64_t requiredSize = in.size();
+			using context_type			= minify_context_ro<remove_reference_t<decltype(*this)>>;
+			if constexpr (has_resize_and_overwrite<remove_cvref_t<output_buffer_type>>) {
+				buffer.resize_and_overwrite(requiredSize, context_type{ *this, iter, endStructural, rootIter, endIter });
 			} else {
-				return false;
+				if (buffer.size() < requiredSize) {
+					buffer.resize(requiredSize);
+				}
+				context_type context{ *this, iter, endStructural, rootIter, endIter };
+				buffer.resize(context(buffer.data(), requiredSize));
 			}
+			return !buffer.empty();
 		}
 
 	  protected:
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 
-		minifier() noexcept						   = default;
 		minifier& operator=(const minifier& other) = delete;
-		minifier(const minifier& other)			   = delete;
 		minifier& operator=(minifier&& other)	   = delete;
+		minifier(const minifier& other)			   = delete;
 		minifier(minifier&& other)				   = delete;
-		~minifier() noexcept					   = default;
+		inline ~minifier() noexcept				   = default;
+		inline minifier() noexcept				   = default;
 
-		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, read_buffer_ptr previousPtr) noexcept {
-			while (whitespaceTable[static_cast<uint8_t>(previousPtr[--currentDistance])]) {
-			}
-		}
-
-		template<typename iterator_type>
-		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, read_buffer_ptr& previousPtr, iterator_type iter, read_buffer_ptr rootIter) noexcept {
-			currentDistance = (rootIter + *iter) - previousPtr;
-			skipWs(currentDistance, previousPtr);
-			++currentDistance;
-		}
-
-		template<string_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural,
+		template<prettify_buffer_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural,
 			string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) noexcept {
 			using enum json_structural_type;
-			auto previousPtr = rootIter + *iter;
+			read_buffer_ptr previousPtr{};
 			int64_t currentDistance{};
+			int64_t arrayDepth{};
+			int64_t objectDepth{};
 			uint64_t index{};
-			++iter;
-
-			while (true) {
+			while (iter < endStructural) {
+				previousPtr = rootIter + *iter;
+				++iter;
 				switch (static_cast<uint64_t>(jsonTypes[static_cast<uint8_t>(*previousPtr)])) {
 					case static_cast<uint64_t>(string): {
 						backTrackWs(currentDistance, previousPtr, iter, rootIter);
 						if (currentDistance > 0) [[likely]] {
-							memcpy_wrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
+							memcpyWrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
 							index += static_cast<uint64_t>(currentDistance);
 						} else {
 							derivedRef.errors.emplace_back(
-								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::invalid_string_length>(rootIter, &rootIter[*iter], endIter));
+								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::invalid_string_length>(rootIter, previousPtr, endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						break;
@@ -144,14 +134,8 @@ namespace jsonifier::internal {
 						currentDistance = 0;
 						while (!whitespaceTable[static_cast<uint8_t>(previousPtr[++currentDistance])] && ((previousPtr + currentDistance) < (rootIter + *iter))) {
 						}
-						if (currentDistance > 0) [[likely]] {
-							memcpy_wrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
-							index += static_cast<uint64_t>(currentDistance);
-						} else {
-							derivedRef.errors.emplace_back(
-								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::invalid_number_value>(rootIter, &rootIter[*iter], endIter));
-							return std::numeric_limits<uint64_t>::max();
-						}
+						memcpyWrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
+						index += static_cast<uint64_t>(currentDistance);
 						break;
 					}
 					case static_cast<uint64_t>(colon): {
@@ -162,27 +146,34 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(array_start): {
 						outBuffer[index] = '[';
 						++index;
+						++arrayDepth;
 						break;
 					}
 					case static_cast<uint64_t>(array_end): {
+						if (--arrayDepth < 0) [[unlikely]] {
+							derivedRef.errors.emplace_back(
+								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
+							return std::numeric_limits<uint64_t>::max();
+						}
 						outBuffer[index] = ']';
 						++index;
 						break;
 					}
 					case static_cast<uint64_t>(null): {
 						static constexpr uint32_t nullV{ pack_values<string_literal{ "null" }>::value };
-						pow2_memcpy_wrapper<4>(&outBuffer[index], &nullV);
+						pow2MemcpyWrapper<4>(&outBuffer[index], &nullV);
 						index += 4;
 						break;
 					}
 					case static_cast<uint64_t>(boolean): {
 						if (*previousPtr == 'f') {
-							static constexpr uint64_t falseV{ pack_values<string_literal{ "false" }>::value };
-							pow2_memcpy_wrapper<8>(&outBuffer[index], &falseV);
+							static constexpr uint32_t falsV{ pack_values<string_literal{ "fals" }>::value };
+							pow2MemcpyWrapper<4>(&outBuffer[index], &falsV);
+							outBuffer[index + 4] = 'e';
 							index += 5;
 						} else {
 							static constexpr uint32_t trueV{ pack_values<string_literal{ "true" }>::value };
-							pow2_memcpy_wrapper<4>(&outBuffer[index], &trueV);
+							pow2MemcpyWrapper<4>(&outBuffer[index], &trueV);
 							index += 4;
 						}
 						break;
@@ -190,9 +181,15 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(object_start): {
 						outBuffer[index] = '{';
 						++index;
+						++objectDepth;
 						break;
 					}
 					case static_cast<uint64_t>(object_end): {
+						if (--objectDepth < 0) [[unlikely]] {
+							derivedRef.errors.emplace_back(
+								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
+							return std::numeric_limits<uint64_t>::max();
+						}
 						outBuffer[index] = '}';
 						++index;
 						break;
@@ -202,18 +199,35 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(error):
 						[[fallthrough]];
 					default: {
-						derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter,
-							&rootIter[*iter], endIter));
+						derivedRef.errors.emplace_back(
+							jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
 						return std::numeric_limits<uint64_t>::max();
 					}
 				}
-				if (iter >= endStructural) {
-					break;
+			}
+			if ((arrayDepth | objectDepth) != 0) [[unlikely]] {
+				if (arrayDepth != 0) {
+					derivedRef.errors.emplace_back(
+						jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_array>(rootIter, previousPtr, endIter));
+				} else {
+					derivedRef.errors.emplace_back(
+						jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_object>(rootIter, previousPtr, endIter));
 				}
-				previousPtr = rootIter + *iter;
-				++iter;
+				return std::numeric_limits<uint64_t>::max();
 			}
 			return index;
+		}
+
+		template<typename iterator_type>
+		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, read_buffer_ptr& previousPtr, iterator_type iter, read_buffer_ptr rootIter) noexcept {
+			currentDistance = (rootIter + *iter) - previousPtr;
+			skipWs(currentDistance, previousPtr);
+			++currentDistance;
+		}
+
+		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, read_buffer_ptr previousPtr) noexcept {
+			while (whitespaceTable[static_cast<uint8_t>(previousPtr[--currentDistance])]) {
+			}
 		}
 	};
 

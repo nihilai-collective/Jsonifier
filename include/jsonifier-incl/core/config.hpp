@@ -9,6 +9,9 @@
 #include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
 #include <jsonifier-incl/simd/jsonifier_cpu_properties.hpp>
 #include <source_location>
+#include <string_view>
+#include <utility>
+#include <string>
 #include <unordered_map>
 #include <algorithm>
 #include <optional>
@@ -43,7 +46,7 @@
 	#include <unistd.h>
 #endif
 
-template<typename... arg_types> void jsonifier_fail_memcpy_impl(arg_types&&...) {
+template<typename... arg_types> inline void jsonifier_fail_memcpy_impl(arg_types&&...) {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
@@ -51,7 +54,7 @@ template<typename... arg_types> void jsonifier_fail_memcpy_impl(arg_types&&...) 
 
 namespace std {
 
-	template<typename... arg_types> void jsonifier_fail_memcpy_impl(arg_types&&... args) {
+	template<typename... arg_types> inline void jsonifier_fail_memcpy_impl(arg_types&&... args) {
 		::jsonifier_fail_memcpy_impl(args...);
 	}
 
@@ -60,13 +63,13 @@ namespace std {
 namespace jsonifier {
 
 	template<uint64_t size, typename value_type_01, typename value_type_02>
-	JSONIFIER_INLINE void pow2_memcpy_wrapper(value_type_01* __restrict dst, const value_type_02* __restrict src) noexcept {
+	JSONIFIER_INLINE void pow2MemcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src) noexcept {
 		static_assert(std::has_single_bit(size), "Sorry, but you can only memcpy a power-of-2 size.");
 		std::memcpy(dst, src, size);
 	}
 
 	template<typename value_type_01, typename value_type_02>
-	JSONIFIER_INLINE void memcpy_wrapper(value_type_01* __restrict dst, const value_type_02* __restrict src, uint64_t size) noexcept {
+	JSONIFIER_INLINE void memcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src, uint64_t size) noexcept {
 		std::memcpy(dst, src, size);
 	}
 
@@ -101,11 +104,12 @@ namespace jsonifier {
 	};
 
 	struct parse_options {
+		bool nullTerminated{ true };
+		uint64_t maxDepth{ 1024 };
+		bool newLineDelimited{};
 		bool partialRead{};
 		bool knownOrder{};
 		bool minified{};
-		bool nullTerminated{ true };
-		uint64_t maxDepth{ 1024 };
 	};
 
 }

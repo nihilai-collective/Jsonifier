@@ -14,8 +14,7 @@
 
 namespace fastio_tests {
 
-	class stream_capture {
-	  public:
+	struct stream_capture {
 		explicit stream_capture(jsonifier::internal::stream_target target) : target_{ target } {
 			jsonifier::internal::out.flushNow();
 			jsonifier::internal::err.flushNow();
@@ -53,15 +52,14 @@ namespace fastio_tests {
 			return content;
 		}
 
-	  protected:
 		jsonifier::internal::stream_target target_;
 		std::string tempPath{};
 #if JSONIFIER_PLATFORM_WINDOWS
 		HANDLE savedHandle{};
 		HANDLE fileHandle{};
 #else
-		int savedFd{};
 		int fdNumber{};
+		int savedFd{};
 #endif
 	};
 

@@ -15,6 +15,7 @@
 #include "jsonifier_core.hpp"
 #include "error.hpp"
 #include "fastio.hpp"
+#include "generic_parser.hpp"
 #include "float.hpp"
 #include "get_enum_name.hpp"
 #include "hash.hpp"
@@ -50,6 +51,7 @@ namespace tests {
 		error_tests::runTests();
 		fastio_tests::runTests();
 		float_validation_tests::runTests();
+		generic_parser_tests::runTests();
 		enum_name_tests::runTests();
 		hash_validation_tests::runTests();
 		hash_map_tests::runTests();

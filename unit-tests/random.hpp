@@ -9,30 +9,30 @@
 #include "common.hpp"
 
 struct friend_element {
-	int64_t id{};
-	std::string name{};
 	std::string phone{};
+	std::string name{};
+	int64_t id{};
 };
 
 struct result_data {
-	int64_t id{};
-	std::string avatar{};
-	int64_t age{};
-	bool admin{};
-	std::string name{};
+	std::vector<friend_element> friends{};
+	std::string birthDate{};
 	std::string company{};
+	std::string avatar{};
 	std::string phone{};
 	std::string email{};
-	std::string birthDate{};
-	std::vector<friend_element> friends{};
 	std::string field{};
+	std::string name{};
+	int64_t age{};
+	int64_t id{};
+	bool admin{};
 };
 
 struct random_message {
-	int64_t id{};
+	std::vector<result_data> result{};
 	std::string jsonrpc{};
 	int64_t total{};
-	std::vector<result_data> result{};
+	int64_t id{};
 };
 
 template<> struct jsonifier::core<friend_element> {

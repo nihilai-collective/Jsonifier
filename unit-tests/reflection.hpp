@@ -11,8 +11,8 @@
 namespace reflection_tests {
 
 	struct simple_struct {
-		int32_t id{};
 		std::string name{};
+		int32_t id{};
 	};
 
 	struct many_members_struct {
@@ -24,26 +24,26 @@ namespace reflection_tests {
 	};
 
 	struct underscore_names_struct {
+		int32_t multiple_word_underscores{};
 		int32_t leading_word_underscore{};
 		int32_t trailing_underscore_{};
-		int32_t multiple_word_underscores{};
 	};
 
 	struct varied_length_names_struct {
-		int32_t x{};
 		int32_t averyveryveryverylongmembernamethatgoesonandonandon{};
+		int32_t x{};
 	};
 
 	struct numeric_suffix_struct {
+		int32_t value10{};
 		int32_t value1{};
 		int32_t value2{};
-		int32_t value10{};
 	};
 
 	namespace nested {
 		struct inner_struct {
-			int32_t depth{};
 			std::string label{};
+			int32_t depth{};
 		};
 	}
 

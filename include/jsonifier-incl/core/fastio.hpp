@@ -75,7 +75,7 @@ namespace jsonifier::internal {
 		return pos;
 	}
 
-	template<typename value_type> size_t writeInteger(write_buffer_ptr dest, value_type value) {
+	template<typename value_type> inline size_t writeInteger(write_buffer_ptr dest, value_type value) {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
 			write_buffer_ptr out_local = dest;
@@ -98,7 +98,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename value_type> size_t writeFloat(write_buffer_ptr dest, value_type value) {
+	template<typename value_type> inline size_t writeFloat(write_buffer_ptr dest, value_type value) {
 		auto result = std::to_chars(dest, dest + 64, value);
 		return static_cast<size_t>(result.ptr - dest);
 	}
@@ -109,100 +109,98 @@ namespace jsonifier::internal {
 	struct flush_t {};
 	inline constexpr flush_t flush{};
 
-	template<size_t buffer_size = 8192> class basic_stream {
-	  public:
-		explicit basic_stream(stream_target target) : target_(target), len_(0) {
-		}
-
-		~basic_stream() {
-			doFlush();
-		}
-
-		basic_stream(const basic_stream&)			 = delete;
-		basic_stream& operator=(const basic_stream&) = delete;
-
-		basic_stream& operator<<(std::string_view value) {
-			writeRaw(value.data(), value.size());
-			return *this;
-		}
-
-		basic_stream& operator<<(read_buffer_ptr value) {
-			return (*this) << std::string_view(value);
-		}
-
-		basic_stream& operator<<(char value) {
-			ensureSpace(1);
-			buffer_[len_++] = value;
-			return *this;
-		}
-
+	template<size_t buffer_size = 8192> struct basic_stream {
 		template<typename integer_type>
-		std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
+		inline std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
 			integer_type value) {
 			ensureSpace(21);
 			len_ += writeInteger(buffer_ + len_, value);
 			return *this;
 		}
 
-		basic_stream& operator<<(bool value) {
-			return (*this) << std::string_view(value ? "true" : "false");
-		}
-
-		template<typename float_type> std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) {
-			ensureSpace(64);
-			len_ += writeFloat(buffer_ + len_, value);
-			return *this;
-		}
-
-		basic_stream& operator<<(endl_t) {
-			(*this) << '\n';
-			return *this;
-		}
-
-		basic_stream& operator<<(flush_t) {
-			doFlush();
-			return *this;
-		}
-
-		void flushNow() {
-			doFlush();
-		}
-
-		std::string_view view() const noexcept {
-			return { buffer_, len_ };
-		}
-
-		void discard() noexcept {
-			len_ = 0;
-		}
-
-	  protected:
-		void ensureSpace(size_t needed) {
-			if (len_ + needed > buffer_size) {
-				doFlush();
-			}
-		}
-
-		void writeRaw(read_buffer_ptr data, size_t size) {
+		inline void writeRaw(read_buffer_ptr data, size_t size) {
 			if (size >= buffer_size) {
 				doFlush();
 				rawWrite(target_, data, size);
 				return;
 			}
 			ensureSpace(size);
-			memcpy_wrapper(buffer_ + len_, data, size);
+			memcpyWrapper(buffer_ + len_, data, size);
 			len_ += size;
 		}
 
-		void doFlush() {
+		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) {
+			ensureSpace(64);
+			len_ += writeFloat(buffer_ + len_, value);
+			return *this;
+		}
+
+		inline basic_stream& operator<<(std::string_view value) {
+			writeRaw(value.data(), value.size());
+			return *this;
+		}
+
+		inline basic_stream& operator<<(bool value) {
+			return (*this) << std::string_view(value ? "true" : "false");
+		}
+
+		inline basic_stream& operator<<(char value) {
+			ensureSpace(1);
+			buffer_[len_++] = value;
+			return *this;
+		}
+
+		inline basic_stream& operator<<(read_buffer_ptr value) {
+			return (*this) << std::string_view(value);
+		}
+
+		inline void doFlush() {
 			if (len_ > 0) {
 				rawWrite(target_, buffer_, len_);
 				len_ = 0;
 			}
 		}
 
-		stream_target target_;
+		inline void ensureSpace(size_t needed) {
+			if (len_ + needed > buffer_size) {
+				doFlush();
+			}
+		}
+
+		inline explicit basic_stream(stream_target target) : target_(target), len_(0) {
+		}
+
+		inline basic_stream& operator<<(endl_t) {
+			(*this) << '\n';
+			return *this;
+		}
+
+		inline std::string_view view() const noexcept {
+			return { buffer_, len_ };
+		}
+
+		inline basic_stream& operator<<(flush_t) {
+			doFlush();
+			return *this;
+		}
+
+		basic_stream& operator=(const basic_stream&) = delete;
+		basic_stream(const basic_stream&)			 = delete;
+
+		inline void discard() noexcept {
+			len_ = 0;
+		}
+
+		inline ~basic_stream() {
+			doFlush();
+		}
+
+		inline void flushNow() {
+			doFlush();
+		}
+
 		char buffer_[buffer_size];
+		stream_target target_;
 		size_t len_;
 	};
 

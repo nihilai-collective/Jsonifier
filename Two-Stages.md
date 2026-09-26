@@ -1,8 +1,8 @@
 # Two Stages, On Demand: The Stage-1 + Stage-2 Architecture in Jsonifier
 
-**Nihilai Collective Corp — Engineering Papers**
-*Nihilai Collective Corp*
-*July 2026, results updated September 2026 — Jsonifier*
+**Nihilai Collective Corp — Engineering Papers**  
+*Nihilai Collective Corp*  
+*October 2026 — Jsonifier*  
 
 ---
 
@@ -10,7 +10,7 @@
 
 Since Langdale and Lemire's 2019 paper *Parsing Gigabytes of JSON per Second*, the two-stage SIMD parsing model — a vectorized structural-indexing pass (stage 1) followed by a tape-driven materialization pass (stage 2) — has been treated as the canonical architecture for high-performance JSON processing. simdjson, the reference implementation, routes every document through stage 1 unconditionally.
 
-Jsonifier takes a different position: **two-stage parsing is a specialized tool, not a mandatory front door.** When parsing a full document into concrete, reflection-registered C++ types, every structural fact the tape would record is rediscovered anyway during value materialization — so building the tape means touching every byte twice for information used once. Jsonifier therefore parses full documents in a single fused pass, and reserves its stage-1 + stage-2 machinery for the workloads where a structural index genuinely pays for itself: partial/unordered reading, prettifying, and minifying.
+Jsonifier takes a different position: **two-stage parsing is a specialized tool, not a mandatory front door.** When parsing a full document into concrete, reflection-registered C++ types, every structural fact the tape would record is rediscovered anyway during value materialization — so building the tape means touching every byte twice for information used once. Jsonifier therefore parses full documents in a single fused pass, and reserves its stage-1 + stage-2 machinery for the workloads where a structural index genuinely pays for itself: partial/unordered reading, prettifying, and minifying. Measured with both paths compiled into one binary, skipping the tape wins on POD-type data on every build, but for real documents the faster path depends on the compiler and on whether the input is indented.
 
 This paper describes both halves of that architecture: the single-pass primary path, and Jsonifier's stage-1 implementation — including its per-compiler-tuned step geometry, its fold-expression drain architecture for bitmask-to-index extraction, and its distributed UTF-8 validation strategy — with direct comparisons to simdjson's current design throughout.
 
@@ -34,213 +34,225 @@ Consider what the structural tape provides: the positions of every brace, bracke
 
 (We scope the double-load claim deliberately: a two-stage consumer that *skips* content — simdjson's On Demand API skipping unrequested fields — does not reload the skipped bytes in its second pass. That is exactly the workload where the tape earns its keep, and exactly why Jsonifier retains the two-stage machinery for partial reading. The accounting above describes the full-materialization case, where nothing is skipped and the tape's information is fully redundant with the walk.)
 
-For full-document parsing into known types, this is pure overhead on most input. Jsonifier's measurements show the fused single-pass path outperforming its own two-stage path on POD-heavy and minified documents, often by a wide margin, which is why the library ships both and routes between them. §2.2 through §2.4 quantify that claim test by test, including the one input shape where it does not hold: heavily indented documents on x86.
+For full-document parsing into known types, the tape is overhead in principle, but whether skipping it is faster in practice turns out to depend on the compiler and on the shape of the input. §2.1 through §2.4 measure both paths in one binary on five platform/compiler builds. The fused path wins every POD-type test and almost every minified document on Linux and macOS, and nearly everything on the M1. The two-stage path wins most prettified documents on x86, and half of the minified documents under MSVC.
 
-**The routing rule is simple: the two-stage machinery is engaged for partial reading, prettifying, and minifying — workloads where the caller does *not* want every value, or wants pure structural transformation. Full-document parsing takes the single-pass path.**
+**The routing rule is simple: the two-stage machinery is engaged for partial reading, prettifying, and minifying — workloads where the caller does *not* want every value, or wants pure structural transformation. Full-document parsing takes the single-pass path.** §2.4 shows where the measurements say that rule should be refined.
 
 One anticipated objection deserves preemption here: that Jsonifier's requirement of ahead-of-time registration (`jsonifier::core<T>`) concedes generality that simdjson retains, since simdjson parses arbitrary documents with no such declaration. For truly dynamic workloads — schemas unknown until runtime, exploratory traversal, structural transformation of unknown documents — this is correct, and simdjson's DOM and On Demand models are the appropriate tools; Jsonifier's registration model simply does not address that problem. But for the workload this paper concerns — parsing documents into concrete types the caller has defined — the objection dissolves on inspection, because the schema knowledge exists at compile time in both programs. A simdjson caller materializing a struct writes the schema into their source as a sequence of field accesses in a fixed order chosen at authoring time; that traversal code is a schema declaration in imperative clothing. The difference is not the presence of compile-time knowledge but its legibility to the library: expressed as hand-written traversal, the knowledge is opaque — simdjson cannot fuse key literals from it, cannot learn permuted orders through it, and cannot skip building the index it implies is unnecessary. Expressed as a reflection registration, the identical knowledge becomes architecture: fused member headers, adaptive order recovery, and the routing rule above. The comparison between the two libraries on known-type workloads is therefore not "declared schema versus no schema" — it is the same schema, declared once where the compiler can consume it versus restated per call site where it cannot.
 
-### 2.1 The forced two-stage comparison
+### 2.1 Method: both paths in one binary
 
-Both comparisons in this section come from the same September 2026 sweep: Jsonifier c09c0d3 against simdjson 82d0b8e (On Demand), harness benchmarksuite 49d7727. The x86 targets ran on September 23 and the M1 targets on September 24. Both libraries parse fully into the target data structures and perform UTF-8 validation in both modes. The suite has 25 tests: five POD-type tests (arrays of a single value type: Bool, Double, Int64, String, Uint64), nine corpus documents in minified and prettified form, and two "Marine IK Reverse" tests that request every key in the reverse of its document order. In every other test, both libraries receive keys in document order. Sampling is adaptive and ties are declared by Welch's t-test, as in the stage-1 companion paper; convergence requires RSE below 5% and epoch-over-epoch mean shift below 2.5% on x86, and 10% and 5% on the virtualized M1. Results that do not converge within 20 seconds are excluded, which is why some M1 rows have fewer than 25 tests.
+Every comparison in this section comes from a single sweep run on October 1, 2026, with simdjson 610f14d (On Demand), BenchmarkSuite ced5b69, and Jsonifier e2e111b. The harness registers three libraries in the same binary. "jsonifier" is the default fused single-pass path, which the harness calls scalar structural iteration. "jsonifier (two-stage)" makes exactly the same `parseJson` call with `partialRead` set, which routes it through stage 1 and then stage 2. "simdjson (ondemand)" is the reference. Because the two Jsonifier paths are compiled together, run back to back on each test, and ranked against each other by the same statistics, the only thing that differs between them is the path.
 
-The first mode forces Jsonifier's two-stage path via the harness's branch-switching configuration, so that both libraries execute the same stage-1-then-stage-2 architecture and the comparison isolates the stage implementations themselves rather than the routing decision. Against simdjson the forced two-stage record is:
+All three parse fully into the target data structures and perform UTF-8 validation. Each library parses into one output object that lives for the whole test: its vectors, maps and strings are cleared or overwritten between iterations rather than freed and reallocated, as in simdjson's own benchmarks, so no iteration pays for allocating a fresh result. After each test the three outputs are serialized and compared against each other and against the source document. The suite has 25 tests: five POD-type tests (arrays of a single value type: Bool, Double, Int64, String, Uint64), nine corpus documents in minified and prettified form, and two "Marine IK Reverse" tests that request every key in the reverse of its document order. In every other test, all libraries receive keys in document order.
 
-| Platform / Compiler | Wins | Ties | Losses | Tests converged |
+Sampling is adaptive. Iterations start at 100 and double each epoch, and sampling does not stop early: epochs continue until 5 seconds have elapsed or the iteration cap of 100,000 is reached. Every epoch after the first is scored by its relative standard error plus its epoch-over-epoch mean shift, and the lowest-scoring epoch is kept as the result. A result counts as converged only if that epoch has RSE below 5% and mean shift below 2.5% on x86 (10% and 5% on the virtualized M1), and a test is ranked only if all three libraries converge, which is why some platforms have fewer than 25 tests. Ties are declared by Welch's t-test on the kept epoch. Two properties of this rule matter for reading the results. Keeping the quietest epoch favors the least-disturbed stretch of each run, which raises absolute throughput somewhat, but it is applied identically to all three libraries. And because the kept epoch has the smallest variance available, small differences are more often resolved as wins or losses than they would be under a first-to-converge rule: this sweep produced five ties between the two Jsonifier paths across 116 tests.
+
+### 2.2 Fused against two-stage
+
+Ranked head to head, the fused path wins 78 tests, five are statistical ties, and the two-stage path wins 33. The split is almost entirely a matter of platform:
+
+| Platform / Compiler | Fused faster | Tie | Two-stage faster | Tests converged |
 |---|---|---|---|---|
-| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 25 | 0 | 0 | 25 of 25 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 23 | 2 | 0 | 25 of 25 |
-| Linux / GCC 16.1 (i9-14900KF, AVX2) | 16 | 3 | 6 | 25 of 25 |
-| macOS / GCC 16.2 (Apple M1, NEON) | 19 | 2 | 3 | 24 of 25 |
-| macOS / Clang 23.1 (Apple M1, NEON) | 15 | 2 | 5 | 22 of 25 |
-| **Aggregate** | **98** | **9** | **14** | **121 of 125** |
-
-### 2.2 The fused single-pass comparison
-
-The second mode runs Jsonifier in its default routing — the fused single-pass path (the harness calls it "scalar structural iteration"), with no stage-1 tape — against the same simdjson On Demand configuration. This is the comparison that tests this paper's thesis directly:
-
-| Platform / Compiler | Wins | Ties | Losses | Tests converged |
-|---|---|---|---|---|
-| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 24 | 1 | 0 | 25 of 25 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 21 | 2 | 2 | 25 of 25 |
+| Windows / MSVC 19.44 (i9-14900KF, AVX2) | 10 | 0 | 14 | 24 of 25 |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 14 | 0 | 9 | 23 of 25 |
 | Linux / GCC 16.1 (i9-14900KF, AVX2) | 16 | 2 | 7 | 25 of 25 |
-| macOS / GCC 16.2 (Apple M1, NEON) | 23 | 0 | 2 | 25 of 25 |
-| macOS / Clang 23.1 (Apple M1, NEON) | 18 | 1 | 0 | 19 of 25 |
-| **Aggregate** | **102** | **6** | **11** | **119 of 125** |
+| macOS / GCC 16.2 (Apple M1, NEON) | 16 | 3 | 2 | 21 of 25 |
+| macOS / Clang 23.1 (Apple M1, NEON) | 22 | 0 | 1 | 23 of 25 |
+| **Aggregate** | **78** | **5** | **33** | **116 of 125** |
 
-The two tallies are close in shape: 102 wins, 6 ties and 11 losses fused, against 98 wins, 9 ties and 14 losses forced two-stage. The tallies hide most of the story, however, because a win is a win whether it is by 1% or by 1,000%. The per-test deltas in §2.3 show where the fused path actually pulls away.
+Split by input shape (fused / tie / two-stage):
 
-### 2.3 Per-test deltas, both modes
+| Input shape | Windows / MSVC | Linux (Clang + GCC) | macOS (GCC + Clang) |
+|---|---|---|---|
+| POD-type tests | 5 / 0 / 0 | 9 / 0 / 0 | 8 / 0 / 0 |
+| Minified corpus documents | 5 / 0 / 5 | 19 / 0 / 1 | 17 / 1 / 0 |
+| Prettified corpus documents | 0 / 0 / 9 | 2 / 2 / 15 | 13 / 2 / 3 |
 
-Each delta is Jsonifier's throughput over simdjson's, minus one, so a positive delta favors Jsonifier; ties are marked, and "n/c" means the test did not converge in that mode. The gap column is the fused delta minus the two-stage delta, in percentage points. A positive gap means the fused path beats simdjson by more than the two-stage path does.
+Against simdjson, counting a test for Jsonifier when either of its paths ranks above simdjson:
 
-One check makes the gap column meaningful. simdjson runs identically in both modes, so its throughput should not change between the two runs, and it does not: the median ratio of simdjson's throughput between the two runs is between 0.99 and 1.01 on every platform. The gap therefore measures what switching Jsonifier's path does, not drift in the competitor.
+| Platform / Compiler | Best Jsonifier path (W / T / L) | Fused path alone (W / T / L) |
+|---|---|---|
+| Windows / MSVC 19.44 | 22 / 0 / 2 | 21 / 0 / 3 |
+| Linux / Clang 24.0 | 22 / 1 / 0 | 19 / 0 / 4 |
+| Linux / GCC 16.1 | 22 / 0 / 3 | 22 / 0 / 3 |
+| macOS / GCC 16.2 | 21 / 0 / 0 | 20 / 0 / 1 |
+| macOS / Clang 23.1 | 23 / 0 / 0 | 23 / 0 / 0 |
+| **Aggregate** | **110 / 1 / 5** | **105 / 0 / 11** |
+
+### 2.3 Per-test results
+
+Throughput is in MB/s. "Faster Jsonifier path" is the Welch's t-test verdict between the two Jsonifier paths, "Best Jsonifier path vs simdjson" is the verdict for whichever of the two ranked higher, and "n/c" means the test did not converge for at least one library.
 
 **Windows / MSVC 19.44 (i9-14900KF, AVX2)**
 
-| Test | Fused single-pass Δ | Forced two-stage Δ | Gap (fused − two-stage) |
-|---|---|---|---|
-| Double (POD) | +500.0% | +73.0% | +427.0 pp |
-| Uint64 (POD) | +344.8% | +43.5% | +301.3 pp |
-| Int64 (POD) | +433.9% | +39.2% | +394.7 pp |
-| Bool (POD) | +1672.2% | +77.3% | +1594.9 pp |
-| String (POD) | +121.2% | +39.1% | +82.2 pp |
-| Canada (minified) | +56.4% | +61.4% | −5.0 pp |
-| Canada (prettified) | +39.2% | +53.2% | −14.1 pp |
-| CitmCatalog (minified) | +188.6% | +155.0% | +33.6 pp |
-| CitmCatalog (prettified) | +67.3% | +140.1% | −72.8 pp |
-| Discord (minified) | +102.8% | +78.4% | +24.5 pp |
-| Discord (prettified) | +39.2% | +77.1% | −37.9 pp |
-| Google Maps Response (minified) | +97.5% | +82.1% | +15.4 pp |
-| Google Maps Response (prettified) | +55.2% | +70.0% | −14.8 pp |
-| Instruments (minified) | +225.1% | +122.4% | +102.6 pp |
-| Instruments (prettified) | +65.1% | +120.3% | −55.2 pp |
-| Marine IK Reverse (minified) | +1581.9% | +1375.3% | +206.6 pp |
-| Marine IK Reverse (prettified) | +1055.7% | +1210.9% | −155.2 pp |
-| Marine IK (minified) | +82.5% | +71.6% | +10.9 pp |
-| Marine IK (prettified) | +40.3% | +66.0% | −25.7 pp |
-| Mesh (minified) | +48.8% | +29.7% | +19.1 pp |
-| Mesh (prettified) | −4.9% (tie) | +22.1% | −27.0 pp |
-| Random (minified) | +66.6% | +47.5% | +19.1 pp |
-| Random (prettified) | +33.1% | +42.3% | −9.1 pp |
-| Twitter (minified) | +84.8% | +56.3% | +28.6 pp |
-| Twitter (prettified) | +38.1% | +56.1% | −18.0 pp |
+| Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
+|---|---|---|---|---|---|---|
+| Bool (POD) | 539 | 176 | 126 | 3.07× | Fused | Win |
+| Double (POD) | 674 | 330 | 177 | 2.05× | Fused | Win |
+| Int64 (POD) | 2,257 | 731 | 413 | 3.09× | Fused | Win |
+| String (POD) | 1,650 | 996 | 858 | 1.66× | Fused | Win |
+| Uint64 (POD) | 2,871 | 809 | 421 | 3.55× | Fused | Win |
+| Canada (minified) | 672 | 629 | 397 | 1.07× | Fused | Win |
+| Canada (prettified) | 1,765 | 1,883 | 1,171 | 0.94× | Two-stage | Win |
+| CitmCatalog (minified) | 725 | 765 | 552 | 0.95× | Two-stage | Win |
+| CitmCatalog (prettified) | 1,674 | 1,950 | 1,461 | 0.86× | Two-stage | Win |
+| Discord (minified) | 858 | 805 | 763 | 1.07× | Fused | Win |
+| Discord (prettified) | 1,242 | 1,302 | 1,217 | 0.95× | Two-stage | Win |
+| Google Maps Response (minified) | 781 | 764 | 556 | 1.02× | Fused | Win |
+| Google Maps Response (prettified) | 1,658 | 1,734 | 1,365 | 0.96× | Two-stage | Win |
+| Instruments (minified) | 718 | 737 | 783 | 0.97× | Two-stage | **Loss** |
+| Instruments (prettified) | 1,153 | 1,333 | 1,434 | 0.87× | Two-stage | **Loss** |
+| Marine IK Reverse (minified) | 366 | 375 | 35 | 0.98× | Two-stage | Win |
+| Marine IK Reverse (prettified) | n/c | n/c | n/c | — | — | — |
+| Marine IK (minified) | 378 | 383 | 268 | 0.99× | Two-stage | Win |
+| Marine IK (prettified) | 1,556 | 1,895 | 1,343 | 0.82× | Two-stage | Win |
+| Mesh (minified) | 501 | 572 | 458 | 0.88× | Two-stage | Win |
+| Mesh (prettified) | 747 | 1,040 | 858 | 0.72× | Two-stage | Win |
+| Random (minified) | 780 | 746 | 620 | 1.05× | Fused | Win |
+| Random (prettified) | 1,279 | 1,393 | 1,167 | 0.92× | Two-stage | Win |
+| Twitter (minified) | 1,198 | 1,081 | 1,014 | 1.11× | Fused | Win |
+| Twitter (prettified) | 1,545 | 1,582 | 1,475 | 0.98× | Two-stage | Win |
 
 **Linux / Clang 24.0 (i9-14900KF, AVX2)**
 
-| Test | Fused single-pass Δ | Forced two-stage Δ | Gap (fused − two-stage) |
-|---|---|---|---|
-| Double (POD) | +430.6% | +44.4% | +386.2 pp |
-| Uint64 (POD) | +257.5% | +5.6% (tie) | +251.8 pp |
-| Int64 (POD) | +295.9% | −1.8% (tie) | +297.7 pp |
-| Bool (POD) | +1219.2% | +18.4% | +1200.8 pp |
-| String (POD) | +193.2% | +7.2% | +186.1 pp |
-| Canada (minified) | +36.4% | +20.8% | +15.6 pp |
-| Canada (prettified) | +13.0% | +19.8% | −6.9 pp |
-| CitmCatalog (minified) | +73.7% | +50.6% | +23.0 pp |
-| CitmCatalog (prettified) | +36.9% | +45.3% | −8.4 pp |
-| Discord (minified) | +38.1% | +21.1% | +17.0 pp |
-| Discord (prettified) | +6.7% | +20.8% | −14.1 pp |
-| Google Maps Response (minified) | +22.6% | +11.9% | +10.7 pp |
-| Google Maps Response (prettified) | −2.7% (tie) | +13.2% | −15.9 pp |
-| Instruments (minified) | +112.4% | +33.3% | +79.1 pp |
-| Instruments (prettified) | +31.1% | +34.3% | −3.2 pp |
-| Marine IK Reverse (minified) | +315.1% | +259.6% | +55.4 pp |
-| Marine IK Reverse (prettified) | +243.3% | +253.9% | −10.7 pp |
-| Marine IK (minified) | +47.7% | +24.7% | +23.0 pp |
-| Marine IK (prettified) | +14.2% | +22.9% | −8.7 pp |
-| Mesh (minified) | +20.7% | +4.9% | +15.9 pp |
-| Mesh (prettified) | −9.1% | +2.9% | −11.9 pp |
-| Random (minified) | +24.7% | +10.2% | +14.5 pp |
-| Random (prettified) | +0.8% (tie) | +4.3% | −3.6 pp |
-| Twitter (minified) | +26.2% | +8.6% | +17.6 pp |
-| Twitter (prettified) | −5.2% | +6.3% | −11.6 pp |
+| Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
+|---|---|---|---|---|---|---|
+| Bool (POD) | 2,145 | 337 | 215 | 6.36× | Fused | Win |
+| Double (POD) | n/c | n/c | n/c | — | — | — |
+| Int64 (POD) | 3,361 | 1,029 | 599 | 3.27× | Fused | Win |
+| String (POD) | 2,557 | 1,444 | 1,462 | 1.77× | Fused | Win |
+| Uint64 (POD) | 3,923 | 1,000 | 592 | 3.92× | Fused | Win |
+| Canada (minified) | 1,233 | 1,033 | 732 | 1.19× | Fused | Win |
+| Canada (prettified) | 2,853 | 3,115 | 2,159 | 0.92× | Two-stage | Win |
+| CitmCatalog (minified) | 2,063 | 1,869 | 1,186 | 1.10× | Fused | Win |
+| CitmCatalog (prettified) | 3,976 | 4,503 | 3,001 | 0.88× | Two-stage | Win |
+| Discord (minified) | 2,311 | 1,945 | 1,480 | 1.19× | Fused | Win |
+| Discord (prettified) | 2,255 | 2,956 | 2,360 | 0.76× | Two-stage | Win |
+| Google Maps Response (minified) | 1,915 | 1,709 | 1,138 | 1.12× | Fused | Win |
+| Google Maps Response (prettified) | 3,266 | 3,760 | 2,766 | 0.87× | Two-stage | Win |
+| Instruments (minified) | 2,952 | 2,174 | 1,608 | 1.36× | Fused | Win |
+| Instruments (prettified) | 2,906 | 3,856 | 2,954 | 0.75× | Two-stage | Win |
+| Marine IK Reverse (minified) | 949 | 793 | 198 | 1.20× | Fused | Win |
+| Marine IK Reverse (prettified) | 3,375 | 3,561 | 906 | 0.95× | Two-stage | Win |
+| Marine IK (minified) | 976 | 815 | 615 | 1.20× | Fused | Win |
+| Marine IK (prettified) | n/c | n/c | n/c | — | — | — |
+| Mesh (minified) | 1,463 | 1,229 | 1,265 | 1.19× | Fused | Win |
+| Mesh (prettified) | 1,864 | 2,324 | 2,312 | 0.80× | Two-stage | Tie |
+| Random (minified) | 1,866 | 1,553 | 1,098 | 1.20× | Fused | Win |
+| Random (prettified) | 2,075 | 2,697 | 1,918 | 0.77× | Two-stage | Win |
+| Twitter (minified) | 2,506 | 1,949 | 1,840 | 1.29× | Fused | Win |
+| Twitter (prettified) | 2,421 | 2,739 | 2,610 | 0.88× | Two-stage | Win |
 
 **Linux / GCC 16.1 (i9-14900KF, AVX2)**
 
-| Test | Fused single-pass Δ | Forced two-stage Δ | Gap (fused − two-stage) |
-|---|---|---|---|
-| Double (POD) | +408.6% | +56.6% | +352.0 pp |
-| Uint64 (POD) | +252.2% | +11.8% | +240.4 pp |
-| Int64 (POD) | +271.6% | +17.9% | +253.7 pp |
-| Bool (POD) | +1309.2% | +47.0% | +1262.2 pp |
-| String (POD) | +173.8% | −1.5% | +175.3 pp |
-| Canada (minified) | +3.6% | +0.3% (tie) | +3.3 pp |
-| Canada (prettified) | −8.5% | −1.0% (tie) | −7.5 pp |
-| CitmCatalog (minified) | +34.4% | +10.9% | +23.5 pp |
-| CitmCatalog (prettified) | −15.7% | +3.4% | −19.1 pp |
-| Discord (minified) | +37.8% | +14.2% | +23.6 pp |
-| Discord (prettified) | −1.6% (tie) | +12.6% | −14.2 pp |
-| Google Maps Response (minified) | +16.1% | +6.7% | +9.4 pp |
-| Google Maps Response (prettified) | −4.9% (tie) | +12.3% | −17.2 pp |
-| Instruments (minified) | +104.1% | +29.4% | +74.8 pp |
-| Instruments (prettified) | −4.3% | +18.8% | −23.0 pp |
-| Marine IK Reverse (minified) | +372.5% | +285.2% | +87.3 pp |
-| Marine IK Reverse (prettified) | +236.4% | +261.1% | −24.7 pp |
-| Marine IK (minified) | +30.4% | +8.6% | +21.8 pp |
-| Marine IK (prettified) | +2.8% | +4.7% | −1.9 pp |
-| Mesh (minified) | −7.9% | −15.3% | +7.4 pp |
-| Mesh (prettified) | −28.6% | −22.0% | −6.5 pp |
-| Random (minified) | +8.7% | −5.7% | +14.4 pp |
-| Random (prettified) | −14.4% | −10.5% | −3.9 pp |
-| Twitter (minified) | +28.7% | +6.2% (tie) | +22.5 pp |
-| Twitter (prettified) | −20.4% | −7.6% | −12.8 pp |
+| Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
+|---|---|---|---|---|---|---|
+| Bool (POD) | 2,243 | 367 | 183 | 6.11× | Fused | Win |
+| Double (POD) | 1,321 | 434 | 228 | 3.04× | Fused | Win |
+| Int64 (POD) | 3,124 | 836 | 534 | 3.74× | Fused | Win |
+| String (POD) | 2,797 | 1,247 | 1,284 | 2.24× | Fused | Win |
+| Uint64 (POD) | 3,577 | 1,044 | 610 | 3.43× | Fused | Win |
+| Canada (minified) | 1,003 | 957 | 850 | 1.05× | Fused | Win |
+| Canada (prettified) | 2,561 | 2,835 | 2,485 | 0.90× | Two-stage | Win |
+| CitmCatalog (minified) | 2,020 | 1,812 | 1,172 | 1.11× | Fused | Win |
+| CitmCatalog (prettified) | 4,051 | 4,077 | 2,988 | 0.99× | Tie | Win |
+| Discord (minified) | 2,264 | 1,826 | 1,422 | 1.24× | Fused | Win |
+| Discord (prettified) | 2,588 | 2,909 | 2,200 | 0.89× | Two-stage | Win |
+| Google Maps Response (minified) | 1,697 | 1,567 | 1,121 | 1.08× | Fused | Win |
+| Google Maps Response (prettified) | 3,619 | 3,874 | 2,712 | 0.93× | Two-stage | Win |
+| Instruments (minified) | 3,071 | 2,178 | 1,627 | 1.41× | Fused | Win |
+| Instruments (prettified) | 3,394 | 3,715 | 2,897 | 0.91× | Two-stage | Win |
+| Marine IK Reverse (minified) | 805 | 700 | 164 | 1.15× | Fused | Win |
+| Marine IK Reverse (prettified) | 3,178 | 3,055 | 801 | 1.04× | Fused | Win |
+| Marine IK (minified) | 851 | 746 | 613 | 1.14× | Fused | Win |
+| Marine IK (prettified) | 3,417 | 3,314 | 2,849 | 1.03× | Fused | Win |
+| Mesh (minified) | 1,088 | 1,157 | 1,316 | 0.94× | Two-stage | **Loss** |
+| Mesh (prettified) | 1,662 | 2,043 | 2,442 | 0.81× | Two-stage | **Loss** |
+| Random (minified) | 1,632 | 1,311 | 1,078 | 1.25× | Fused | Win |
+| Random (prettified) | 2,206 | 2,246 | 1,938 | 0.98× | Two-stage | Win |
+| Twitter (minified) | 2,373 | 1,633 | 1,881 | 1.45× | Fused | Win |
+| Twitter (prettified) | 2,167 | 2,162 | 2,667 | 1.00× | Tie | **Loss** |
 
 **macOS / GCC 16.2 (Apple M1, NEON)**
 
-| Test | Fused single-pass Δ | Forced two-stage Δ | Gap (fused − two-stage) |
-|---|---|---|---|
-| Double (POD) | +570.1% | +67.8% | +502.4 pp |
-| Uint64 (POD) | +319.7% | −1.4% (tie) | +321.1 pp |
-| Int64 (POD) | +341.1% | +4.5% | +336.6 pp |
-| Bool (POD) | +752.0% | −21.4% | +773.3 pp |
-| String (POD) | +277.5% | +30.3% | +247.3 pp |
-| Canada (minified) | +33.3% | +25.6% | +7.7 pp |
-| Canada (prettified) | +14.9% | +8.9% | +6.0 pp |
-| CitmCatalog (minified) | +84.8% | +32.9% | +51.9 pp |
-| CitmCatalog (prettified) | +35.8% | +20.5% | +15.3 pp |
-| Discord (minified) | +45.6% | +6.4% | +39.2 pp |
-| Discord (prettified) | +13.2% | +11.1% | +2.2 pp |
-| Google Maps Response (minified) | +53.1% | +28.0% | +25.1 pp |
-| Google Maps Response (prettified) | +21.2% | +27.4% | −6.2 pp |
-| Instruments (minified) | +96.4% | +31.1% | +65.3 pp |
-| Instruments (prettified) | +37.6% | +32.4% | +5.2 pp |
-| Marine IK Reverse (minified) | +401.2% | +309.7% | +91.5 pp |
-| Marine IK Reverse (prettified) | +232.4% | n/c | — |
-| Marine IK (minified) | +27.1% | +10.2% | +16.9 pp |
-| Marine IK (prettified) | +16.8% | +8.6% | +8.3 pp |
-| Mesh (minified) | −22.2% | −14.3% | −7.9 pp |
-| Mesh (prettified) | −19.9% | −1.2% (tie) | −18.6 pp |
-| Random (minified) | +18.4% | +4.7% | +13.7 pp |
-| Random (prettified) | +8.7% | +3.5% | +5.2 pp |
-| Twitter (minified) | +81.3% | +3.3% | +78.1 pp |
-| Twitter (prettified) | +6.0% | −5.3% | +11.3 pp |
+| Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
+|---|---|---|---|---|---|---|
+| Bool (POD) | n/c | n/c | n/c | — | — | — |
+| Double (POD) | 970 | 324 | 161 | 2.99× | Fused | Win |
+| Int64 (POD) | 2,670 | 620 | 370 | 4.31× | Fused | Win |
+| String (POD) | 1,723 | 721 | 1,009 | 2.39× | Fused | Win |
+| Uint64 (POD) | 2,662 | 567 | 411 | 4.70× | Fused | Win |
+| Canada (minified) | 714 | 659 | 495 | 1.08× | Fused | Win |
+| Canada (prettified) | 1,688 | 1,819 | 1,397 | 0.93× | Two-stage | Win |
+| CitmCatalog (minified) | 1,939 | 1,292 | 810 | 1.50× | Fused | Win |
+| CitmCatalog (prettified) | n/c | n/c | n/c | — | — | — |
+| Discord (minified) | 1,655 | 1,069 | 922 | 1.55× | Fused | Win |
+| Discord (prettified) | 1,878 | 1,740 | 1,406 | 1.08× | Fused | Win |
+| Google Maps Response (minified) | 1,012 | 1,039 | 599 | 0.97× | Tie | Win |
+| Google Maps Response (prettified) | 2,380 | 2,314 | 1,408 | 1.03× | Tie | Win |
+| Instruments (minified) | 2,313 | 1,486 | 1,013 | 1.56× | Fused | Win |
+| Instruments (prettified) | 2,836 | 2,417 | 1,756 | 1.17× | Fused | Win |
+| Marine IK Reverse (minified) | n/c | n/c | n/c | — | — | — |
+| Marine IK Reverse (prettified) | 2,216 | 2,183 | 517 | 1.01× | Tie | Win |
+| Marine IK (minified) | 611 | 522 | 399 | 1.17× | Fused | Win |
+| Marine IK (prettified) | n/c | n/c | n/c | — | — | — |
+| Mesh (minified) | 886 | 721 | 837 | 1.23× | Fused | Win |
+| Mesh (prettified) | 1,264 | 1,495 | 1,356 | 0.85× | Two-stage | Win |
+| Random (minified) | 1,059 | 818 | 580 | 1.29× | Fused | Win |
+| Random (prettified) | 1,526 | 1,404 | 1,059 | 1.09× | Fused | Win |
+| Twitter (minified) | 1,848 | 1,349 | 1,297 | 1.37× | Fused | Win |
+| Twitter (prettified) | 2,166 | 1,878 | 1,809 | 1.15× | Fused | Win |
 
 **macOS / Clang 23.1 (Apple M1, NEON)**
 
-| Test | Fused single-pass Δ | Forced two-stage Δ | Gap (fused − two-stage) |
-|---|---|---|---|
-| Double (POD) | n/c | +40.7% | — |
-| Uint64 (POD) | +279.8% | −18.4% | +298.2 pp |
-| Int64 (POD) | n/c | +4.5% | — |
-| Bool (POD) | +304.5% | −18.8% | +323.3 pp |
-| String (POD) | +362.8% | +68.6% | +294.1 pp |
-| Canada (minified) | +59.5% | +21.7% | +37.8 pp |
-| Canada (prettified) | n/c | +16.7% | — |
-| CitmCatalog (minified) | +117.4% | +30.9% | +86.5 pp |
-| CitmCatalog (prettified) | +46.9% | n/c | — |
-| Discord (minified) | +50.1% | +26.7% | +23.4 pp |
-| Discord (prettified) | +16.4% | +3.9% | +12.5 pp |
-| Google Maps Response (minified) | +31.4% | +0.4% (tie) | +31.0 pp |
-| Google Maps Response (prettified) | +12.9% | +15.5% | −2.7 pp |
-| Instruments (minified) | +106.7% | +23.1% | +83.6 pp |
-| Instruments (prettified) | +33.4% | +19.0% | +14.4 pp |
-| Marine IK Reverse (minified) | n/c | +280.6% | — |
-| Marine IK Reverse (prettified) | +219.2% | +175.9% | +43.4 pp |
-| Marine IK (minified) | +42.3% | +33.8% | +8.5 pp |
-| Marine IK (prettified) | n/c | +13.2% | — |
-| Mesh (minified) | +27.9% | n/c | — |
-| Mesh (prettified) | +5.9% | −1.8% (tie) | +7.7 pp |
-| Random (minified) | −0.6% (tie) | n/c | — |
-| Random (prettified) | n/c | −10.5% | — |
-| Twitter (minified) | +24.4% | −9.7% | +34.1 pp |
-| Twitter (prettified) | +3.7% | −2.7% | +6.4 pp |
+| Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
+|---|---|---|---|---|---|---|
+| Bool (POD) | n/c | n/c | n/c | — | — | — |
+| Double (POD) | 828 | 337 | 175 | 2.46× | Fused | Win |
+| Int64 (POD) | 2,354 | 636 | 447 | 3.70× | Fused | Win |
+| String (POD) | 1,752 | 745 | 1,078 | 2.35× | Fused | Win |
+| Uint64 (POD) | 2,410 | 625 | 423 | 3.86× | Fused | Win |
+| Canada (minified) | n/c | n/c | n/c | — | — | — |
+| Canada (prettified) | 2,039 | 1,943 | 1,323 | 1.05× | Fused | Win |
+| CitmCatalog (minified) | 2,277 | 1,378 | 839 | 1.65× | Fused | Win |
+| CitmCatalog (prettified) | 3,639 | 3,098 | 2,011 | 1.17× | Fused | Win |
+| Discord (minified) | 2,258 | 1,542 | 1,041 | 1.46× | Fused | Win |
+| Discord (prettified) | 2,463 | 2,137 | 1,657 | 1.15× | Fused | Win |
+| Google Maps Response (minified) | 1,987 | 1,294 | 716 | 1.54× | Fused | Win |
+| Google Maps Response (prettified) | 3,082 | 2,377 | 1,666 | 1.30× | Fused | Win |
+| Instruments (minified) | 2,355 | 1,442 | 1,084 | 1.63× | Fused | Win |
+| Instruments (prettified) | 3,171 | 2,576 | 1,942 | 1.23× | Fused | Win |
+| Marine IK Reverse (minified) | 645 | 562 | 128 | 1.15× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,638 | 2,354 | 587 | 1.12× | Fused | Win |
+| Marine IK (minified) | 766 | 605 | 385 | 1.27× | Fused | Win |
+| Marine IK (prettified) | 2,877 | 2,304 | 1,818 | 1.25× | Fused | Win |
+| Mesh (minified) | 1,102 | 873 | 782 | 1.26× | Fused | Win |
+| Mesh (prettified) | 1,531 | 1,571 | 1,444 | 0.97× | Two-stage | Win |
+| Random (minified) | 1,464 | 1,126 | 793 | 1.30× | Fused | Win |
+| Random (prettified) | 2,178 | 1,936 | 1,385 | 1.13× | Fused | Win |
+| Twitter (minified) | 2,362 | 1,673 | 1,502 | 1.41× | Fused | Win |
+| Twitter (prettified) | 2,633 | 2,256 | 2,174 | 1.17× | Fused | Win |
 
-### 2.4 What the deltas show
+### 2.4 What the results show
 
-Across the 115 tests that converged in both modes, the fused path's margin over simdjson is wider than the two-stage margin in 80 and narrower in 35. The split is not random; it follows the shape of the input.
+Which Jsonifier path is faster depends on two things: the compiler, and whether the document is indented. On the M1 the fused path wins nearly everything. On Linux it wins POD and minified input and loses most prettified input. Under MSVC it splits minified documents evenly with the two-stage path and loses every prettified one.
 
-**POD-type tests: the fused margin is several times wider, on every platform.** All 23 POD comparisons favor the fused path, and not narrowly. On Linux/Clang, Bool goes from +18.4% two-stage to +1219.2% fused; Double from +44.4% to +430.6%; Int64 from a −1.8% tie to +295.9%. On Windows/MSVC, Bool goes from +77.3% to +1672.2%. On the M1 the two-stage path actually loses some of these tests to simdjson (Bool on both compilers, Uint64 on Clang), and the fused path wins all of them by +278% to +752%. Jsonifier's own fused path runs these tests 1.5× to 11× faster than its two-stage path. These documents are the case §2 argues from: nothing to skip, every value materialized, so the tape is pure overhead.
+**POD-type tests: the fused path wins all 22, on every build.** It runs them 1.7× (String, Windows/MSVC) to 6.4× (Bool, Linux/Clang) faster than the two-stage path. These documents are the case §2 argues from: nothing to skip, every value materialized, so the tape is pure overhead. This is the one result that does not depend on the compiler.
 
-**Minified corpus documents: wider on 29 of 30 x86 comparisons.** Across the three x86 targets, every minified document and the minified reverse-order test show a wider fused margin, except minified Canada under MSVC (−5.0 pp, both modes still winning). Typical gaps are +10 to +35 pp, and Instruments stands out at +75 to +103 pp. This is the workload the fused key literals of §3 were built for: machine-generated JSON in declared order.
+**Minified documents: the fused path's on Linux and the M1, split under MSVC.** Outside MSVC the fused path wins 36 of 38 converged minified documents, ties one (Google Maps on macOS/GCC) and loses one (Mesh on Linux/GCC, by 6%). Its margins run from 5% (Canada on Linux/GCC) to 65% (CitmCatalog on macOS/Clang), and Instruments and Twitter, the documents with the most keys to match, are 29% to 45% faster on both Linux compilers. This is the workload the fused key literals of §3 were built for: machine-generated JSON in declared order. Under MSVC the ten minified documents divide evenly. The fused path wins Canada, Discord, Google Maps, Random and Twitter, by 2% to 11%; the two-stage path wins CitmCatalog, Instruments, Marine IK, Marine IK Reverse and Mesh, by 1% (Marine IK) to 14% (Mesh).
 
-**Prettified corpus documents on x86: narrower on all 30 comparisons.** This is the result that cuts against the thesis, and it is consistent. On every x86 target, every prettified document shows a narrower fused margin, from −1.9 pp (Marine IK, GCC) to −72.8 pp (CitmCatalog, MSVC), and −155.2 pp on the prettified reverse-order test under MSVC. Jsonifier's own two-stage path is faster than its fused path on 28 of these 30, by up to 39% (prettified Instruments, MSVC). Eight of the nine fused-mode losses on x86 are prettified documents; the ninth is minified Mesh under GCC. The most likely explanation is the whitespace the fused path still skips one byte at a time. Stage 1 classifies every byte, whitespace included, in 64-byte vector blocks at a cost that does not depend on layout. The fused path vectorizes only the indentation after `{`, `[` and `,`, through the depth prediction of §3. The newline and indentation before every closing `}` and `]`, the space after every `:`, and any line whose indentation misses the prediction all go through the byte-at-a-time `skipWhitespaceScalar` loop. Heavily indented documents contain one such closing line per object and array, and one post-colon space per member. We have not isolated this, and state it as a hypothesis. If it holds, extending the prediction to closing brackets (whose indentation is one level shallower, and equally predictable) is the obvious fix.
+**Prettified documents on x86: the two-stage path wins 24 of 28.** It wins all nine under MSVC, by 2% (Twitter) to 39% (Mesh); all nine under Linux/Clang, by 6% (Marine IK Reverse) to 33% (Instruments); and six of ten under Linux/GCC, by 2% (Random) to 23% (Mesh). The fused path wins two, Marine IK Reverse (4%) and Marine IK (3%) on Linux/GCC, and CitmCatalog and Twitter on Linux/GCC are ties. The fused path already predicts the indentation of every line, including the lines that close an object or an array, matches the `": "` after each key as one two-byte constant, and verifies each predicted span with a 16-byte vector loop, a single 8-byte SWAR step and a scalar remainder switch (§3). That keeps it close, but it is not enough on x86. Stage 1 classifies every byte, whitespace included, in 64-byte vector blocks at a cost that does not depend on layout, while the fused path still does a small amount of branchy work per line: the newline test, the depth multiplication, the span check and the branch on its result. On a heavily indented document that per-line cost appears to outweigh the second pass over the input that the tape costs. We have not isolated this, and state it as a hypothesis.
 
-**The M1: wider almost everywhere.** On macOS/GCC the fused margin is wider in 21 of 24 comparisons, and on macOS/Clang in 15 of 16, prettified documents included. The prettified pattern that dominates x86 largely disappears on NEON. We do not have an explanation for why, and have not isolated it.
+**Prettified documents on the M1: mostly the fused path's.** It wins 13 of 18, by 5% (Canada on macOS/Clang) to 30% (Google Maps on macOS/Clang), and Google Maps and Marine IK Reverse on macOS/GCC are ties. The two-stage path takes Mesh on both compilers (18% on GCC, 3% on Clang) and Canada on GCC (8%). We do not have an explanation for why NEON largely escapes the prettified penalty. One contributing factor is that Jsonifier's stage 1 is comparatively more expensive there, since NEON has no `movemask` and the collectors emulate it with narrowing shifts, but we have not isolated it.
 
-**Reverse key order: both modes crush simdjson.** Requesting every key in reverse order forces simdjson's On Demand API into the rescanning behavior described in §3, and both of Jsonifier's paths win by +176% to +1582%. Under MSVC simdjson drops to 35 MB/s on minified Marine IK Reverse while Jsonifier holds 522–595 MB/s. The fused path is wider on minified input (every platform) and narrower on prettified input on x86, following the same whitespace pattern as the ordinary corpus.
+**MSVC slows the fused path more than anything else it compiles.** All three libraries run slower under MSVC than under Linux/Clang on the same i9-14900KF, but not by the same amount. On minified Instruments the fused path reaches 24% of its Linux/Clang throughput, while the two-stage path reaches 34% and simdjson 49%; on minified CitmCatalog the figures are 35%, 41% and 47%, and on minified Mesh 34%, 47% and 36%. The two-stage path's stage 1 is branch-free intrinsic code whose shape is fixed by the source, while the fused path is deeply inlined, branch-heavy template code whose performance rests on the optimizer. We take that difference in exposure to the compiler to be why MSVC moves the balance so far toward the tape, but we have not isolated it.
 
-The routing implication is sharper than §2's rule of thumb. The fused path is the right default for POD-heavy and minified input, which is most service-to-service traffic. For heavily indented input on x86, the measurements say Jsonifier's own stage-1 + stage-2 path is faster, and the router does not yet take that into account.
+**Against simdjson, Jsonifier wins 110 of 116 tests with whichever path is faster.** It ties one, prettified Mesh on Linux/Clang, and loses five. The fused path alone wins 105 and loses 11. Neither M1 build loses a test with either path. The five losses are Instruments in both forms on Windows/MSVC, and Mesh in both forms and prettified Twitter on Linux/GCC; Mesh accounts for two of them and for the one tie.
+
+**Reverse key order: both paths crush simdjson.** Requesting every key in reverse order forces simdjson's On Demand API into the rescanning behavior described in §3. Under MSVC simdjson manages 35 MB/s on minified Marine IK Reverse against 375 MB/s for the two-stage path, 10.6× slower. On the other builds the faster Jsonifier path is 3.9× to 5.0× faster than simdjson on every converged version.
+
+The routing implication is sharper than §2's rule of thumb. On the M1, the fused path is the right default for everything. On Linux it is right for POD and minified input, and prettified input should go to the two-stage path. Under MSVC it is right for POD-type data and about half of minified documents, and prettified input should go to the two-stage path. Routing each test to its faster path would raise the record against simdjson from 105 wins, 0 ties and 11 losses to 110 wins, 1 tie and 5 losses; all six tests that change hands are prettified documents, and five of them are on x86. The router does not yet take the compiler or the indentation into account.
 
 ## 3. The single-pass path: `json_iterator` over raw text
 
@@ -266,7 +278,7 @@ This is worth dwelling on, because key order is where iterative traversal models
 
 Jsonifier's failure mode for the same situation is: one hash lookup, one dispatch-table indirection, and a learned correction. The mismatch cost is paid once per key slot per thread, not once per object instance. A feed of a billion documents with keys in reversed order parses at effectively the same throughput as a feed in declared order, because after the first document the "expected order" *is* the observed order. The schema-directed model converts key order from a per-document runtime tax into a per-stream calibration.
 
-**Depth-predicted indentation.** The non-minified specialization exploits the fact that pretty-printed JSON indents each line by a fixed unit times its nesting depth. At the root, `collectIndentSizeRoot` measures that unit once: the indent character (`wsChar`) and how many of it make one level (`indentSize`). After every `{`, `[` and `,`, `skipWhitespacePredicted` steps over the newline and predicts the next line's indentation as `indentSize * currentDepth()`. It then verifies the whole predicted span in one call to `spanIsIndent`, which compares 32 bytes at a time on AVX2 and AVX-512 targets (16 bytes elsewhere) against the broadcast indent character. Any remainder is resolved through a size-class switch that uses overlapping loads, so no remainder length needs a byte loop. On our corpus of tests, `spanIsIndent` returns true on 100% of its roughly 799,000 calls, so the prediction never misses on that corpus and the scalar fallback is never taken for predicted indentation. If the span matches and the next byte is not whitespace, the cursor jumps the entire indentation at once. If the prediction misses, the parser falls back to `skipWhitespaceScalar`, a `whitespaceTable` lookup loop that advances one byte per iteration. That same scalar loop also handles the whitespace the prediction does not cover: the newline and indentation before each closing `}` or `]`, and the space after each `:`.
+**Depth-predicted indentation.** The non-minified specialization exploits the fact that pretty-printed JSON indents each line by a fixed unit times its nesting depth. At the root, `collectIndentSizeRoot` measures that unit once: the indent character (`wsChar`) and how many of it make one level (`indentSize`). After every `{`, `[` and `,`, `skipWhitespacePredicted` steps over the newline and predicts the next line's indentation as `indentSize * currentDepth()`. It then verifies the whole predicted span in one call to `spanIsIndent`, which works in three tiers on every architecture: a 16-byte vector loop compares the span against the broadcast indent character while more than 16 bytes remain, a single 8-byte SWAR step (one XOR against the broadcast character in a `uint64_t`) handles 9 to 16 remaining bytes, and a size-class switch with overlapping scalar loads resolves the last 8 or fewer, so no span length needs a byte loop. The tiers were chosen by A/B testing across compilers: a wider 32-byte loop and a remainder case that assembled a 128-bit vector from two 8-byte copies both cost MSVC and GCC measurably, while a pure 8-byte SWAR loop halved prettified Canada's throughput under MSVC because its long spans need the vector tier. Before a closing `}` or `]`, `skipWhitespacePredictedClose` makes the same prediction one level shallower, and after each key `collectObjectColon` matches `": "` as a single two-byte constant. If the span matches and the next byte is not whitespace, the cursor jumps the entire indentation at once. If the prediction misses, the parser falls back to `skipWhitespaceScalar`, a `whitespaceTable` lookup loop that advances one byte per iteration.
 
 The result is a parser whose inner loop is dominated by wide constant comparisons and direct value materialization, with SIMD engaged surgically where it wins (string unescaping, discussed in §6) rather than as a mandatory preprocessing pass.
 
@@ -470,7 +482,7 @@ The consequence differs by path. On simdjson's architecture, validation work is 
 | Dimension | simdjson | Jsonifier |
 |---|---|---|
 | Stage-1 usage | Unconditional, all documents | Partial reading, prettify, minify only (benchmarks may force it for comparability; see §2.1) |
-| Full-document parse | Stage 1 + On Demand traversal | Single fused pass, schema-directed (see §2.2) |
+| Full-document parse | Stage 1 + On Demand traversal | Single fused pass, schema-directed; faster than its own two-stage path on POD data, on minified documents outside MSVC and on most documents on the M1; slower on prettified x86 input and on half of minified documents under MSVC (see §2.2) |
 | Target of stage 2 | DOM / lazy generic values | Reflected concrete types via shared iterator concept |
 | Out-of-order keys | Forward scan + wrap-around rescan per lookup, per object — no memory across documents | One hash fallback, then learned per-slot order correction (thread-local, per stream) |
 | Schema knowledge (known-type workloads) | Exists in caller's traversal code — invisible to the library | Declared once via reflection — consumed by the architecture |
@@ -486,7 +498,7 @@ The last row is the root of every other difference. simdjson must ship one binar
 
 ## 8. Conclusion
 
-The two-stage model is a genuinely great algorithm — Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. §2.3 shows what skipping the tape is worth, test by test. Across the 115 tests measured in both modes, the fused path beats simdjson by a wider margin than the two-stage path does in 80. On the POD-type tests the difference is an order of magnitude (+1219% against +18% for Bool on Linux/Clang), and minified documents on x86 widen in 29 of 30 comparisons. The same data shows the limit: on heavily indented documents on x86, Jsonifier's own two-stage path is the faster one, a routing refinement the measurements now call for. The benchmarks are the receipts.
+The two-stage model is a genuinely great algorithm — Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. §2 shows what skipping the tape is worth, with both paths compiled into one binary and ranked head to head. Across 116 tests on five platforms the fused path wins 78, ties 5 and loses 33, and where it loses is a matter of platform more than of principle. It wins all 22 POD-type tests, by up to 6.4× (Bool on Linux/Clang), 36 of 38 minified documents outside MSVC, and 13 of 18 prettified documents on the M1. The two-stage path wins 24 of 28 prettified documents on x86, and under MSVC it also takes half of the minified documents. The tape, in other words, is not only an index for partial reads: on some compilers and some layouts it is also the faster way to read the whole book, and the router should learn which. Taking whichever path is faster, Jsonifier beats simdjson on 110 of those 116 tests and ties one. The benchmarks are the receipts.
 
 ---
 

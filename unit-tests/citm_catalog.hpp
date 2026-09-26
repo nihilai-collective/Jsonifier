@@ -15,25 +15,25 @@ struct audience_sub_category_names {
 struct names {};
 
 struct event {
-	std::nullptr_t description{};
-	int64_t id{};
-	std::optional<std::string> logo{};
-	std::string name{};
 	std::vector<int64_t> subTopicIds{};
+	std::optional<std::string> logo{};
+	std::vector<int64_t> topicIds{};
+	std::nullptr_t description{};
 	std::nullptr_t subjectCode{};
 	std::nullptr_t subtitle{};
-	std::vector<int64_t> topicIds{};
+	std::string name{};
+	int64_t id{};
 };
 
 struct price {
-	int64_t amount{};
 	int64_t audienceSubCategoryId{};
 	int64_t seatCategoryId{};
+	int64_t amount{};
 };
 
 struct area {
-	int64_t areaId{};
 	std::vector<std::nullptr_t> blockIds{};
+	int64_t areaId{};
 };
 
 struct seat_category {
@@ -46,29 +46,29 @@ struct venue_names {
 };
 
 struct performance {
-	int64_t eventId{};
-	int64_t id{};
-	std::optional<std::string> logo{};
-	std::nullptr_t name{};
-	std::vector<price> prices{};
 	std::vector<seat_category> seatCategories{};
+	std::optional<std::string> logo{};
 	std::nullptr_t seatMapImage{};
-	int64_t start{};
+	std::vector<price> prices{};
 	std::string venueCode{};
+	std::nullptr_t name{};
+	int64_t eventId{};
+	int64_t start{};
+	int64_t id{};
 };
 
 struct citm_catalog_message {
-	std::unordered_map<std::string, std::string> areaNames{};
-	audience_sub_category_names audienceSubCategoryNames{};
-	names blockNames{};
-	std::unordered_map<std::string, event> events{};
-	std::vector<performance> performances{};
+	std::unordered_map<std::string, std::vector<int64_t>> topicSubTopics{};
 	std::unordered_map<std::string, std::string> seatCategoryNames{};
 	std::unordered_map<std::string, std::string> subTopicNames{};
-	names subjectNames{};
 	std::unordered_map<std::string, std::string> topicNames{};
-	std::unordered_map<std::string, std::vector<int64_t>> topicSubTopics{};
+	std::unordered_map<std::string, std::string> areaNames{};
+	audience_sub_category_names audienceSubCategoryNames{};
+	std::unordered_map<std::string, event> events{};
+	std::vector<performance> performances{};
 	venue_names venueNames{};
+	names subjectNames{};
+	names blockNames{};
 };
 
 template<> struct jsonifier::core<audience_sub_category_names> {

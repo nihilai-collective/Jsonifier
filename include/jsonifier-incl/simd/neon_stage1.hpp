@@ -21,7 +21,7 @@ namespace jsonifier::internal::simd {
 		return returnValue;
 	}() };
 
-	inline static consteval uint64_t getShiftAmount(const uint64_t index) {
+	static consteval uint64_t getShiftAmount(const uint64_t index) {
 		return shiftAmounts[index % shiftAmounts.size()];
 	}
 
@@ -87,7 +87,6 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<uint64_t registerCount> struct scalar_bitmask_collector {
-		static_assert(registerCount == 1 || registerCount == 2);
 		using simd_array_type = scalar_simd_array_t<registerCount, 16>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type matches) noexcept {
@@ -105,10 +104,11 @@ namespace jsonifier::internal::simd {
 				return static_cast<uint64_t>(vgetq_lane_u32(vreinterpretq_u32_u8(sum), 0));
 			}
 		}
+
+		static_assert(registerCount == 1 || registerCount == 2);
 	};
 
 	template<uint64_t registerBytes, uint64_t registerCount> struct pod_cmp_eq_op {
-		static_assert(registerBytes == 16 && (registerCount == 1 || registerCount == 2));
 		using simd_array_type = scalar_simd_array_t<registerCount, registerBytes>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const uint8x16_t rhsBroadcast) noexcept {
@@ -119,6 +119,8 @@ namespace jsonifier::internal::simd {
 			}
 			return scalar_bitmask_collector<registerCount>::impl(matches);
 		}
+
+		static_assert(registerBytes == 16 && (registerCount == 1 || registerCount == 2));
 	};
 
 	template<uint64_t registerBytes, uint64_t registerCount> struct pod_ws_collector {
@@ -177,23 +179,10 @@ namespace jsonifier::internal::simd {
 			rope_block::inString = prevInString;
 		}
 
-		JSONIFIER_INLINE void finishNext() noexcept {
+		JSONIFIER_INLINE void finishNextInString() noexcept {
 			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
-		}
-
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
-			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
-			if constexpr (registerCount == simdRegistersPerBlock) {
-				next(in_01, bsRegister, quoteRegister);
-			} else {
-				const uint64_t escaped = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, bsRegister));
-				const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, quoteRegister) & ~escaped);
-				rope_block::escaped	   = escaped;
-				rope_block::quotes	   = quotes;
-				return quotes ? finishNext() : finishNextNoInString();
-			}
 		}
 
 		JSONIFIER_INLINE void next(const simd_array_t in_01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
@@ -208,7 +197,20 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes		  = (quotesLocal & ~escaped);
 			rope_block::escaped			  = escaped;
 			rope_block::quotes			  = quotes;
-			return quotes ? finishNext() : finishNextNoInString();
+			return quotes ? finishNextInString() : finishNextNoInString();
+		}
+
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
+			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
+			if constexpr (registerCount == simdRegistersPerBlock) {
+				next(in_01, bsRegister, quoteRegister);
+			} else {
+				const uint64_t escaped = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, bsRegister));
+				const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, quoteRegister) & ~escaped);
+				rope_block::escaped	   = escaped;
+				rope_block::quotes	   = quotes;
+				return quotes ? finishNextInString() : finishNextNoInString();
+			}
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCodeImpl(const uint64_t potentialEscape) noexcept {
@@ -252,7 +254,7 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> static constexpr internal::array<uint8_t, size> generateWhitespaceArrayNeon() {
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateWhitespaceArrayNeon() {
 		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -263,7 +265,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
 
-	template<uint64_t size> static constexpr internal::array<uint8_t, size> generateOpArrayNeon() {
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateOpArrayNeon() {
 		constexpr const uint8_t values[]{ 0xFFu, 0x00u, ',', ':', 0x00u, '[', ']', '{', '}', 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {

@@ -10,59 +10,59 @@
 
 struct marine_ik_animation {
 	std::vector<std::optional<std::string>> tracks{};
-	int64_t fps{};
 	std::string name{};
+	int64_t fps{};
 };
 
 struct key {
 	std::vector<double> pos{};
-	double time{};
 	std::vector<double> scl{};
 	std::vector<double> rot{};
+	double time{};
 };
 
 struct hierarchy_data {
-	int64_t parent{};
 	std::vector<key> keys{};
+	int64_t parent{};
 };
 
 struct data_animation {
 	std::vector<hierarchy_data> hierarchy{};
+	std::string name{};
 	double length{};
 	int64_t fps{};
-	std::string name{};
 };
 
 struct bone {
-	int64_t parent{};
-	std::vector<double> pos{};
 	std::vector<double> rotq{};
 	std::vector<int64_t> scl{};
+	std::vector<double> pos{};
 	std::string name{};
+	int64_t parent{};
 };
 
 struct data_metadata {
-	int64_t uvs{};
-	int64_t version{};
-	int64_t faces{};
 	std::string generator{};
-	int64_t normals{};
-	int64_t bones{};
 	int64_t vertices{};
+	int64_t version{};
+	int64_t normals{};
+	int64_t faces{};
+	int64_t bones{};
+	int64_t uvs{};
 };
 
 struct data_data {
-	std::vector<std::vector<double>> uvs{};
 	std::vector<data_animation> animations{};
-	std::vector<double> vertices{};
-	data_metadata metadata{};
-	std::string name{};
-	std::vector<double> skinWeights{};
+	std::vector<std::vector<double>> uvs{};
 	std::vector<int64_t> skinIndices{};
+	std::vector<double> skinWeights{};
+	std::vector<double> vertices{};
 	int64_t influencesPerVertex{};
 	std::vector<double> normals{};
-	std::vector<bone> bones{};
 	std::vector<int64_t> faces{};
+	std::vector<bone> bones{};
+	data_metadata metadata{};
+	std::string name{};
 };
 
 struct marine_ik_geometry_data {
@@ -72,25 +72,25 @@ struct marine_ik_geometry_data {
 };
 
 struct image_data {
-	std::string url{};
 	std::string uuid{};
 	std::string name{};
+	std::string url{};
 };
 
 struct material_data {
 	int64_t vertexColors{};
+	std::string blending{};
+	int64_t shininess{};
 	std::string name{};
 	std::string type{};
 	std::string uuid{};
-	std::string blending{};
-	std::string map{};
 	bool transparent{};
+	int64_t emissive{};
+	int64_t specular{};
+	std::string map{};
+	bool depthWrite{};
 	bool depthTest{};
 	int64_t color{};
-	int64_t shininess{};
-	int64_t emissive{};
-	bool depthWrite{};
-	int64_t specular{};
 };
 
 struct marine_ik_metadata {
@@ -101,21 +101,21 @@ struct marine_ik_metadata {
 };
 
 struct child {
+	std::vector<int64_t> matrix{};
+	std::string material{};
+	std::string geometry{};
+	bool receiveShadow{};
 	std::string name{};
 	std::string uuid{};
-	std::vector<int64_t> matrix{};
-	bool visible{};
 	std::string type{};
-	std::string material{};
 	bool castShadow{};
-	bool receiveShadow{};
-	std::string geometry{};
+	bool visible{};
 };
 
 struct object_data {
 	std::vector<child> children{};
-	std::string type{};
 	std::vector<int64_t> matrix{};
+	std::string type{};
 	std::string uuid{};
 };
 
@@ -124,21 +124,21 @@ struct texture_data {
 	std::vector<int64_t> wrap{};
 	int64_t anisotropy{};
 	std::string image{};
-	std::string name{};
-	int64_t mapping{};
 	int64_t minFilter{};
-	std::string uuid{};
 	int64_t magFilter{};
+	std::string name{};
+	std::string uuid{};
+	int64_t mapping{};
 };
 
 struct marine_ik {
-	std::vector<image_data> images{};
 	std::vector<marine_ik_geometry_data> geometries{};
-	std::vector<texture_data> textures{};
-	marine_ik_metadata metadata{};
-	std::vector<material_data> materials{};
-	object_data object{};
 	std::vector<marine_ik_animation> animations{};
+	std::vector<material_data> materials{};
+	std::vector<texture_data> textures{};
+	std::vector<image_data> images{};
+	marine_ik_metadata metadata{};
+	object_data object{};
 };
 
 template<> struct jsonifier::core<marine_ik_animation> {

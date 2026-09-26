@@ -32,15 +32,20 @@ namespace jsonifier::internal {
 		}
 	}
 
+	template<typename value_type, typename iterator_type> [[maybe_unused]] JSONIFIER_INLINE static void moveAssignVec(value_type& value, iterator_type first, iterator_type last) {
+		if constexpr (std::is_trivially_copyable_v<typename value_type::value_type>) {
+			value.assign(first, last);
+		} else {
+			value.assign(std::make_move_iterator(first), std::make_move_iterator(last));
+		}
+	}
+
 	template<typename value_type, typename context_type, parse_options options> struct parse_impl;
 
 	template<parse_options options> struct parse {
-		template<typename value_type, typename context_type> inline static bool impl(value_type&& value, context_type& context) noexcept {
-			return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, context);
-		}
-
-		template<typename value_type, typename context_type> inline static bool rootImpl(value_type&& value, context_type& context) noexcept {
-			return parse_impl<remove_cvref_t<value_type>, context_type, options>::rootImpl(value, context);
+		template<typename value_type, typename iterator_type, typename context_type>
+		inline static iterator_type impl(value_type&& value, iterator_type iter, iterator_type end, uint64_t depth, context_type& context) noexcept {
+			return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, end, depth, context);
 		}
 	};
 
@@ -197,7 +202,7 @@ namespace jsonifier::internal {
 					return false;
 				}
 				uint32_t comparison;
-				pow2_memcpy_wrapper<4>(&comparison, valueIter);
+				pow2MemcpyWrapper<4>(&comparison, valueIter);
 				if constexpr (std::endian::native == std::endian::big) {
 					comparison = byteswap(comparison);
 				}
@@ -220,7 +225,7 @@ namespace jsonifier::internal {
 					return false;
 				}
 				uint32_t comparison;
-				pow2_memcpy_wrapper<4>(&comparison, rootIter);
+				pow2MemcpyWrapper<4>(&comparison, rootIter);
 				if constexpr (std::endian::native == std::endian::big) {
 					comparison = byteswap(comparison);
 				}
@@ -277,37 +282,40 @@ namespace jsonifier::internal {
 			}
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-				json_iterator<parseOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
-					derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
-				if (context.anyInput()) {
-					parse<parseOpts>::rootImpl(object, context);
-					context.checkIfDone();
-					return derivedRef.errors.size() == 0;
-				} else {
-					return false;
-				}
+				parse_context<parseOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter, endIter };
+				return runParse<parseOpts>(object, derivedRef.section.begin(), derivedRef.section.end(), context);
 			} else {
-				json_iterator<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
-					endIter };
-				if (context.anyInput()) {
-					parse<parseOpts>::rootImpl(object, context);
-					context.checkIfDone();
-					return derivedRef.errors.size() == 0;
-				} else {
-					return false;
-				}
+				parse_context<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter, endIter };
+				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), static_cast<read_buffer_ptr>(endIter), context);
 			}
 		}
 
 	  protected:
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 
-		parser() noexcept					   = default;
 		parser& operator=(const parser& other) = delete;
-		parser(const parser& other)			   = delete;
 		parser& operator=(parser&& other)	   = delete;
+		parser(const parser& other)			   = delete;
 		parser(parser&& other)				   = delete;
-		~parser() noexcept					   = default;
+		inline ~parser() noexcept			   = default;
+		inline parser() noexcept			   = default;
+
+		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
+		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, iterator_type end, context_type& context) noexcept {
+			using cursor = json_cursor<parseOpts, iterator_type>;
+			if (!cursor::anyInput(iter, end, context)) [[unlikely]] {
+				return false;
+			}
+			if constexpr (!parseOpts.minified && !structural_context<context_type>) {
+				cursor::collectIndentSize(iter, end, context);
+			}
+			if (const iterator_type iterNew = parse<parseOpts>::impl(object, iter, end, 0, context); iterNew) [[likely]] {
+				static_cast<void>(cursor::checkIfDone(iterNew, end, context));
+			} else {
+				static_cast<void>(cursor::template reject<parse_statuses::unfinished_input>(iter, context));
+			}
+			return derivedRef.errors.size() == 0;
+		}
 
 		template<bool minified> JSONIFIER_INLINE structural_index_ptr indexStructurals(auto* rootIter, const auto* endIter) noexcept {
 			derivedRef.podSection.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
@@ -316,6 +324,14 @@ namespace jsonifier::internal {
 
 		template<parse_options options, typename value_type>
 		JSONIFIER_INLINE static typename string_scanner<options>::scan_result scanString(value_type& object, auto* strIter, const auto* endIter) noexcept {
+			if (const auto swar = swarScanAsciiString(strIter, endIter); swar.found) [[likely]] {
+				if constexpr (requires { object.assign(strIter, swar.length); }) {
+					object.assign(strIter, swar.length);
+				} else {
+					assignScannedString(object, strIter, swar.length);
+				}
+				return { swar.length, swar.length };
+			}
 			using context_type = string_scan_context<options, value_type, decltype(strIter)>;
 			const auto needed  = static_cast<uint64_t>(endIter - strIter) + simdBytesPerStep;
 			typename string_scanner<options>::scan_result res{};
