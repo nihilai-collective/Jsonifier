@@ -267,26 +267,26 @@ namespace jsonifier {
 	  protected:
 		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
-			const read_buffer_ptr iter{ jsonDataNew.data() };
+			read_buffer_ptr iter{ jsonDataNew.data() };
 			const read_buffer_ptr end{ jsonDataNew.data() + jsonDataNew.size() };
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}

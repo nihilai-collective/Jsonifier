@@ -91,4 +91,65 @@ namespace jsonifier::internal {
 	template<typename value_type> using core_tuple_type					  = decltype(core<base_t<value_type>>::parseValue);
 	template<typename value_type> static constexpr uint64_t coreTupleSize = tuple_size_v<core_tuple_type<value_type>>;
 
+	template<typename value_type> static constexpr bool leaf_parse_type =
+		string_t<value_type> || string_view_t<value_type> || bool_t<value_type> || number_t<value_type> || enum_t<value_type> || always_null_t<value_type>;
+
+#if JSONIFIER_COMPILER_MSVC
+	static constexpr uint64_t maxParseInlineMemberCount{ 8 };
+#elif (JSONIFIER_COMPILER_GCC || (JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_MAC))
+	static constexpr uint64_t maxParseInlineMemberCount{ 64 };
+#else
+	static constexpr uint64_t maxParseInlineMemberCount{ 32 };
+#endif
+
+	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount() noexcept;
+
+	template<uint64_t budget, typename... child_types> consteval uint64_t summedChildCount() noexcept {
+		uint64_t total{};
+		static_cast<void>(((total += parseMemberCount<base_t<child_types>, budget>()), ...));
+		return total > budget ? budget + 1 : total;
+	}
+
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedMemberCount(integer_sequence<indices...>) noexcept {
+		return summedChildCount<budget, typename remove_cvref_t<decltype(getBecauseOtherLibAuthorsResolve<indices>(core<value_type>::parseValue))>::member_type...>();
+	}
+
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedTupleElementCount(integer_sequence<indices...>) noexcept {
+		return summedChildCount<budget, decltype(get<indices>(std::declval<value_type&>()))...>();
+	}
+
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedVariantAlternativeCount(integer_sequence<indices...>) noexcept {
+		return summedChildCount<budget, decltype(std::get<indices>(std::declval<value_type&>()))...>();
+	}
+
+	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount() noexcept {
+		if constexpr (leaf_parse_type<value_type>) {
+			return 1;
+		} else if constexpr (budget == 0) {
+			return 1;
+		} else if constexpr (jsonifier_object_t<value_type>) {
+			return summedMemberCount<value_type, budget>(make_integer_sequence<coreTupleSize<value_type>>{});
+		} else if constexpr (map_t<value_type>) {
+			return 1 + summedChildCount<budget - 1, typename value_type::mapped_type>();
+		} else if constexpr (vector_t<value_type>) {
+			return 1 + summedChildCount<budget - 1, typename value_type::value_type>();
+		} else if constexpr (raw_array_t<value_type>) {
+			return 1 + summedChildCount<budget - 1, decltype(std::declval<value_type&>()[0])>();
+		} else if constexpr (tuple_t<value_type>) {
+			return summedTupleElementCount<value_type, budget>(make_integer_sequence<tuple_size_v<value_type>>{});
+		} else if constexpr (variant_t<value_type>) {
+			return summedVariantAlternativeCount<value_type, budget>(make_integer_sequence<std::variant_size_v<value_type>>{});
+		} else if constexpr (optional_t<value_type>) {
+			return 1 + summedChildCount<budget - 1, typename value_type::value_type>();
+		} else if constexpr (unique_ptr_t<value_type> || shared_ptr_t<value_type> || pointer_t<value_type>) {
+			return 1 + summedChildCount<budget - 1, decltype(*std::declval<value_type&>())>();
+		} else {
+			return 1;
+		}
+	}
+
+	template<typename value_type, uint64_t maxMemberCount> consteval bool inlinableOpType() noexcept {
+		return parseMemberCount<base_t<value_type>, maxMemberCount>() <= maxMemberCount;
+	}
+
 }// namespace internal

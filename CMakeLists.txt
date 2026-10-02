@@ -16,6 +16,8 @@ project(Jsonifier
     LANGUAGES CXX
 )
 
+set(JSONIFIER_MAX_PARSE_INLINE_SIZE 20 CACHE STRING "Maximum member count of a parse subtree that is force-inlined")
+
 include(cmake/library_setup.cmake)
 
 include(cmake/installation_setup.cmake)

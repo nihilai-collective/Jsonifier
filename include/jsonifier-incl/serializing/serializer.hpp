@@ -22,9 +22,22 @@ namespace jsonifier::internal {
 	template<typename value_type, serialize_options optionsNew> struct get_size_impl;
 
 	template<serialize_options options> struct get_size {
-		template<typename value_type_new> inline static void impl(value_type_new& value, size_context& context) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static void implInline(value_type_new& value, size_context& context) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			get_size_impl<value_type, options>::impl(value, context);
+		}
+
+		template<typename value_type_new> inline static void implOutline(value_type_new& value, size_context& context) noexcept {
+			using value_type = remove_cvref_t<value_type_new>;
+			get_size_impl<value_type, options>::impl(value, context);
+		}
+
+		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
+			if constexpr (inline_contained_v<value_type_new>) {
+				implInline(value, context);
+			} else {
+				implOutline(value, context);
+			}
 		}
 	};
 
@@ -35,20 +48,23 @@ namespace jsonifier::internal {
 			return serialize_impl<value_type, options>::impl(internal::forward<value_type_new>(value), bufferPtr, indent);
 		}
 
-		template<typename value_type_new> inline static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new> inline static write_buffer_ptr implOutline(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			return serialize_impl<value_type, options>::impl(internal::forward<value_type_new>(value), bufferPtr, indent);
+		}
+
+		template<typename value_type_new> JSONIFIER_INLINE static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+			if constexpr (inline_contained_v<value_type_new>) {
+				return implInline(internal::forward<value_type_new>(value), bufferPtr, indent);
+			} else {
+				return implOutline(internal::forward<value_type_new>(value), bufferPtr, indent);
+			}
 		}
 	};
 
 	template<serialize_options options, typename value_type> struct serialize_writer_ro {
 		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr ptrNew, uint64_t) noexcept {
-			write_buffer_ptr bufferPtr;
-			if constexpr (bool_t<value_type> || number_t<value_type> || string_t<value_type>) {
-				bufferPtr = serialize<options>::implInline(object, ptrNew, 0);
-			} else {
-				bufferPtr = serialize<options>::impl(object, ptrNew, 0);
-			}
+			const write_buffer_ptr bufferPtr = serialize<options>::implInline(object, ptrNew, 0);
 			return static_cast<uint64_t>(bufferPtr - ptrNew);
 		}
 
@@ -70,7 +86,7 @@ namespace jsonifier::internal {
 		inline bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};
-			get_size<options>::impl(object, sizeContext);
+			get_size<options>::implInline(object, sizeContext);
 			const uint64_t newSize = sizeContext.requiredSize + 64ull;
 			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
 				buffer.resize_and_overwrite(newSize, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });
@@ -78,7 +94,7 @@ namespace jsonifier::internal {
 				if (buffer.size() < newSize) {
 					buffer.resize(newSize);
 				}
-				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
+				const auto bufferPtr = serialize<options>::implInline(object, buffer.data(), 0);
 				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
 			}
 			return true;

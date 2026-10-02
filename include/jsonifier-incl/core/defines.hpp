@@ -112,6 +112,18 @@
 	#endif
 #endif
 
+#if !defined(JSONIFIER_MAX_PARSE_INLINE_SIZE)
+	#define JSONIFIER_MAX_PARSE_INLINE_SIZE 20
+#endif
+
+#if !defined(JSONIFIER_NOINLINE)
+	#if JSONIFIER_COMPILER_MSVC
+		#define JSONIFIER_NOINLINE __declspec(noinline) inline
+	#else
+		#define JSONIFIER_NOINLINE inline __attribute__((noinline))
+	#endif
+#endif
+
 #if !defined(JSONIFIER_LIFETIME_BOUND)
 	#if JSONIFIER_COMPILER_CLANG
 		#define JSONIFIER_LIFETIME_BOUND [[clang::lifetimebound]]

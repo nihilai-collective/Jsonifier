@@ -43,9 +43,16 @@ namespace jsonifier::internal {
 	template<typename value_type, typename context_type, parse_options options> struct parse_impl;
 
 	template<parse_options options> struct parse {
-		template<typename value_type, typename iterator_type, typename context_type>
-		inline static iterator_type impl(value_type&& value, iterator_type iter, iterator_type end, uint64_t depth, context_type& context) noexcept {
-			return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, end, depth, context);
+		template<typename value_type, typename context_type> inline static bool impl(value_type&& value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
+				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, endIter, context);
+			} else {
+				return implOutline(value, iter, endIter, context);
+			}
+		}
+
+		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static bool implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, endIter, context);
 		}
 	};
 
@@ -309,7 +316,7 @@ namespace jsonifier::internal {
 			if constexpr (!parseOpts.minified && !structural_context<context_type>) {
 				cursor::collectIndentSize(iter, end, context);
 			}
-			if (const iterator_type iterNew = parse<parseOpts>::impl(object, iter, end, 0, context); iterNew) [[likely]] {
+			if (iterator_type iterNew{ iter }; parse<parseOpts>::impl(object, iterNew, end, context)) [[likely]] {
 				static_cast<void>(cursor::checkIfDone(iterNew, end, context));
 			} else {
 				static_cast<void>(cursor::template reject<parse_statuses::unfinished_input>(iter, context));
