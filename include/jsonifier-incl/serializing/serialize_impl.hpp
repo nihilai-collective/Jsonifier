@@ -349,13 +349,19 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
+		// raw_json_data nests itself, so a forced-inline path back into the container sizers is infinitely recursive (GCC
+		// reports this at -O0 and runs out of memory at -O1 and above). Containers go through a call; leaves stay inline.
+		template<typename container_type> JSONIFIER_NOINLINE static uint64_t containerSize(container_type& container, uint64_t& indent) noexcept {
+			return get_size<options>::impl(container, indent);
+		}
+
 		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_type::object): {
-					return get_size<options>::impl(value.getObject(), indent);
+					return containerSize(value.getObject(), indent);
 				}
 				case static_cast<uint64_t>(json_type::array): {
-					return get_size<options>::impl(value.getArray(), indent);
+					return containerSize(value.getArray(), indent);
 				}
 				case static_cast<uint64_t>(json_type::string): {
 					return get_size<options>::impl(value.getString(), indent);
@@ -882,13 +888,19 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type, serialize_options options> struct serialize_impl<value_type, options> {
+		// See get_size_impl<raw_json_t>: containers go through a call to break the forced-inline recursion; leaves stay inline.
+		template<typename container_type>
+		JSONIFIER_NOINLINE static write_buffer_ptr serializeContainer(container_type& container, write_buffer_ptr __restrict bufferPtr, uint64_t indent) noexcept {
+			return serialize<options>::impl(container, bufferPtr, indent);
+		}
+
 		template<typename value_type_new> JSONIFIER_INLINE static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr __restrict bufferPtr, uint64_t indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_type::object): {
-					return serialize<options>::impl(value.getObject(), bufferPtr, indent);
+					return serializeContainer(value.getObject(), bufferPtr, indent);
 				}
 				case static_cast<uint64_t>(json_type::array): {
-					return serialize<options>::impl(value.getArray(), bufferPtr, indent);
+					return serializeContainer(value.getArray(), bufferPtr, indent);
 				}
 				case static_cast<uint64_t>(json_type::string): {
 					return serialize<options>::impl(value.getString(), bufferPtr, indent);
