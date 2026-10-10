@@ -28,7 +28,7 @@ namespace jsonifier {
 			std::basic_string<value_type_newer> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
-				memcpyWrapper(returnValue.data(), data(), returnValue.size());
+				jsonifier::internal::jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -57,7 +57,7 @@ namespace jsonifier {
 			string_base<size> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
-				memcpyWrapper(returnValue.data(), data(), returnValue.size());
+				jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -204,7 +204,7 @@ namespace jsonifier {
 		return os;
 	}
 
-	JSONIFIER_INLINE constexpr string_view operator""_sv(read_buffer_ptr stringNew, size_t lengthNew) noexcept {
+	JSONIFIER_INLINE constexpr string_view operator""_sv(const char* stringNew, size_t lengthNew) noexcept {
 		return string_view(stringNew, lengthNew);
 	}
 

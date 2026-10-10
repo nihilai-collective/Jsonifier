@@ -78,7 +78,7 @@ namespace jsonifier::internal {
 
 	template<std::endian endianness> struct int_tables_impl<endianness, 1> {
 		alignas(64) static constexpr array<uint32_t, 256> table{ gen_1<endianness>() };
-		alignas(64) static constexpr const_structural_index_ptr __restrict values{ table.data() };
+		alignas(64) static constexpr read_structural_index_ptr __restrict values{ table.data() };
 	};
 
 	template<std::endian endianness> struct int_tables_impl<endianness, 2> {
@@ -88,12 +88,12 @@ namespace jsonifier::internal {
 
 	template<std::endian endianness> struct int_tables_impl<endianness, 3> {
 		alignas(64) static constexpr array<uint32_t, 1000> table{ gen_3<endianness>() };
-		alignas(64) static constexpr const_structural_index_ptr __restrict values{ table.data() };
+		alignas(64) static constexpr read_structural_index_ptr __restrict values{ table.data() };
 	};
 
 	template<std::endian endianness> struct int_tables_impl<endianness, 4> {
 		alignas(64) static constexpr array<uint32_t, 10000> table{ gen_4<endianness>() };
-		alignas(64) static constexpr const_structural_index_ptr __restrict values{ table.data() };
+		alignas(64) static constexpr read_structural_index_ptr __restrict values{ table.data() };
 	};
 
 	template<uint64_t size> using int_tables = int_tables_impl<std::endian::native, size>;
@@ -141,7 +141,7 @@ namespace jsonifier::internal {
 		uint32_t packed;
 		pow2MemcpyWrapper<4ULL>(&packed, &char_table_3_digit_data[value]);
 		pow2MemcpyWrapper<2ULL>(buf, &packed);
-		buf[2] = static_cast<char>(packed >> 16);
+		buf[2] = static_cast<uint8_t>(packed >> 16);
 	}
 
 	template<typename v_type, uint64_t digit_length> struct to_chars_internal;
@@ -151,7 +151,7 @@ namespace jsonifier::internal {
 	template<uint_types v_type> struct to_chars_internal<v_type, 5ULL> {
 		inline static write_buffer_ptr impl(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type a = value * 3518437209ULL >> 45;
-			*buf		   = static_cast<char>(a) + '0';
+			*buf		   = static_cast<uint8_t>(a + '0');
 			pow2MemcpyWrapper<4ULL>(buf + 1, char_table_4_digit_data + value - a * 10000);
 			return buf + 5;
 		}
@@ -190,7 +190,7 @@ namespace jsonifier::internal {
 			const v_type bcdefghi = value - a * 100000000ULL;
 			const v_type bcde	  = bcdefghi * 3518437209ULL >> 45;
 			const v_type fghi	  = bcdefghi - (bcde * 10000ULL);
-			*buf				  = static_cast<char>(a) + '0';
+			*buf				  = static_cast<uint8_t>(a + '0');
 			pow2MemcpyWrapper<4ULL>(buf + 1, char_table_4_digit_data + bcde);
 			pow2MemcpyWrapper<4ULL>(buf + 5, char_table_4_digit_data + fghi);
 			return buf + 9;
@@ -244,7 +244,7 @@ namespace jsonifier::internal {
 			const v_type bcde	  = abcde - (a * 10000ULL);
 			const v_type fghi	  = fghijklm * 3518437209ULL >> 45;
 			const v_type jklm	  = fghijklm - (fghi * 10000ULL);
-			*buf				  = static_cast<char>(a) + '0';
+			*buf				  = static_cast<uint8_t>(a + '0');
 			pow2MemcpyWrapper<4ULL>(buf + 1, char_table_4_digit_data + bcde);
 			pow2MemcpyWrapper<4ULL>(buf + 5, char_table_4_digit_data + fghi);
 			pow2MemcpyWrapper<4ULL>(buf + 9, char_table_4_digit_data + jklm);
@@ -310,7 +310,7 @@ namespace jsonifier::internal {
 			const v_type fghi	   = bcdefghi - (bcde * 10000ULL);
 			const v_type jklm	   = jklmnopq * 3518437209ULL >> 45;
 			const v_type nopq	   = jklmnopq - (jklm * 10000ULL);
-			*buf				   = static_cast<char>(a) + '0';
+			*buf				   = static_cast<uint8_t>(a + '0');
 			pow2MemcpyWrapper<4ULL>(buf + 1, char_table_4_digit_data + bcde);
 			pow2MemcpyWrapper<4ULL>(buf + 5, char_table_4_digit_data + fghi);
 			pow2MemcpyWrapper<4ULL>(buf + 9, char_table_4_digit_data + jklm);
@@ -384,7 +384,7 @@ namespace jsonifier::internal {
 	template<uint64_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static write_buffer_ptr impl(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			return value < 100000000ULL			  ? value < 10000ULL ? value < 100ULL ? value < 10U
-							? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
+							? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
 							: (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, char_table_2_digit_data + value)), buf + 2)
 						: value < 1000U										? (static_cast<void>(copy_3_digits(buf, value)), buf + 3)
 																			: (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, char_table_4_digit_data + value)), buf + 4)
@@ -405,7 +405,7 @@ namespace jsonifier::internal {
 
 	template<uint32_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static write_buffer_ptr impl(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 100000U	  ? value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
+			return value < 100000U	  ? value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
 																				   : (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, char_table_2_digit_data + value)), buf + 2)
 																	 : (static_cast<void>(copy_3_digits(buf, value)), buf + 3)
 					: value < 10000ULL			   ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, char_table_4_digit_data + value)), buf + 4)
@@ -418,7 +418,7 @@ namespace jsonifier::internal {
 
 	template<uint16_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static write_buffer_ptr impl(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 1000U   ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1)
+			return value < 1000U   ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
 																: (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, char_table_2_digit_data + value)), buf + 2)
 												  : (static_cast<void>(copy_3_digits(buf, value)), buf + 3)
 				: value < 10000ULL ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, char_table_4_digit_data + value)), buf + 4)
@@ -428,9 +428,9 @@ namespace jsonifier::internal {
 
 	template<uint8_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static write_buffer_ptr impl(write_buffer_ptr __restrict buf, const v_type value) noexcept {
-			return value < 100
-				? value < 10 ? (static_cast<void>(buf[0] = char(value) + '0'), buf + 1) : (static_cast<void>(pow2MemcpyWrapper<2>(buf, &char_table_2_digit_data[value])), buf + 2)
-				: (static_cast<void>(copy_3_digits(buf, value)), buf + 3);
+			return value < 100 ? value < 10 ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
+											: (static_cast<void>(pow2MemcpyWrapper<2>(buf, &char_table_2_digit_data[value])), buf + 2)
+							   : (static_cast<void>(copy_3_digits(buf, value)), buf + 3);
 		}
 	};
 

@@ -4,14 +4,15 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/sve2_stage1.hpp
  */
-// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
-#pragma once
+// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+#if !defined(JSONIFIER_PASS_GUARD_SVE2_STAGE1)
+	#define JSONIFIER_PASS_GUARD_SVE2_STAGE1
 
-#include <jsonifier-incl/simd/neon.hpp>
+	#include <jsonifier-incl/simd/neon.hpp>
 
-namespace jsonifier::internal::simd {
+namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128,
 		"This block collapses simdRegistersPerBlock registers into a single uint64_t bitmask, and SVE2 ADDP is segment-wise; both hold only at 128-bit VL.");
@@ -145,7 +146,7 @@ namespace jsonifier::internal::simd {
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
 			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
 			next(in_01, bsRegister, quoteRegister);
 		}
@@ -222,6 +223,8 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArraySve2<size>() };
 
-#endif
+	#endif
 
 }
+
+#endif

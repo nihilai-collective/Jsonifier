@@ -241,7 +241,7 @@ namespace jsonifier {
 			std::basic_string<value_type_newer> returnValue{};
 			if (sizeVal > 0) [[likely]] {
 				returnValue.resize(sizeVal);
-				memcpyWrapper(returnValue.data(), data(), returnValue.size());
+				jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -848,7 +848,7 @@ namespace jsonifier {
 			std::basic_string<value_type_newer> returnValue{};
 			if (sizeVal > 0) [[likely]] {
 				returnValue.resize(sizeVal);
-				memcpyWrapper(returnValue.data(), data(), returnValue.size());
+				jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}

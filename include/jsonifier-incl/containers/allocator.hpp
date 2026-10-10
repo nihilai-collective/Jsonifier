@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <jsonifier-incl/simd/simd_types.hpp>
+#include <jsonifier-incl/simd/backend_traits.hpp>
 #include <jsonifier-incl/utilities/utility.hpp>
 
 namespace jsonifier::internal {
@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 		using const_pointer					= const value_type*;
 		using size_type						= uint64_t;
 		using difference_type				= ptrdiff_t;
-		static constexpr uint64_t alignment = (alignof(value_type_new) > simdBytesPerRegister) ? alignof(value_type_new) : simdBytesPerRegister;
+		static constexpr uint64_t alignment = (alignof(value_type_new) > maxSimdBytesPerRegister) ? alignof(value_type_new) : maxSimdBytesPerRegister;
 
 		struct allocation_header {
 			allocated_memory_types type{};

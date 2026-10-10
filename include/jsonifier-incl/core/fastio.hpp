@@ -10,7 +10,7 @@ namespace jsonifier::internal {
 
 	enum class stream_target { stdout_target, stderr_target };
 
-	inline size_t rawWrite(stream_target target, read_buffer_ptr data, size_t len) {
+	inline size_t rawWrite(stream_target target, const char* data, size_t len) {
 #if JSONIFIER_PLATFORM_WINDOWS
 		HANDLE handle = GetStdHandle(target == stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
 		DWORD written = 0;
@@ -51,8 +51,8 @@ namespace jsonifier::internal {
 		return originalDigitCount + static_cast<uint64_t>(inputValue > digitCountThresholds[originalDigitCount]);
 	}
 
-	inline write_buffer_ptr writeUnsigned(write_buffer_ptr buffer_end, uint64_t value) {
-		write_buffer_ptr pos				   = buffer_end;
+	inline char* writeUnsigned(char* buffer_end, uint64_t value) {
+		char* pos							   = buffer_end;
 		static constexpr char digit_pairs[201] = "0001020304050607080910111213141516171819"
 												 "2021222324252627282930313233343536373839"
 												 "4041424344454647484950515253545556575859"
@@ -75,30 +75,30 @@ namespace jsonifier::internal {
 		return pos;
 	}
 
-	template<typename value_type> inline size_t writeInteger(write_buffer_ptr dest, value_type value) {
+	template<typename value_type> inline size_t writeInteger(char* dest, value_type value) {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
-			write_buffer_ptr out_local = dest;
+			char* out_local = dest;
 			if (value < 0) {
 				*out_local++ = '-';
 				magnitude	 = ~static_cast<uint64_t>(value) + 1;
 			} else {
 				magnitude = static_cast<uint64_t>(value);
 			}
-			auto count			 = fastDigitCount(magnitude);
-			write_buffer_ptr end = out_local + count;
+			auto count = fastDigitCount(magnitude);
+			char* end  = out_local + count;
 			writeUnsigned(end, magnitude);
 			return static_cast<size_t>(end - dest);
 		} else {
-			uint64_t magnitude	 = static_cast<uint64_t>(value);
-			auto count			 = fastDigitCount(magnitude);
-			write_buffer_ptr end = dest + count;
+			uint64_t magnitude = static_cast<uint64_t>(value);
+			auto count		   = fastDigitCount(magnitude);
+			char* end		   = dest + count;
 			writeUnsigned(end, magnitude);
 			return count;
 		}
 	}
 
-	template<typename value_type> inline size_t writeFloat(write_buffer_ptr dest, value_type value) {
+	template<typename value_type> inline size_t writeFloat(char* dest, value_type value) {
 		auto result = std::to_chars(dest, dest + 64, value);
 		return static_cast<size_t>(result.ptr - dest);
 	}
@@ -118,14 +118,14 @@ namespace jsonifier::internal {
 			return *this;
 		}
 
-		inline void writeRaw(read_buffer_ptr data, size_t size) {
+		inline void writeRaw(const char* data, size_t size) {
 			if (size >= buffer_size) {
 				doFlush();
 				rawWrite(target_, data, size);
 				return;
 			}
 			ensureSpace(size);
-			memcpyWrapper(buffer_ + len_, data, size);
+			jsonifierMemcpy(buffer_ + len_, data, size);
 			len_ += size;
 		}
 
@@ -150,7 +150,7 @@ namespace jsonifier::internal {
 			return *this;
 		}
 
-		inline basic_stream& operator<<(read_buffer_ptr value) {
+		inline basic_stream& operator<<(const char* value) {
 			return (*this) << std::string_view(value);
 		}
 

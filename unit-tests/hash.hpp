@@ -62,7 +62,7 @@ namespace hash_validation_tests {
 		ctHasher.seed			= seed;
 		const uint64_t expected = referenceHash(seed, bytes);
 		const uint64_t ctHash	= ctHasher.hashKeyCt(bytes.data(), bytes.size());
-		const uint64_t rtHash	= jsonifier::internal::rt_key_hasher<seed>::hashKeyRt(bytes.data(), bytes.size());
+		const uint64_t rtHash	= jsonifier::internal::rt_key_hasher<seed>::hashKeyRt(std::bit_cast<jsonifier::read_buffer_ptr>(bytes.data()), bytes.size());
 		if (ctHash != expected) {
 			std::cout << "HASH_CT MISMATCH for seed " << seed << ", length " << bytes.size() << ": ct=" << ctHash << " expected=" << expected << std::endl;
 			return false;
@@ -106,7 +106,7 @@ namespace hash_validation_tests {
 			hasher.seed				= 123456789ull;
 			const uint64_t expected = hasher.seed ^ (hasher.seed >> 32);
 			const uint64_t ctResult = hasher.hashKeyCt("", 0);
-			const uint64_t rtResult = jsonifier::internal::rt_key_hasher<123456789ull>::hashKeyRt("", 0);
+			const uint64_t rtResult = jsonifier::internal::rt_key_hasher<123456789ull>::hashKeyRt(std::bit_cast<jsonifier::read_buffer_ptr>(+""), 0);
 			return ctResult == expected && rtResult == expected;
 		});
 

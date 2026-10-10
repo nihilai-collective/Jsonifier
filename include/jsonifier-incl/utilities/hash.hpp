@@ -71,7 +71,7 @@ namespace jsonifier::internal {
 		7512972502278041818ull, 8724494295438506783ull, 9277533619161797917ull, 13495127262014153477ull, 2883303557104387784ull, 3039599040070277986ull, 4196273005435491662ull,
 		5417879022829474871ull, 6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
-	template<typename value_type> inline constexpr value_type readBitsCt(read_buffer_ptr ptr) noexcept {
+	template<typename value_type> inline constexpr value_type readBitsCt(const char* ptr) noexcept {
 		char values[sizeof(value_type)]{};
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 	}
 
 	struct ct_key_hasher {
-		inline constexpr uint64_t hashKeyCt(read_buffer_ptr value, uint64_t length) const noexcept {
+		inline constexpr uint64_t hashKeyCt(const char* value, uint64_t length) const noexcept {
 			uint64_t seed64{ seed };
 
 			{

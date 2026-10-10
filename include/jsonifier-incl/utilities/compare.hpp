@@ -4,16 +4,29 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/utilities/compare.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_COMPARE)
+	#define JSONIFIER_PASS_GUARD_COMPARE
 
-#include <jsonifier-incl/utilities/string_literal.hpp>
-#include <jsonifier-incl/utilities/utility.hpp>
-#include <jsonifier-incl/simd/avx.hpp>
-#include <jsonifier-incl/simd/neon.hpp>
-#include <jsonifier-incl/simd/sve2.hpp>
-#include <jsonifier-incl/simd/fallback.hpp>
+	#include <jsonifier-incl/utilities/string_literal.hpp>
+	#include <jsonifier-incl/utilities/utility.hpp>
+	#include <jsonifier-incl/simd/avx.hpp>
+	#include <jsonifier-incl/simd/neon.hpp>
+	#include <jsonifier-incl/simd/sve2.hpp>
+	#include <jsonifier-incl/simd/fallback.hpp>
 
-namespace jsonifier::internal {
+namespace JSONIFIER_INTERNAL_NAMESPACE {
+
+	template<typename value_type>
+	concept eq_16 = base_t<value_type>::length == 16 && simdBytesPerRegister >= 16;
+
+	template<typename value_type>
+	concept eq_32 = base_t<value_type>::length == 32 && simdBytesPerRegister >= 32;
+
+	template<typename value_type>
+	concept eq_64 = base_t<value_type>::length == 64 && simdBytesPerRegister >= 64;
+
+	template<typename value_type>
+	concept gt_16 = base_t<value_type>::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;
 
 	template<uint8_t repeat, uint_types return_type> inline static constexpr return_type repeatByte() noexcept {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
@@ -26,7 +39,7 @@ namespace jsonifier::internal {
 	template<char valueNewer, typename char_type> struct char_comparison {
 		static constexpr char value{ valueNewer };
 		JSONIFIER_INLINE static const char_type* memchar(const char_type* data, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -46,9 +59,9 @@ namespace jsonifier::internal {
 					data += vectorSize;
 				}
 			}
-#endif
+	#endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -68,7 +81,7 @@ namespace jsonifier::internal {
 					data += vectorSize;
 				}
 			}
-#endif
+	#endif
 			if (lengthNew >= 16) {
 				using type_list_element				 = type_list_element_t<2, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -91,9 +104,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint64_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ repeatByte<value, uint64_t>() };
-					static constexpr auto highBits{ repeatByte<0x80, uint64_t>() };
-					static constexpr auto lowBits{ repeatByte<0x01, uint64_t>() };
+					static constexpr auto valueNew{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<value, uint64_t>() };
+					static constexpr auto highBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x80, uint64_t>() };
+					static constexpr auto lowBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x01, uint64_t>() };
 					uint64_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint64_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -111,9 +124,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint32_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ repeatByte<value, uint32_t>() };
-					static constexpr auto highBits{ repeatByte<0x80, uint32_t>() };
-					static constexpr auto lowBits{ repeatByte<0x01, uint32_t>() };
+					static constexpr auto valueNew{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<value, uint32_t>() };
+					static constexpr auto highBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x80, uint32_t>() };
+					static constexpr auto lowBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x01, uint32_t>() };
 					uint32_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint32_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -131,9 +144,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint16_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ repeatByte<value, uint16_t>() };
-					static constexpr auto highBits{ repeatByte<0x80, uint16_t>() };
-					static constexpr auto lowBits{ repeatByte<0x01, uint16_t>() };
+					static constexpr auto valueNew{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<value, uint16_t>() };
+					static constexpr auto highBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x80, uint16_t>() };
+					static constexpr auto lowBits{ ::JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0x01, uint16_t>() };
 					uint16_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint16_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -158,7 +171,7 @@ namespace jsonifier::internal {
 
 	struct comparison {
 		template<typename char_type01, typename char_type02> JSONIFIER_INLINE static bool compare(const char_type01* lhs, char_type02* rhs, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -176,8 +189,8 @@ namespace jsonifier::internal {
 					rhs += vectorSize;
 				}
 			}
-#endif
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+	#endif
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -195,7 +208,7 @@ namespace jsonifier::internal {
 					rhs += vectorSize;
 				}
 			}
-#endif
+	#endif
 			if (lengthNew >= 16) {
 				using type_list_element				 = type_list_element_t<2, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -419,7 +432,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
-#if JSONIFIER_COMPILER_GCC
+	#if JSONIFIER_COMPILER_GCC
 			static constexpr auto loString = stringLiteral.template substr<0, 8>();
 			static constexpr auto hiString = stringLiteral.template substr<newCount - 8, 8>();
 			static constexpr uint64_t loValuesNew{ pack_values<loString>::value };
@@ -428,13 +441,13 @@ namespace jsonifier::internal {
 			pow2MemcpyWrapper<8>(&lo, str);
 			pow2MemcpyWrapper<8>(&hi, str + newCount - 8);
 			return !((lo ^ loValuesNew) | (hi ^ hiValuesNew)) ? str + newCount : nullptr;
-#else
+	#else
 			alignas(64) static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
 			jsonifier_simd_int_128 data1{};
-			memcpyWrapper(&data1, str, newCount);
+			jsonifierMemcpyUpTo<15>(&data1, str, newCount);
 			const jsonifier_simd_int_128 data2{ simd::gatherValues<jsonifier_simd_int_128>(valuesNew.data()) };
 			return simd::opTest(simd::opXor(data1, data2)) ? str + newCount : nullptr;
-#endif
+	#endif
 		}
 	};
 
@@ -565,7 +578,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 
 	template<eq_32 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
@@ -577,9 +590,9 @@ namespace jsonifier::internal {
 		}
 	};
 
-#endif
+	#endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 	template<eq_64 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
@@ -589,11 +602,11 @@ namespace jsonifier::internal {
 			return simd::opCmpEq(data1, data2) == 0xFFFFFFFFFFFFFFFFULL ? str + 64 : nullptr;
 		}
 	};
-#endif
+	#endif
 
 	template<gt_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		static constexpr uint64_t split_mod{ getOffsetIntoLiteralSize(stringNew.size()) };
-		static constexpr auto string_count{ getSplitStringCount<split_mod>(stringNew) };
+		static constexpr uint64_t split_mod{ ::JSONIFIER_INTERNAL_NAMESPACE::getOffsetIntoLiteralSize(stringNew.size()) };
+		static constexpr auto string_count{ ::JSONIFIER_INTERNAL_NAMESPACE::getSplitStringCount<split_mod>(stringNew) };
 
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
 			return string_literal_splitter<make_integer_sequence<string_count>, stringNew, split_mod>::impl(str);
@@ -608,3 +621,5 @@ namespace jsonifier::internal {
 	};
 
 }
+
+#endif

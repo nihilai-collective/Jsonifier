@@ -8,6 +8,7 @@
 
 #include <jsonifier-incl/utilities/utility.hpp>
 #include <jsonifier-incl/utilities/string_view.hpp>
+#include <jsonifier-incl/utilities/string_literal.hpp>
 #include <jsonifier-incl/containers/tuple.hpp>
 
 namespace jsonifier::internal {
@@ -30,7 +31,8 @@ namespace jsonifier::internal {
 			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
 			const auto& potentialKey	 = internal::getBecauseOtherLibAuthorsResolve<index>(tuple);
 			if constexpr (has_name<decltype(potentialKey)>) {
-				tupleRefsRaw[index].key = potentialKey.name.operator string_view();
+				// The hash map is matched against key text as it appears in the JSON, so build it from the escaped name.
+				tupleRefsRaw[index].key = escapedKeyLiteral<remove_cvref_t<decltype(potentialKey)>::name>.operator string_view();
 			}
 		}
 

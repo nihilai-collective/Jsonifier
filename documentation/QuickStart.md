@@ -45,7 +45,7 @@ For each struct you want to serialize or parse, specialize `jsonifier::core` and
 ```cpp
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::logo,
@@ -54,7 +54,7 @@ template<> struct jsonifier::core<event> {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::events,
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
@@ -93,7 +93,7 @@ std::string output;
 parser.serializeJson(data, output);
 ```
 
-Order is the same: destination first, source second. `output` now holds the JSON representation of `data`.
+The order flips relative to `parseJson`: source object first, destination buffer second. `output` now holds the JSON representation of `data`.
 
 By default, output is minified. To pretty-print:
 
@@ -123,7 +123,7 @@ struct catalog {
 
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::logo,
@@ -132,7 +132,7 @@ template<> struct jsonifier::core<event> {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::events,
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
@@ -156,7 +156,7 @@ int main() {
 }
 ```
 
-Compile with your usual C++20 setup and Jsonifier linked (`Jsonifier::Jsonifier` if you're using CMake) and it runs.
+Compile with a C++23 compiler and Jsonifier linked (`Jsonifier::Jsonifier` if you're using CMake) and it runs.
 
 ## What's Next
 

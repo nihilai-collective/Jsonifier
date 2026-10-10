@@ -13,13 +13,29 @@
 
 namespace jsonifier {
 
+#if JSONIFIER_CONFIGURED_AVX_TIER >= 2
+	namespace avx2::internal {
+		template<typename value_type, typename context_type, parse_options options> struct parse_impl;
+	}
+#endif
+
+#if JSONIFIER_CONFIGURED_AVX_TIER >= 3
+	namespace avx512::internal {
+		template<typename value_type, typename context_type, parse_options options> struct parse_impl;
+	}
+#endif
+
+	namespace internal {
+		template<typename value_type, typename context_type, parse_options options> struct parse_impl;
+	}
+
 	class json_number {
 	  public:
 		enum class number_types : uint8_t { uint64, int64, double64 };
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			read_buffer_ptr first = sv.data();
-			read_buffer_ptr last  = sv.data() + sv.size();
+			read_buffer_ptr first = std::bit_cast<read_buffer_ptr>(sv.data());
+			read_buffer_ptr last  = std::bit_cast<read_buffer_ptr>(sv.data() + sv.size());
 
 			if (sv.empty()) {
 				uint_val	= 0;
@@ -27,23 +43,23 @@ namespace jsonifier {
 				return;
 			}
 
-			if (sv[0] == '-') {
-				int64_t ival = 0;
-				auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
-				if (ptr == last) {
-					int_val		= ival;
-					number_type = number_types::int64;
-					return;
+			bool isFloat = false;
+			for (auto c = first; c != last; ++c) {
+				if (*c == '.' || *c == 'e' || *c == 'E') {
+					isFloat = true;
+					break;
 				}
-			} else {
-				bool isFloat = false;
-				for (auto c = first; c != last; ++c) {
-					if (*c == '.' || *c == 'e' || *c == 'E') {
-						isFloat = true;
-						break;
+			}
+			if (!isFloat) {
+				if (sv[0] == '-') {
+					int64_t ival = 0;
+					auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
+					if (ptr == last) {
+						int_val		= ival;
+						number_type = number_types::int64;
+						return;
 					}
-				}
-				if (!isFloat) {
+				} else {
 					uint64_t uval = 0;
 					auto ptr	  = internal::integer_parser<uint64_t>::parseInt(uval, first, last);
 					if (ptr == last) {
@@ -157,8 +173,8 @@ namespace jsonifier {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
-			internal::parse_context<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(), &context.getErrors(), jsonDataNew.data(),
-				jsonDataNew.data() + jsonDataNew.size() };
+			internal::parse_context<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(), &context.getErrors(),
+				std::bit_cast<read_buffer_ptr>(jsonDataNew.data()), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
 			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
 
@@ -266,155 +282,86 @@ namespace jsonifier {
 			value.emplace<null_type>();
 		}
 
-#if JSONIFIER_COMPILER_MSVC
 	  protected:
-		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
-			static constexpr parse_options optionsNew{};
-			read_buffer_ptr iter{ jsonDataNew.data() };
-			const read_buffer_ptr end{ jsonDataNew.data() + jsonDataNew.size() };
-			if (jsonDataNew.size() > 0) {
-				switch (jsonDataNew[0]) {
-					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case 't':
-						value.emplace<bool_type>(true);
-						return;
-					case 'f': {
-						value.emplace<bool_type>(false);
-						return;
-					}
-					case 'n': {
-						value.emplace<null_type>();
-						return;
-					}
-					case '0':
-						[[fallthrough]];
-					case '1':
-						[[fallthrough]];
-					case '2':
-						[[fallthrough]];
-					case '3':
-						[[fallthrough]];
-					case '4':
-						[[fallthrough]];
-					case '5':
-						[[fallthrough]];
-					case '6':
-						[[fallthrough]];
-					case '7':
-						[[fallthrough]];
-					case '8':
-						[[fallthrough]];
-					case '9':
-						[[fallthrough]];
-					case '-': {
-						value.emplace<number_type>(jsonDataNew);
-						return;
-					}
-					default: {
-						value.emplace<null_type>();
-						return;
-					}
-				}
-			} else {
-				value.emplace<null_type>();
-				return;
-			}
-		}
-#else
-	  protected:
-		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
-			static constexpr parse_options optionsNew{};
-			const read_buffer_ptr iter{ jsonDataNew.data() };
-			const read_buffer_ptr end{ jsonDataNew.data() + jsonDataNew.size() };
-			if (jsonDataNew.size() > 0) {
-				switch (jsonDataNew[0]) {
-					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, 0, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, 0, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, 0, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case 't':
-						value.emplace<bool_type>(true);
-						return;
-					case 'f': {
-						value.emplace<bool_type>(false);
-						return;
-					}
-					case 'n': {
-						value.emplace<null_type>();
-						return;
-					}
-					case '0':
-						[[fallthrough]];
-					case '1':
-						[[fallthrough]];
-					case '2':
-						[[fallthrough]];
-					case '3':
-						[[fallthrough]];
-					case '4':
-						[[fallthrough]];
-					case '5':
-						[[fallthrough]];
-					case '6':
-						[[fallthrough]];
-					case '7':
-						[[fallthrough]];
-					case '8':
-						[[fallthrough]];
-					case '9':
-						[[fallthrough]];
-					case '-': {
-						value.emplace<number_type>(jsonDataNew);
-						return;
-					}
-					default: {
-						value.emplace<null_type>();
-						return;
-					}
-				}
-			} else {
-				value.emplace<null_type>();
-				return;
-			}
-		}
+		template<typename value_type_new, typename context_type, parse_options options> friend struct internal::parse_impl;
+#if JSONIFIER_CONFIGURED_AVX_TIER >= 2
+		template<typename value_type_new, typename context_type, parse_options options> friend struct avx2::internal::parse_impl;
 #endif
+#if JSONIFIER_CONFIGURED_AVX_TIER >= 3
+		template<typename value_type_new, typename context_type, parse_options options> friend struct avx512::internal::parse_impl;
+#endif
+
+		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
+			static constexpr parse_options optionsNew{};
+			const read_buffer_ptr iter{ std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) };
+			if (jsonDataNew.size() > 0) {
+				switch (jsonDataNew[0]) {
+					case '{': {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
+							value.emplace<null_type>();
+						}
+						return;
+					}
+					case '[': {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
+							value.emplace<null_type>();
+						}
+						return;
+					}
+					case '"': {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
+							value.emplace<null_type>();
+						}
+						return;
+					}
+					case 't':
+						value.emplace<bool_type>(true);
+						return;
+					case 'f': {
+						value.emplace<bool_type>(false);
+						return;
+					}
+					case 'n': {
+						value.emplace<null_type>();
+						return;
+					}
+					case '0':
+						[[fallthrough]];
+					case '1':
+						[[fallthrough]];
+					case '2':
+						[[fallthrough]];
+					case '3':
+						[[fallthrough]];
+					case '4':
+						[[fallthrough]];
+					case '5':
+						[[fallthrough]];
+					case '6':
+						[[fallthrough]];
+					case '7':
+						[[fallthrough]];
+					case '8':
+						[[fallthrough]];
+					case '9':
+						[[fallthrough]];
+					case '-': {
+						value.emplace<number_type>(jsonDataNew);
+						return;
+					}
+					default: {
+						value.emplace<null_type>();
+						return;
+					}
+				}
+			} else {
+				value.emplace<null_type>();
+				return;
+			}
+		}
 
 		value_type value{};
 	};

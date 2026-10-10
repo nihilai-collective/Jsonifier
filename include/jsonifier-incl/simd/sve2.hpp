@@ -4,14 +4,15 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/sve2.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_SVE2)
+	#define JSONIFIER_PASS_GUARD_SVE2
 
-#include <jsonifier-incl/simd/simd_types.hpp>
-#include <jsonifier-incl/simd/bit_ops.hpp>
+	#include <jsonifier-incl/simd/simd_config.hpp>
+	#include <jsonifier-incl/simd/bit_ops.hpp>
 
-namespace jsonifier::internal::simd {
+namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
 	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcnt(value_type value) noexcept {
 		return countrZero(value) >> 2;
@@ -22,11 +23,11 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_sve2_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValues(const void* str) noexcept {
-		return svld1_u8(svptrue_b8(), static_cast<const uint8_t*>(str));
+		return svld1_u8(svptrue_b8(), static_cast<read_buffer_ptr>(str));
 	}
 
 	template<simd_int_sve2_type simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE static simd_int_type_new gatherValuesU(const void* str) noexcept {
-		return svld1_u8(svptrue_b8(), static_cast<const uint8_t*>(str));
+		return svld1_u8(svptrue_b8(), static_cast<read_buffer_ptr>(str));
 	}
 
 	template<simd_int_sve2_type simd_int_type_new, typename char_t>
@@ -145,6 +146,8 @@ namespace jsonifier::internal::simd {
 		return opOr(chunks.template get<0>(), opOr(chunks.template get<1>(), opOr(chunks.template get<2>(), chunks.template get<3>())));
 	}
 
-#endif
+	#endif
 
 }
+
+#endif

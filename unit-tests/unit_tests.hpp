@@ -21,6 +21,18 @@ template<> struct jsonifier::core<simple_struct> {
 	static constexpr auto parseValue = createValue<&value_type::id, &value_type::name, &value_type::value>();
 };
 
+struct escaped_keys {
+	int32_t quote{};
+	int32_t backslash{};
+	int32_t both{};
+};
+
+template<> struct jsonifier::core<escaped_keys> {
+	using value_type = escaped_keys;
+	static constexpr auto parseValue =
+		createValue<makeJsonEntity<&value_type::quote, "say \"hi\"">(), makeJsonEntity<&value_type::backslash, "C:\\dir">(), makeJsonEntity<&value_type::both, "\\\"">()>();
+};
+
 struct char_roundtrip {
 	uint8_t uchar_val{};
 	int32_t int_val{};
@@ -582,6 +594,105 @@ namespace unit_tests {
 			return !parser.validateJson(json);
 		};
 
+
+		static constexpr auto test_skip_string_escaped_quote = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
+			auto parseExact = [&](std::string_view json, simple_struct& value) {
+				std::vector<char> buffer(json.begin(), json.end());
+				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
+			};
+			simple_struct value{};
+			// Unknown key whose string value is cut off after an escaped quote.
+			for (std::string_view json: { R"({"note":"\"})", R"({"note":"a\"b)" }) {
+				if (parseExact(json, value)) {
+					return false;
+				}
+			}
+			// Escaped quotes inside a skipped value still end at the right quote.
+			if (!parseExact(R"({"note":"a\"b\"c","id":7})", value)) {
+				return false;
+			}
+			return value.id == 7;
+		};
+
+		static constexpr auto test_validate_truncated_literals = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Each input sits in a heap buffer of exactly its size plus the null
+			// terminator, so AddressSanitizer reports any read past the end.
+			for (std::string_view json: { "[t", "[f", "[n", "[tru", "[fals", "[nul", "t", "f", "n" }) {
+				std::vector<char> buffer(json.size() + 1);
+				std::copy(json.begin(), json.end(), buffer.begin());
+				if (parser.validateJson(std::string_view{ buffer.data(), json.size() })) {
+					return false;
+				}
+			}
+			// A '0' followed by a byte >= 0x80 used to index numberTable with a
+			// negative offset; only the absence of a sanitizer report is checked.
+			static_cast<void>(parser.validateJson(std::string_view{ "[0\xE5]" }));
+			return true;
+		};
+
+		static constexpr auto test_validate_strict_scalars = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Each input sits in a heap buffer of exactly its size plus the null terminator.
+			auto validate = [&](std::string_view json) {
+				std::vector<char> buffer(json.size() + 1);
+				std::copy(json.begin(), json.end(), buffer.begin());
+				return parser.validateJson(std::string_view{ buffer.data(), json.size() });
+			};
+			for (std::string_view json:
+				{ "42", "-0", " 1.5e+10 ", "\"a\"", "\"\"", "true", "null", "[0,-0.0,1E5,1e-5,123.456e78]", "[\"\\u00e9\",\"\xC3\xA9\"]", "{\"a\" : 1 , \"b\" : [ ] }" }) {
+				if (!validate(json)) {
+					return false;
+				}
+			}
+			for (std::string_view json: { "[-]", "[+1]", "[1+2]", "[0x42]", "[01]", "[-01]", "[1.]", "[.5]", "[1e]", "[1e+]", "[--1]", "[1.5.5]", "[1ee5]", "[truex]", "[nullnull]",
+					 "[-Infinity]", "[\"\\x\"]", "[\"a\x01\"]", "[\"\xFF\"]", "[\"\xC3\"]", "[\"\xED\xA0\x80\"]", "[\"\xC0\xAF\"]", "\"a\" \"b\"", "1 2", "01", "-" }) {
+				if (validate(json)) {
+					return false;
+				}
+			}
+			return true;
+		};
+
+		static constexpr auto test_escaped_member_keys = []() {
+			jsonifier::jsonifier_core<> parser{};
+			escaped_keys value{ 1, 2, 3 };
+			std::string json{};
+			parser.serializeJson(value, json);
+			if (json != R"({"say \"hi\"":1,"C:\\dir":2,"\\\"":3})" || !parser.validateJson(json)) {
+				return false;
+			}
+			// Keys out of declaration order go through the hash lookup instead of the in-order fast path.
+			escaped_keys parsed{};
+			if (!parser.parseJson(parsed, std::string{ R"({"\\\"":3,"C:\\dir":2,"say \"hi\"":1})" })) {
+				return false;
+			}
+			return parsed.quote == 1 && parsed.backslash == 2 && parsed.both == 3;
+		};
+
+		static constexpr auto test_integer_truncated_fraction = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
+			auto parseExact = [&](std::string_view json, auto& value) {
+				std::vector<char> buffer(json.begin(), json.end());
+				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
+			};
+			// An integer whose fraction or exponent runs into the end of the input.
+			for (std::string_view json: { "[1.", "[1.5", "[1e", "[1e5", "[1.5e", "[1.5e1", "[1.5e+" }) {
+				std::vector<int64_t> signedValues{};
+				std::vector<uint64_t> unsignedValues{};
+				if (parseExact(json, signedValues) || parseExact(json, unsignedValues)) {
+					return false;
+				}
+			}
+			std::vector<int64_t> signedValues{};
+			std::vector<uint64_t> unsignedValues{};
+			return parseExact("[1.5e1,2e1]", signedValues) && parseExact("[1.5e1,2e1]", unsignedValues) && signedValues == std::vector<int64_t>{ 15, 20 } &&
+				unsignedValues == std::vector<uint64_t>{ 15, 20 };
+		};
+
 		static constexpr auto test_float_precision = []() {
 			jsonifier::jsonifier_core<> parser{};
 			FloatPrecision fp{};
@@ -1065,6 +1176,11 @@ namespace unit_tests {
 		rt_ut::unit_test<"Minify", true>::assert_eq(true, test_minify);
 		rt_ut::unit_test<"Validate Valid", true>::assert_eq(true, test_validate_valid);
 		rt_ut::unit_test<"Validate Invalid", true>::assert_eq(true, test_validate_invalid);
+		rt_ut::unit_test<"Skip String Escaped Quote", true>::assert_eq(true, test_skip_string_escaped_quote);
+		rt_ut::unit_test<"Validate Truncated Literals", true>::assert_eq(true, test_validate_truncated_literals);
+		rt_ut::unit_test<"Validate Strict Scalars", true>::assert_eq(true, test_validate_strict_scalars);
+		rt_ut::unit_test<"Escaped Member Keys", true>::assert_eq(true, test_escaped_member_keys);
+		rt_ut::unit_test<"Integer Truncated Fraction", true>::assert_eq(true, test_integer_truncated_fraction);
 		rt_ut::unit_test<"Float Precision", true>::assert_eq(true, test_float_precision);
 		rt_ut::unit_test<"Nested Struct", true>::assert_eq(std::make_tuple(42, uint64_t{ 3 }), test_nested_struct);
 		rt_ut::unit_test<"Shared Ptr", true>::assert_eq(true, test_shared_ptr);

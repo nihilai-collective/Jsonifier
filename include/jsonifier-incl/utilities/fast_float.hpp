@@ -332,7 +332,7 @@ namespace jsonifier::internal {
 		return (((val & 0x00FF00FF) * 0x00640001) >> 16) & 0xFFFF;
 	}
 
-	JSONIFIER_INLINE static constexpr void loop_parse_if_eight_digits(char const*& p, char const* const pend, uint64_t& i) {
+	JSONIFIER_INLINE static constexpr void loop_parse_if_eight_digits(uint8_t const*& p, uint8_t const* const pend, uint64_t& i) {
 		while (((pend - p) >= 8) && is_made_of_eight_digits_fast(read8_to_u64(p))) {
 			i = i * 100000000 + parse_eight_digits_unrolled(read8_to_u64(p));
 			p += 8;

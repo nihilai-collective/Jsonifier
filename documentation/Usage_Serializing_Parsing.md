@@ -38,9 +38,10 @@ The full set:
 
 | Option | Default | Purpose |
 |--------|---------|---------|
-| `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Enables handling of unordered or partial JSON structures. See [Partial Reading](PartialReading.md). |
-| `knownOrder` | `false` | Enables adaptive memoization of field ordering, so repeated parses of the same shape hit a fast path. See [Known Order Parsing](Known_Order.md). |
+| `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Makes it cheap to skip the parts of a document you didn't register. See [Partial Reading](PartialReading.md). |
+| `knownOrder` | `false` | Tries the key declared at each position first, then a self-tuning per-position memo, before falling back to the hash map. See [Known Order Parsing](Known_Order.md). |
 | `minified` | `false` | Tells the parser the input has no whitespace, eliminating all whitespace-skipping logic in the value walker. See [Optimizing For Minified JSON](Optimizing_For_Minified_Json.md). |
+| `newLineDelimited` | `false` | Reserved; declared in `parse_options` but not currently consumed by the parser. |
 | `nullTerminated` | `true` | Whether the input buffer has a trailing null byte. **See the warning below.** |
 | `maxDepth` | `1024` | Maximum JSON nesting depth. Enforced at runtime — inputs exceeding this depth are rejected with `parse_statuses::exceeded_max_depth`. Guards against stack exhaustion on adversarial input. |
 
@@ -63,7 +64,7 @@ The template argument is evaluated at compile time, so different option sets pro
 - **`std::string`** — safe. Its underlying storage is guaranteed to be null-terminated since C++11.
 - **`std::string_view` into a string literal or `std::string`** — safe for the same reason.
 - **`std::vector<char>`** — **not safe by default.** No trailing null guarantee.
-- **Raw `write_buffer_ptr` from a file read, socket, or arbitrary source** — **only safe if you know it's null-terminated.**
+- **Raw `const char*` buffers from a file read, socket, or arbitrary source** — **only safe if you know it's null-terminated.**
 
 If your source doesn't have a trailing null, set `nullTerminated = false` explicitly:
 
@@ -98,18 +99,7 @@ std::string output;
 parser.serializeJson(data, output);
 ```
 
-The destination is resized to fit the output. Any prior contents are overwritten.
-
-### Serialize Without a Buffer
-
-There's a second form that returns a `string_view` into the parser's internal buffer, skipping the copy into a user-provided destination:
-
-```cpp
-auto view = parser.serializeJson(data);
-std::cout << view << std::endl;
-```
-
-This is faster when you just need to inspect or write the JSON somewhere immediately. **The returned view is only valid until the next `parseJson` or `serializeJson` call on the same parser instance** — the internal buffer gets reused. If you need the JSON to outlive the next parser operation, use the buffer form instead.
+The destination is resized to fit the output (any buffer exposing `resize`/`data`/`size`, such as `std::string` or `jsonifier::string`). Any prior contents are overwritten. `serializeJson` returns `bool`.
 
 ### Serialize Options
 
@@ -194,7 +184,7 @@ struct catalog {
 
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::logo,
@@ -203,7 +193,7 @@ template<> struct jsonifier::core<event> {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::events,
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };

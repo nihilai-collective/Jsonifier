@@ -61,7 +61,7 @@ namespace string_validation_tests {
 			return { values, size_val };
 		}
 
-		constexpr jsonifier::read_buffer_ptr data() const {
+		constexpr const char* data() const {
 			return values;
 		}
 
@@ -87,9 +87,17 @@ namespace string_validation_tests {
 		"👨‍👩‍👧‍👦", "🏳️‍🌈", "a😀b😀c😀d", "\\", "\\\\\\\\\\\\", "/", "\xF0\x90\x80\x80", "\xF4\x8F\xBF\xBF", "\0\0\0\0", "\\\\\\\\\\\\\\\\\\\\",
 		"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua" } };
 
-	constexpr jsonifier::internal::array<unit_test_string, 26> failValues{ { "\"\\u\"", "\"\\u0\"", "\"\\u00\"", "\"\\u000\"", "\"\\uZZZZ\"", "\"\\x41\"", "\"\\x00\"", "\"\\a\"",
+	constexpr jsonifier::internal::array<unit_test_string, 30> failValues{ { "\"\\u\"", "\"\\u0\"", "\"\\u00\"", "\"\\u000\"", "\"\\uZZZZ\"", "\"\\x41\"", "\"\\x00\"", "\"\\a\"",
 		"\"\\v\"", "\"\\q\"", "\"\\8\"", "\"\\9\"", "\"\\017\"", "\"\\uD800\"", "\"\\uDC00\"", "\"\\uD800\\uD800\"", "\"\\uDC00\\uDC00\"", "\"\\uD800A\"", "\"\\uD800\\uFFFF\"",
-		"\"\\uFFFF\\uD800\"", "\"\\uDBFF\"", "\"\\uD800\\uE000\"", "\"\\uDBFF\\uE000\"", "\"\\uD7FF\\uDC00\"", "\"abc", "\"abc\\" } };
+		"\"\\uFFFF\\uD800\"", "\"\\uDBFF\"", "\"\\uD800\\uE000\"", "\"\\uDBFF\\uE000\"", "\"\\uD7FF\\uDC00\"", "\"abc", "\"abc\\",
+		"\"\\u0\x8F"
+		"00\"",
+		"\"\\u00\x8F"
+		"0\"",
+		"\"\\u0\x94\x8F"
+		"0\"",
+		"\"\\u\x8F\x90\x91"
+		"0\"" } };
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline static void stringTestsImpl() {
 		std::cout << "String Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;

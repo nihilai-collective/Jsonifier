@@ -4,26 +4,78 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/add_tape_values.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_ADD_TAPE_VALUES)
+	#define JSONIFIER_PASS_GUARD_ADD_TAPE_VALUES
 
-#include <jsonifier-incl/utilities/utility.hpp>
-#include <jsonifier-incl/simd/neon_stage1.hpp>
-#include <jsonifier-incl/simd/sve2_stage1.hpp>
-#include <jsonifier-incl/simd/avx_stage1.hpp>
+	#include <jsonifier-incl/utilities/utility.hpp>
+	#include <jsonifier-incl/simd/neon_stage1.hpp>
+	#include <jsonifier-incl/simd/sve2_stage1.hpp>
+	#include <jsonifier-incl/simd/avx_stage1.hpp>
 
-namespace jsonifier::internal {
+namespace JSONIFIER_INTERNAL_NAMESPACE {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+	template<jsonifier_backend backend, typename integer_sequence_type> struct add_tape_values;
 
-	// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
-	template<typename integer_sequence_type> struct add_tape_values;
+	template<auto...> struct write_indices_functor {
+		using size_type = uint64_t;
 
-	template<uint64_t... indices> struct add_tape_values<integer_sequence<indices...>> {
+		template<uint64_t index> JSONIFIER_INLINE static void impl(size_type base, size_type& __restrict bits, write_structural_index_ptr __restrict tape) noexcept {
+			{
+				tape[static_cast<uint64_t>(tag<index>{})] = simd::tape_writer_op::extractIndex(base, bits);
+				bits									  = simd::tape_writer_op::advance(bits);
+			}
+		}
+	};
+
+	template<uint64_t step> struct write_indices_stepped_functor {
+		using size_type = uint64_t;
+		template<uint64_t index> JSONIFIER_INLINE static bool impl(size_type base, size_type& __restrict bits, write_structural_index_ptr __restrict tape, uint64_t cnt) noexcept {
+			if constexpr (index > 0) {
+				if ((index < cnt)) [[unlikely]] {
+					{
+						functor_runner<write_indices_functor, make_integer_sequence<step>>::impl(base, bits, tape + index);
+					}
+					return true;
+				} else {
+					return false;
+				}
+			} else {
+				functor_runner<write_indices_functor, make_integer_sequence<step>>::impl(base, bits, tape + index);
+				return true;
+			}
+		}
+	};
+
+	template<jsonifier_backend backend, uint64_t... indices> struct add_tape_values<backend, integer_sequence<indices...>> {
 		using size_type = uint64_t;
 		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
 
 		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
-			const array<uint64_t, blocksPerStep>& __restrict cnts, structural_index_ptr __restrict tape, size_type strIdx) noexcept {
+			const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr __restrict tape, size_type strIdx) noexcept {
+			uint64_t bits	   = bitsArr[tag<index>{}];
+			const uint64_t cnt = cnts[tag<index>{}];
+			static constexpr size_type bitTotal{ tag<index>{} * 64ull };
+			const size_type base = bitTotal + strIdx;
+			functor_runner<write_indices_stepped_functor, make_stepped_range_sequence<0, 64, backend_traits<backend>::tapeStep>, backend_traits<backend>::tapeStep>::implAnd(base,
+				bits, tape, cnt);
+		}
+
+		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
+			write_structural_index_ptr __restrict tape, size_type strIdx) noexcept {
+			uint64_t offset = 0;
+			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
+		}
+	};
+
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+	template<uint64_t... indices> struct add_tape_values<jsonifier_backend::avx512, integer_sequence<indices...>> {
+		using size_type = uint64_t;
+		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
+
+		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
+			const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr __restrict tape, size_type strIdx) noexcept {
 			uint64_t bits = bitsArr[tag<index>{}];
 			if (!bits) [[unlikely]] {
 				return;
@@ -52,67 +104,14 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
-			structural_index_ptr __restrict tape, size_type strIdx) noexcept {
+			write_structural_index_ptr __restrict tape, size_type strIdx) noexcept {
 			uint64_t offset = 0;
 			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
 		}
 	};
 
-#else
-
-	template<auto...> struct write_indices_functor {
-		using size_type = uint64_t;
-
-		template<uint64_t index> JSONIFIER_INLINE static void impl(size_type base, size_type& __restrict bits, structural_index_ptr __restrict tape) noexcept {
-			{
-				tape[static_cast<uint64_t>(tag<index>{})] = simd::tape_writer_op::extractIndex(base, bits);
-				bits									  = simd::tape_writer_op::advance(bits);
-			}
-		}
-	};
-
-	template<uint64_t step> struct write_indices_stepped_functor {
-		using size_type = uint64_t;
-		template<uint64_t index> JSONIFIER_INLINE static bool impl(size_type base, size_type& __restrict bits, structural_index_ptr __restrict tape, uint64_t cnt) noexcept {
-			if constexpr (index > 0) {
-				if ((index < cnt)) [[unlikely]] {
-					{
-						functor_runner<write_indices_functor, make_integer_sequence<step>>::impl(base, bits, tape + index);
-					}
-					return true;
-				} else {
-					return false;
-				}
-			} else {
-				functor_runner<write_indices_functor, make_integer_sequence<step>>::impl(base, bits, tape + index);
-				return true;
-			}
-		}
-	};
-
-	template<typename integer_sequence_type> struct add_tape_values;
-
-	template<uint64_t... indices> struct add_tape_values<integer_sequence<indices...>> {
-		using size_type = uint64_t;
-		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
-
-		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
-			const array<uint64_t, blocksPerStep>& __restrict cnts, structural_index_ptr __restrict tape, size_type strIdx) noexcept {
-			uint64_t bits	   = bitsArr[tag<index>{}];
-			const uint64_t cnt = cnts[tag<index>{}];
-			static constexpr size_type bitTotal{ tag<index>{} * 64ull };
-			const size_type base = bitTotal + strIdx;
-			functor_runner<write_indices_stepped_functor, make_stepped_range_sequence<0, 64, simdTapeStep>, simdTapeStep>::implAnd(base, bits, tape, cnt);
-		}
-
-		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
-			structural_index_ptr __restrict tape, size_type strIdx) noexcept {
-			uint64_t offset = 0;
-			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
-		}
-	};
-
-
-#endif
+	#endif
 
 }
+
+#endif

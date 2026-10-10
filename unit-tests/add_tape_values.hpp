@@ -18,7 +18,8 @@ namespace add_tape_values_tests {
 			total += cntsArr[i];
 		}
 		std::vector<uint32_t> tape(jsonifier::simdBlocksPerStep * 64 + 64, 0xFFFFFFFFu);
-		jsonifier::internal::add_tape_values<jsonifier::internal::make_integer_sequence<jsonifier::simdBlocksPerStep>>::impl(bitsArr, cntsArr, tape.data(), strIdx);
+		jsonifier::internal::add_tape_values<jsonifier::default_backend, jsonifier::internal::make_integer_sequence<jsonifier::simdBlocksPerStep>>::impl(bitsArr, cntsArr,
+			tape.data(), strIdx);
 		tape.resize(total);
 		return tape;
 	}

@@ -4,16 +4,17 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/fallback.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_FALLBACK)
+	#define JSONIFIER_PASS_GUARD_FALLBACK
 
-#include <jsonifier-incl/simd/simd_x.hpp>
-#include <jsonifier-incl/simd/simd_types.hpp>
-#include <jsonifier-incl/simd/bit_ops.hpp>
+	#include <jsonifier-incl/simd/simd_x.hpp>
+	#include <jsonifier-incl/simd/simd_config.hpp>
+	#include <jsonifier-incl/simd/bit_ops.hpp>
 
-namespace jsonifier::internal::simd {
+namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 
-#if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) && \
-	!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+	#if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) && \
+		!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
 	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static uint64_t postCmpTzcnt(const value_type value) noexcept {
 		return countrZero(value);
@@ -523,6 +524,8 @@ namespace jsonifier::internal::simd {
 		return opBitMask(value) == 0;
 	}
 
-#endif
+	#endif
 
 }
+
+#endif

@@ -40,7 +40,7 @@ For validating byte sequences that aren't JSON at all — file contents, network
 ```cpp
 #include <jsonifier>
 
-const uint8_t* buffer = /* your bytes */;
+read_buffer_ptr buffer = /* your bytes */;
 uint64_t length = /* buffer length */;
 
 bool valid = jsonifier::validateUtf8(buffer, length);
@@ -134,7 +134,7 @@ int main() {
         }
     }
 
-    const uint8_t* raw_bytes = std::bit_cast<const uint8_t*>(json_valid.data());
+    read_buffer_ptr raw_bytes = std::bit_cast<read_buffer_ptr>(json_valid.data());
     bool raw_is_valid = jsonifier::validateUtf8(raw_bytes, json_valid.size());
     std::cout << "Raw byte buffer valid UTF-8: " << std::boolalpha << raw_is_valid << std::endl;
 

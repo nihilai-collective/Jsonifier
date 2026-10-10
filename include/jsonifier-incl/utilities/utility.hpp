@@ -13,91 +13,130 @@ namespace jsonifier::internal {
 
 	template<typename value_type> using base_t = remove_cvref_t<value_type>;
 
-	alignas(64) static constexpr array<bool, 256ULL> whitespaceTable{ []() constexpr {
+	template<auto valueNew> struct make_static {
+		static constexpr auto value{ valueNew };
+	};
+
+	constexpr array<bool, 256ULL> genWhitespaceTable() {
 		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\t')] = true;
 		returnValues[static_cast<uint64_t>(' ')]  = true;
 		returnValues[static_cast<uint64_t>('\n')] = true;
 		returnValues[static_cast<uint64_t>('\r')] = true;
 		return returnValues;
+	}
+
+	alignas(64) inline constexpr const bool* __restrict whitespaceTable{ []() constexpr {
+		constexpr auto local{ genWhitespaceTable() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<int64_t, 256ULL> nestingDeltaTable{ []() constexpr {
+	constexpr array<int64_t, 256ULL> genNestingDeltaTable() {
 		array<int64_t, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('{')] = 1;
 		returnValues[static_cast<uint64_t>('[')] = 1;
 		returnValues[static_cast<uint64_t>('}')] = -1;
 		returnValues[static_cast<uint64_t>(']')] = -1;
 		return returnValues;
+	}
+
+	alignas(64) inline constexpr const int64_t* __restrict nestingDeltaTable{ []() constexpr {
+		constexpr auto local{ genNestingDeltaTable() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<bool, 256ULL> newlineTable{ []() constexpr {
+	constexpr array<bool, 256ULL> genNewlineTable() {
 		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\n')] = true;
 		returnValues[static_cast<uint64_t>('\r')] = true;
 		return returnValues;
+	}
+
+	alignas(64) inline constexpr const bool* __restrict newlineTable{ []() constexpr {
+		constexpr auto local{ genNewlineTable() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<bool, 256> numberTable{ []() constexpr {
-		array<bool, 256> returnValues{};
-		returnValues['-'] = true;
-		returnValues['0'] = true;
-		returnValues['1'] = true;
-		returnValues['2'] = true;
-		returnValues['3'] = true;
-		returnValues['4'] = true;
-		returnValues['5'] = true;
-		returnValues['6'] = true;
-		returnValues['7'] = true;
-		returnValues['8'] = true;
-		returnValues['9'] = true;
+	constexpr array<bool, 256ULL> genNumberTable() {
+		array<bool, 256ULL> returnValues{};
+		returnValues[static_cast<uint64_t>('-')] = true;
+		returnValues[static_cast<uint64_t>('0')] = true;
+		returnValues[static_cast<uint64_t>('1')] = true;
+		returnValues[static_cast<uint64_t>('2')] = true;
+		returnValues[static_cast<uint64_t>('3')] = true;
+		returnValues[static_cast<uint64_t>('4')] = true;
+		returnValues[static_cast<uint64_t>('5')] = true;
+		returnValues[static_cast<uint64_t>('6')] = true;
+		returnValues[static_cast<uint64_t>('7')] = true;
+		returnValues[static_cast<uint64_t>('8')] = true;
+		returnValues[static_cast<uint64_t>('9')] = true;
 		return returnValues;
+	}
+
+	alignas(64) inline constexpr const bool* __restrict numberTable{ []() constexpr {
+		constexpr auto local{ genNumberTable() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<char[2], 256> charEscapeStorage{ [] {
-		array<char[2], 256> returnValue{};
-		for (uint64_t x = 0; x < 256; ++x) {
+	constexpr array<array<char, 2>, 256ULL> genCharEscapeStorage() {
+		array<array<char, 2>, 256ULL> returnValue{};
+		for (uint64_t x = 0; x < 256ULL; ++x) {
 			returnValue[x][0] = static_cast<char>(x);
 			returnValue[x][1] = '\0';
 		}
-		returnValue['\b'][0] = '\\';
-		returnValue['\b'][1] = 'b';
-		returnValue['\t'][0] = '\\';
-		returnValue['\t'][1] = 't';
-		returnValue['\n'][0] = '\\';
-		returnValue['\n'][1] = 'n';
-		returnValue['\f'][0] = '\\';
-		returnValue['\f'][1] = 'f';
-		returnValue['\r'][0] = '\\';
-		returnValue['\r'][1] = 'r';
-		returnValue['\"'][0] = '\\';
-		returnValue['\"'][1] = '\"';
-		returnValue['\\'][0] = '\\';
-		returnValue['\\'][1] = '\\';
+		returnValue[static_cast<uint64_t>('\b')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\b')][1] = 'b';
+		returnValue[static_cast<uint64_t>('\t')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\t')][1] = 't';
+		returnValue[static_cast<uint64_t>('\n')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\n')][1] = 'n';
+		returnValue[static_cast<uint64_t>('\f')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\f')][1] = 'f';
+		returnValue[static_cast<uint64_t>('\r')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\r')][1] = 'r';
+		returnValue[static_cast<uint64_t>('\"')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\"')][1] = '\"';
+		returnValue[static_cast<uint64_t>('\\')][0] = '\\';
+		returnValue[static_cast<uint64_t>('\\')][1] = '\\';
 		return returnValue;
+	}
+
+	alignas(64) inline constexpr const array<char, 2>* __restrict charEscapeStorage{ []() constexpr {
+		constexpr auto local{ genCharEscapeStorage() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<read_buffer_ptr, 256> charEscapeTable{ [] {
-		array<read_buffer_ptr, 256> returnValue{};
-		for (uint64_t x = 0; x < 256; ++x) {
-			returnValue[x] = +charEscapeStorage[x];
+	constexpr array<const char*, 256ULL> genCharEscapeTable() {
+		array<const char*, 256ULL> returnValue{};
+		for (uint64_t x = 0; x < 256ULL; ++x) {
+			returnValue[x] = charEscapeStorage[x].data();
 		}
 		return returnValue;
+	}
+
+	alignas(64) inline constexpr const char* const* __restrict charEscapeTable{ []() constexpr {
+		constexpr auto local{ genCharEscapeTable() };
+		return make_static<local>::value.data();
 	}() };
 
-	alignas(64) static constexpr array<uint64_t, 256> charEscapeSizes{ [] {
-		array<uint64_t, 256> returnValue{};
-		for (uint64_t x = 0; x < 256; ++x) {
+	constexpr array<uint64_t, 256ULL> genCharEscapeSizes() {
+		array<uint64_t, 256ULL> returnValue{};
+		for (uint64_t x = 0; x < 256ULL; ++x) {
 			returnValue[x] = 1;
 		}
-		returnValue['\b'] = 2;
-		returnValue['\t'] = 2;
-		returnValue['\n'] = 2;
-		returnValue['\f'] = 2;
-		returnValue['\r'] = 2;
-		returnValue['\"'] = 2;
-		returnValue['\\'] = 2;
+		returnValue[static_cast<uint64_t>('\b')] = 2;
+		returnValue[static_cast<uint64_t>('\t')] = 2;
+		returnValue[static_cast<uint64_t>('\n')] = 2;
+		returnValue[static_cast<uint64_t>('\f')] = 2;
+		returnValue[static_cast<uint64_t>('\r')] = 2;
+		returnValue[static_cast<uint64_t>('\"')] = 2;
+		returnValue[static_cast<uint64_t>('\\')] = 2;
 		return returnValue;
+	}
+
+	alignas(64) inline constexpr const uint64_t* __restrict charEscapeSizes{ []() constexpr {
+		constexpr auto local{ genCharEscapeSizes() };
+		return make_static<local>::value.data();
 	}() };
 
 	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
@@ -247,7 +286,7 @@ namespace jsonifier::internal {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	JSONIFIER_INLINE constexpr uint64_t strLen(read_buffer_ptr input) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t strLen(const char* input) noexcept {
 		uint64_t returnVal{};
 		if (input) {
 			while (input[returnVal] != '\0') {
@@ -298,6 +337,111 @@ namespace jsonifier::internal {
 	template<float64_types value_type> struct digit_sizes<value_type> {
 		static constexpr uint64_t value{ 32 };
 	};
+
+	template<uint64_t chunk_bytes> JSONIFIER_INLINE void copyOverlappingChunks(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
+		pow2MemcpyWrapper<chunk_bytes>(dst, src);
+		pow2MemcpyWrapper<chunk_bytes>(dst + byte_count - chunk_bytes, src + byte_count - chunk_bytes);
+	}
+
+	JSONIFIER_INLINE static void copyDecomposed(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
+		uint64_t offset{};
+		if ((byte_count >> 7) & 1ull) {
+			pow2MemcpyWrapper<1ull << 7>(dst + offset, src + offset);
+			offset += 1ull << 7;
+		}
+		if ((byte_count >> 6) & 1ull) {
+			pow2MemcpyWrapper<1ull << 6>(dst + offset, src + offset);
+			offset += 1ull << 6;
+		}
+		if ((byte_count >> 5) & 1ull) {
+			pow2MemcpyWrapper<1ull << 5>(dst + offset, src + offset);
+			offset += 1ull << 5;
+		}
+		if ((byte_count >> 4) & 1ull) {
+			pow2MemcpyWrapper<1ull << 4>(dst + offset, src + offset);
+			offset += 1ull << 4;
+		}
+		if ((byte_count >> 3) & 1ull) {
+			pow2MemcpyWrapper<1ull << 3>(dst + offset, src + offset);
+			offset += 1ull << 3;
+		}
+		if ((byte_count >> 2) & 1ull) {
+			pow2MemcpyWrapper<1ull << 2>(dst + offset, src + offset);
+			offset += 1ull << 2;
+		}
+		if ((byte_count >> 1) & 1ull) {
+			pow2MemcpyWrapper<1ull << 1>(dst + offset, src + offset);
+			offset += 1ull << 1;
+		}
+		if ((byte_count >> 0) & 1ull) {
+			pow2MemcpyWrapper<1ull << 0>(dst + offset, src + offset);
+			offset += 1ull << 0;
+		}
+	}
+
+	template<uint64_t max_bytes> JSONIFIER_INLINE void jsonifierMemcpyUpTo(void* __restrict dst, const void* __restrict src, uint64_t byte_count) {
+		switch (std::bit_width(byte_count)) {
+			case 0: {
+				return;
+			}
+			case 1: {
+				*static_cast<std::byte* __restrict>(dst) = *static_cast<const std::byte* __restrict>(src);
+				return;
+			}
+			case 2: {
+				if constexpr (max_bytes >= 2) {
+					copyOverlappingChunks<2>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 3: {
+				if constexpr (max_bytes >= 4) {
+					copyOverlappingChunks<4>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 4: {
+				if constexpr (max_bytes >= 8) {
+					copyOverlappingChunks<8>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 5: {
+				if constexpr (max_bytes >= 16) {
+					copyOverlappingChunks<16>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 6: {
+				if constexpr (max_bytes >= 32) {
+					copyOverlappingChunks<32>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 7: {
+				if constexpr (max_bytes >= 64) {
+					copyOverlappingChunks<64>(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			case 8: {
+				if constexpr (max_bytes >= 128) {
+					copyDecomposed(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+			default: {
+				if constexpr (max_bytes >= 256) {
+					memcpyWrapper(static_cast<std::byte* __restrict>(dst), static_cast<const std::byte* __restrict>(src), byte_count);
+				}
+				return;
+			}
+		}
+	}
+
+	JSONIFIER_INLINE void jsonifierMemcpy(void* __restrict destination, const void* __restrict source, uint64_t byte_count) {
+		jsonifierMemcpyUpTo<std::numeric_limits<uint64_t>::max()>(destination, source, byte_count);
+	}
 
 }
 

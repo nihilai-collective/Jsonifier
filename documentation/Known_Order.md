@@ -1,41 +1,3 @@
-## What Known Order Actually Does
-
-**The core mechanism is the `antiHashStatesNew` thread-local array.** Each object type gets an array of size `memberCount`, indexed by the member's **declaration order position** (`json_entity_type::index`). Each entry stores **which member the parser expects to find AT that position**.
-
-Walking through `json_entity_parse::processIndex`:
-
-1. **First member (index 0):** parser expects `antiHashStatesNew[0]`, which starts as `0`. If it matches → happy path, move on.
-2. **If it doesn't match** (JSON member isn't at expected position), fall back to the compile-time hash map to find which member IS there.
-3. **When the hash map finds it, update the memory:** `antiHashStatesNew[json_entity_type::index] = indexNew2`. So next time this exact JSON shape comes through, position N will remember what member actually shows up there.
-
-**This is genuinely brilliant.** It's not "assume declaration order" — it's "assume the LAST seen order for this position, and self-correct if wrong." Adaptive memoization at parse position level.
-
-## The Fast-Fast Path (minified + knownOrder + read_buffer_ptr)
-
-There's a SPECIAL fast path when ALL of: `options.minified && options.knownOrder && !structural_context<context_type>`:
-
-```cpp
-static constexpr auto memberLiteral = makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
-```
-
-This constructs a compile-time literal like `,"key":` (or `"key":` for index 0) and does a **single `memcmp` against the raw stream position**. No hash lookup, no colon-collection, no whitespace skipping — just a fused compare-and-advance. If it matches, member parsed. If not, fall through.
-
-This is the "if you promise your JSON matches your declaration order AND is minified, we can skip almost the entire parser dispatch machinery" mode. That's the peak-performance path.
-
-## What Happens on Order Mismatch
-
-**Nothing bad.** The parser falls through to the hash map, finds the member, parses it, and updates the memoization for next time. Zero correctness cost, just some perf cost that self-heals on subsequent parses of the same shape.
-
-## When It's Cheap vs. Expensive
-
-- **Same JSON schema, same field order every time (typical case for machine-generated JSON, API responses, log lines):** the memoization table converges after 1-2 parses, subsequent parses are pure fast-path
-- **Same schema, randomly-ordered fields:** memoization thrashes, you pay hash-map cost on every field (still correct, just no speedup)
-- **Minified fast-fast path (`minified + knownOrder + non-partialRead`):** the compile-time literal compare skips even more work
-
-Now I have everything I need. Here's **Known Order Parsing** 👇
-
----
-
 # Known Order Parsing
 
 Known Order is an adaptive parsing mode that speeds up hot paths where the same JSON shape shows up repeatedly. It's turned on with a single flag and has zero correctness cost — worst case it degrades to the normal parse path.
@@ -56,19 +18,23 @@ That's it. Everything else — how you registered your types, the shape of your 
 
 ## What Happens Under the Hood
 
-The parser maintains a small thread-local table for each object type, one entry per registered field. Each entry stores **which field the parser most recently found at that position in the JSON**.
+For the key at position N of an object, the parser tries three things in order:
+
+1. **Declaration order.** It checks whether the key is the field you declared at position N in `createValue`. If so, that field is parsed directly — no lookup.
+2. **The memo.** Otherwise it consults a small `thread_local` table (one per object type, one entry per registered field) recording **which field was most recently found at position N**, and tries that field.
+3. **The hash map.** If neither matches, it falls back to the compile-time hash map, parses the field it finds, and writes that field into memo entry N.
 
 Walk-through for a struct with three fields `{ id, name, tags }`:
 
-1. **First parse.** Parser expects `id` at position 0. If the JSON has `"id"` first, fast path — no lookup needed, table entry 0 already says `id`. If the JSON has `"name"` first instead, the parser falls through to the hash map, finds `name`, updates table entry 0 to say `name`.
-2. **Second parse of the same shape.** If position 0 was `name` last time, that's what the parser now expects to find there. If the JSON matches, fast path. If not, fall through and update.
-3. **Steady state.** After one or two parses of a stable JSON shape, the table has converged and every field takes the fast path.
+1. **JSON in declaration order.** `"id"` at position 0 matches step 1 immediately, and so does every following key. The memo is never needed.
+2. **JSON in a different but stable order.** If `"name"` arrives first, steps 1 and 2 miss on the first parse, the hash map finds `name`, and memo entry 0 becomes `name`. On later parses of the same shape, step 2 hits.
+3. **Steady state.** After one parse of a stable shape, every field is found by step 1 or step 2.
 
-**The result: known-order parsing is self-tuning.** You don't need to guarantee any specific order — you just need the same shape to show up more than once. If field order shifts between parses, the parser silently re-learns.
+**The result: known-order parsing is self-tuning.** JSON in declaration order is fastest, but you don't need to guarantee any specific order — a stable shape is enough. If field order shifts between parses, the parser silently re-learns.
 
 ## When It's Worth Turning On
 
-**Almost always, if you're parsing the same schema more than once.** The convergence cost is one or two parses of the "wrong" order; after that you're on the fast path indefinitely.
+**Almost always, if your JSON is in declaration order or you parse the same shape repeatedly.** The convergence cost for a non-declaration order is one parse; after that you're on the fast path indefinitely.
 
 Some places where it's a definite win:
 
@@ -97,7 +63,7 @@ parser.parseJson<jsonifier::parse_options{
 
 ## What It Doesn't Do
 
-**It doesn't require the JSON to match declaration order.** The fast path is taken *when* the JSON matches the memoized order, but the parser always handles arbitrary orders correctly. There is no "known order violation" error — mismatched orders just cost a hash-map lookup and update the memoization.
+**It doesn't require the JSON to match declaration order.** The fast path is taken *when* the JSON matches declaration order or the memoized order, but the parser always handles arbitrary orders correctly. There is no "known order violation" error — mismatched orders just cost a hash-map lookup and update the memoization.
 
 **It doesn't skip validation.** All the parser's normal correctness checks — bounds, delimiters, types, escapes — still run.
 

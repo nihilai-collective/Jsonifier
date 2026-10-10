@@ -22,24 +22,9 @@ The result:
 }
 ```
 
+`prettifyJson(input, output)` returns `bool`. Both arguments must be string types; `output` is resized to fit.
+
 Like [minifying](Minifying.md), prettifying operates on JSON strings directly. No `jsonifier::core<T>` involved, no typed objects — just JSON string in, JSON string out.
-
-## Two API Forms
-
-The two-argument form writes into a destination buffer you provide and returns `bool`:
-
-```cpp
-std::string pretty;
-bool ok = parser.prettifyJson(input, pretty);
-```
-
-The single-argument form returns a freshly allocated string:
-
-```cpp
-auto pretty = parser.prettifyJson(input);
-```
-
-Both forms use the parser's internal scratch buffer for the work.
 
 ## Prettify Options
 
@@ -72,7 +57,7 @@ parser.prettifyJson<jsonifier::prettify_options{
 
 ## How It Works
 
-Prettifying uses the same stage-1 structural scanner that powers [Partial Reading](PartialReading.md) and [Minifying](Minifying.md). Stage-1 scans the input once and builds a tape of pointers to structural characters and values. Stage-2 then walks the tape, emitting each token with appropriate whitespace:
+Prettifying uses the same stage-1 structural scanner that powers [Partial Reading](PartialReading.md) and [Minifying](Minifying.md). Stage-1 scans the input once and builds a tape of offsets to structural characters and values. Stage-2 then walks the tape, emitting each token with appropriate whitespace:
 
 - **Structural characters** (`{`, `}`, `[`, `]`) get newlines and indentation around them
 - **Commas** are followed by a newline and the current indent
@@ -93,7 +78,7 @@ if (!parser.prettifyJson(input, output)) {
 }
 ```
 
-Prettifier-specific error statuses live in a `prettify_statuses` enum, covering cases like empty input and unexpected structural characters. See [Error Handling](Errors.md) for the full breakdown.
+Prettifier-specific error statuses live in a `prettify_statuses` enum, covering cases like empty input, excessive nesting, unexpected structural characters, and unclosed objects or arrays. See [Error Handling](Errors.md) for the full breakdown.
 
 ## What Stays the Same
 

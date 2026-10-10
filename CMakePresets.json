@@ -118,7 +118,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "JSONIFIER_BENCHMARKS": "TRUE",
         "JSONIFIER_UNIT_TESTS": "TRUE",
-        "JSONIFIER_CPU_PROPERTIES_CONSTRUCTED": "TRUE"
+        "JSONIFIER_DETECT_CPU": "FALSE"
       },
       "inherits": "Jsonifier-Windows-Base",
       "name": "Jsonifier-Windows-Debug-Asan-Fallback"

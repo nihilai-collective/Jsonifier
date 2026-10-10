@@ -44,8 +44,8 @@ namespace jsonifier::internal {
 
 	struct parsed_number {
 		read_buffer_ptr lastMatch{};
-		span<char> fraction{};
-		span<char> integer{};
+		span<uint8_t> fraction{};
+		span<uint8_t> integer{};
 		bool tooManyDigits{};
 		uint64_t mantissa{};
 		int64_t exponent{};
@@ -92,7 +92,7 @@ namespace jsonifier::internal {
 		read_buffer_ptr const endOfIntegerPart = iter;
 		int64_t digitCount					   = static_cast<int64_t>(endOfIntegerPart - startDigits);
 		if (storeSpans) {
-			answer.integer = span<char>{ startDigits, endOfIntegerPart };
+			answer.integer = span<uint8_t>{ startDigits, endOfIntegerPart };
 		}
 		if (digitCount == 0 || (startDigits[0] == '0' && digitCount > 1)) [[unlikely]] {
 			return answer;
@@ -111,7 +111,7 @@ namespace jsonifier::internal {
 			}
 			exponent = before - iter;
 			if (storeSpans) {
-				answer.fraction = span<char>{ before, iter };
+				answer.fraction = span<uint8_t>{ before, iter };
 			}
 			digitCount -= exponent;
 			if (exponent == 0) [[unlikely]] {

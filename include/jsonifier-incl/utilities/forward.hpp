@@ -7,7 +7,7 @@
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
-#include <jsonifier-incl/simd/simd_types.hpp>
+#include <jsonifier-incl/simd/backend_traits.hpp>
 
 namespace jsonifier::internal {
 

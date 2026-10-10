@@ -90,16 +90,6 @@
 	#endif
 #endif
 
-#if !defined(JSONIFIER_DISPATCH_TABLE_COUNT)
-	#if JSONIFIER_PLATFORM_MAC && JSONIFIER_COMPILER_GCC
-		#define JSONIFIER_DISPATCH_TABLE_COUNT 4
-	#elif JSONIFIER_PLATFORM_MAC
-		#define JSONIFIER_DISPATCH_TABLE_COUNT 0
-	#else
-		#define JSONIFIER_DISPATCH_TABLE_COUNT 2
-	#endif
-#endif
-
 #if !defined(JSONIFIER_INLINE)
 	#if JSONIFIER_OPTIMIZED
 		#if JSONIFIER_COMPILER_MSVC
@@ -112,15 +102,19 @@
 	#endif
 #endif
 
-#if !defined(JSONIFIER_MAX_PARSE_INLINE_SIZE)
-	#define JSONIFIER_MAX_PARSE_INLINE_SIZE 20
-#endif
-
 #if !defined(JSONIFIER_NOINLINE)
 	#if JSONIFIER_COMPILER_MSVC
 		#define JSONIFIER_NOINLINE __declspec(noinline) inline
 	#else
 		#define JSONIFIER_NOINLINE inline __attribute__((noinline))
+	#endif
+#endif
+
+#if !defined(JSONIFIER_NO_SANITIZE_ADDRESS)
+	#if JSONIFIER_COMPILER_MSVC
+		#define JSONIFIER_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
+	#else
+		#define JSONIFIER_NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
 	#endif
 #endif
 
@@ -134,12 +128,24 @@
 	#endif
 #endif
 
-#if JSONIFIER_COMPILER_MSVC
-	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
-	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
-#else
-	#define JSONIFIER_TUPLET_HAS_NO_UNIQUE_ADDRESS 1
-	#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#if !defined(JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS)
+	#if JSONIFIER_COMPILER_MSVC
+		#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+	#else
+		#define JSONIFIER_TUPLET_NO_UNIQUE_ADDRESS [[no_unique_address]]
+	#endif
+#endif
+
+#if !defined(JSONIFIER_INLINE_EXCEPT_MAC_GCC)
+	#if JSONIFIER_OPTIMIZED
+		#if !(JSONIFIER_COMPILER_MSVC || (JSONIFIER_PLATFORM_MAC && JSONIFIER_COMPILER_GCC))
+			#define JSONIFIER_INLINE_EXCEPT_MAC_GCC inline __attribute__((always_inline))
+		#else
+			#define JSONIFIER_INLINE_EXCEPT_MAC_GCC inline
+		#endif
+	#else
+		#define JSONIFIER_INLINE_EXCEPT_MAC_GCC inline
+	#endif
 #endif
 
 #if JSONIFIER_PLATFORM_WINDOWS && !defined(NOMINMAX)

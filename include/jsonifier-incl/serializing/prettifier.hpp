@@ -4,23 +4,15 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/serializing/prettifier.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_PRETTIFIER)
+	#define JSONIFIER_PASS_GUARD_PRETTIFIER
 
-#include <jsonifier-incl/serializing/serialize_impl.hpp>
-#include <jsonifier-incl/serializing/minifier.hpp>
-#include <jsonifier-incl/utilities/utility.hpp>
-#include <jsonifier-incl/utilities/compare.hpp>
+	#include <jsonifier-incl/serializing/serialize_impl.hpp>
+	#include <jsonifier-incl/serializing/minifier.hpp>
+	#include <jsonifier-incl/utilities/utility.hpp>
+	#include <jsonifier-incl/utilities/compare.hpp>
 
-namespace jsonifier {
-
-	struct prettify_options {
-		uint64_t indentSize{ 3 };
-		char indentChar{ ' ' };
-	};
-
-}
-
-namespace jsonifier::internal {
+namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	struct prettify_status {
 		uint64_t object_depth{};
@@ -31,13 +23,13 @@ namespace jsonifier::internal {
 	};
 
 	template<prettify_options options, typename prettifier_type> struct prettify_context_ro {
-		inline prettify_context_ro(prettifier_type& prettifierNew, structural_index_ptr iterNew, structural_index_ptr endStructuralNew, read_buffer_ptr dataPtrNew,
+		inline prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr dataPtrNew,
 			read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
 			: endStructural{ endStructuralNew }, prettifier{ prettifierNew }, iter{ iterNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
 		}
 
-		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr __restrict ptrNew, uint64_t) noexcept {
-			const auto index = prettifier.template impl<options>(iter, endStructural, dataPtr, ptrNew, rootIter, endIter);
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
+			const auto index = prettifier.template impl<options>(iter, endStructural, dataPtr, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
 
@@ -47,9 +39,9 @@ namespace jsonifier::internal {
 		prettify_context_ro(prettify_context_ro&&) noexcept					= delete;
 		prettify_context_ro() noexcept										= delete;
 
-		structural_index_ptr endStructural{};
+		write_structural_index_ptr endStructural{};
 		prettifier_type& prettifier;
-		structural_index_ptr iter{};
+		write_structural_index_ptr iter{};
 		read_buffer_ptr rootIter{};
 		read_buffer_ptr dataPtr{};
 		read_buffer_ptr endIter{};
@@ -63,11 +55,11 @@ namespace jsonifier::internal {
 		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
-			const auto* dataPtr		 = in.data();
+			read_buffer_ptr dataPtr	 = std::bit_cast<read_buffer_ptr>(in.data());
 			read_buffer_ptr rootIter = dataPtr;
 			read_buffer_ptr endIter	 = dataPtr + in.size();
 			derivedRef.section.template reset<true>(dataPtr, in.size());
-			structural_index_ptr iter{ derivedRef.section.begin() };
+			write_structural_index_ptr iter{ derivedRef.section.begin() };
 			auto* endStructural = derivedRef.section.end();
 			if (iter == endStructural) [[unlikely]] {
 				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, rootIter, endIter));
@@ -133,7 +125,7 @@ namespace jsonifier::internal {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpyWrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}
@@ -148,7 +140,7 @@ namespace jsonifier::internal {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpyWrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}
@@ -284,3 +276,5 @@ namespace jsonifier::internal {
 	};
 
 }// namespace internal
+
+#endif

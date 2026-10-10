@@ -17,7 +17,7 @@ struct my_object {
 
 template<> struct jsonifier::core<my_object> {
     using value_type = my_object;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::name,
         &value_type::age,
         &value_type::secret>();
@@ -68,7 +68,7 @@ struct catalog {
 
 template<> struct jsonifier::core<catalog> {
     using value_type = catalog;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         makeJsonEntity<&value_type::schema_version, "schema-version">()>();
 };
 
@@ -114,7 +114,7 @@ struct user_profile {
 
 template<> struct jsonifier::core<user_profile> {
     using value_type = user_profile;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::name,
         &value_type::email,
         &value_type::password_hash,
@@ -125,7 +125,7 @@ int main() {
     jsonifier::jsonifier_core<> parser;
     user_profile user{ "Jane", "jane@example.com", "$2b$12$....", 1728000000 };
 
-    user.jsonifierExcludedKeys{ "password_hash", "email" };
+    user.jsonifierExcludedKeys = { "password_hash", "email" };
     std::string public_view;
     parser.serializeJson(user, public_view);
     std::cout << "Public: " << public_view << std::endl;

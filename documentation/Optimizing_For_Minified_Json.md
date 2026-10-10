@@ -92,7 +92,7 @@ struct event {
 
 template<> struct jsonifier::core<event> {
     using value_type = event;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::id,
         &value_type::name,
         &value_type::topicIds>();

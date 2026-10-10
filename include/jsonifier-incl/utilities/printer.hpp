@@ -4,18 +4,19 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/utilities/printer.hpp
  */
-#pragma once
+#if !defined(JSONIFIER_PASS_GUARD_PRINTER)
+	#define JSONIFIER_PASS_GUARD_PRINTER
 
-#include <jsonifier-incl/core/fastio.hpp>
-#include <jsonifier-incl/utilities/raw_json_data.hpp>
-#include <jsonifier-incl/utilities/json_entity.hpp>
-#include <jsonifier-incl/utilities/hash_map.hpp>
-#include <jsonifier-incl/parsing/validator.hpp>
-#include <jsonifier-incl/utilities/string.hpp>
-#include <jsonifier-incl/utilities/error.hpp>
-#include <jsonifier-incl/utilities/simd.hpp>
+	#include <jsonifier-incl/core/fastio.hpp>
+	#include <jsonifier-incl/utilities/raw_json_data.hpp>
+	#include <jsonifier-incl/utilities/json_entity.hpp>
+	#include <jsonifier-incl/utilities/hash_map.hpp>
+	#include <jsonifier-incl/parsing/validator.hpp>
+	#include <jsonifier-incl/utilities/string.hpp>
+	#include <jsonifier-incl/utilities/error.hpp>
+	#include <jsonifier-incl/utilities/simd.hpp>
 
-namespace jsonifier::internal {
+namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<typename value_type, typename = void> struct print_impl;
 
@@ -331,3 +332,5 @@ namespace jsonifier::internal {
 	};
 
 };
+
+#endif

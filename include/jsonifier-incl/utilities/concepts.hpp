@@ -37,7 +37,7 @@ namespace jsonifier {
 namespace jsonifier::internal {
 
 	template<typename context_type>
-	concept structural_context = std::same_as<typename context_type::iterator_type, structural_index_ptr>;
+	concept structural_context = std::same_as<typename context_type::iterator_type, write_structural_index_ptr>;
 
 	template<typename context_type> using context_iterator_t = typename context_type::iterator_type;
 
@@ -407,18 +407,6 @@ namespace jsonifier::internal {
 
 	template<typename value_type>
 	concept gt_0_lt_16 = base_t<value_type>::length > 0 && base_t<value_type>::length < 16;
-
-	template<typename value_type>
-	concept eq_16 = base_t<value_type>::length == 16 && simdBytesPerRegister >= 16;
-
-	template<typename value_type>
-	concept eq_32 = base_t<value_type>::length == 32 && simdBytesPerRegister >= 32;
-
-	template<typename value_type>
-	concept eq_64 = base_t<value_type>::length == 64 && simdBytesPerRegister >= 64;
-
-	template<typename value_type>
-	concept gt_16 = base_t<value_type>::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;
 
 	template<typename value_type>
 	concept has_name = requires(base_t<value_type> value) { value.name; };

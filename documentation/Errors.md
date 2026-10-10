@@ -14,65 +14,62 @@ if (!parser.parseJson(data, json)) {
 }
 ```
 
-`parser.getErrors()` returns `std::vector<jsonifier::error>&` — a reference to the internal list. The list is cleared at the start of each parse, minify, prettify, and validate call, so inspect it before invoking the parser again.
+`parser.getErrors()` returns `std::vector<jsonifier::internal::error>&` — a reference to the internal list. The list is cleared at the start of each parse, minify, prettify, and validate call, so inspect it before invoking the parser again.
 
 ## What an `error` Contains
 
 Each `error` record carries enough information to diagnose exactly what went wrong and where. Streaming an `error` to `std::ostream` produces something like:
 
 ```
-Error of Type: missing_comma, at global index: 47, on line: 3, at local index: 12
-Here's some of the string's values: '"' 'i' 'd' '"' ':' ...
-The Values: "id": 42 "name"
-In file: /path/to/jsonifier/parse.hpp, at: 218:24, in function: reject().
+Error of Class: parsing, of Type: missing_comma, at global index: 47, on line: 3, at local index: 12
+Here's some of the string's values: '"' 'i' 'd' '"' ':' ' ' '4' '2' ...
+In file: /path/to/jsonifier-incl/parsing/parse_impl.hpp, at line/column: 218:24
 ```
 
 Breaking that down:
 
-- **`Error of Type:`** — the specific status enum value (`missing_comma`, `invalid_string_characters`, etc.) as a human-readable string
+- **`Error of Class:`** — which operation produced the error (`parsing`, `minifying`, `prettifying`, `validating`)
+- **`of Type:`** — the specific status enum value (`missing_comma`, `invalid_string_characters`, etc.) as a human-readable string
 - **`global index`** — the byte offset in your input where the error was detected
 - **`line`** — the line number within your input (1-indexed, counted by newlines)
 - **`local index`** — the column within that line
-- **`Here's some of the string's values:`** — up to 32 bytes of context starting at the error position, byte-by-byte with escape sequences printed (`\n`, `\t`, `\x00`, etc.) so you can see exactly what was there — including invisible or non-printable characters
-- **`The Values:`** — up to 64 bytes of raw context (with tabs normalized to spaces for readability)
-- **`In file: ... at: ..., in function: ...`** — the source location **inside Jsonifier's own code** where the error was reported. This is Jsonifier's internal file/line/function, not your code — useful for reporting bugs or understanding which parser path detected the issue.
+- **`Here's some of the string's values:`** — up to 16 bytes of context starting at the error position (tabs normalized to spaces), byte-by-byte with escape sequences printed (`\n`, `\t`, `\x00`, etc.) so you can see exactly what was there — including invisible or non-printable characters
+- **`In file: ..., at line/column: ...`** — the source location **inside Jsonifier's own code** where the error was reported. This is Jsonifier's internal file/line/function, not your code — useful for reporting bugs or understanding which parser path detected the issue.
 
 ## Accessing Fields Programmatically
 
-If you want to route errors into your own logging or telemetry system rather than printing them, the `error` type exposes conversion operators:
+If you want to route errors into your own logging or telemetry system rather than printing them, the `error` type exposes a templated conversion operator and public fields:
 
 ```cpp
 for (auto& err : parser.getErrors()) {
     uint64_t raw_code = err;
-    jsonifier::parse_statuses parse_code = err;
+    jsonifier::internal::parse_statuses parse_code = err;
     bool is_error = err;
 
-    if (parse_code == jsonifier::parse_statuses::missing_comma) {
+    if (parse_code == jsonifier::internal::parse_statuses::missing_comma) {
         // handle this specific case
     }
 }
 ```
 
-- **`operator uint64_t`** — the raw status code as an integer
-- **`operator parse_statuses`** — static_cast directly to the parse-status enum (useful for switching on parse errors)
-- **`operator bool`** — `true` if this is a real error (non-success)
-- **`operator==`** — compares two errors by type and index
+- **`template<typename T> operator T()`** — `static_cast`s the raw status code to whatever you convert to: `uint64_t` for the integer, `parse_statuses` (or another status enum) for switching, `bool` for "is non-success"
+- **`operator==`** — compares two errors by class, type, global index, line, and local index
+- **Public fields** — `errorClass`, `errorType`, `errorIndex`, `line`, `localIndex`, and `sourceLocation`
 
-For the full formatted string, call `err.reportError()` — this returns the same output that streaming to `ostream` produces.
+For the full formatted string, call `err.reportError()` — it returns a `std::string_view` of the same text that streaming to `std::ostream` produces.
 
-## The Five Status Classes
+## The Four Status Classes
 
-Every error belongs to one of five status classes, corresponding to the operation that produced it:
+Every error belongs to one of four status classes (`status_classes`), corresponding to the operation that produced it:
 
 | Class | Operation | Status Enum |
 |-------|-----------|-------------|
 | `parsing` | `parseJson` | `parse_statuses` |
-| `serializing` | `serializeJson` | `serialize_statuses` |
 | `minifying` | `minifyJson` | `minify_statuses` |
 | `prettifying` | `prettifyJson` | `prettify_statuses` |
 | `validating` | `validateJson` | `validate_statuses` |
 
-Each class has its own status enum. The status names below are what you'll see in the `Error of Type:` field.
+Each class has its own status enum; all of them live in `namespace jsonifier::internal`. The status names below are what you'll see in the `Error of Type:` field.
 
 ### Parse Statuses
 
@@ -128,6 +125,8 @@ Produced by `minifyJson`:
 | `invalid_string_length` | String bounds don't match structural indices — usually indicates malformed input |
 | `invalid_number_value` | Number token doesn't parse |
 | `incorrect_structural_index` | Structural scanner produced an unexpected token — usually indicates malformed input |
+| `unclosed_object` | Input ended with an object still open |
+| `unclosed_array` | Input ended with an array still open |
 
 ### Prettify Statuses
 
@@ -139,16 +138,12 @@ Produced by `prettifyJson`:
 | `no_input` | Input was empty |
 | `exceeded_max_depth` | JSON nesting exceeded the internal depth stack |
 | `incorrect_structural_index` | Structural scanner produced an unexpected token |
+| `unclosed_object` | Input ended with an object still open |
+| `unclosed_array` | Input ended with an array still open |
 
-### Serialize Status
+### Serialization
 
-Produced by `serializeJson`. Only one value:
-
-| Status | Meaning |
-|--------|---------|
-| `success` | No error |
-
-Serialization can't fail on input — it consumes a valid C++ object and produces valid JSON. The `serialize_statuses` enum exists for consistency with the other operations, but you won't see errors in `getErrors()` after a `serializeJson` call.
+`serializeJson` has no status enum and never pushes errors — it consumes a valid C++ object and produces valid JSON, returning `bool`.
 
 ## Multiple Errors Per Call
 
@@ -165,12 +160,12 @@ if (!parser.parseJson(data, json)) {
     auto& errors = parser.getErrors();
     if (!errors.empty()) {
         const auto& first = errors.front();
-        jsonifier::parse_statuses status = first;
+        jsonifier::internal::parse_statuses status = first;
 
         switch (status) {
-            case jsonifier::parse_statuses::no_input:
+            case jsonifier::internal::parse_statuses::no_input:
                 return handle_empty_input();
-            case jsonifier::parse_statuses::exceeded_max_depth:
+            case jsonifier::internal::parse_statuses::exceeded_max_depth:
                 return handle_adversarial_input();
             default:
                 log_parse_error(first.reportError());

@@ -21,9 +21,9 @@ namespace jsonifier::internal {
 		return str.substr(start);
 #else
 	#if JSONIFIER_COMPILER_MSVC
-		constexpr read_buffer_ptr prettyFunctionTailLocal{ ">(void)" };
+		constexpr const char* prettyFunctionTailLocal{ ">(void)" };
 	#elif JSONIFIER_COMPILER_CLANG
-		constexpr read_buffer_ptr prettyFunctionTailLocal{ "]" };
+		constexpr const char* prettyFunctionTailLocal{ "]" };
 	#endif
 		str			   = str.substr(str.find("=") + 2);
 		uint64_t start = str.findLastOf(':') + 1;

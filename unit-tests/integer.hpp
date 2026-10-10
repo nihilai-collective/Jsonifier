@@ -10,15 +10,15 @@
 
 namespace int_validation_tests {
 
-	constexpr jsonifier::internal::array<std::string_view, 24> inputValues{ { "0", "1", "-1", "42", "-42", "123456789", "-123456789", "2147483647", "-2147483648",
+	constexpr jsonifier::internal::array<std::string_view, 28> inputValues{ { "0", "1", "-1", "42", "-42", "123456789", "-123456789", "2147483647", "-2147483648",
 		"9223372036854775807", "-9223372036854775808", "0.0", "1.5", "-1.5", "3.14159", "-2.71828", "123.456", "-789.012", "1e5", "-2e3", "3.14e10", "-4.2e-1", "5E2",
-		"10000000e-7" } };
+		"10000000e-7", "1.00000000000000000000e1", "1.99999999999999999999", "1.5e-18", "9.223372036854775807e18" } };
 
-	constexpr jsonifier::internal::array<int64_t, 24> outputValues{ { 0, 1, -1, 42, -42, 123456789, -123456789, 2147483647, -2147483648, 9223372036854775807LL,
-		std::numeric_limits<int64_t>::min(), 0, 1, -1, 3, -2, 123, -789, 100000, -2000, 31400000000LL, 0, 500, 1 } };
+	constexpr jsonifier::internal::array<int64_t, 28> outputValues{ { 0, 1, -1, 42, -42, 123456789, -123456789, 2147483647, -2147483648, 9223372036854775807LL,
+		std::numeric_limits<int64_t>::min(), 0, 1, -1, 3, -2, 123, -789, 100000, -2000, 31400000000LL, 0, 500, 1, 10, 1, 0, 9223372036854775807LL } };
 
-	constexpr jsonifier::internal::array<std::string_view, 11> failValues{ { "9223372036854775808", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
-		"null", "{}" } };
+	constexpr jsonifier::internal::array<std::string_view, 14> failValues{ { "9223372036854775808", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
+		"null", "{}", "1e9223372036854775809", "1.5e9223372036854775809", "9.223372036854775808e18" } };
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline static void intTestsImpl() {
 		std::cout << "Int Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
@@ -44,14 +44,14 @@ namespace int_validation_tests {
 
 namespace uint_validation_tests {
 
-	constexpr jsonifier::internal::array<std::string_view, 16> inputValues{ { "0", "1", "42", "123456789", "2147483647", "18446744073709551615", "0.0", "1.5", "3.14159", "123.456",
-		"1e5", "2e3", "3.14e10", "4.2e-1", "5E2", "10000000e-7" } };
+	constexpr jsonifier::internal::array<std::string_view, 18> inputValues{ { "0", "1", "42", "123456789", "2147483647", "18446744073709551615", "0.0", "1.5", "3.14159", "123.456",
+		"1e5", "2e3", "3.14e10", "4.2e-1", "5E2", "10000000e-7", "1.000000000000000000000e1", "1.8446744073709551615e19" } };
 
-	constexpr jsonifier::internal::array<uint64_t, 16> outputValues{ { 0, 1, 42, 123456789, 2147483647, 18446744073709551615ULL, 0, 1, 3, 123, 100000, 2000, 31400000000ULL, 0, 500,
-		1 } };
+	constexpr jsonifier::internal::array<uint64_t, 18> outputValues{ { 0, 1, 42, 123456789, 2147483647, 18446744073709551615ULL, 0, 1, 3, 123, 100000, 2000, 31400000000ULL, 0, 500,
+		1, 10, 18446744073709551615ULL } };
 
-	constexpr jsonifier::internal::array<std::string_view, 11> failValues{ { "18446744073709551616", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
-		"null", "{}" } };
+	constexpr jsonifier::internal::array<std::string_view, 13> failValues{ { "18446744073709551616", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
+		"null", "{}", "3e18446744073709551617", "1.8446744073709551616e19" } };
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline static void uintTestsImpl() {
 		std::cout << "Uint Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
@@ -107,8 +107,9 @@ namespace i_to_str_tests {
 	template<typename value_type, const auto& values> inline static void checkToCharsMatchesStdToString() {
 		for (auto value: values) {
 			char buffer[32]{};
-			auto* end = jsonifier::internal::to_chars<value_type>::impl(buffer, value);
-			std::string result{ buffer, static_cast<std::size_t>(end - buffer) };
+			auto* bytes = std::bit_cast<jsonifier::write_buffer_ptr>(+buffer);
+			auto* end	= jsonifier::internal::to_chars<value_type>::impl(bytes, value);
+			std::string result{ buffer, static_cast<std::size_t>(end - bytes) };
 			rt_ut::unit_test<"i_to_str_digit_boundary_matches_std_to_string", true>::assert_eq(std::to_string(value), [&]() {
 				return result;
 			});

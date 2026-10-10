@@ -8,7 +8,7 @@ The default parser walks the JSON input character by character. When it hits a v
 
 Partial Reading trades that per-character scan for a two-stage pipeline:
 
-1. **Stage-1** does a single fast SIMD-accelerated scan over the whole input, building a tape of pointers to every structural character (`{`, `}`, `[`, `]`, `"`, `,`, `:`).
+1. **Stage-1** does a single fast SIMD-accelerated scan over the whole input, building a tape of offsets to every structural character (`{`, `}`, `[`, `]`, `"`, `,`, `:`).
 2. **Stage-2** walks that tape instead of the raw string. Skipping a value becomes a bracket-depth walk over structural indices — no character-by-character scanning, no whitespace handling, no string-content reading.
 
 For documents where you skip most of what you're parsing, this can be a large speedup. For documents where you consume every field, the extra stage-1 cost usually isn't worth it.
@@ -58,7 +58,7 @@ template<> struct jsonifier::core<user_data_partial> {
 
 template<> struct jsonifier::core<status_data_partial> {
     using value_type = status_data_partial;
-    static constexpr auto parseValue = createValue
+    static constexpr auto parseValue = createValue<
         &value_type::text,
         &value_type::user,
         &value_type::retweet_count>();

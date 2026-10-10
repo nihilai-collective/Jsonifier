@@ -93,11 +93,11 @@ jobs:
 
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
-        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=${{ env.CXX_BIN }} -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_UBSAN=TRUE -DJSONIFIER_ASAN=TRUE
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=${{ env.CXX_BIN }} -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_MAX_AVX_TIER=2 -DJSONIFIER_UBSAN=TRUE -DJSONIFIER_ASAN=TRUE
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=cl -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=cl -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_MAX_AVX_TIER=2 -DJSONIFIER_ASAN=TRUE -DJSONIFIER_UBSAN=TRUE
 
       - name: Build
         shell: bash

@@ -97,7 +97,6 @@ namespace raw_json_data_tests {
 			parser.parseJson(data, std::string{ "-9223372036854775808" });
 			return data.getInt();
 		});
-		/*
 		static constexpr rt_ut::string_literal getDoubleRoundTripName{ "raw_json_data_get_double_round_trip" };
 		rt_ut::unit_test<getDoubleRoundTripName, true>::assert_eq(true, [&] {
 			jsonifier::raw_json_data data{};
@@ -129,7 +128,27 @@ namespace raw_json_data_tests {
 			auto val = data.getDouble();
 			return val > 0.4999 && val < 0.5001;
 		});
-		*/
+
+		static constexpr rt_ut::string_literal getDoubleNegativeFractionName{ "raw_json_data_get_double_negative_fraction" };
+		rt_ut::unit_test<getDoubleNegativeFractionName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "-0.1" });
+			return data.getNumber().getType() == jsonifier::json_number::number_types::double64 && std::bit_cast<uint64_t>(data.getDouble()) == std::bit_cast<uint64_t>(-0.1);
+		});
+
+		static constexpr rt_ut::string_literal getDoubleNegativeExponentName{ "raw_json_data_get_double_negative_exponent" };
+		rt_ut::unit_test<getDoubleNegativeExponentName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "-1e2" });
+			return data.getNumber().getType() == jsonifier::json_number::number_types::double64 && std::bit_cast<uint64_t>(data.getDouble()) == std::bit_cast<uint64_t>(-100.0);
+		});
+
+		static constexpr rt_ut::string_literal getDoubleNegativeInArrayName{ "raw_json_data_get_double_negative_in_array" };
+		rt_ut::unit_test<getDoubleNegativeInArrayName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "[-7.9431,-12]" });
+			return std::bit_cast<uint64_t>(data[0ULL].getDouble()) == std::bit_cast<uint64_t>(-7.9431) && data[1ULL].getInt() == -12;
+		});
 		static constexpr rt_ut::string_literal arrayIndexAccessName{ "raw_json_data_array_index_access" };
 		rt_ut::unit_test<arrayIndexAccessName, true>::assert_eq(static_cast<uint64_t>(3), [&] {
 			jsonifier::raw_json_data data{};
@@ -304,6 +323,89 @@ namespace raw_json_data_tests {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"({"a":{"b":{"c":"found"}}})" });
 			return data["a"]["b"]["c"].getString();
+		});
+
+		static constexpr rt_ut::string_literal serializeMixedArrayName{ "raw_json_data_serialize_mixed_array" };
+		rt_ut::unit_test<serializeMixedArrayName, true>::assert_eq(std::string{ R"([1,-2,1.5,"s",true,false,null,[],{}])" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"([1, -2, 1.5, "s", true, false, null, [], {}])" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeNestedObjectName{ "raw_json_data_serialize_nested_object" };
+		rt_ut::unit_test<serializeNestedObjectName, true>::assert_eq(std::string{ R"({"a":[1,2]})" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"({"a":[1,2]})" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeRootScalarName{ "raw_json_data_serialize_root_scalar" };
+		rt_ut::unit_test<serializeRootScalarName, true>::assert_eq(std::string{ "42" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "42" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeDefaultName{ "raw_json_data_serialize_default_constructed_is_null" };
+		rt_ut::unit_test<serializeDefaultName, true>::assert_eq(std::string{ "null" }, [&] {
+			jsonifier::raw_json_data data{};
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializePrettifiedName{ "raw_json_data_serialize_prettified" };
+		rt_ut::unit_test<serializePrettifiedName, true>::assert_eq(std::string{ "{\n   \"k\": [\n      3,\n      \"v\"\n   ]\n}" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"({"k":[3,"v"]})" });
+			std::string out{};
+			parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal rejectInvalidName{ "raw_json_data_rejects_invalid_values" };
+		rt_ut::unit_test<rejectInvalidName, true>::assert_eq(true, [&] {
+			for (const char* json: { "[1,]", "[tru]", "[nul]", "[abc]", "[-]", "[01]", "[1.]", "[1]x", "{\"a\":fals}" }) {
+				jsonifier::raw_json_data data{};
+				if (parser.parseJson(data, std::string{ json })) {
+					return false;
+				}
+			}
+			return true;
+		});
+
+		static constexpr rt_ut::string_literal smallArrayCapacityName{ "raw_json_data_small_arrays_after_large_array" };
+		rt_ut::unit_test<smallArrayCapacityName, true>::assert_eq(true, [&] {
+			// A large array followed by small ones: the small arrays must not reserve the large array's size.
+			std::string json = "[[";
+			for (int i = 0; i < 1000; ++i) {
+				json += i ? ",0" : "0";
+			}
+			json += "],[1,2],[3,4]]";
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, json)) {
+				return false;
+			}
+			const auto& outer = data.getArray();
+			return outer.size() == 3 && outer[0ULL].getArray().size() == 1000 && outer[1ULL].getArray().size() == 2 && outer[1ULL].getArray().capacity() < 16 &&
+				outer[2ULL].getArray()[1ULL].getUint() == 4;
+		});
+
+		static constexpr rt_ut::string_literal nestedDecodeName{ "raw_json_data_nested_decode" };
+		rt_ut::unit_test<nestedDecodeName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, std::string{ R"({"a":[1,{"b":"c\"d"}],"e":true,"f":null,"g":-2.5})" })) {
+				return false;
+			}
+			auto& object = data.getObject();
+			return object["a"].getArray()[1ULL].getObject()["b"].getString() == "c\"d" && object["e"].getBool() && object["f"].getType() == jsonifier::json_type::null &&
+				std::bit_cast<uint64_t>(object["g"].getDouble()) == std::bit_cast<uint64_t>(-2.5);
 		});
 
 		std::cout << "raw_json_data validation tests complete." << std::endl;
