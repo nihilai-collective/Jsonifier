@@ -36,7 +36,7 @@ template<> struct jsonifier::core<abc_in_order_partial_test> {
 	static constexpr auto parseValue = createValue<&value_type::a, &value_type::m, &value_type::z>();
 };
 
-constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
+inline constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
 
 class test_base {
   public:
@@ -48,7 +48,7 @@ class test_base {
 	std::string fileContents{};
 };
 
-inline static bool processFilesInFolder(std::unordered_map<std::string, test_base>& resultFileContents, const std::string& testType) noexcept {
+inline bool processFilesInFolder(std::unordered_map<std::string, test_base>& resultFileContents, const std::string& testType) {
 	try {
 		for (const auto& entry: std::filesystem::directory_iterator(std::string{ basePath.operator std::string() } + testType)) {
 			if (entry.is_regular_file()) {
@@ -135,7 +135,7 @@ class file_handler {
 	}
 };
 
-template<bool partialRead> static constexpr rt_ut::string_literal testTypePartial{ [] {
+template<bool partialRead> inline constexpr rt_ut::string_literal testTypePartial{ [] {
 	if constexpr (partialRead) {
 		return rt_ut::string_literal{ "Partial-Reading: Enabled, " };
 	} else {
@@ -143,7 +143,7 @@ template<bool partialRead> static constexpr rt_ut::string_literal testTypePartia
 	}
 }() };
 
-template<bool knownOrder> static constexpr rt_ut::string_literal testTypeKnownOrder{ [] {
+template<bool knownOrder> inline constexpr rt_ut::string_literal testTypeKnownOrder{ [] {
 	if constexpr (knownOrder) {
 		return rt_ut::string_literal{ "Known-Order: Enabled, " };
 	} else {
@@ -151,7 +151,7 @@ template<bool knownOrder> static constexpr rt_ut::string_literal testTypeKnownOr
 	}
 }() };
 
-template<bool nullTerminated> static constexpr rt_ut::string_literal testTypeNullTerminated{ [] {
+template<bool nullTerminated> inline constexpr rt_ut::string_literal testTypeNullTerminated{ [] {
 	if constexpr (nullTerminated) {
 		return rt_ut::string_literal{ "Null-Terminated: Enabled" };
 	} else {

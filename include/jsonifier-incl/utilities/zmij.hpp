@@ -33,7 +33,7 @@ namespace JSONIFIER_NAMESPACE::zmij {
 	#ifdef __cpp_lib_is_constant_evaluated
 		using std::is_constant_evaluated;
 	#else
-		inline constexpr auto is_constant_evaluated() -> bool {
+		inline constexpr auto is_constant_evaluated() noexcept -> bool {
 			return false;
 		}
 	#endif
@@ -63,7 +63,7 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			return static_cast<int32_t>(std::countr_zero(x));
 		}
 
-		JSONIFIER_INLINE auto select(uint64_t condition, int64_t true_value, int64_t false_value) -> int64_t {
+		JSONIFIER_INLINE auto select(uint64_t condition, int64_t true_value, int64_t false_value) noexcept -> int64_t {
 			if constexpr (!(JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_GCC)) {
 				return (condition != 0) ? true_value : false_value;
 			} else {
@@ -205,12 +205,12 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			static_assert(float_traits::is_iec559, "IEEE 754 required");
 		};
 
-		alignas(64) constexpr uint64_t pow10_minor[]{ 0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
+		alignas(64) inline constexpr uint64_t pow10_minor[]{ 0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
 			0xf424000000000000, 0x9896800000000000, 0xbebc200000000000, 0xee6b280000000000, 0x9502f90000000000, 0xba43b74000000000, 0xe8d4a51000000000, 0x9184e72a00000000,
 			0xb5e620f480000000, 0xe35fa931a0000000, 0x8e1bc9bf04000000, 0xb1a2bc2ec5000000, 0xde0b6b3a76400000, 0x8ac7230489e80000, 0xad78ebc5ac620000, 0xd8d726b7177a8000,
 			0x878678326eac9000, 0xa968163f0a57b400, 0xd3c21bcecceda100, 0x84595161401484a0, 0xa56fa5b99019a5c8, 0xcecb8f27f4200f3a };
 
-		alignas(64) constexpr uint128 pow10_major[]{ { 0xaf8e5410288e1b6f, 0x07ecf0ae5ee44dda }, { 0xb1442798f49ffb4a, 0x99cd11cfdf41779d },
+		alignas(64) inline constexpr uint128 pow10_major[]{ { 0xaf8e5410288e1b6f, 0x07ecf0ae5ee44dda }, { 0xb1442798f49ffb4a, 0x99cd11cfdf41779d },
 			{ 0xb2fe3f0b8599ef07, 0x861fa7e6dcb4aa15 }, { 0xb4bca50b065abe63, 0x0fed077a756b53aa }, { 0xb67f6455292cbf08, 0x1a3bc84c17b1d543 },
 			{ 0xb84687c269ef3bfb, 0x3d5d514f40eea742 }, { 0xba121a4650e4ddeb, 0x92f34d62616ce413 }, { 0xbbe226efb628afea, 0x890489f70a55368c },
 			{ 0xbdb6b8e905cb600f, 0x5400e987bbc1c921 }, { 0xbf8fdb78849a5f96, 0xde98520472bdd034 }, { 0xc16d9a0095928a27, 0x75b7053c0f178294 },
@@ -219,8 +219,8 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			{ 0xcf02b2c21207ef2e, 0x94f967e45e03f4bc }, { 0xd106f86e69d785c7, 0xe13336d701beba52 }, { 0xd31045a8341ca07c, 0x1ede48111209a051 },
 			{ 0xd51ea6fa85785631, 0x552a74227f3ea566 }, { 0xd732290fbacaf133, 0xa97c177947ad4096 }, { 0xd94ad8b1c7380874, 0x18375281ae7822bc } };
 
-		alignas(64) constexpr uint32_t pow10_fixups[]{ 0x0a4e363f, 0x00001840, 0x00006400, 0x24200040, 0x00000000, 0x0c000000, 0x82c81380, 0x5e4ce01f, 0xd730f60f, 0x0000001b,
-			0x00000000, 0xcdf7fffc, 0x6e8201d8, 0x40cd3fd1, 0xdb642501, 0x00000d0d, 0x14042400, 0x53713840, 0x11781db4, 0x00000000 };
+		alignas(64) inline constexpr uint32_t pow10_fixups[]{ 0x0a4e363f, 0x00001840, 0x00006400, 0x24200040, 0x00000000, 0x0c000000, 0x82c81380, 0x5e4ce01f, 0xd730f60f,
+			0x0000001b, 0x00000000, 0xcdf7fffc, 0x6e8201d8, 0x40cd3fd1, 0xdb642501, 0x00000d0d, 0x14042400, 0x53713840, 0x11781db4, 0x00000000 };
 
 		struct alignas(64) pow10_significand_table {
 			static constexpr bool compress		= ZMIJ_OPTIMIZE_SIZE != 0;
@@ -481,16 +481,16 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			return buffer + (condition ? 1 : 0);
 		}
 
-		static consteval auto splat64(uint64_t x) -> uint128 {
+		consteval auto splat64(uint64_t x) -> uint128 {
 			return { x, x };
 		}
-		static consteval auto splat32(uint32_t x) -> uint128 {
+		consteval auto splat32(uint32_t x) -> uint128 {
 			return splat64((static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(x));
 		}
-		static consteval auto splat16(uint16_t x) -> uint128 {
+		consteval auto splat16(uint16_t x) -> uint128 {
 			return splat32((static_cast<uint32_t>(x) << 16) | static_cast<uint32_t>(x));
 		}
-		static consteval auto pack8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h) -> uint64_t {
+		consteval auto pack8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h) -> uint64_t {
 			using u64 = uint64_t;
 			return (u64(h) << 56) | (u64(g) << 48) | (u64(f) << 40) | (u64(e) << 32) | (u64(d) << 24) | (u64(c) << 16) | (u64(b) << 8) | u64(a);
 		}
@@ -542,7 +542,7 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			return vreinterpretq_u8_s16(vmlaq_n_s16(gh_ef_cd_ab_op_mn_kl_ij, high_10s, static_data.multipliers16[1]));
 		}
 
-		JSONIFIER_INLINE auto to_unshuffled_digits(uint64_t value) -> uint8x16_t {
+		JSONIFIER_INLINE auto to_unshuffled_digits(uint64_t value) noexcept -> uint8x16_t {
 			uint64_t hundred_million = static_data.hundred_million;
 
 			ZMIJ_ASM(("" : "+r"(hundred_million)));
@@ -737,7 +737,7 @@ namespace JSONIFIER_NAMESPACE::zmij {
 			int32_t exp;
 		};
 
-		template<typename Float, typename UInt> JSONIFIER_INLINE static auto to_decimal(UInt bin_sig, int64_t raw_exp, bool regular) noexcept -> to_decimal_result {
+		template<typename Float, typename UInt> JSONIFIER_INLINE auto to_decimal(UInt bin_sig, int64_t raw_exp, bool regular) noexcept -> to_decimal_result {
 			using traits				  = float_traits<Float>;
 			int64_t bin_exp				  = raw_exp - traits::exp_offset;
 			constexpr int32_t num_bits	  = std::numeric_limits<UInt>::digits;
@@ -820,7 +820,7 @@ namespace JSONIFIER_NAMESPACE::zmij {
 
 namespace JSONIFIER_NAMESPACE::zmij {
 
-	[[maybe_unused]] JSONIFIER_INLINE static auto to_decimal(double value) noexcept -> dec_fp {
+	[[maybe_unused]] JSONIFIER_INLINE auto to_decimal(double value) noexcept -> dec_fp {
 		using traits  = float_traits<double>;
 		auto bits	  = traits::to_bits(value);
 		auto bin_exp  = traits::get_exp(bits);

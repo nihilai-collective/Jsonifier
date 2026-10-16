@@ -44,7 +44,7 @@ template<> struct jsonifier::core<round_trip_tests::Obj3> {
 namespace round_trip_tests {
 
 	template<rt_ut::string_literal testNameNew, typename test_type, bool partial, bool knownOrder, bool nullTerminated>
-	inline static void runRoundTripTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
+	inline void runRoundTripTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		test_type valueNew{};
 		std::string newString{};
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
@@ -62,7 +62,7 @@ namespace round_trip_tests {
 		return;
 	}
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void roundTripTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void roundTripTestsImpl() {
 		jsonifier::jsonifier_core<> parser{};
 		std::unordered_map<std::string, test_base> jsonTests{};
 		processFilesInFolder(jsonTests, "/round_trip");
@@ -97,7 +97,7 @@ namespace round_trip_tests {
 		return;
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		roundTripTestsImpl<false, false, false>();
 		roundTripTestsImpl<false, true, false>();
 		roundTripTestsImpl<true, false, false>();

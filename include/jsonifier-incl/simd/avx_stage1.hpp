@@ -24,7 +24,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 		return returnValue;
 	}() };
 
-	static consteval uint64_t getShiftAmount(const uint64_t index) noexcept {
+	consteval uint64_t getShiftAmount(const uint64_t index) {
 		return shiftAmounts[index % shiftAmounts.size()];
 	}
 
@@ -272,7 +272,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 		}
 	};
 
-	template<uint64_t size> inline static consteval internal::array<uint8_t, size> generateWhitespaceArray() noexcept {
+	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateWhitespaceArray() {
 		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, '\t', '\n', 0x70u, 0x64u, '\r', 0x64u, 0x64u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -281,9 +281,9 @@ namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
+	template<uint64_t size> alignas(64) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
 
-	template<uint64_t size> inline static consteval internal::array<uint8_t, size> generateOpArray() noexcept {
+	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateOpArray() {
 		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, ':', '{', ',', '}', 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -292,7 +292,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE::simd {
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArray<size>() };
+	template<uint64_t size> alignas(64) inline constexpr internal::array<uint8_t, size> opArray{ generateOpArray<size>() };
 
 	#endif
 

@@ -237,7 +237,7 @@ namespace jsonifier {
 			}
 		}
 
-		template<typename value_type_newer> JSONIFIER_INLINE explicit operator std::basic_string<value_type_newer>() const noexcept {
+		template<typename value_type_newer> JSONIFIER_INLINE explicit operator std::basic_string<value_type_newer>() const {
 			std::basic_string<value_type_newer> returnValue{};
 			if (sizeVal > 0) [[likely]] {
 				returnValue.resize(sizeVal);
@@ -844,7 +844,7 @@ namespace jsonifier {
 			return { dataVal, sizeVal };
 		}
 
-		template<typename value_type_newer> JSONIFIER_INLINE explicit constexpr operator std::basic_string<value_type_newer>() const noexcept {
+		template<typename value_type_newer> JSONIFIER_INLINE explicit constexpr operator std::basic_string<value_type_newer>() const {
 			std::basic_string<value_type_newer> returnValue{};
 			if (sizeVal > 0) [[likely]] {
 				returnValue.resize(sizeVal);

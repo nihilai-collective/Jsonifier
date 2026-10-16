@@ -23,9 +23,9 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	};
 
 	template<prettify_options options, typename prettifier_type> struct prettify_context_ro {
-		inline prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr dataPtrNew,
-			read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
-			: endStructural{ endStructuralNew }, prettifier{ prettifierNew }, iter{ iterNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
+		JSONIFIER_INLINE prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew,
+			read_buffer_ptr dataPtrNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
+			: endStructural{ endStructuralNew }, iter{ iterNew }, prettifier{ prettifierNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
 		}
 
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
@@ -40,8 +40,8 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		prettify_context_ro() noexcept										= delete;
 
 		write_structural_index_ptr endStructural{};
-		prettifier_type& prettifier;
 		write_structural_index_ptr iter{};
+		prettifier_type& prettifier;
 		read_buffer_ptr rootIter{};
 		read_buffer_ptr dataPtr{};
 		read_buffer_ptr endIter{};
@@ -52,7 +52,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		template<prettify_options options, typename prettifier_type> friend struct prettify_context_ro;
 
 		template<prettify_options options = prettify_options{}, string_t input_string_type, string_t output_buffer_type>
-		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
+		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
 			read_buffer_ptr dataPtr	 = std::bit_cast<read_buffer_ptr>(in.data());
@@ -111,8 +111,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		inline prettifier() noexcept				   = default;
 
 		template<prettify_options options, prettify_buffer_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
-			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter,
-			read_buffer_ptr endIter) noexcept {
+			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;
 			using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;

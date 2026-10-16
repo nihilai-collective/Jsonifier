@@ -50,7 +50,7 @@ namespace jsonifier::internal {
 	};
 
 	// These PRNs were generated using the above algorithm.
-	alignas(64) static constexpr array<uint64_t, 135ULL> prns{ { 1033321092324544984ull, 2666561049963377653ull, 3901177690447069239ull, 4218182233242110882ull,
+	alignas(64) inline constexpr array<uint64_t, 135ULL> prns{ { 1033321092324544984ull, 2666561049963377653ull, 3901177690447069239ull, 4218182233242110882ull,
 		5911765535454950103ull, 6788651254494793497ull, 7100864855074445223ull, 8121427956336305945ull, 9038010914689427860ull, 14840306302415334885ull, 2861875790078914964ull,
 		3162274379479658823ull, 4716213344225307449ull, 540950270129450019ull, 6138393194460717092ull, 7344427311844191385ull, 8475133706542525636ull, 9707373313909664576ull,
 		13125261184447140558ull, 2935828130652229499ull, 3352961464321085856ull, 4654333323360932970ull, 5071886467123008198ull, 6337413869067417456ull, 7068363609472928302ull,
@@ -71,7 +71,7 @@ namespace jsonifier::internal {
 		7512972502278041818ull, 8724494295438506783ull, 9277533619161797917ull, 13495127262014153477ull, 2883303557104387784ull, 3039599040070277986ull, 4196273005435491662ull,
 		5417879022829474871ull, 6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
-	template<typename value_type> inline consteval value_type readBitsCt(const char* ptr) noexcept {
+	template<typename value_type> inline consteval value_type readBitsCt(const char* ptr) {
 		char values[sizeof(value_type)]{};
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 	}
 
 	struct ct_key_hasher {
-		inline consteval uint64_t hashKeyCt(const char* value, uint64_t length) const noexcept {
+		inline consteval uint64_t hashKeyCt(const char* value, uint64_t length) const {
 			uint64_t seed64{ seed };
 
 			{
@@ -123,15 +123,19 @@ namespace jsonifier::internal {
 			++index;
 		}
 
-		inline constexpr ct_key_hasher() noexcept {
-			updateSeed();
+		inline constexpr ct_key_hasher(uint64_t seedNew = 0) noexcept {
+			if (seedNew != 0) {
+				seed = seedNew;
+			} else {
+				updateSeed();
+			}
 		}
 
 		uint64_t index{};
 		uint64_t seed{};
 	};
 
-	template<typename value_type> static consteval value_type constEval(value_type value) {
+	template<typename value_type> consteval value_type constEval(value_type value) {
 		return value;
 	}
 

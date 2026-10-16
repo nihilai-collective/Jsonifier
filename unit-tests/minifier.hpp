@@ -10,13 +10,13 @@
 
 namespace minifier_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "JSON Minifier Buffer Overload Tests" << std::endl;
 
 		jsonifier::jsonifier_core<> parser{};
 
 		auto minifyInto = [&](std::string input, std::string buffer = std::string{}) {
-			bool success = parser.minifyJson(std::move(input), buffer);
+			bool success = parser.minifyJson(jsonifier::internal::move(input), buffer);
 			return success ? buffer : std::string{ "FAILED" };
 		};
 
@@ -135,7 +135,7 @@ namespace minifier_tests {
 			}
 			input += " ]";
 			expected += "]";
-			return minifyInto(std::move(input)) == expected;
+			return minifyInto(jsonifier::internal::move(input)) == expected;
 		});
 
 		rt_ut::unit_test<"buffer_minify_empty_input_returns_false_and_reports_error", true>::assert_eq(true, [&] {

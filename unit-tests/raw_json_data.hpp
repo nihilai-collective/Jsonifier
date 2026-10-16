@@ -10,7 +10,7 @@
 
 namespace raw_json_data_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "raw_json_data Tests" << std::endl;
 
 		jsonifier::jsonifier_core<> parser{};

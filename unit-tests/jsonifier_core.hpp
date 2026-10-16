@@ -10,7 +10,7 @@
 
 namespace core_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		{
 			jsonifier::jsonifier_core<> parserA{};
 			static constexpr std::string_view testInput{ R"({"test_string":"hello","test_int":42,"test_bool":true})" };

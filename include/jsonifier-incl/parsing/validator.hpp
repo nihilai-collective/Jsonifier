@@ -13,19 +13,19 @@
 
 namespace JSONIFIER_INTERNAL_NAMESPACE {
 
-	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE read_buffer_ptr getEndIter(value_type value) noexcept {
 		return std::bit_cast<read_buffer_ptr>(value + strLen(value));
 	}
 
-	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type value) noexcept {
+	template<pointer_t value_type> JSONIFIER_INLINE read_buffer_ptr getBeginIter(value_type value) noexcept {
 		return std::bit_cast<read_buffer_ptr>(value);
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE read_buffer_ptr getEndIter(value_type& value) noexcept {
 		return std::bit_cast<read_buffer_ptr>(value.data() + value.size());
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type& value) noexcept {
+	template<has_data value_type> JSONIFIER_INLINE read_buffer_ptr getBeginIter(value_type& value) noexcept {
 		return std::bit_cast<read_buffer_ptr>(value.data());
 	}
 

@@ -47,7 +47,7 @@ namespace string_validation_tests {
 			return true;
 		}
 
-		template<uint64_t N> constexpr unit_test_string(const char (&string)[N]) : size_val(N - 1) {
+		template<uint64_t N> constexpr unit_test_string(const char (&string)[N]) noexcept : size_val(N - 1) {
 			static_assert(N <= 256, "unit_test_string: input exceeds buffer capacity");
 			std::copy_n(string, N - 1, values);
 		}
@@ -57,15 +57,15 @@ namespace string_validation_tests {
 			return os;
 		}
 
-		constexpr operator std::string_view() const {
+		constexpr operator std::string_view() const noexcept {
 			return { values, size_val };
 		}
 
-		constexpr const char* data() const {
+		constexpr const char* data() const noexcept {
 			return values;
 		}
 
-		constexpr uint64_t size() const {
+		constexpr uint64_t size() const noexcept {
 			return size_val;
 		}
 
@@ -75,21 +75,21 @@ namespace string_validation_tests {
 		uint64_t size_val{};
 	};
 
-	constexpr jsonifier::internal::array<unit_test_string, 35> inputValues{ { "\"\"", "\"Hello\"", "\"Hello\\nWorld\"", "\"Hello\\u0000World\"", "\"\\\"\\\\/\\b\\f\\n\\r\\t\"",
-		"\"\\u0024\"", "\"\\u00A2\"", "\"\\u20AC\"", "\"\\uD834\\uDD1E\"", "\" \"", "\"    \"", "\"\\u0001\"", "\"\\u001F\"", "\"\\u007F\"", "\"\\u0080\"", "\"\\u00FF\"",
-		"\"\\u0100\"", "\"\\uFFFF\"", "\"😀\"", "\"🚀\"", "\"🍺\"", "\"日本語\"", "\"Русский\"", "\"العربية\"", "\"👨‍👩‍👧‍👦\"", "\"🏳️‍🌈\"",
-		"\"a😀b😀c😀d\"", "\"\\\\\"", "\"\\\\\\\\\\\\\\\\\\\\\\\\\"", "\"\\/\"", "\"\\uD800\\uDC00\"", "\"\\uDBFF\\uDFFF\"", "\"\\u0000\\u0000\\u0000\\u0000\"",
-		"\"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"",
+	inline constexpr jsonifier::internal::array<unit_test_string, 35> inputValues{ { "\"\"", "\"Hello\"", "\"Hello\\nWorld\"", "\"Hello\\u0000World\"",
+		"\"\\\"\\\\/\\b\\f\\n\\r\\t\"", "\"\\u0024\"", "\"\\u00A2\"", "\"\\u20AC\"", "\"\\uD834\\uDD1E\"", "\" \"", "\"    \"", "\"\\u0001\"", "\"\\u001F\"", "\"\\u007F\"",
+		"\"\\u0080\"", "\"\\u00FF\"", "\"\\u0100\"", "\"\\uFFFF\"", "\"😀\"", "\"🚀\"", "\"🍺\"", "\"日本語\"", "\"Русский\"", "\"العربية\"", "\"👨‍👩‍👧‍👦\"",
+		"\"🏳️‍🌈\"", "\"a😀b😀c😀d\"", "\"\\\\\"", "\"\\\\\\\\\\\\\\\\\\\\\\\\\"", "\"\\/\"", "\"\\uD800\\uDC00\"", "\"\\uDBFF\\uDFFF\"",
+		"\"\\u0000\\u0000\\u0000\\u0000\"", "\"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"",
 		"\"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua\"" } };
 
-	constexpr jsonifier::internal::array<unit_test_string, 35> outputValues{ { "", "Hello", "Hello\nWorld", "Hello\0World", "\"\\/\b\f\n\r\t", "\x24", "\xC2\xA2", "\xE2\x82\xAC",
-		"\xF0\x9D\x84\x9E", " ", "    ", "\x01", "\x1F", "\x7F", "\xC2\x80", "\xC3\xBF", "\xC4\x80", "\xEF\xBF\xBF", "😀", "🚀", "🍺", "日本語", "Русский", "العربية",
-		"👨‍👩‍👧‍👦", "🏳️‍🌈", "a😀b😀c😀d", "\\", "\\\\\\\\\\\\", "/", "\xF0\x90\x80\x80", "\xF4\x8F\xBF\xBF", "\0\0\0\0", "\\\\\\\\\\\\\\\\\\\\",
-		"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua" } };
+	inline constexpr jsonifier::internal::array<unit_test_string, 35> outputValues{ { "", "Hello", "Hello\nWorld", "Hello\0World", "\"\\/\b\f\n\r\t", "\x24", "\xC2\xA2",
+		"\xE2\x82\xAC", "\xF0\x9D\x84\x9E", " ", "    ", "\x01", "\x1F", "\x7F", "\xC2\x80", "\xC3\xBF", "\xC4\x80", "\xEF\xBF\xBF", "😀", "🚀", "🍺", "日本語", "Русский",
+		"العربية", "👨‍👩‍👧‍👦", "🏳️‍🌈", "a😀b😀c😀d", "\\", "\\\\\\\\\\\\", "/", "\xF0\x90\x80\x80", "\xF4\x8F\xBF\xBF", "\0\0\0\0",
+		"\\\\\\\\\\\\\\\\\\\\", "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua" } };
 
-	constexpr jsonifier::internal::array<unit_test_string, 30> failValues{ { "\"\\u\"", "\"\\u0\"", "\"\\u00\"", "\"\\u000\"", "\"\\uZZZZ\"", "\"\\x41\"", "\"\\x00\"", "\"\\a\"",
-		"\"\\v\"", "\"\\q\"", "\"\\8\"", "\"\\9\"", "\"\\017\"", "\"\\uD800\"", "\"\\uDC00\"", "\"\\uD800\\uD800\"", "\"\\uDC00\\uDC00\"", "\"\\uD800A\"", "\"\\uD800\\uFFFF\"",
-		"\"\\uFFFF\\uD800\"", "\"\\uDBFF\"", "\"\\uD800\\uE000\"", "\"\\uDBFF\\uE000\"", "\"\\uD7FF\\uDC00\"", "\"abc", "\"abc\\",
+	inline constexpr jsonifier::internal::array<unit_test_string, 30> failValues{ { "\"\\u\"", "\"\\u0\"", "\"\\u00\"", "\"\\u000\"", "\"\\uZZZZ\"", "\"\\x41\"", "\"\\x00\"",
+		"\"\\a\"", "\"\\v\"", "\"\\q\"", "\"\\8\"", "\"\\9\"", "\"\\017\"", "\"\\uD800\"", "\"\\uDC00\"", "\"\\uD800\\uD800\"", "\"\\uDC00\\uDC00\"", "\"\\uD800A\"",
+		"\"\\uD800\\uFFFF\"", "\"\\uFFFF\\uD800\"", "\"\\uDBFF\"", "\"\\uD800\\uE000\"", "\"\\uDBFF\\uE000\"", "\"\\uD7FF\\uDC00\"", "\"abc", "\"abc\\",
 		"\"\\u0\x8F"
 		"00\"",
 		"\"\\u00\x8F"
@@ -99,7 +99,7 @@ namespace string_validation_tests {
 		"\"\\u\x8F\x90\x91"
 		"0\"" } };
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void stringTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void stringTestsImpl() {
 		std::cout << "String Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
 		pass_test_runner<std::string_view, std::string, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
 			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
@@ -107,7 +107,7 @@ namespace string_validation_tests {
 		fail_test_runner<std::string, failValues, partial, knownOrder, nullTerminated, fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		stringTestsImpl<false, false, false>();
 		stringTestsImpl<false, true, false>();
 		stringTestsImpl<true, false, false>();

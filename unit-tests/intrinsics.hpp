@@ -24,9 +24,9 @@ namespace intrinsics_tests {
 	using active_simd_t = jsonifier::jsonifier_simd_int_128;
 #endif
 
-	static constexpr uint64_t activeWidth{ sizeof(active_simd_t) };
+	inline constexpr uint64_t activeWidth{ sizeof(active_simd_t) };
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "SIMD Intrinsics Layer Tests (active backend: " << jsonifier::cpu_arch_name << ", width: " << activeWidth << " bytes)" << std::endl;
 
 		static constexpr rt_ut::string_literal opCmpEqAllMatchName{ "op_cmp_eq_all_match" };

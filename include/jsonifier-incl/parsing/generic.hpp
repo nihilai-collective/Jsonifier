@@ -15,7 +15,7 @@ namespace jsonifier::generic {
 	  public:
 		static constexpr uint64_t defaultBatchSize{ generic::defaultBatchSize };
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline document iterate(const buffer_type& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type> inline document iterate(const buffer_type& in) {
 			return core.template iterate<options>(in);
 		}
 
@@ -32,11 +32,11 @@ namespace jsonifier::generic {
 	  protected:
 		template<typename, parse_options> friend class document_stream;
 
-		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
+		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) {
 			return core.template indexGenericWindow<options>(rootIter, length);
 		}
 
-		inline generic_storage& genericStorage() noexcept {
+		inline generic_storage& genericStorage() {
 			return core.genericStorage();
 		}
 

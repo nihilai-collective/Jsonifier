@@ -11,7 +11,7 @@
 
 namespace json_test_suite_tests {
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void jsonTestSuiteYNTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void jsonTestSuiteYNTestsImpl() {
 		jsonifier::jsonifier_core<> parser{};
 		std::unordered_map<std::string, test_base> jsonTests{};
 		processFilesInFolder(jsonTests, "JSONTestSuite/test_parsing");
@@ -593,7 +593,7 @@ namespace json_test_suite_tests {
 			jsonifier::internal::parse_statuses::success>(jsonTests["y_structure_whitespace_array.json"].fileContents, parser);
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		jsonTestSuiteYNTestsImpl<false, false, false>();
 		jsonTestSuiteYNTestsImpl<false, true, false>();
 		jsonTestSuiteYNTestsImpl<true, false, false>();

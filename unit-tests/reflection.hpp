@@ -47,11 +47,11 @@ namespace reflection_tests {
 		};
 	}
 
-	inline static std::string extractName(const auto& sv) {
+	inline std::string extractName(const auto& sv) {
 		return std::string{ sv.data(), sv.size() };
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Reflection getName<> Tests" << std::endl;
 
 		rt_ut::unit_test<"reflection_short_member_name", true>::assert_eq(std::string{ "id" }, [] {

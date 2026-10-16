@@ -16,9 +16,9 @@
 
 namespace JSONIFIER_INTERNAL_NAMESPACE {
 
-	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(read_buffer_ptr src);
+	template<string_literal stringNew> JSONIFIER_INLINE bool compareStringAsInt(read_buffer_ptr src) noexcept;
 
-	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE static void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept;
+	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept;
 
 	template<parse_options parseOpts, typename string_type> struct iterate_string_context {
 		using scan_result = typename string_scanner<parseOpts>::scan_result;
@@ -53,7 +53,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		uint64_t length{};
 	};
 
-	template<string_t string_type, typename source_type> JSONIFIER_INLINE static void assignScannedString(string_type& value, const source_type* srcPtr, uint64_t length) noexcept {
+	template<string_t string_type, typename source_type> JSONIFIER_INLINE void assignScannedString(string_type& value, const source_type* srcPtr, uint64_t length) {
 		if constexpr (has_resize_and_overwrite<string_type>) {
 			value.resize_and_overwrite(length, copy_string_context<string_type, source_type>{ srcPtr, length });
 		} else {
@@ -80,7 +80,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		bool found{};
 	};
 
-	JSONIFIER_INLINE static swar_string_result swarScanAsciiString(read_buffer_ptr strPtr, read_buffer_ptr endPtr) noexcept {
+	JSONIFIER_INLINE swar_string_result swarScanAsciiString(read_buffer_ptr strPtr, read_buffer_ptr endPtr) noexcept {
 		if constexpr (std::endian::native != std::endian::little) {
 			return {};
 		} else {
@@ -127,7 +127,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<parse_options parseOpts, bool swarFirst = true, string_t string_type, typename buffer_type>
-	JSONIFIER_INLINE static bool parseStringContents(string_type& value, read_buffer_ptr strPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) noexcept {
+	JSONIFIER_INLINE bool parseStringContents(string_type& value, read_buffer_ptr strPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) {
 		if constexpr (swarFirst) {
 			if (const auto swar = JSONIFIER_INTERNAL_NAMESPACE::swarScanAsciiString(strPtr, endPtr); swar.found) [[likely]] {
 				rawLength = swar.length;
@@ -182,8 +182,8 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	}
 
-	template<parse_options parseOpts, string_t string_type, typename buffer_type> JSONIFIER_INLINE static bool parseBoundedStringContents(string_type& value,
-		read_buffer_ptr strPtr, read_buffer_ptr boundPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) noexcept {
+	template<parse_options parseOpts, string_t string_type, typename buffer_type> JSONIFIER_INLINE bool parseBoundedStringContents(string_type& value, read_buffer_ptr strPtr,
+		read_buffer_ptr boundPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) {
 		if constexpr (has_resize_and_overwrite<string_type>) {
 			if (boundPtr > strPtr && static_cast<uint64_t>(boundPtr - strPtr) >= simdBytesPerRegister) {
 				const uint64_t bound		  = static_cast<uint64_t>(boundPtr - strPtr);
@@ -576,8 +576,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<string_t string_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateString(string_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
+		template<string_t string_type, typename context_type> JSONIFIER_INLINE static bool iterateString(string_type& value, read_buffer_ptr& iter, context_type& context) {
 			++iter;
 			if (iter >= context.endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>(iter, context);
@@ -1303,8 +1302,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<string_t string_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateString(string_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
+		template<string_t string_type, typename context_type> JSONIFIER_INLINE static bool iterateString(string_type& value, read_buffer_ptr& iter, context_type& context) {
 			++iter;
 			if (iter >= context.endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>(iter, context);
@@ -1318,7 +1316,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	};
 
-	alignas(64) static constexpr auto validPostPrimitiveTable{ [] {
+	alignas(64) inline constexpr auto validPostPrimitiveTable{ [] {
 		array<bool, 256> table{};
 		table[static_cast<uint64_t>(',')]  = true;
 		table[static_cast<uint64_t>('}')]  = true;
@@ -1579,7 +1577,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<string_t string_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateString(string_type& value, write_structural_index_ptr& iter, context_type& context) noexcept {
+		JSONIFIER_INLINE static bool iterateString(string_type& value, write_structural_index_ptr& iter, context_type& context) {
 			read_buffer_ptr strPtr = valuePtr(iter, context) + 1;
 			if (strPtr >= context.stringEnd) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>(iter, context);

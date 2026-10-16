@@ -279,7 +279,7 @@ template<typename parser_type> void printErrors(parser_type& parser) {
 
 namespace unit_tests {
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void unitTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void unitTestsImpl() {
 		static constexpr jsonifier::parse_options opts{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder };
 
 		static constexpr auto test_partial_basic = []() {
@@ -1224,7 +1224,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Dummy Data Vector", true>::assert_eq(std::make_tuple(uint64_t{ 4 }, true), test_dummy_data);
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		unitTestsImpl<false, false, false>();
 		unitTestsImpl<false, true, false>();
 		unitTestsImpl<true, false, false>();

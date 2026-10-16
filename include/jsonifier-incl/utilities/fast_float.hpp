@@ -105,7 +105,7 @@ static_assert(sizeof(void*) == 8, "jsonifier fast_float supports 64-bit platform
 
 namespace jsonifier::internal {
 
-	template<uint_types v_type> JSONIFIER_INLINE bool is_digit(v_type value) {
+	template<uint_types v_type> JSONIFIER_INLINE bool is_digit(v_type value) noexcept {
 		return ((static_cast<uint8_t>(value - '0')) < 10);
 	}
 
@@ -113,7 +113,7 @@ namespace jsonifier::internal {
 	#error "FLT_EVAL_METHOD should be defined, please include cfloat."
 #endif
 
-	template<typename UC> JSONIFIER_INLINE static constexpr bool is_integer(UC c) noexcept {
+	template<typename UC> JSONIFIER_INLINE constexpr bool is_integer(UC c) noexcept {
 		return static_cast<uint8_t>(c - '0') < 10;
 	}
 
@@ -142,11 +142,11 @@ namespace jsonifier::internal {
 		uint64_t low;
 	};
 
-	JSONIFIER_INLINE static constexpr uint64_t emulu(uint32_t x, uint32_t y) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t emulu(uint32_t x, uint32_t y) noexcept {
 		return x * static_cast<uint64_t>(y);
 	}
 
-	JSONIFIER_INLINE static constexpr uint64_t umul128_generic(uint64_t ab, uint64_t cd, uint64_t* hi) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t umul128_generic(uint64_t ab, uint64_t cd, uint64_t* hi) noexcept {
 		uint64_t ad			= emulu(static_cast<uint32_t>(ab >> 32), static_cast<uint32_t>(cd));
 		uint64_t bd			= emulu(static_cast<uint32_t>(ab), static_cast<uint32_t>(cd));
 		uint64_t adbc		= ad + emulu(static_cast<uint32_t>(ab), static_cast<uint32_t>(cd >> 32));
@@ -156,7 +156,7 @@ namespace jsonifier::internal {
 		return lo;
 	}
 
-	JSONIFIER_INLINE static value128 full_multiplication(uint64_t a, uint64_t b) noexcept {
+	JSONIFIER_INLINE value128 full_multiplication(uint64_t a, uint64_t b) noexcept {
 		value128 answer;
 #if JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_ARM64
 
@@ -250,7 +250,7 @@ namespace jsonifier::internal {
 			0x1000000 / (constant_55555 * 5 * 5 * 5 * 5), 0x1000000 / (constant_55555 * constant_55555), 0x1000000 / (constant_55555 * constant_55555 * 5) };
 	};
 
-	template<typename value_type> JSONIFIER_INLINE static constexpr void to_float(bool negative, adjusted_mantissa am, value_type& value) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr void to_float(bool negative, adjusted_mantissa am, value_type& value) noexcept {
 		using fastfloat_uint = typename binary_format<value_type>::equiv_uint;
 		fastfloat_uint word	 = static_cast<fastfloat_uint>(am.mantissa);
 		word |= fastfloat_uint(am.power2) << binary_format<value_type>::mantissa_explicit_bits;
@@ -284,24 +284,24 @@ namespace jsonifier::internal {
 			3379220508056640625, 4738381338321616896 };
 	};
 
-	alignas(64) static constexpr uint64_t pow10Table[]{ 1ull, 10ull, 100ull, 1000ull, 10000ull, 100000ull, 1000000ull, 10000000ull, 100000000ull, 1000000000ull, 10000000000ull,
+	alignas(64) inline constexpr uint64_t pow10Table[]{ 1ull, 10ull, 100ull, 1000ull, 10000ull, 100000ull, 1000000ull, 10000000ull, 100000000ull, 1000000000ull, 10000000000ull,
 		100000000000ull };
 
 	template<uint64_t size> struct parse_x_digits_unrolled;
 
-	template<typename UC> JSONIFIER_INLINE static constexpr uint64_t read8_to_u64(UC const* chars) {
+	template<typename UC> JSONIFIER_INLINE constexpr uint64_t read8_to_u64(UC const* chars) noexcept {
 		uint64_t val;
 		pow2MemcpyWrapper<sizeof(uint64_t)>(&val, chars);
 		return val;
 	}
 
-	template<typename UC> JSONIFIER_INLINE static constexpr uint32_t read4_to_u32(UC const* chars) {
+	template<typename UC> JSONIFIER_INLINE constexpr uint32_t read4_to_u32(UC const* chars) noexcept {
 		uint32_t val;
 		pow2MemcpyWrapper<sizeof(uint32_t)>(&val, chars);
 		return val;
 	}
 
-	JSONIFIER_INLINE static uint32_t parse_eight_digits_unrolled(uint64_t val) {
+	JSONIFIER_INLINE uint32_t parse_eight_digits_unrolled(uint64_t val) noexcept {
 		const uint64_t mask = 0x000000FF000000FF;
 		const uint64_t mul1 = 0x000F424000000064;
 		const uint64_t mul2 = 0x0000271000000001;
@@ -311,21 +311,21 @@ namespace jsonifier::internal {
 		return static_cast<uint32_t>(val);
 	}
 
-	JSONIFIER_INLINE static constexpr bool is_made_of_eight_digits_fast(uint64_t val) noexcept {
+	JSONIFIER_INLINE constexpr bool is_made_of_eight_digits_fast(uint64_t val) noexcept {
 		return !((((val + 0x4646464646464646) | (val - 0x3030303030303030)) & 0x8080808080808080));
 	}
 
-	JSONIFIER_INLINE static constexpr bool is_made_of_four_digits_fast(uint32_t val) noexcept {
+	JSONIFIER_INLINE constexpr bool is_made_of_four_digits_fast(uint32_t val) noexcept {
 		return !((((val + 0x46464646) | (val - 0x30303030)) & 0x80808080));
 	}
 
-	JSONIFIER_INLINE static constexpr uint32_t parse_four_digits_unrolled(uint32_t val) noexcept {
+	JSONIFIER_INLINE constexpr uint32_t parse_four_digits_unrolled(uint32_t val) noexcept {
 		val -= 0x30303030;
 		val = (val * 10) + (val >> 8);
 		return (((val & 0x00FF00FF) * 0x00640001) >> 16) & 0xFFFF;
 	}
 
-	JSONIFIER_INLINE static constexpr void loop_parse_if_eight_digits(uint8_t const*& p, uint8_t const* const pend, uint64_t& i) {
+	JSONIFIER_INLINE constexpr void loop_parse_if_eight_digits(uint8_t const*& p, uint8_t const* const pend, uint64_t& i) noexcept {
 		while (((pend - p) >= 8) && is_made_of_eight_digits_fast(read8_to_u64(p))) {
 			i = i * 100000000 + parse_eight_digits_unrolled(read8_to_u64(p));
 			p += 8;
@@ -509,7 +509,7 @@ namespace jsonifier::internal {
 
 	using powers = powers_template<>;
 
-	template<int32_t bit_precision_new> JSONIFIER_INLINE static constexpr value128 compute_product_approximation(int64_t q, uint64_t w) noexcept {
+	template<int32_t bit_precision_new> JSONIFIER_INLINE constexpr value128 compute_product_approximation(int64_t q, uint64_t w) noexcept {
 		constexpr int32_t bit_precision{ bit_precision_new };
 		const int32_t index = 2 * int32_t(q - powers::smallest_power_of_five);
 
@@ -526,11 +526,11 @@ namespace jsonifier::internal {
 		return firstproduct;
 	}
 
-	JSONIFIER_INLINE static constexpr int32_t power(int32_t q) noexcept {
+	JSONIFIER_INLINE constexpr int32_t power(int32_t q) noexcept {
 		return (((152170 + 65536) * q) >> 16) + 63;
 	}
 
-	template<typename binary> JSONIFIER_INLINE static constexpr adjusted_mantissa compute_error_scaled(int64_t q, uint64_t w, int32_t lz) noexcept {
+	template<typename binary> JSONIFIER_INLINE constexpr adjusted_mantissa compute_error_scaled(int64_t q, uint64_t w, int32_t lz) noexcept {
 		int32_t hilz = int32_t(w >> 63) ^ 1;
 		adjusted_mantissa answer;
 		answer.mantissa		   = w << hilz;
@@ -539,14 +539,14 @@ namespace jsonifier::internal {
 		return answer;
 	}
 
-	template<typename binary> JSONIFIER_INLINE static constexpr adjusted_mantissa compute_error(int64_t q, uint64_t w) noexcept {
+	template<typename binary> JSONIFIER_INLINE constexpr adjusted_mantissa compute_error(int64_t q, uint64_t w) noexcept {
 		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZero(w));
 		w <<= lz;
 		value128 product = compute_product_approximation<binary::mantissa_explicit_bits + 3>(q, w);
 		return compute_error_scaled<binary>(q, product.high, lz);
 	}
 
-	template<typename binary> JSONIFIER_INLINE static constexpr adjusted_mantissa compute_float(int64_t q, uint64_t w) noexcept {
+	template<typename binary> JSONIFIER_INLINE constexpr adjusted_mantissa compute_float(int64_t q, uint64_t w) noexcept {
 		adjusted_mantissa answer;
 		if ((w == 0) || (q < binary::smallest_power_of_ten)) {
 			answer.power2	= 0;
@@ -616,7 +616,7 @@ namespace jsonifier::internal {
 	alignas(64) inline constexpr uint64_t limb_bits		  = 64;
 	alignas(64) inline constexpr uint64_t limb_bits_sub_1 = limb_bits - 1;
 
-	template<uint_types auto n> static consteval auto getPowerOfTwo() {
+	template<uint_types auto n> consteval auto getPowerOfTwo() {
 		static_assert(n > 0, "Value must be greater than zero.");
 		static_assert((n & (n - 1)) == 0, "Value must be a power of two.");
 
@@ -731,18 +731,18 @@ namespace jsonifier::internal {
 		uint16_t length{};
 	};
 
-	JSONIFIER_INLINE static constexpr uint64_t empty_hi64(bool& truncated) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t empty_hi64(bool& truncated) noexcept {
 		truncated = false;
 		return 0;
 	}
 
-	JSONIFIER_INLINE static uint64_t uint64_hi64(uint64_t r0, bool& truncated) noexcept {
+	JSONIFIER_INLINE uint64_t uint64_hi64(uint64_t r0, bool& truncated) noexcept {
 		truncated	= false;
 		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
 		return r0 << shl;
 	}
 
-	JSONIFIER_INLINE static uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
+	JSONIFIER_INLINE uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
 		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
 		if (shl == 0) {
 			truncated = r1 != 0;
@@ -754,24 +754,24 @@ namespace jsonifier::internal {
 		}
 	}
 
-	JSONIFIER_INLINE static uint64_t uint32_hi64(uint32_t r0, bool& truncated) noexcept {
+	JSONIFIER_INLINE uint64_t uint32_hi64(uint32_t r0, bool& truncated) noexcept {
 		return uint64_hi64(r0, truncated);
 	}
 
-	JSONIFIER_INLINE static uint64_t uint32_hi64(uint32_t r0, uint32_t r1, bool& truncated) noexcept {
+	JSONIFIER_INLINE uint64_t uint32_hi64(uint32_t r0, uint32_t r1, bool& truncated) noexcept {
 		uint64_t x0 = r0;
 		uint64_t x1 = r1;
 		return uint64_hi64((x0 << 32) | x1, truncated);
 	}
 
-	JSONIFIER_INLINE static uint64_t uint32_hi64(uint32_t r0, uint32_t r1, uint32_t r2, bool& truncated) noexcept {
+	JSONIFIER_INLINE uint64_t uint32_hi64(uint32_t r0, uint32_t r1, uint32_t r2, bool& truncated) noexcept {
 		uint64_t x0 = r0;
 		uint64_t x1 = r1;
 		uint64_t x2 = r2;
 		return uint64_hi64(x0, (x1 << 32) | x2, truncated);
 	}
 
-	JSONIFIER_INLINE static constexpr limb scalar_add(limb x, limb y, bool& overflow) noexcept {
+	JSONIFIER_INLINE constexpr limb scalar_add(limb x, limb y, bool& overflow) noexcept {
 		limb z;
 
 #if defined(__has_builtin)
@@ -786,7 +786,7 @@ namespace jsonifier::internal {
 		return z;
 	}
 
-	JSONIFIER_INLINE static limb scalar_mul(limb x, limb y, limb& carryLocal) noexcept {
+	JSONIFIER_INLINE limb scalar_mul(limb x, limb y, limb& carryLocal) noexcept {
 #if defined(__SIZEOF_INT128__)
 
 		__uint128_t z = __uint128_t(x) * __uint128_t(y) + __uint128_t(carryLocal);
@@ -802,7 +802,7 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool small_add_from(stackvec<size>& vec, limb y, uint64_t start) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool small_add_from(stackvec<size>& vec, limb y, uint64_t start) noexcept {
 		uint64_t index	= start;
 		limb carryLocal = y;
 		bool overflow;
@@ -817,11 +817,11 @@ namespace jsonifier::internal {
 		return true;
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool small_add(stackvec<size>& vec, limb y) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool small_add(stackvec<size>& vec, limb y) noexcept {
 		return small_add_from(vec, y, 0);
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool small_mul(stackvec<size>& vec, limb y) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool small_mul(stackvec<size>& vec, limb y) noexcept {
 		limb carryLocal = 0;
 		for (uint64_t index = 0; index < vec.length; index++) {
 			vec.data[index] = scalar_mul(vec.data[index], y, carryLocal);
@@ -832,7 +832,7 @@ namespace jsonifier::internal {
 		return true;
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool large_add_from(stackvec<size>& x, limb_span y, uint64_t start) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool large_add_from(stackvec<size>& x, limb_span y, uint64_t start) noexcept {
 		if ((x.length) < start || static_cast<uint64_t>(y.end - y.ptr) > (x.length) - start) {
 			JSONIFIER_FASTFLOAT_TRY(x.try_resize(static_cast<uint64_t>((y.end - y.ptr)) + start, 0))
 		}
@@ -857,11 +857,11 @@ namespace jsonifier::internal {
 		return true;
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool large_add_from(stackvec<size>& x, limb_span y) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool large_add_from(stackvec<size>& x, limb_span y) noexcept {
 		return large_add_from(x, y, 0);
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool long_mul(stackvec<size>& x, limb_span y) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool long_mul(stackvec<size>& x, limb_span y) noexcept {
 		limb_span xs = limb_span(x.data, x.data + x.length);
 		stackvec<size> z(xs);
 		limb_span zs = limb_span(z.data, z.data + z.length);
@@ -886,7 +886,7 @@ namespace jsonifier::internal {
 		return true;
 	}
 
-	template<uint16_t size> JSONIFIER_INLINE static constexpr bool large_mul(stackvec<size>& x, limb_span y) noexcept {
+	template<uint16_t size> JSONIFIER_INLINE constexpr bool large_mul(stackvec<size>& x, limb_span y) noexcept {
 		if ((y.end - y.ptr) == 1) {
 			JSONIFIER_FASTFLOAT_TRY(small_mul(x, y.ptr[0]))
 		} else {
@@ -1037,7 +1037,7 @@ namespace jsonifier::internal {
 			return shl(exp);
 		}
 
-		JSONIFIER_INLINE constexpr bigint() : vec() {
+		JSONIFIER_INLINE constexpr bigint() noexcept : vec() {
 		}
 
 		bigint& operator=(const bigint&)  = delete;
@@ -1048,11 +1048,11 @@ namespace jsonifier::internal {
 		stackvec<bigint_limbs> vec;
 	};
 
-	alignas(64) static constexpr uint64_t powers_of_ten_uint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL,
+	alignas(64) inline constexpr uint64_t powers_of_ten_uint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL,
 		100000000000UL, 1000000000000UL, 10000000000000UL, 100000000000000UL, 1000000000000000UL, 10000000000000000UL, 100000000000000000UL, 1000000000000000000UL,
 		10000000000000000000UL };
 
-	JSONIFIER_INLINE static constexpr int64_t scientific_exponent(uint64_t mantissa, int64_t exponent) noexcept {
+	JSONIFIER_INLINE constexpr int64_t scientific_exponent(uint64_t mantissa, int64_t exponent) noexcept {
 		while (mantissa >= 10000) {
 			mantissa /= 10000;
 			exponent += 4;
@@ -1068,7 +1068,7 @@ namespace jsonifier::internal {
 		return exponent;
 	}
 
-	template<typename value_type> JSONIFIER_INLINE static constexpr adjusted_mantissa to_extended(value_type value) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr adjusted_mantissa to_extended(value_type value) noexcept {
 		using equiv_uint = typename binary_format<value_type>::equiv_uint;
 
 		adjusted_mantissa am;
@@ -1087,7 +1087,7 @@ namespace jsonifier::internal {
 		return am;
 	}
 
-	template<typename value_type> JSONIFIER_INLINE static constexpr adjusted_mantissa to_extended_halfway(value_type value) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr adjusted_mantissa to_extended_halfway(value_type value) noexcept {
 		adjusted_mantissa am = to_extended(value);
 		am.mantissa <<= 1;
 		am.mantissa += 1;
@@ -1095,7 +1095,7 @@ namespace jsonifier::internal {
 		return am;
 	}
 
-	template<typename value_type, typename callback, typename... extra_types> JSONIFIER_INLINE static constexpr void round(adjusted_mantissa& am, extra_types... extra) noexcept {
+	template<typename value_type, typename callback, typename... extra_types> JSONIFIER_INLINE constexpr void round(adjusted_mantissa& am, extra_types... extra) noexcept {
 		constexpr int32_t mantissa_shift = 64 - binary_format<value_type>::mantissa_explicit_bits - 1;
 		constexpr auto shifted2{ 2ull << binary_format<value_type>::mantissa_explicit_bits };
 		constexpr auto shifted1{ 1ull << binary_format<value_type>::mantissa_explicit_bits };
@@ -1120,8 +1120,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename callback, typename extra_type>
-	JSONIFIER_INLINE static constexpr void round_nearest_tie_even(adjusted_mantissa& am, int32_t shift, extra_type extra) noexcept {
+	template<typename callback, typename extra_type> JSONIFIER_INLINE constexpr void round_nearest_tie_even(adjusted_mantissa& am, int32_t shift, extra_type extra) noexcept {
 		const uint64_t mask		= (shift == 64) ? UINT64_MAX : (1ull << shift) - 1;
 		const uint64_t halfway	= (shift == 0) ? 0 : 1ull << (shift - 1);
 		uint64_t truncated_bits = am.mantissa & mask;
@@ -1139,7 +1138,7 @@ namespace jsonifier::internal {
 		am.mantissa += static_cast<uint64_t>(callback::impl(is_odd, is_halfway, is_above, extra));
 	}
 
-	JSONIFIER_INLINE static constexpr void round_down(adjusted_mantissa& am, int32_t shift) noexcept {
+	JSONIFIER_INLINE constexpr void round_down(adjusted_mantissa& am, int32_t shift) noexcept {
 		if (shift == 64) {
 			am.mantissa = 0;
 		} else {
@@ -1148,7 +1147,7 @@ namespace jsonifier::internal {
 		am.power2 += shift;
 	}
 
-	template<typename char_t> JSONIFIER_INLINE static constexpr void skip_zeros(char_t const*& first, char_t const* last) noexcept {
+	template<typename char_t> JSONIFIER_INLINE constexpr void skip_zeros(char_t const*& first, char_t const* last) noexcept {
 		constexpr auto cmpLength{ int_cmp_len<char_t> };
 		constexpr auto cmpZeros{ int_cmp_zeros<char_t> };
 		uint64_t val;
@@ -1167,7 +1166,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename char_t> JSONIFIER_INLINE static constexpr bool is_truncated(char_t const* first, char_t const* last) noexcept {
+	template<typename char_t> JSONIFIER_INLINE constexpr bool is_truncated(char_t const* first, char_t const* last) noexcept {
 		constexpr auto cmpLength{ int_cmp_len<char_t> };
 		constexpr auto cmpZeros{ int_cmp_zeros<char_t> };
 		uint64_t val;
@@ -1186,36 +1185,36 @@ namespace jsonifier::internal {
 		}
 		return false;
 	}
-	template<typename char_t> JSONIFIER_INLINE static constexpr bool is_truncated(span<char_t> s) noexcept {
+	template<typename char_t> JSONIFIER_INLINE constexpr bool is_truncated(span<char_t> s) noexcept {
 		return is_truncated(s.ptr, s.end);
 	}
 
-	template<typename char_t> JSONIFIER_INLINE static constexpr void parse_eight_digits(const char_t*& p, limb& value, uint64_t& counter, uint64_t& count) noexcept {
+	template<typename char_t> JSONIFIER_INLINE constexpr void parse_eight_digits(const char_t*& p, limb& value, uint64_t& counter, uint64_t& count) noexcept {
 		value = value * 100000000 + parse_eight_digits_unrolled(read8_to_u64(p));
 		p += 8;
 		counter += 8;
 		count += 8;
 	}
 
-	template<typename char_t> JSONIFIER_INLINE static constexpr void parse_one_digit(char_t const*& p, limb& value, uint64_t& counter, uint64_t& count) noexcept {
+	template<typename char_t> JSONIFIER_INLINE constexpr void parse_one_digit(char_t const*& p, limb& value, uint64_t& counter, uint64_t& count) noexcept {
 		value = value * 10 + limb(*p - char_t('0'));
 		p++;
 		counter++;
 		count++;
 	}
 
-	JSONIFIER_INLINE static constexpr void add_native(bigint& big, limb power, limb value) noexcept {
+	JSONIFIER_INLINE constexpr void add_native(bigint& big, limb power, limb value) noexcept {
 		big.mul(power);
 		big.add(value);
 	}
 
-	JSONIFIER_INLINE static constexpr void round_up_bigint(bigint& big, uint64_t& count) noexcept {
+	JSONIFIER_INLINE constexpr void round_up_bigint(bigint& big, uint64_t& count) noexcept {
 		add_native(big, 10, 1);
 		count++;
 	}
 
 	template<uint64_t max_digits_new, typename char_t>
-	JSONIFIER_INLINE static constexpr void parse_mantissa(bigint& result, span<char_t>& integer, span<char_t>& fraction, uint64_t& digits) noexcept {
+	JSONIFIER_INLINE constexpr void parse_mantissa(bigint& result, span<char_t>& integer, span<char_t>& fraction, uint64_t& digits) noexcept {
 		constexpr uint64_t max_digits{ max_digits_new };
 
 		uint64_t counter		= 0;
@@ -1319,7 +1318,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename value_type> JSONIFIER_INLINE static constexpr adjusted_mantissa positive_digit_comp(bigint& bigmant, int32_t exponent) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr adjusted_mantissa positive_digit_comp(bigint& bigmant, int32_t exponent) noexcept {
 		bigmant.pow10(static_cast<uint32_t>(exponent));
 		adjusted_mantissa answer;
 		bool truncated;
@@ -1332,7 +1331,7 @@ namespace jsonifier::internal {
 		return answer;
 	}
 
-	template<typename value_type> JSONIFIER_INLINE static constexpr adjusted_mantissa negative_digit_comp(bigint& bigmant, adjusted_mantissa am, int32_t exponent) noexcept {
+	template<typename value_type> JSONIFIER_INLINE constexpr adjusted_mantissa negative_digit_comp(bigint& bigmant, adjusted_mantissa am, int32_t exponent) noexcept {
 		bigint& real_digits = bigmant;
 		int32_t real_exp	= exponent;
 
@@ -1362,8 +1361,8 @@ namespace jsonifier::internal {
 		return answer;
 	}
 
-	template<typename value_type, typename char_t> JSONIFIER_INLINE static constexpr adjusted_mantissa digit_comp(span<char_t>& integer, span<char_t>& fraction, uint64_t mantissa,
-		int64_t exponent, adjusted_mantissa am) noexcept {
+	template<typename value_type, typename char_t>
+	JSONIFIER_INLINE constexpr adjusted_mantissa digit_comp(span<char_t>& integer, span<char_t>& fraction, uint64_t mantissa, int64_t exponent, adjusted_mantissa am) noexcept {
 		am.power2 -= invalid_am_bias;
 
 		int32_t sci_exp = static_cast<int32_t>(scientific_exponent(mantissa, exponent));
@@ -1379,7 +1378,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	JSONIFIER_INLINE static bool rounds_to_nearest_fn() noexcept {
+	JSONIFIER_INLINE bool rounds_to_nearest_fn() noexcept {
 #if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
 		return false;
 #endif

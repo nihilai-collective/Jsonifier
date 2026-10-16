@@ -45,11 +45,11 @@ namespace jsonifier::internal {
 
 	template<typename v_type, bool negative> alignas(64) inline constexpr const std::make_unsigned_t<v_type>* __restrict compVals{ compValsRaw<v_type, negative>.data() };
 
-	JSONIFIER_INLINE static uint8_t peekByte(const uint8_t* iter, const uint8_t* end) noexcept {
+	JSONIFIER_INLINE uint8_t peekByte(const uint8_t* iter, const uint8_t* end) noexcept {
 		return iter < end ? *iter : uint8_t{ 0 };
 	}
 
-	template<bool checked> JSONIFIER_INLINE static uint8_t loadByte(const uint8_t* iter, const uint8_t* end) noexcept {
+	template<bool checked> JSONIFIER_INLINE uint8_t loadByte(const uint8_t* iter, const uint8_t* end) noexcept {
 		if constexpr (checked) {
 			return peekByte(iter, end);
 		} else {
@@ -65,7 +65,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr int64_t maxExponentValue{ 20 };
 
-	template<typename T, size_t N> consteval array<T, N> generatePowerOfTen() noexcept {
+	template<typename T, size_t N> consteval array<T, N> generatePowerOfTen() {
 		array<T, N> table{};
 		T val = 1;
 		for (size_t i = 0; i < N; ++i) {
@@ -1101,17 +1101,17 @@ namespace jsonifier::internal {
 			uint64_t digits;
 		};
 
-		template<uint_types v_type> JSONIFIER_INLINE static v_type load(restricted_read_buffer_ptr str) noexcept {
+		template<uint_types v_type> JSONIFIER_INLINE v_type load(restricted_read_buffer_ptr str) noexcept {
 			v_type chunk;
 			pow2MemcpyWrapper<sizeof(v_type)>(&chunk, str);
 			return chunk;
 		}
 
-		template<uint8_types v_type> JSONIFIER_INLINE static v_type load(restricted_read_buffer_ptr str) noexcept {
+		template<uint8_types v_type> JSONIFIER_INLINE v_type load(restricted_read_buffer_ptr str) noexcept {
 			return *str;
 		}
 
-		template<uint_types v_type> JSONIFIER_INLINE static v_type mask(v_type raw) noexcept {
+		template<uint_types v_type> JSONIFIER_INLINE v_type mask(v_type raw) noexcept {
 			static constexpr v_type high{ repeat_bytes_v<static_cast<uint8_t>(0x80), v_type> };
 			static constexpr v_type low{ repeat_bytes_v<static_cast<uint8_t>(0x7F), v_type> };
 			static constexpr v_type up{ repeat_bytes_v<static_cast<uint8_t>(0x46), v_type> };
@@ -1122,7 +1122,7 @@ namespace jsonifier::internal {
 			return static_cast<v_type>((raw & high) | above | (~at_least & high));
 		}
 
-		JSONIFIER_INLINE static bool incorrect(uint8_t raw) noexcept {
+		JSONIFIER_INLINE bool incorrect(uint8_t raw) noexcept {
 			return static_cast<uint8_t>(raw - static_cast<uint8_t>(0x30)) > 9u;
 		}
 
@@ -1603,13 +1603,13 @@ namespace jsonifier::internal {
 			}
 		};
 
-		template<bool negative, integer_t v_type> JSONIFIER_INLINE static bool exceeds_limit(v_type value, uint8_t last) noexcept {
+		template<bool negative, integer_t v_type> JSONIFIER_INLINE bool exceeds_limit(v_type value, uint8_t last) noexcept {
 			return static_cast<uint64_t>(value) > static_cast<uint64_t>(compVals<v_type, negative>[last]);
 		}
 
 	}
 
-	template<typename value_type, bool negative> JSONIFIER_INLINE static read_buffer_ptr parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	template<typename value_type, bool negative> JSONIFIER_INLINE read_buffer_ptr parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		static_assert(sizeof(value_type) == 8, "parseSwarDigits only supports 64-bit integers.");
 		using v_type_local = std::make_unsigned_t<value_type>;
 		static constexpr uint64_t maxDigits{ uint_types<value_type> ? 20ULL : 19ULL };
@@ -1673,13 +1673,13 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr const int64_t* __restrict powerOfTenInt{ powerOfTenIntRaw.data() };
 
-	JSONIFIER_INLINE static uint8_t peekByte(read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	JSONIFIER_INLINE uint8_t peekByte(read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		return iter < end ? *iter : uint8_t{};
 	}
 
 	// Reads exponent digits. Accumulation stops at 1000 so a long exponent cannot overflow;
 	// every caller rejects exponents of 19 or more anyway.
-	JSONIFIER_INLINE static read_buffer_ptr parseExponentDigits(int64_t& expValue, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	JSONIFIER_INLINE read_buffer_ptr parseExponentDigits(int64_t& expValue, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		expValue = 0;
 		while (is_digit(peekByte(iter, end))) {
 			if (expValue < 1000) {

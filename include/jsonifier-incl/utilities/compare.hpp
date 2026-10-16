@@ -28,11 +28,11 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	template<typename value_type>
 	concept gt_16 = base_t<value_type>::length > 16 && !eq_16<value_type> && !eq_32<value_type> && !eq_64<value_type>;
 
-	template<uint8_t repeat, uint_types return_type> inline static consteval return_type repeatByte() noexcept {
+	template<uint8_t repeat, uint_types return_type> inline consteval return_type repeatByte() {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
-	template<uint_types return_type> inline static constexpr return_type repeatByte(uint8_t repeat) noexcept {
+	template<uint_types return_type> inline constexpr return_type repeatByte(uint8_t repeat) noexcept {
 		return static_cast<return_type>(static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat));
 	}
 
@@ -275,7 +275,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	};
 
-	template<uint64_t size> inline static consteval uint64_t getPackingSize() {
+	template<uint64_t size> inline consteval uint64_t getPackingSize() {
 		if constexpr (size >= 64) {
 			return 64;
 		} else if constexpr (size >= 32) {
@@ -295,7 +295,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<string_literal string>
 		requires(string.length == 0)
-	inline static consteval auto packValues() {
+	inline consteval auto packValues() {
 		return uint8_t{};
 	}
 
@@ -350,7 +350,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		uint64_t currentIndex{};
 	};
 
-	template<auto string, uint64_t offset> inline static constexpr string_literal<((offset >= string.length) ? string.length : offset) + 1> offSetIntoLiteral() noexcept {
+	template<auto string, uint64_t offset> consteval string_literal<((offset >= string.length) ? string.length : offset) + 1> offSetIntoLiteral() {
 		constexpr uint64_t newSize = ((offset >= string.length) ? string.length : offset);
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
@@ -360,7 +360,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return sl;
 	}
 
-	template<auto string, uint64_t offset> inline static constexpr string_literal<((offset >= string.length) ? 0 : string.length - offset) + 1> offSetNewLiteral() noexcept {
+	template<auto string, uint64_t offset> consteval string_literal<((offset >= string.length) ? 0 : string.length - offset) + 1> offSetNewLiteral() {
 		constexpr uint64_t newSize = (offset >= string.length) ? 0 : string.length - offset;
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
@@ -370,7 +370,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return sl;
 	}
 
-	template<uint64_t split_mod, uint64_t size> static consteval uint64_t getSplitStringCount(const string_literal<size>&) noexcept {
+	template<uint64_t split_mod, uint64_t size> consteval uint64_t getSplitStringCount(const string_literal<size>&) {
 		constexpr uint64_t split_count = (size + split_mod - 1ull) / split_mod;
 		return split_count == 0ull ? 1ull : split_count;
 	}
@@ -382,14 +382,14 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<typename sequence, auto stringNew, uint64_t split_mod> struct string_literal_splitter;
 
-	template<uint64_t index, typename string_type> inline static constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
+	template<uint64_t index, typename string_type> inline constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
 		string_literal<index + 1> sl{};
 		std::copy_n(str.data(), str.size(), sl.values);
 		sl[index] = '\0';
 		return sl;
 	}
 
-	inline static consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) noexcept {
+	inline consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {
 			return 64ULL;
 		} else if (inputSize >= 32ULL && simdBytesPerRegister >= 32ULL) {
@@ -412,7 +412,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 				str);
 		}
 
-		static consteval string_status get_split_string_status(uint64_t index, uint64_t total_length) noexcept {
+		static consteval string_status get_split_string_status(uint64_t index, uint64_t total_length) {
 			uint64_t currentIndex{ split_mod * index };
 			string_status status{ total_length, currentIndex };
 			status.remaining_length -= currentIndex;
@@ -599,9 +599,47 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_512 data1{ simd::gatherValuesU<jsonifier_simd_int_512>(str) };
 			const jsonifier_simd_int_512 data2{ simd::gatherValues<jsonifier_simd_int_512>(valuesNew.data()) };
-			return simd::opCmpEq(data1, data2) == 0xFFFFFFFFFFFFFFFFULL ? str + 64 : nullptr;
+			return simd::opCmpNeq(data1, data2) == 0 ? str + 64 : nullptr;
 		}
 	};
+	#endif
+
+	template<gt_16 sl_type, base_t<sl_type> stringNew>
+		requires(stringNew.size() > 16 && stringNew.size() < 32)
+	struct string_literal_comparator_impl<sl_type, stringNew, void> {
+		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+			static constexpr auto stringLiteral{ stringNew };
+			static constexpr auto newCount{ stringLiteral.size() };
+			static constexpr auto loString = stringLiteral.template substr<0, 16>();
+			static constexpr auto hiString = stringLiteral.template substr<newCount - 16, 16>();
+			alignas(64) static constexpr auto loValuesNew{ pack_values<loString>::value };
+			alignas(64) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
+			const jsonifier_simd_int_128 lo{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_128>(str), simd::gatherValues<jsonifier_simd_int_128>(loValuesNew.data())) };
+			const jsonifier_simd_int_128 hi{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_128>(str + newCount - 16),
+				simd::gatherValues<jsonifier_simd_int_128>(hiValuesNew.data())) };
+			return simd::opTest(simd::opOr(lo, hi)) ? str + newCount : nullptr;
+		}
+	};
+
+	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+
+	template<gt_16 sl_type, base_t<sl_type> stringNew>
+		requires(stringNew.size() > 32 && stringNew.size() < 64)
+	struct string_literal_comparator_impl<sl_type, stringNew, void> {
+		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+			static constexpr auto stringLiteral{ stringNew };
+			static constexpr auto newCount{ stringLiteral.size() };
+			static constexpr auto loString = stringLiteral.template substr<0, 32>();
+			static constexpr auto hiString = stringLiteral.template substr<newCount - 32, 32>();
+			alignas(64) static constexpr auto loValuesNew{ pack_values<loString>::value };
+			alignas(64) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
+			const jsonifier_simd_int_256 lo{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_256>(str), simd::gatherValues<jsonifier_simd_int_256>(loValuesNew.data())) };
+			const jsonifier_simd_int_256 hi{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_256>(str + newCount - 32),
+				simd::gatherValues<jsonifier_simd_int_256>(hiValuesNew.data())) };
+			return simd::opTest(simd::opOr(lo, hi)) ? str + newCount : nullptr;
+		}
+	};
+
 	#endif
 
 	template<gt_16 sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {

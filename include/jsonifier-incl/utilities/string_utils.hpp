@@ -84,13 +84,13 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu };
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
-	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
+	JSONIFIER_INLINE uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
 		return digitToVal32<>[630ull + static_cast<uint8_t>(string1[0])] | digitToVal32<>[420ull + static_cast<uint8_t>(string1[1])] |
 			digitToVal32<>[210ull + static_cast<uint8_t>(string1[2])] | digitToVal32<>[0ull + static_cast<uint8_t>(string1[3])];
 	}
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
-	template<typename char_type> JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, char_type* c) noexcept {
+	template<typename char_type> JSONIFIER_INLINE uint32_t codePointToUtf8(uint32_t cp, char_type* c) noexcept {
 		if (cp <= 0x7F) {
 			c[0] = static_cast<char_type>(cp);
 			return 1;
@@ -118,7 +118,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	template<typename basic_iterator01, typename basic_iterator02>
-	JSONIFIER_INLINE static bool handleUnicodeCodePoint(basic_iterator01& srcPtr, basic_iterator02& dstPtr, basic_iterator01 srcEnd) noexcept {
+	JSONIFIER_INLINE bool handleUnicodeCodePoint(basic_iterator01& srcPtr, basic_iterator02& dstPtr, basic_iterator01 srcEnd) noexcept {
 		static constexpr uint8_t bs{ '\\' };
 		static constexpr uint8_t u{ 'u' };
 
@@ -152,12 +152,12 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<typename simd_type, typename integer_type>
-	[[maybe_unused]] JSONIFIER_INLINE static integer_type findSerialize(simd_type simdValue, simd_type simdValues01, simd_type simdValues02, simd_type simdValues03) noexcept {
+	[[maybe_unused]] JSONIFIER_INLINE integer_type findSerialize(simd_type simdValue, simd_type simdValues01, simd_type simdValues02, simd_type simdValues03) noexcept {
 		auto result01 = simd::opOr(simd::opOr(simd::opCmpLtRaw(simdValue, simdValues03), simd::opCmpEqRaw(simdValue, simdValues02)), simd::opCmpEqRaw(simdValue, simdValues01));
 		return static_cast<integer_type>(simd::postCmpTzcnt(static_cast<integer_type>(simd::opBitMaskRaw(result01))));
 	}
 
-	template<uint_types simd_type, uint_types integer_type> [[maybe_unused]] JSONIFIER_INLINE static integer_type findSerialize(simd_type& simdValue) noexcept {
+	template<uint_types simd_type, uint_types integer_type> [[maybe_unused]] JSONIFIER_INLINE integer_type findSerialize(simd_type& simdValue) noexcept {
 		static constexpr integer_type mask{ JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0b01111111, integer_type>() };
 		static constexpr integer_type less32Bits{ JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0b01100000, integer_type>() };
 		static constexpr integer_type hiBits{ JSONIFIER_INTERNAL_NAMESPACE::repeatByte<0b10000000, integer_type>() };
@@ -169,7 +169,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	// Sampled from Stephen Berry's library, Glaze: https://github.com/StephenBerry/Glaze
-	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE static void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
+	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
 		if (static_cast<int64_t>(lengthNew) > 0) {
 			const auto endIter = string1 + lengthNew;
 			while (string1 < endIter) {
@@ -212,7 +212,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	alignas(64) inline constexpr const char* __restrict escapeMap{ escapeMapRaw.data() };
 
 	template<typename basic_iterator01, typename basic_iterator02>
-	JSONIFIER_INLINE static basic_iterator02 unescapeImpl(basic_iterator01 string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
+	JSONIFIER_INLINE basic_iterator02 unescapeImpl(basic_iterator01 string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
 		char escapeChar;
 		while (string1Start < string1End) {
 			escapeChar = *string1Start;
@@ -580,51 +580,26 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	};
 
-	consteval array<array<char, 8>, 256ULL> genEscapeStorage() {
+	consteval array<array<char, 8ULL>, 256ULL> genEscapeTable() {
 		array<array<char, 8ULL>, 256ULL> returnValues{};
+		constexpr char hex[]{ "0123456789ABCDEF" };
 		for (uint64_t x = 0; x < 32ULL; ++x) {
-			constexpr char hex[]{ "0123456789ABCDEF" };
-			returnValues[x] = { { '\\', 'u', '0', '0', hex[x >> 4], hex[x & 0xF], '\0', '\0' } };
+			returnValues[x] = { { '\\', 'u', '0', '0', hex[x >> 4], hex[x & 0xF], '\0', 6 } };
 		}
-		returnValues[0]							  = {};
-		returnValues[static_cast<uint64_t>('\b')] = { { '\\', 'b' } };
-		returnValues[static_cast<uint64_t>('\t')] = { { '\\', 't' } };
-		returnValues[static_cast<uint64_t>('\n')] = { { '\\', 'n' } };
-		returnValues[static_cast<uint64_t>('\f')] = { { '\\', 'f' } };
-		returnValues[static_cast<uint64_t>('\r')] = { { '\\', 'r' } };
-		returnValues[static_cast<uint64_t>('"')]  = { { '\\', '"' } };
-		returnValues[static_cast<uint64_t>('\\')] = { { '\\', '\\' } };
+		auto setShort = [&](char value, char escaped) {
+			returnValues[static_cast<uint8_t>(value)] = { { '\\', escaped, '\0', '\0', '\0', '\0', '\0', 2 } };
+		};
+		setShort('\b', 'b');
+		setShort('\t', 't');
+		setShort('\n', 'n');
+		setShort('\f', 'f');
+		setShort('\r', 'r');
+		setShort('"', '"');
+		setShort('\\', '\\');
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto escapeStorageRaw{ genEscapeStorage() };
-
-	alignas(64) inline constexpr const array<char, 8>* __restrict escapeStorage{ escapeStorageRaw.data() };
-
-	consteval array<const char*, 256ULL> genEscapeTable() {
-		array<const char*, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x] = escapeStorage[x].data();
-		}
-		return returnValue;
-	}
-
-	alignas(64) inline constexpr auto escapeTableRaw{ genEscapeTable() };
-
-	alignas(64) inline constexpr const char* const* __restrict escapeTable{ escapeTableRaw.data() };
-
-	consteval array<uint64_t, 256ULL> genEscapeTableSizes() {
-		constexpr auto storage{ genEscapeStorage() };
-		array<uint64_t, 256ULL> returnValues{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValues[x] = strLen(storage[x].data());
-		}
-		return returnValues;
-	}
-
-	alignas(64) inline constexpr auto escapeTableSizesRaw{ genEscapeTableSizes() };
-
-	alignas(64) inline constexpr const uint64_t* __restrict escapeTableSizes{ escapeTableSizesRaw.data() };
+	alignas(64) inline constexpr auto escapeTable{ genEscapeTable() };
 
 	template<serialize_options options> struct string_serializer {
 		struct string_serialize_step {
@@ -675,10 +650,9 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 				copyUpTo16(string2, string1Start, runLength);
 				string2 += runLength;
 				string1Start += runLength;
-				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
-				const uint64_t escapeSize = escapeTableSizes[nextChar];
-				jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
-				string2 += escapeSize;
+				const auto& entry = escapeTable[static_cast<uint8_t>(*string1Start)];
+				pow2MemcpyWrapper<8>(string2, entry.data());
+				string2 += static_cast<uint8_t>(entry[7]);
 				++string1Start;
 				escapeMask = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (bitsPerByte * runLength)) >> bitsPerByte);
 			}
@@ -702,7 +676,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		JSONIFIER_INLINE static uint64_t escapedByteSize(uint8_t nextChar) noexcept {
-			const uint64_t escapeSize = escapeTableSizes[nextChar];
+			const uint64_t escapeSize = static_cast<uint8_t>(escapeTable[nextChar][7]);
 			return escapeSize > 0 ? escapeSize : 1;
 		}
 
@@ -730,10 +704,10 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static basic_iterator02 scalarImpl(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
 			for (; string1Start < string1End; ++string1Start) {
-				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
-				const uint64_t escapeSize = escapeTableSizes[nextChar];
-				if (escapeSize > 0) {
-					jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
+				const uint8_t nextChar = static_cast<uint8_t>(*string1Start);
+				const auto& entry	   = escapeTable[nextChar];
+				if (const uint8_t escapeSize = static_cast<uint8_t>(entry[7]); escapeSize) {
+					pow2MemcpyWrapper<8>(string2, entry.data());
 					string2 += escapeSize;
 				} else {
 					*string2 = nextChar;
@@ -761,10 +735,9 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 				const uint64_t offset = static_cast<uint64_t>(std::countr_zero(flags)) >> 3;
 				string1Start += offset;
 				string2 += offset;
-				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
-				const uint64_t escapeSize = escapeTableSizes[nextChar];
-				jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
-				string2 += escapeSize;
+				const auto& entry = escapeTable[static_cast<uint8_t>(*string1Start)];
+				pow2MemcpyWrapper<8>(string2, entry.data());
+				string2 += static_cast<uint8_t>(entry[7]);
 				++string1Start;
 			}
 			const uint64_t remaining = static_cast<uint64_t>(string1End - string1Start);
@@ -820,7 +793,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 				}
 			} else if (length == 1) {
 				const uint8_t nextChar = static_cast<uint8_t>(*string1Start);
-				if (escapeTableSizes[nextChar] == 0) {
+				if (escapeTable[nextChar][7] == 0) {
 					*string2 = nextChar;
 					++string1Start;
 					return string2 + 1;
@@ -925,7 +898,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			const simd_type head					 = simd::gatherValuesU<simd_type>(string1Start);
 			const simd_type tail					 = simd::gatherValuesU<simd_type>(string1Start + (length - bytesProcessed));
 			const integer_type escapeMask			 = static_cast<integer_type>(
-				escapeBits<integer_type>(head, simdValues01, simdValues02, simdValues03) | escapeBits<integer_type>(tail, simdValues01, simdValues02, simdValues03));
+				   escapeBits<integer_type>(head, simdValues01, simdValues02, simdValues03) | escapeBits<integer_type>(tail, simdValues01, simdValues02, simdValues03));
 			if (escapeMask != 0) [[unlikely]] {
 				return false;
 			}
@@ -966,7 +939,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	};
 
-	template<string_literal string> static consteval convert_length_to_int_t<string.size()> getStringAsInt() noexcept {
+	template<string_literal string> consteval convert_length_to_int_t<string.size()> getStringAsInt() {
 		const auto* stringNew = string.data();
 		convert_length_to_int_t<string.size()> returnValue{};
 		for (uint64_t x = 0; x < string.size(); ++x) {
@@ -978,7 +951,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return returnValue;
 	}
 
-	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(read_buffer_ptr src) {
+	template<string_literal stringNew> JSONIFIER_INLINE bool compareStringAsInt(read_buffer_ptr src) noexcept {
 		using integer_type = convert_length_to_int_t<stringNew.size()>;
 		static constexpr auto string{ stringNew };
 		static_assert(stringNew.size() == 4, "Sorry, but please only use a string with a length of 4 in this function!");
@@ -988,7 +961,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return !static_cast<bool>(sourceVal ^ stringInt);
 	}
 
-	JSONIFIER_INLINE static bool validateBool(read_buffer_ptr context, read_buffer_ptr end) noexcept {
+	JSONIFIER_INLINE bool validateBool(read_buffer_ptr context, read_buffer_ptr end) noexcept {
 		const auto remaining = end - context;
 		if (remaining >= 4 && JSONIFIER_INTERNAL_NAMESPACE::compareStringAsInt<"true">(context)) {
 			return true;
@@ -998,7 +971,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return false;
 	}
 
-	JSONIFIER_INLINE static bool validateNull(read_buffer_ptr context, read_buffer_ptr end) noexcept {
+	JSONIFIER_INLINE bool validateNull(read_buffer_ptr context, read_buffer_ptr end) noexcept {
 		if (end - context >= 4 && JSONIFIER_INTERNAL_NAMESPACE::compareStringAsInt<"null">(context)) [[likely]] {
 			return true;
 		} else {

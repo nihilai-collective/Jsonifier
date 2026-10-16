@@ -82,33 +82,33 @@ namespace utf8_validation_tests {
 			}
 		}
 
-		void placeSeqAt(uint64_t seqOffset, const std::vector<uint8_t>& seq) {
+		void placeSeqAt(uint64_t seqOffset, const std::vector<uint8_t>& seq) noexcept {
 			for (uint64_t i = 0; i < seq.size(); ++i) {
 				buffer[seqOffset + i] = seq[i];
 			}
 		}
 
-		void clearSeqAt(uint64_t seqOffset, uint64_t seqLength) {
+		void clearSeqAt(uint64_t seqOffset, uint64_t seqLength) noexcept {
 			for (uint64_t i = 0; i < seqLength; ++i) {
 				buffer[seqOffset + i] = 0x41;
 			}
 		}
 
-		const std::vector<uint8_t>& data() const {
+		const std::vector<uint8_t>& data() const noexcept {
 			return buffer;
 		}
 
 		std::vector<uint8_t> buffer;
 	};
 
-	template<rt_ut::string_literal testNameNew> inline static void utf8ValidationTest(std::vector<uint8_t> bytes, bool expected) {
+	template<rt_ut::string_literal testNameNew> inline void utf8ValidationTest(std::vector<uint8_t> bytes, bool expected) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		rt_ut::unit_test<testName, true>::assert_eq(expected, jsonifier::validateUtf8, bytes.data(), bytes.size());
 	}
 
-	static constexpr jsonifier::parse_options utf8ValidatedOpts{};
+	inline constexpr jsonifier::parse_options utf8ValidatedOpts{};
 
-	inline static bool runValidatedStringParseWithScratch(const std::vector<uint8_t>& contentBytes, std::vector<uint8_t>& sourceScratch, std::vector<char>& destScratch) {
+	inline bool runValidatedStringParseWithScratch(const std::vector<uint8_t>& contentBytes, std::vector<uint8_t>& sourceScratch, std::vector<char>& destScratch) {
 		sourceScratch.clear();
 		sourceScratch.reserve(contentBytes.size() + 1);
 		sourceScratch.insert(sourceScratch.end(), contentBytes.begin(), contentBytes.end());
@@ -124,7 +124,7 @@ namespace utf8_validation_tests {
 		return res.outLength != std::numeric_limits<uint64_t>::max();
 	}
 
-	inline static bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {
+	inline bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {
 #if JSONIFIER_COMPILER_CLANG
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wexit-time-destructors"
@@ -137,12 +137,12 @@ namespace utf8_validation_tests {
 		return runValidatedStringParseWithScratch(contentBytes, sourceScratch, destScratch);
 	}
 
-	template<rt_ut::string_literal testNameNew> inline static void utf8StringParseTest(std::vector<uint8_t> bytes, bool expected) {
+	template<rt_ut::string_literal testNameNew> inline void utf8StringParseTest(std::vector<uint8_t> bytes, bool expected) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		rt_ut::unit_test<testName, true>::assert_eq(expected, runValidatedStringParse, bytes);
 	}
 
-	inline static void runUtf8WidthTransitionSweep() {
+	inline void runUtf8WidthTransitionSweep() {
 		static constexpr uint64_t sweepLengthMin  = 24;
 		static constexpr uint64_t sweepLengthMax  = 224;
 		static constexpr uint64_t asciiTailLength = 20;
@@ -232,7 +232,7 @@ namespace utf8_validation_tests {
 			rejectFails);
 	}
 
-	inline static void runUnalignedPointerSweep() {
+	inline void runUnalignedPointerSweep() {
 		static constexpr jsonifier::internal::array<uint8_t, 11> validSeq{ { 0x41, 0xC3, 0xA9, 0xE0, 0xA0, 0x80, 0xF0, 0x90, 0x80, 0x80, 0x41 } };
 		static constexpr uint64_t maxAlignOffset = 64;
 
@@ -266,7 +266,7 @@ namespace utf8_validation_tests {
 			sweepFails);
 	}
 
-	inline static void runUnalignedInvalidSequenceSweep() {
+	inline void runUnalignedInvalidSequenceSweep() {
 		struct named_invalid_seq {
 			const char* label;
 			std::vector<uint8_t> bytes;
@@ -318,7 +318,7 @@ namespace utf8_validation_tests {
 	}
 
 #if JSONIFIER_HAS_MMAP
-	inline static void runPageBoundaryFaultTest() {
+	inline void runPageBoundaryFaultTest() {
 		const long systemPageSize = sysconf(_SC_PAGESIZE);
 		const uint64_t pageSize	  = systemPageSize > 0 ? static_cast<uint64_t>(systemPageSize) : 4096;
 
@@ -361,7 +361,7 @@ namespace utf8_validation_tests {
 	}
 #endif
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "UTF8 Validation Tests" << std::endl;
 		utf8ValidationTest<"empty">({}, true);
 		utf8ValidationTest<"single_ascii">({ 0x41 }, true);

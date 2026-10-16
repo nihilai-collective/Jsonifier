@@ -20,7 +20,7 @@
 namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	#if JSONIFIER_BACKEND_PASS == 0
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static auto getBeginIterVec(value_type& value JSONIFIER_LIFETIME_BOUND) {
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE auto getBeginIterVec(value_type& value JSONIFIER_LIFETIME_BOUND) {
 		if constexpr (std::is_same_v<typename value_type::value_type, bool>) {
 			return value.begin();
 		} else {
@@ -28,7 +28,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	}
 
-	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE static auto getEndIterVec(value_type& value JSONIFIER_LIFETIME_BOUND) {
+	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE auto getEndIterVec(value_type& value JSONIFIER_LIFETIME_BOUND) {
 		if constexpr (std::is_same_v<typename value_type::value_type, bool>) {
 			return value.end();
 		} else {
@@ -41,7 +41,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<parse_options options> struct parse {
 		template<typename value_type, typename iterator_type, typename context_type>
-		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) noexcept {
+		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
 				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, depth, context);
 			} else {
@@ -50,7 +50,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<typename value_type, typename iterator_type, typename context_type>
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) noexcept {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, depth, context);
 		}
 	};
@@ -85,7 +85,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		using derived_type = derived_type_new;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
-		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) noexcept {
+		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = JSONIFIER_INTERNAL_NAMESPACE::getBeginIter(in);
@@ -117,8 +117,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			return derivedRef.podSection.begin();
 		}
 
-		template<parse_options options = parse_options{}, string_t value_type, typename buffer_type>
-		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
+		template<parse_options options = parse_options{}, string_t value_type, typename buffer_type> JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.errors.clear();
@@ -187,8 +186,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<parse_options options = parse_options{}, bool_t value_type, typename buffer_type>
-		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
+		template<parse_options options = parse_options{}, bool_t value_type, typename buffer_type> JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.errors.clear();
@@ -256,8 +254,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<parse_options options = parse_options{}, number_t value_type, typename buffer_type>
-		JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) noexcept {
+		template<parse_options options = parse_options{}, number_t value_type, typename buffer_type> JSONIFIER_INLINE bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.errors.clear();
@@ -277,7 +274,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) noexcept {
+		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = JSONIFIER_INTERNAL_NAMESPACE::getBeginIter(in);
@@ -309,7 +306,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		inline parser() noexcept			   = default;
 
 		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
-		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, context_type& context) noexcept {
+		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, context_type& context) {
 			using cursor = json_cursor<parseOpts, iterator_type>;
 			if (!cursor::anyInput(iter, context)) [[unlikely]] {
 				return false;
@@ -331,7 +328,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<parse_options options, typename value_type>
-		JSONIFIER_INLINE static typename string_scanner<options>::scan_result scanString(value_type& object, auto* strIter, const auto* endIter) noexcept {
+		JSONIFIER_INLINE static typename string_scanner<options>::scan_result scanString(value_type& object, auto* strIter, const auto* endIter) {
 			if (const auto swar = JSONIFIER_INTERNAL_NAMESPACE::swarScanAsciiString(strIter, endIter); swar.found) [[likely]] {
 				if constexpr (requires { object.assign(strIter, swar.length); }) {
 					object.assign(strIter, swar.length);
@@ -357,8 +354,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			return res;
 		}
 
-		template<parse_options options, typename value_type>
-		JSONIFIER_INLINE bool parseRootNumber(value_type& object, auto* rootIter, auto* valueIter, const auto* endIter) noexcept {
+		template<parse_options options, typename value_type> JSONIFIER_INLINE bool parseRootNumber(value_type& object, auto* rootIter, auto* valueIter, const auto* endIter) {
 			using num_type = remove_cvref_t<value_type>;
 			if constexpr (integer_t<num_type>) {
 				if constexpr (uint_types<num_type>) {
@@ -403,7 +399,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			}
 		}
 
-		template<bool minified> JSONIFIER_INLINE bool finish(auto* rootIter, auto* iterNew, const auto* endIter) noexcept {
+		template<bool minified> JSONIFIER_INLINE bool finish(auto* rootIter, auto* iterNew, const auto* endIter) {
 			if constexpr (!minified) {
 				while (iterNew < endIter && whitespaceTable[static_cast<uint64_t>(*iterNew)]) {
 					++iterNew;

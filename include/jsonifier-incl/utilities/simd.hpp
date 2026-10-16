@@ -17,7 +17,7 @@
 
 namespace JSONIFIER_INTERNAL_NAMESPACE {
 
-	inline static void printBitsAligned(uint64_t bits, const char* label, read_buffer_ptr __restrict str = nullptr, uint64_t len = 0) noexcept {
+	inline void printBitsAligned(uint64_t bits, const char* label, read_buffer_ptr __restrict str = nullptr, uint64_t len = 0) noexcept {
 		cout << label << ":" << endl;
 		if (str && len > 0) {
 			cout << "STR:  ";

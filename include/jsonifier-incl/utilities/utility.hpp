@@ -148,9 +148,9 @@ namespace jsonifier::internal {
 			requires(std::is_move_constructible_v<value_type> && std::is_move_assignable_v<value_type>)
 		JSONIFIER_INLINE constexpr void operator()(value_type& lhs, value_type& rhs) const
 			noexcept(std::is_nothrow_move_constructible_v<value_type> && std::is_nothrow_move_assignable_v<value_type>) {
-			value_type temp{ std::move(lhs) };
-			lhs = std::move(rhs);
-			rhs = std::move(temp);
+			value_type temp{ jsonifier::internal::move(lhs) };
+			lhs = jsonifier::internal::move(rhs);
+			rhs = jsonifier::internal::move(temp);
 		}
 
 		template<typename value_type, std::size_t size> JSONIFIER_INLINE constexpr void operator()(value_type (&lhs)[size], value_type (&rhs)[size]) const
@@ -279,8 +279,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename function_type, typename variant_type, typename... arg_types>
-	JSONIFIER_INLINE static constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
+	template<typename function_type, typename variant_type, typename... arg_types> JSONIFIER_INLINE constexpr void visit(variant_type&& variant, arg_types&&... args) noexcept {
 		visit_impl<function_type, make_integer_sequence<std::variant_size_v<base_t<variant_type>>>>::impl(internal::forward<variant_type>(variant),
 			internal::forward<arg_types>(args)...);
 	}
@@ -360,8 +359,8 @@ namespace jsonifier::internal {
 		requires(alignment == (byte_count / 2))
 	struct memcpy_runner<alignment, byte_count> {
 		static constexpr uint64_t byte_count_local{ byte_count / 2 };
-		static constexpr uint64_t local_x1{ byte_count_local * 1 };
-		static constexpr uint64_t local_x2{ byte_count_local * 2 };
+		static constexpr uint64_t local_x1{ byte_count_local };
+		static constexpr uint64_t local_x2{ local_x1 + byte_count_local };
 
 		JSONIFIER_INLINE static void impl(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count_rt) noexcept {
 			pow2MemcpyWrapper<byte_count_local>(dst, src);
@@ -375,10 +374,10 @@ namespace jsonifier::internal {
 		requires(alignment == (byte_count / 4))
 	struct memcpy_runner<alignment, byte_count> {
 		static constexpr uint64_t byte_count_local{ byte_count / 4 };
-		static constexpr uint64_t local_x1{ byte_count_local * 1 };
-		static constexpr uint64_t local_x2{ byte_count_local * 2 };
-		static constexpr uint64_t local_x3{ byte_count_local * 3 };
-		static constexpr uint64_t local_x4{ byte_count_local * 4 };
+		static constexpr uint64_t local_x1{ byte_count_local };
+		static constexpr uint64_t local_x2{ local_x1 + byte_count_local };
+		static constexpr uint64_t local_x3{ local_x2 + byte_count_local };
+		static constexpr uint64_t local_x4{ local_x3 + byte_count_local };
 
 		JSONIFIER_INLINE static void impl(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count_rt) noexcept {
 			pow2MemcpyWrapper<byte_count_local>(dst, src);
@@ -392,7 +391,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t max_bytes> JSONIFIER_INLINE void jsonifierMemcpyUpTo(void* __restrict dst, const void* __restrict src, uint64_t byte_count) {
+	template<uint64_t max_bytes> JSONIFIER_INLINE void jsonifierMemcpyUpTo(void* __restrict dst, const void* __restrict src, uint64_t byte_count) noexcept {
 		switch (std::bit_width(byte_count)) {
 			case 0: {
 				return;
@@ -452,7 +451,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	JSONIFIER_INLINE void jsonifierMemcpy(void* __restrict dst, const void* __restrict src, uint64_t byte_count) {
+	JSONIFIER_INLINE void jsonifierMemcpy(void* __restrict dst, const void* __restrict src, uint64_t byte_count) noexcept {
 		switch (std::bit_width(byte_count)) {
 			case 0: {
 				return;
@@ -504,15 +503,15 @@ namespace jsonifier::internal::simd {
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

@@ -44,7 +44,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	alignas(64) inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
 
 	template<typename minifier_type> struct minify_context_ro {
-		inline minify_context_ro(minifier_type& minifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
+		JSONIFIER_INLINE minify_context_ro(minifier_type& minifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
 			read_buffer_ptr endIterNew) noexcept
 			: endStructural{ endStructuralNew }, iter{ iterNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, minifier{ minifierNew } {
 		}
@@ -71,7 +71,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		using derived_type = derived_type_new;
 		template<typename prettifier_type> friend struct minify_context_ro;
 
-		template<string_t input_string_type, string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
+		template<string_t input_string_type, string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			derivedRef.errors.clear();
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			read_buffer_ptr endIter	 = rootIter + in.size();
@@ -106,8 +106,8 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		inline ~minifier() noexcept				   = default;
 		inline minifier() noexcept				   = default;
 
-		template<prettify_buffer_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural,
-			string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) noexcept {
+		template<prettify_buffer_t string_type, typename iterator, typename iterator_end>
+		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using enum json_structural_type;
 			read_buffer_ptr previousPtr{};
 			int64_t currentDistance{};

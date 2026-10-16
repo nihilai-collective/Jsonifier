@@ -63,11 +63,11 @@ namespace fastio_tests {
 #endif
 	};
 
-	constexpr jsonifier::internal::array<uint64_t, 22> digitCountBoundaries{ { 0ULL, 1ULL, 9ULL, 10ULL, 99ULL, 100ULL, 999ULL, 1000ULL, 9999ULL, 10000ULL, 99999ULL, 100000ULL,
-		999999999ULL, 1000000000ULL, 9999999999999ULL, 10000000000000ULL, 999999999999999999ULL, 1000000000000000000ULL, 9999999999999999999ULL, 10000000000000000000ULL,
+	inline constexpr jsonifier::internal::array<uint64_t, 22> digitCountBoundaries{ { 0ULL, 1ULL, 9ULL, 10ULL, 99ULL, 100ULL, 999ULL, 1000ULL, 9999ULL, 10000ULL, 99999ULL,
+		100000ULL, 999999999ULL, 1000000000ULL, 9999999999999ULL, 10000000000000ULL, 999999999999999999ULL, 1000000000000000000ULL, 9999999999999999999ULL, 10000000000000000000ULL,
 		18446744073709551614ULL, 18446744073709551615ULL } };
 
-	inline static void digitCountTests() {
+	inline void digitCountTests() {
 		std::cout << "fastio Digit-Count Tests: " << std::endl;
 		for (auto value: digitCountBoundaries) {
 			rt_ut::unit_test<"fastio_digit_count_matches_decimal_length", true>::assert_eq(std::to_string(value).size(), [&]() {
@@ -77,7 +77,7 @@ namespace fastio_tests {
 		std::cout << "fastio Digit-Count tests complete." << std::endl;
 	}
 
-	template<typename value_type, const auto& values> inline static void checkWriteIntegerMatchesStdToString() {
+	template<typename value_type, const auto& values> inline void checkWriteIntegerMatchesStdToString() {
 		for (auto value: values) {
 			char buffer[32]{};
 			auto len = jsonifier::internal::writeInteger<value_type>(buffer, value);
@@ -88,21 +88,21 @@ namespace fastio_tests {
 		}
 	}
 
-	constexpr jsonifier::internal::array<uint64_t, 10> uint64Boundaries{ { 0ULL, 9ULL, 10ULL, 99999ULL, 100000ULL, 9999999999ULL, 10000000000ULL, 999999999999999999ULL,
+	inline constexpr jsonifier::internal::array<uint64_t, 10> uint64Boundaries{ { 0ULL, 9ULL, 10ULL, 99999ULL, 100000ULL, 9999999999ULL, 10000000000ULL, 999999999999999999ULL,
 		1000000000000000000ULL, 18446744073709551615ULL } };
 
-	constexpr jsonifier::internal::array<int64_t, 12> int64Boundaries{ { 0LL, 1LL, -1LL, 99999LL, -99999LL, 100000LL, -100000LL, 999999999999999999LL, -999999999999999999LL,
+	inline constexpr jsonifier::internal::array<int64_t, 12> int64Boundaries{ { 0LL, 1LL, -1LL, 99999LL, -99999LL, 100000LL, -100000LL, 999999999999999999LL, -999999999999999999LL,
 		9223372036854775807LL, -9223372036854775807LL, std::numeric_limits<int64_t>::min() } };
 
-	constexpr jsonifier::internal::array<uint32_t, 6> uint32Boundaries{ { 0u, 9u, 10u, 999999999u, 4294967294u, 4294967295u } };
+	inline constexpr jsonifier::internal::array<uint32_t, 6> uint32Boundaries{ { 0u, 9u, 10u, 999999999u, 4294967294u, 4294967295u } };
 
-	constexpr jsonifier::internal::array<int32_t, 6> int32Boundaries{ { 0, 9, -9, 2147483647, -2147483647, -2147483648 } };
+	inline constexpr jsonifier::internal::array<int32_t, 6> int32Boundaries{ { 0, 9, -9, 2147483647, -2147483647, -2147483648 } };
 
-	constexpr jsonifier::internal::array<uint8_t, 4> uint8Boundaries{ { 0, 9, 254, 255 } };
+	inline constexpr jsonifier::internal::array<uint8_t, 4> uint8Boundaries{ { 0, 9, 254, 255 } };
 
-	constexpr jsonifier::internal::array<int8_t, 4> int8Boundaries{ { 0, 9, -9, -128 } };
+	inline constexpr jsonifier::internal::array<int8_t, 4> int8Boundaries{ { 0, 9, -9, -128 } };
 
-	inline static void writeIntegerTests() {
+	inline void writeIntegerTests() {
 		std::cout << "fastio writeInteger Tests: " << std::endl;
 		checkWriteIntegerMatchesStdToString<uint8_t, uint8Boundaries>();
 		checkWriteIntegerMatchesStdToString<int8_t, int8Boundaries>();
@@ -113,9 +113,9 @@ namespace fastio_tests {
 		std::cout << "fastio writeInteger tests complete." << std::endl;
 	}
 
-	constexpr jsonifier::internal::array<double, 8> floatValues{ { 0.0, -0.0, 1.5, -10.5, 3.14159, 1e20, 1e-20, 1.7976931348623157e+308 } };
+	inline constexpr jsonifier::internal::array<double, 8> floatValues{ { 0.0, -0.0, 1.5, -10.5, 3.14159, 1e20, 1e-20, 1.7976931348623157e+308 } };
 
-	inline static void writeFloatTests() {
+	inline void writeFloatTests() {
 		std::cout << "fastio writeFloat Tests: " << std::endl;
 		for (auto value: floatValues) {
 			char buffer[64]{};
@@ -133,7 +133,7 @@ namespace fastio_tests {
 		std::cout << "fastio writeFloat tests complete." << std::endl;
 	}
 
-	inline static void basicStreamBufferedOutputTest() {
+	inline void basicStreamBufferedOutputTest() {
 		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
 		{
 			jsonifier::internal::basic_stream<8> stream{ jsonifier::internal::stream_target::stdout_target };
@@ -148,7 +148,7 @@ namespace fastio_tests {
 			});
 	}
 
-	inline static void basicStreamLargeSingleWriteBypassesBufferTest() {
+	inline void basicStreamLargeSingleWriteBypassesBufferTest() {
 		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
 		{
 			jsonifier::internal::basic_stream<4> stream{ jsonifier::internal::stream_target::stdout_target };
@@ -162,7 +162,7 @@ namespace fastio_tests {
 		});
 	}
 
-	inline static void outSingletonWritesToStdoutTest() {
+	inline void outSingletonWritesToStdoutTest() {
 		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
 		jsonifier::internal::cout << "out-singleton-check " << 123;
 		std::string captured = capture.finish();
@@ -171,7 +171,7 @@ namespace fastio_tests {
 		});
 	}
 
-	inline static void errSingletonWritesToStderrTest() {
+	inline void errSingletonWritesToStderrTest() {
 		stream_capture capture{ jsonifier::internal::stream_target::stderr_target };
 		jsonifier::internal::err << "err-singleton-check " << 456;
 		std::string captured = capture.finish();
@@ -180,7 +180,7 @@ namespace fastio_tests {
 		});
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		digitCountTests();
 		writeIntegerTests();
 		writeFloatTests();

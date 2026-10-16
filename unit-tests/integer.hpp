@@ -10,17 +10,17 @@
 
 namespace int_validation_tests {
 
-	constexpr jsonifier::internal::array<std::string_view, 28> inputValues{ { "0", "1", "-1", "42", "-42", "123456789", "-123456789", "2147483647", "-2147483648",
+	inline constexpr jsonifier::internal::array<std::string_view, 28> inputValues{ { "0", "1", "-1", "42", "-42", "123456789", "-123456789", "2147483647", "-2147483648",
 		"9223372036854775807", "-9223372036854775808", "0.0", "1.5", "-1.5", "3.14159", "-2.71828", "123.456", "-789.012", "1e5", "-2e3", "3.14e10", "-4.2e-1", "5E2",
 		"10000000e-7", "1.00000000000000000000e1", "1.99999999999999999999", "1.5e-18", "9.223372036854775807e18" } };
 
-	constexpr jsonifier::internal::array<int64_t, 28> outputValues{ { 0, 1, -1, 42, -42, 123456789, -123456789, 2147483647, -2147483648, 9223372036854775807LL,
+	inline constexpr jsonifier::internal::array<int64_t, 28> outputValues{ { 0, 1, -1, 42, -42, 123456789, -123456789, 2147483647, -2147483648, 9223372036854775807LL,
 		std::numeric_limits<int64_t>::min(), 0, 1, -1, 3, -2, 123, -789, 100000, -2000, 31400000000LL, 0, 500, 1, 10, 1, 0, 9223372036854775807LL } };
 
-	constexpr jsonifier::internal::array<std::string_view, 14> failValues{ { "9223372036854775808", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
-		"null", "{}", "1e9223372036854775809", "1.5e9223372036854775809", "9.223372036854775808e18" } };
+	inline constexpr jsonifier::internal::array<std::string_view, 14> failValues{ { "9223372036854775808", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"",
+		"true", "null", "{}", "1e9223372036854775809", "1.5e9223372036854775809", "9.223372036854775808e18" } };
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void intTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void intTestsImpl() {
 		std::cout << "Int Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
 		pass_test_runner<int64_t, int64_t, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
 			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
@@ -29,7 +29,7 @@ namespace int_validation_tests {
 		return;
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		intTestsImpl<false, false, false>();
 		intTestsImpl<false, true, false>();
 		intTestsImpl<true, false, false>();
@@ -44,16 +44,16 @@ namespace int_validation_tests {
 
 namespace uint_validation_tests {
 
-	constexpr jsonifier::internal::array<std::string_view, 18> inputValues{ { "0", "1", "42", "123456789", "2147483647", "18446744073709551615", "0.0", "1.5", "3.14159", "123.456",
-		"1e5", "2e3", "3.14e10", "4.2e-1", "5E2", "10000000e-7", "1.000000000000000000000e1", "1.8446744073709551615e19" } };
+	inline constexpr jsonifier::internal::array<std::string_view, 18> inputValues{ { "0", "1", "42", "123456789", "2147483647", "18446744073709551615", "0.0", "1.5", "3.14159",
+		"123.456", "1e5", "2e3", "3.14e10", "4.2e-1", "5E2", "10000000e-7", "1.000000000000000000000e1", "1.8446744073709551615e19" } };
 
-	constexpr jsonifier::internal::array<uint64_t, 18> outputValues{ { 0, 1, 42, 123456789, 2147483647, 18446744073709551615ULL, 0, 1, 3, 123, 100000, 2000, 31400000000ULL, 0, 500,
-		1, 10, 18446744073709551615ULL } };
+	inline constexpr jsonifier::internal::array<uint64_t, 18> outputValues{ { 0, 1, 42, 123456789, 2147483647, 18446744073709551615ULL, 0, 1, 3, 123, 100000, 2000, 31400000000ULL,
+		0, 500, 1, 10, 18446744073709551615ULL } };
 
-	constexpr jsonifier::internal::array<std::string_view, 13> failValues{ { "18446744073709551616", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"", "true",
-		"null", "{}", "3e18446744073709551617", "1.8446744073709551616e19" } };
+	inline constexpr jsonifier::internal::array<std::string_view, 13> failValues{ { "18446744073709551616", "-9223372036854775809", "-", "1.2.3", "1e", "1e+", "1e-", "\"abc\"",
+		"true", "null", "{}", "3e18446744073709551617", "1.8446744073709551616e19" } };
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void uintTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void uintTestsImpl() {
 		std::cout << "Uint Pass Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
 		pass_test_runner<uint64_t, uint64_t, inputValues, outputValues, partial, knownOrder, nullTerminated, pass_tests_runner,
 			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
@@ -62,7 +62,7 @@ namespace uint_validation_tests {
 		return;
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		uintTestsImpl<false, false, false>();
 		uintTestsImpl<false, true, false>();
 		uintTestsImpl<true, false, false>();
@@ -78,33 +78,33 @@ namespace uint_validation_tests {
 
 namespace i_to_str_tests {
 
-	constexpr jsonifier::internal::array<uint8_t, 8> uint8Boundaries{ { 0, 1, 9, 10, 99, 100, 254, 255 } };
+	inline constexpr jsonifier::internal::array<uint8_t, 8> uint8Boundaries{ { 0, 1, 9, 10, 99, 100, 254, 255 } };
 
-	constexpr jsonifier::internal::array<uint16_t, 12> uint16Boundaries{ { 0, 1, 9, 10, 99, 100, 999, 1000, 9999, 10000, 65534, 65535 } };
+	inline constexpr jsonifier::internal::array<uint16_t, 12> uint16Boundaries{ { 0, 1, 9, 10, 99, 100, 999, 1000, 9999, 10000, 65534, 65535 } };
 
-	constexpr jsonifier::internal::array<uint32_t, 22> uint32Boundaries{ { 0u, 1u, 9u, 10u, 99u, 100u, 999u, 1000u, 9999u, 10000u, 99999u, 100000u, 999999u, 1000000u, 9999999u,
-		10000000u, 99999999u, 100000000u, 999999999u, 1000000000u, 4294967294u, 4294967295u } };
+	inline constexpr jsonifier::internal::array<uint32_t, 22> uint32Boundaries{ { 0u, 1u, 9u, 10u, 99u, 100u, 999u, 1000u, 9999u, 10000u, 99999u, 100000u, 999999u, 1000000u,
+		9999999u, 10000000u, 99999999u, 100000000u, 999999999u, 1000000000u, 4294967294u, 4294967295u } };
 
-	constexpr jsonifier::internal::array<uint64_t, 40> uint64Boundaries{ { 0ULL, 9ULL, 10ULL, 99ULL, 100ULL, 999ULL, 1000ULL, 9999ULL, 10000ULL, 99999ULL, 100000ULL, 999999ULL,
-		1000000ULL, 9999999ULL, 10000000ULL, 99999999ULL, 100000000ULL, 999999999ULL, 1000000000ULL, 9999999999ULL, 10000000000ULL, 99999999999ULL, 100000000000ULL,
+	inline constexpr jsonifier::internal::array<uint64_t, 40> uint64Boundaries{ { 0ULL, 9ULL, 10ULL, 99ULL, 100ULL, 999ULL, 1000ULL, 9999ULL, 10000ULL, 99999ULL, 100000ULL,
+		999999ULL, 1000000ULL, 9999999ULL, 10000000ULL, 99999999ULL, 100000000ULL, 999999999ULL, 1000000000ULL, 9999999999ULL, 10000000000ULL, 99999999999ULL, 100000000000ULL,
 		999999999999ULL, 1000000000000ULL, 9999999999999ULL, 10000000000000ULL, 99999999999999ULL, 100000000000000ULL, 999999999999999ULL, 1000000000000000ULL, 9999999999999999ULL,
 		10000000000000000ULL, 99999999999999999ULL, 100000000000000000ULL, 999999999999999999ULL, 1000000000000000000ULL, 9999999999999999999ULL, 10000000000000000000ULL,
 		18446744073709551615ULL } };
 
-	constexpr jsonifier::internal::array<int8_t, 13> int8Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 127, -128 } };
+	inline constexpr jsonifier::internal::array<int8_t, 13> int8Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 127, -128 } };
 
-	constexpr jsonifier::internal::array<int16_t, 21> int16Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 999, -999, 1000, -1000, 9999, -9999, 10000, -10000, 32767,
-		-32768 } };
+	inline constexpr jsonifier::internal::array<int16_t, 21> int16Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 999, -999, 1000, -1000, 9999, -9999, 10000, -10000,
+		32767, -32768 } };
 
-	constexpr jsonifier::internal::array<int32_t, 41> int32Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 999, -999, 1000, -1000, 9999, -9999, 10000, -10000, 99999,
-		-99999, 100000, -100000, 999999, -999999, 1000000, -1000000, 9999999, -9999999, 10000000, -10000000, 99999999, -99999999, 100000000, -100000000, 999999999, -999999999,
-		1000000000, -1000000000, 2147483647, -2147483648 } };
+	inline constexpr jsonifier::internal::array<int32_t, 41> int32Boundaries{ { 0, 1, -1, 9, -9, 10, -10, 99, -99, 100, -100, 999, -999, 1000, -1000, 9999, -9999, 10000, -10000,
+		99999, -99999, 100000, -100000, 999999, -999999, 1000000, -1000000, 9999999, -9999999, 10000000, -10000000, 99999999, -99999999, 100000000, -100000000, 999999999,
+		-999999999, 1000000000, -1000000000, 2147483647, -2147483648 } };
 
-	constexpr jsonifier::internal::array<int64_t, 27> int64Boundaries{ { 0LL, 1LL, -1LL, 9LL, -9LL, 10LL, -10LL, 99999LL, -99999LL, 100000LL, -100000LL, 9999999999LL,
+	inline constexpr jsonifier::internal::array<int64_t, 27> int64Boundaries{ { 0LL, 1LL, -1LL, 9LL, -9LL, 10LL, -10LL, 99999LL, -99999LL, 100000LL, -100000LL, 9999999999LL,
 		-9999999999LL, 10000000000LL, -10000000000LL, 999999999999999LL, -999999999999999LL, 1000000000000000LL, -1000000000000000LL, 999999999999999999LL, -999999999999999999LL,
 		1000000000000000000LL, -1000000000000000000LL, 9223372036854775806LL, 9223372036854775807LL, -9223372036854775807LL, std::numeric_limits<int64_t>::min() } };
 
-	template<typename value_type, const auto& values> inline static void checkToCharsMatchesStdToString() {
+	template<typename value_type, const auto& values> inline void checkToCharsMatchesStdToString() {
 		for (auto value: values) {
 			char buffer[32]{};
 			auto* bytes = std::bit_cast<jsonifier::write_buffer_ptr>(+buffer);
@@ -116,7 +116,7 @@ namespace i_to_str_tests {
 		}
 	}
 
-	template<typename value_type, const auto& values> inline static void checkToStringMatchesStdToString() {
+	template<typename value_type, const auto& values> inline void checkToStringMatchesStdToString() {
 		for (auto value: values) {
 			auto result = jsonifier::toString(value);
 			std::string resultStr{ result.data(), result.size() };
@@ -126,7 +126,7 @@ namespace i_to_str_tests {
 		}
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "i_to_str Digit-Boundary Tests: " << std::endl;
 		checkToCharsMatchesStdToString<uint8_t, uint8Boundaries>();
 		checkToCharsMatchesStdToString<uint16_t, uint16Boundaries>();

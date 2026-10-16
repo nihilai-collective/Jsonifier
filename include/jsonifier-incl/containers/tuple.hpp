@@ -304,7 +304,7 @@ namespace jsonifier::internal {
 	}
 
 	struct completion_signal {
-		inline constexpr operator bool() const {
+		inline constexpr operator bool() const noexcept {
 			return notDone;
 		}
 
@@ -331,12 +331,12 @@ namespace jsonifier::internal {
 		static_assert(index != std::numeric_limits<uint64_t>::max(), "Sorry, but that type does not appear to exist in this tuple!");
 	};
 
-	template<typename target_type, typename tuple_type> JSONIFIER_INLINE static constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
+	template<typename target_type, typename tuple_type> JSONIFIER_INLINE constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
 		constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index;
 		return std::forward<tuple_type>(tupleVal)[tag<index>{}];
 	}
 
-	template<typename... types> JSONIFIER_INLINE static constexpr auto makeTuple(types&&... args) noexcept {
+	template<typename... types> JSONIFIER_INLINE constexpr auto makeTuple(types&&... args) noexcept {
 		using base = type_list_t<types...>;
 		return tuple<types...>{ base{ { std::forward<types>(args) }... } };
 	}
@@ -374,7 +374,7 @@ namespace jsonifier::internal {
 
 		template<typename integer_sequence> struct tuple_cat_impl_internal;
 
-		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) {
+		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) noexcept {
 			constexpr uint64_t listIdx	= map.listIdx[index];
 			constexpr uint64_t localIdx = map.localIdx[index];
 			auto* tuplePtr				= list[tag<listIdx>{}];
@@ -382,7 +382,7 @@ namespace jsonifier::internal {
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
 				return (*tuplePtr)[tag<localIdx>{}];
 			} else {
-				return std::move((*tuplePtr)[tag<localIdx>{}]);
+				return jsonifier::internal::move((*tuplePtr)[tag<localIdx>{}]);
 			}
 		}
 
@@ -414,7 +414,7 @@ namespace jsonifier::internal {
 		};
 	};
 
-	template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) tupleCat(tuple_list_types&&... listVals) noexcept {
+	template<typename... tuple_list_types> JSONIFIER_INLINE constexpr decltype(auto) tupleCat(tuple_list_types&&... listVals) noexcept {
 		return tuple_cat_impl<tuple_list_types...>::impl(listVals...);
 	}
 }

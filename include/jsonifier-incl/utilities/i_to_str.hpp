@@ -10,7 +10,7 @@
 
 namespace jsonifier::internal {
 
-	template<uint64_t count> inline static consteval uint64_t gen_table_size() {
+	template<uint64_t count> inline consteval uint64_t gen_table_size() {
 		uint64_t result = 1;
 		for (uint64_t j = 0; j < count; ++j) {
 			result *= 10;
@@ -20,7 +20,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t count> using gen_table_value_t = conditional_t<(count <= 2ULL), uint16_t, uint32_t>;
 
-	template<uint64_t count> inline static consteval array<gen_table_value_t<count>, gen_table_size<count>()> gen_table() {
+	template<uint64_t count> inline consteval array<gen_table_value_t<count>, gen_table_size<count>()> gen_table() {
 		using value_type		= gen_table_value_t<count>;
 		constexpr uint64_t size = gen_table_size<count>();
 		array<value_type, size> t{};
@@ -45,7 +45,7 @@ namespace jsonifier::internal {
 
 #if !JSONIFIER_COMPILER_CLANG && !JSONIFIER_COMPILER_GCC && !JSONIFIER_COMPILER_MSVC
 
-	template<uint_types v_type_new> JSONIFIER_INLINE static v_type_new mulhi_portable(v_type_new a, v_type_new b) noexcept {
+	template<uint_types v_type_new> JSONIFIER_INLINE v_type_new mulhi_portable(v_type_new a, v_type_new b) noexcept {
 		using v_type						 = next_higher_int_t<v_type_new>;
 		static constexpr uint64_t total_bits = sizeof(v_type_new) * 8;
 		static constexpr uint64_t half_bits	 = total_bits / 2;
@@ -78,7 +78,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint_types v_type> JSONIFIER_INLINE static void copy_3_digits(write_buffer_ptr __restrict buf, const v_type value) noexcept {
+	template<uint_types v_type> JSONIFIER_INLINE void copy_3_digits(write_buffer_ptr __restrict buf, const v_type value) noexcept {
 		uint32_t packed;
 		pow2MemcpyWrapper<4ULL>(&packed, &char_table_3_digit_data[value]);
 		pow2MemcpyWrapper<2ULL>(buf, &packed);
@@ -318,7 +318,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types auto size, uint_types v_type>
-	JSONIFIER_INLINE static write_buffer_ptr impl_internal(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+	JSONIFIER_INLINE write_buffer_ptr impl_internal(write_buffer_ptr __restrict buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 		return to_chars_internal<v_type, size>::impl(buf, value);
 	}
 

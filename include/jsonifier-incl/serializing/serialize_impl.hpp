@@ -28,7 +28,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		static constexpr auto value{ pack_values<string>::value };
 	};
 
-	template<serialize_options options, string_literal key> static consteval uint64_t objectEntrySize() noexcept {
+	template<serialize_options options, string_literal key> consteval uint64_t objectEntrySize() {
 		if constexpr (options.prettify) {
 			return key.size() + 4;
 		} else {
@@ -37,7 +37,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<serialize_options options, typename json_entity_type> struct json_entity_size : public json_entity_type {
-		template<typename value_type> inline static void processIndex(value_type& value, uint64_t& requiredSize, uint64_t& __restrict indent) {
+		template<typename value_type> inline static void processIndex(value_type& value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 			if constexpr (has_excluded_keys<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
@@ -62,7 +62,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	};
 
 	template<typename... bases> struct size_getter_map : public bases... {
-		template<typename... arg_types> inline static constexpr void iterateValues([[maybe_unused]] arg_types&&... args) {
+		template<typename... arg_types> inline static constexpr void iterateValues([[maybe_unused]] arg_types&&... args) noexcept {
 			((bases::processIndex(internal::forward<arg_types>(args)...)), ...);
 		}
 	};
@@ -382,7 +382,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	};
 
 	template<serialize_options options> struct get_size_visit_functor {
-		template<typename value_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, uint64_t& requiredSize, uint64_t& __restrict indent) {
+		template<typename value_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 			requiredSize += get_size<options>::impl(valueNewer, indent);
 		}
 	};
@@ -396,7 +396,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	};
 
 	template<auto data> struct indent_blitter {
-		template<uint64_t index> JSONIFIER_INLINE static bool impl([[maybe_unused]] write_buffer_ptr __restrict& bufferPtr, uint64_t& remainingLength) {
+		template<uint64_t index> JSONIFIER_INLINE static bool impl([[maybe_unused]] write_buffer_ptr __restrict& bufferPtr, uint64_t& remainingLength) noexcept {
 			static constexpr const uint64_t* ptr = data.data() + index;
 			static constexpr uint64_t sizeToCopy{ sizeof(uint64_t) };
 			static constexpr uint64_t offset{ index * sizeof(uint64_t) };
@@ -442,7 +442,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}() };
 	};
 
-	template<uint64_t size> consteval uint64_t roundToChunk() noexcept {
+	template<uint64_t size> consteval uint64_t roundToChunk() {
 		if constexpr (size <= 2) {
 			return 2;
 		} else if constexpr (size <= 4) {
@@ -498,7 +498,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	};
 
-	template<serialize_options options, string_literal key> JSONIFIER_INLINE static write_buffer_ptr writeObjectEntry(write_buffer_ptr __restrict bufferPtr) noexcept {
+	template<serialize_options options, string_literal key> JSONIFIER_INLINE write_buffer_ptr writeObjectEntry(write_buffer_ptr __restrict bufferPtr) noexcept {
 		static constexpr auto unQuotedKey = string_literal{ "\"" } + key;
 		if constexpr (options.prettify) {
 			packed_blitter<unQuotedKey + string_literal{ "\": " }>::blit(bufferPtr);
@@ -509,7 +509,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<serialize_options options, bool isItLast>
-	JSONIFIER_INLINE static write_buffer_ptr writeObjectExit(write_buffer_ptr __restrict bufferPtr, [[maybe_unused]] uint64_t indent) noexcept {
+	JSONIFIER_INLINE write_buffer_ptr writeObjectExit(write_buffer_ptr __restrict bufferPtr, [[maybe_unused]] uint64_t indent) noexcept {
 		if constexpr (!isItLast) {
 			if constexpr (options.prettify) {
 				using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;

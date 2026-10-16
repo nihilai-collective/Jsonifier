@@ -53,7 +53,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		using derived_type = derived_type_new;
 
 		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
-		inline bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+		inline bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			uint64_t sizeIndent{};
 			const uint64_t newSize = get_size<options>::impl(object, sizeIndent) + 64ull;
@@ -70,7 +70,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<serialize_options optionsNew = serialize_options{}, number_t value_type, buffer_like buffer_type>
-		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			const uint64_t newSize{ digit_sizes<value_type>::value };
 			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
@@ -86,7 +86,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<serialize_options optionsNew = serialize_options{}, string_t value_type, buffer_like buffer_type>
-		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			const auto newSize = object.size() * 6ull + 2ull + simdBytesPerStep;
 			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
@@ -102,7 +102,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<serialize_options optionsNew = serialize_options{}, bool_t value_type, buffer_like buffer_type>
-		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
 				buffer.resize_and_overwrite(8ull, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });

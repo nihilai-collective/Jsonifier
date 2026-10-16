@@ -102,7 +102,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		using step_checker_type = step_checker<utf8_checker, make_integer_sequence<simdBlocksPerStep>>;
 		template<typename integer_sequence> struct chunk_processor;
 
-		JSONIFIER_INLINE void checkStepImpl(restricted_read_buffer_ptr src) {
+		JSONIFIER_INLINE void checkStepImpl(restricted_read_buffer_ptr src) noexcept {
 			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
@@ -118,30 +118,30 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 			prevIncomplete = checkIncomplete(chunks.template get<simdRegistersPerBlock - 1>());
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) {
+		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) noexcept {
 			const jsonifier_simd_int_t loNibbleMask = gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu));
 			return opAnd(opAnd(opShuffle(lookupH, opAnd(opSrLi<4>(p1), loNibbleMask)), opShuffle(lookupL, opAnd(p1, loNibbleMask))),
 				opShuffle(lookup2, opAnd(opSrLi<4>(input), loNibbleMask)));
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t checkMultibyteLengths(jsonifier_simd_int_t input, jsonifier_simd_int_t prev, jsonifier_simd_int_t sc) {
+		JSONIFIER_INLINE jsonifier_simd_int_t checkMultibyteLengths(jsonifier_simd_int_t input, jsonifier_simd_int_t prev, jsonifier_simd_int_t sc) noexcept {
 			return opXor(opAnd(mustBe23Continuation(opPrev<14>(input, prev), opPrev<13>(input, prev)), gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x80u))), sc);
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t mustBe23Continuation(jsonifier_simd_int_t p2, jsonifier_simd_int_t p3) {
+		JSONIFIER_INLINE jsonifier_simd_int_t mustBe23Continuation(jsonifier_simd_int_t p2, jsonifier_simd_int_t p3) noexcept {
 			return opOr(opSubs(p2, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xE0u - 0x80u))),
 				opSubs(p3, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xF0u - 0x80u))));
 		}
 
-		JSONIFIER_INLINE void checkChunk(jsonifier_simd_int_t input, jsonifier_simd_int_t prev) {
+		JSONIFIER_INLINE void checkChunk(jsonifier_simd_int_t input, jsonifier_simd_int_t prev) noexcept {
 			error = opOr(error, checkMultibyteLengths(input, prev, checkSpecialCases(input, opPrev<15>(input, prev))));
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t checkIncomplete(jsonifier_simd_int_t input) {
+		JSONIFIER_INLINE jsonifier_simd_int_t checkIncomplete(jsonifier_simd_int_t input) noexcept {
 			return opSubs(input, gatherValues<jsonifier_simd_int_t>(isIncompleteMax + (64 - simdBytesPerRegister)));
 		}
 
-		JSONIFIER_INLINE void reset() {
+		JSONIFIER_INLINE void reset() noexcept {
 			prevIncomplete = jsonifier_simd_int_t{};
 			prevInput	   = jsonifier_simd_int_t{};
 			error		   = jsonifier_simd_int_t{};
@@ -151,11 +151,11 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		const jsonifier_simd_int_t lookup2{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte2HighTable)) };
 		const jsonifier_simd_int_t lookupL{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1LowTable)) };
 
-		JSONIFIER_INLINE void checkStep(restricted_read_buffer_ptr src_new) {
+		JSONIFIER_INLINE void checkStep(restricted_read_buffer_ptr src_new) noexcept {
 			step_checker_type::impl(src_new);
 		}
 
-		JSONIFIER_INLINE bool errors() {
+		JSONIFIER_INLINE bool errors() noexcept {
 			return !opTest(opOr(error, prevIncomplete));
 		}
 
@@ -180,7 +180,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		};
 	};
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) {
+	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
 		if (len == 0) {
 			return true;
 		}
@@ -360,7 +360,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 namespace JSONIFIER_NAMESPACE {
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) {
+	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
 		return internal::validateUtf8(src, len);
 	}
 

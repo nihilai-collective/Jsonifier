@@ -99,13 +99,13 @@ template<> struct jsonifier::core<hash_map_tests::hm_wide_binary_keys> {
 
 namespace hash_map_tests {
 
-	template<typename value_type> inline static uint64_t lookupKey(const std::string& key) {
+	template<typename value_type> inline uint64_t lookupKey(const std::string& key) {
 		std::string buffer = key + "\":0}";
 		return jsonifier::internal::hash_map<value_type, jsonifier::read_buffer_ptr>::findIndex(std::bit_cast<jsonifier::read_buffer_ptr>(buffer.data()),
 			std::bit_cast<jsonifier::read_buffer_ptr>(buffer.data()) + buffer.size());
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "hash_map Tests" << std::endl;
 
 		rt_ut::unit_test<"hash_map_empty_struct_never_matches", true>::assert_eq(true, [] {

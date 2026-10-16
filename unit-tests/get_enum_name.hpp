@@ -14,7 +14,7 @@ namespace enum_name_tests {
 
 	enum class sparse_kind : uint32_t { alpha = 0, beta = 2, gamma = 4, count = 5 };
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Enum Name Reflection Tests" << std::endl;
 
 		rt_ut::unit_test<"enum_name_get_name_first_value", true>::assert_eq("circle", [] {

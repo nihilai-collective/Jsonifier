@@ -63,7 +63,7 @@ namespace generic_parser_tests {
 		return out;
 	}
 
-	template<typename parser_type> inline static void runStreamTests(parser_type& parser) {
+	template<typename parser_type> inline void runStreamTests(parser_type& parser) {
 		using error_code = jsonifier::generic::error_code;
 		static_assert(std::input_iterator<typename jsonifier::generic::document_stream<parser_type, comma>::iterator>);
 		static_assert(std::input_iterator<typename jsonifier::generic::document_stream<parser_type, newLines>::iterator>);
@@ -209,7 +209,7 @@ namespace generic_parser_tests {
 		});
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "generic_parser Tests" << std::endl;
 
 		using error_code = jsonifier::generic::error_code;

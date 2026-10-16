@@ -12,7 +12,7 @@
 namespace bounds_tests {
 
 	struct random_die {
-		inline void seedState(uint64_t seedVal) {
+		inline void seedState(uint64_t seedVal) noexcept {
 			uint64_t z = seedVal;
 			for (int32_t i = 0; i < 4; ++i) {
 				z += 0x9e3779b97f4a7c15ULL;
@@ -24,7 +24,7 @@ namespace bounds_tests {
 			}
 		}
 
-		inline uint64_t next() {
+		inline uint64_t next() noexcept {
 			uint64_t result = rotl(s[1] * 5, 7) * 9;
 			uint64_t t		= s[1] << 17;
 			s[2] ^= s[0];
@@ -46,7 +46,7 @@ namespace bounds_tests {
 			std::cout << "random_die seed: " << seed << std::endl;
 		}
 
-		inline static uint64_t rotl(uint64_t x, int32_t k) {
+		inline static uint64_t rotl(uint64_t x, int32_t k) noexcept {
 			return (x << k) | (x >> (64 - k));
 		}
 
@@ -54,7 +54,7 @@ namespace bounds_tests {
 			return (next() % 8) + 1;
 		}
 
-		inline uint64_t getSeed() const {
+		inline uint64_t getSeed() const noexcept {
 			return seed;
 		}
 
@@ -80,7 +80,7 @@ namespace bounds_tests {
 		}
 	}
 
-	template<rt_ut::string_literal testNameNew, typename test_data_type, bool prettified, bool partial, bool knownOrder, bool nullTerminated> inline static void boundsTestsImpl() {
+	template<rt_ut::string_literal testNameNew, typename test_data_type, bool prettified, bool partial, bool knownOrder, bool nullTerminated> inline void boundsTestsImpl() {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
@@ -112,7 +112,7 @@ namespace bounds_tests {
 			dataToParse);
 	}
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void boundsTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void boundsTestsImpl() {
 		std::cout << "Starting Bounds-Truncation Test, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": "
 				  << std::endl;
 		boundsTestsImpl<"Canada Test (Minified)", canada_message, false, partial, knownOrder, nullTerminated>();
@@ -137,7 +137,7 @@ namespace bounds_tests {
 		boundsTestsImpl<"Twitter Test (Prettified)", twitter_message, true, partial, knownOrder, nullTerminated>();
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		boundsTestsImpl<false, false, false>();
 		boundsTestsImpl<false, true, false>();
 		boundsTestsImpl<true, false, false>();

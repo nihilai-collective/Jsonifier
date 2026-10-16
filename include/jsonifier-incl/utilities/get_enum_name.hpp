@@ -32,7 +32,7 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	consteval bool isValidEnumName(string_view name) noexcept {
+	consteval bool isValidEnumName(string_view name) {
 		if (name.empty()) {
 			return false;
 		}
@@ -53,7 +53,7 @@ namespace jsonifier::internal {
 			array<string_view, n> names{};
 		};
 
-		template<uint64_t n> static consteval entries<n> buildEntries() noexcept {
+		template<uint64_t n> static consteval entries<n> buildEntries() {
 			entries<n> result{};
 			uint64_t pos{};
 			(
@@ -70,7 +70,7 @@ namespace jsonifier::internal {
 			return result;
 		}
 
-		static consteval uint64_t countValid() noexcept {
+		static consteval uint64_t countValid() {
 			uint64_t total{};
 			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
 			return total;
@@ -93,13 +93,12 @@ namespace jsonifier::internal {
 		return "Unknown Type";
 	}
 
-	template<printable_enum_types enum_type, uint64_t buffer_size>
-	JSONIFIER_INLINE static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, enum_type type) noexcept {
+	template<printable_enum_types enum_type, uint64_t buffer_size> JSONIFIER_INLINE basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, enum_type type) noexcept {
 		os << getName(type).operator std::basic_string_view<char>();
 		return os;
 	}
 
-	template<printable_enum_types enum_type> JSONIFIER_INLINE static std::ostream& operator<<(std::ostream& os, enum_type type) noexcept {
+	template<printable_enum_types enum_type> JSONIFIER_INLINE std::ostream& operator<<(std::ostream& os, enum_type type) noexcept {
 		os << getName(type).operator std::basic_string_view<char>();
 		return os;
 	}

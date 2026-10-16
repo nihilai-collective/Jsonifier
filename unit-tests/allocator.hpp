@@ -15,7 +15,7 @@ namespace allocator_tests {
 		double b;
 	};
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Allocator Tests" << std::endl;
 
 		rt_ut::unit_test<"allocator_round_up_pow2_zero_stays_zero", true>::assert_eq(static_cast<uint64_t>(0), [] {

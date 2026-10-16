@@ -10,7 +10,7 @@
 
 namespace error_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		{
 			static constexpr std::string_view testInput{ R"({"key": "value"})" };
 			auto err = jsonifier::internal::error::constructError<jsonifier::internal::status_classes::parsing, jsonifier::internal::parse_statuses::missing_comma>(

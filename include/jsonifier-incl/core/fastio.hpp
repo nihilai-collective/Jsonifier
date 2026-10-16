@@ -10,7 +10,7 @@ namespace jsonifier::internal {
 
 	enum class stream_target { stdout_target, stderr_target };
 
-	inline uint64_t rawWrite(stream_target target, const char* data, uint64_t len) {
+	inline uint64_t rawWrite(stream_target target, const char* data, uint64_t len) noexcept {
 #if JSONIFIER_PLATFORM_WINDOWS
 		HANDLE handle  = GetStdHandle(target == stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
 		DWORD written  = 0;
@@ -47,12 +47,12 @@ namespace jsonifier::internal {
 		99999999999ULL, 999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL,
 		9999999999999999999ULL };
 
-	inline static uint64_t fastDigitCount(const uint64_t inputValue) {
+	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
 		const uint64_t originalDigitCount{ digitCounts[std::countl_zero(inputValue)] };
 		return originalDigitCount + static_cast<uint64_t>(inputValue > digitCountThresholds[originalDigitCount]);
 	}
 
-	inline char* writeUnsigned(char* buffer_end, uint64_t value) {
+	inline char* writeUnsigned(char* buffer_end, uint64_t value) noexcept {
 		char* pos							   = buffer_end;
 		static constexpr char digit_pairs[201] = "0001020304050607080910111213141516171819"
 												 "2021222324252627282930313233343536373839"
@@ -76,7 +76,7 @@ namespace jsonifier::internal {
 		return pos;
 	}
 
-	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) {
+	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) noexcept {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
 			char* out_local = dest;
@@ -99,7 +99,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) {
+	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) noexcept {
 		auto result = std::to_chars(dest, dest + 64, value);
 		return static_cast<uint64_t>(result.ptr - dest);
 	}
@@ -113,13 +113,13 @@ namespace jsonifier::internal {
 	template<uint64_t buffer_size = 8192> struct basic_stream {
 		template<typename integer_type>
 		inline std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
-			integer_type value) {
+			integer_type value) noexcept {
 			ensureSpace(21);
 			len_ += writeInteger(buffer_ + len_, value);
 			return *this;
 		}
 
-		inline void writeRaw(const char* data, uint64_t size) {
+		inline void writeRaw(const char* data, uint64_t size) noexcept {
 			if (size >= buffer_size) {
 				doFlush();
 				rawWrite(target_, data, size);
@@ -130,48 +130,48 @@ namespace jsonifier::internal {
 			len_ += size;
 		}
 
-		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) {
+		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
 			ensureSpace(64);
 			len_ += writeFloat(buffer_ + len_, value);
 			return *this;
 		}
 
-		inline basic_stream& operator<<(std::string_view value) {
+		inline basic_stream& operator<<(std::string_view value) noexcept {
 			writeRaw(value.data(), value.size());
 			return *this;
 		}
 
-		inline basic_stream& operator<<(bool value) {
+		inline basic_stream& operator<<(bool value) noexcept {
 			return (*this) << std::string_view(value ? "true" : "false");
 		}
 
-		inline basic_stream& operator<<(char value) {
+		inline basic_stream& operator<<(char value) noexcept {
 			ensureSpace(1);
 			buffer_[len_++] = value;
 			return *this;
 		}
 
-		inline basic_stream& operator<<(const char* value) {
+		inline basic_stream& operator<<(const char* value) noexcept {
 			return (*this) << std::string_view(value);
 		}
 
-		inline void doFlush() {
+		inline void doFlush() noexcept {
 			if (len_ > 0) {
 				rawWrite(target_, buffer_, len_);
 				len_ = 0;
 			}
 		}
 
-		inline void ensureSpace(uint64_t needed) {
+		inline void ensureSpace(uint64_t needed) noexcept {
 			if (len_ + needed > buffer_size) {
 				doFlush();
 			}
 		}
 
-		inline explicit basic_stream(stream_target target) : target_{ target }, len_{ 0 } {
+		inline explicit basic_stream(stream_target target) noexcept : target_{ target }, len_{ 0 } {
 		}
 
-		inline basic_stream& operator<<(endl_t) {
+		inline basic_stream& operator<<(endl_t) noexcept {
 			(*this) << '\n';
 			return *this;
 		}
@@ -180,7 +180,7 @@ namespace jsonifier::internal {
 			return { buffer_, len_ };
 		}
 
-		inline basic_stream& operator<<(flush_t) {
+		inline basic_stream& operator<<(flush_t) noexcept {
 			doFlush();
 			return *this;
 		}
@@ -192,11 +192,11 @@ namespace jsonifier::internal {
 			len_ = 0;
 		}
 
-		inline ~basic_stream() {
+		inline ~basic_stream() noexcept {
 			doFlush();
 		}
 
-		inline void flushNow() {
+		inline void flushNow() noexcept {
 			doFlush();
 		}
 
@@ -211,9 +211,9 @@ namespace jsonifier::internal {
 	#pragma clang diagnostic ignored "-Wglobal-constructors"
 #endif
 
-	inline static basic_stream<> cout{ stream_target::stdout_target };
+	inline basic_stream<> cout{ stream_target::stdout_target };
 
-	inline static basic_stream<> err{ stream_target::stderr_target };
+	inline basic_stream<> err{ stream_target::stderr_target };
 
 #if JSONIFIER_COMPILER_CLANG
 	#pragma clang diagnostic pop

@@ -321,13 +321,13 @@
 	#define JSONIFIER_IS_DIGIT(x) ((static_cast<uint8_t>(x - '0')) < 10)
 #endif
 
-template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&...) {
+template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
 }
 
-template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&...) {
+template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memmove is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
@@ -335,11 +335,11 @@ template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&
 
 namespace std {
 
-	template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&... args) {
+	template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&... args) noexcept {
 		::jsonifierFailMemcpyImpl(args...);
 	}
 
-	template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&... args) {
+	template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&... args) noexcept {
 		::jsonifierFailMemmoveImpl(args...);
 	}
 

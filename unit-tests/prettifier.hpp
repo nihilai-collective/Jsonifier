@@ -10,13 +10,13 @@
 
 namespace prettifier_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "JSON Prettifier Buffer Overload Tests" << std::endl;
 
 		jsonifier::jsonifier_core<> parser{};
 
 		auto prettifyInto = [&](std::string input, std::string buffer = std::string{}) {
-			bool success = parser.prettifyJson(std::move(input), buffer);
+			bool success = parser.prettifyJson(jsonifier::internal::move(input), buffer);
 			return success ? buffer : std::string{ "FAILED" };
 		};
 

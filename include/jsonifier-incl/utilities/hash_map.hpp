@@ -30,7 +30,7 @@ namespace std {
 namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<typename value_type, uint64_t size, uint64_t buffer_size>
-	inline basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const array<value_type, size>& values) {
+	inline basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const array<value_type, size>& values) noexcept {
 		os << "[";
 		for (uint64_t x = 0; x < size; ++x) {
 			os << values[x];
@@ -45,7 +45,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	alignas(64) inline constexpr uint64_t npos64{ ~0ull };
 	alignas(64) inline constexpr uint8_t npos8{ 0xFFu };
 
-	inline static constexpr bool contains(read_buffer_ptr hashDataNew, uint8_t byteToCheckFor, uint64_t size) noexcept {
+	inline constexpr bool contains(read_buffer_ptr hashDataNew, uint8_t byteToCheckFor, uint64_t size) noexcept {
 		for (uint64_t x = 0; x < size; ++x) {
 			if (hashDataNew[x] == byteToCheckFor) {
 				return true;
@@ -55,7 +55,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	struct byte_set {
-		inline constexpr bool testAndSet(uint8_t value) noexcept {
+		inline consteval bool testAndSet(uint8_t value) {
 			const uint64_t mask{ 1ull << (value & 63u) };
 			uint64_t& word{ bits[value >> 6u] };
 			const bool wasSet{ (word & mask) != 0ull };
@@ -90,7 +90,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		count,
 	};
 
-	inline static consteval uint64_t setSimdWidth(uint64_t length) noexcept {
+	inline consteval uint64_t setSimdWidth(uint64_t length) {
 		return length >= 64ull && simdBytesPerRegister >= 64ull ? 64ull : length >= 32ull && simdBytesPerRegister >= 32ull ? 32ull : 16ull;
 	}
 
@@ -100,7 +100,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		uint64_t maxLength{};
 	};
 
-	inline static consteval uint64_t findUniqueColumnIndex(const tuple_references& tupleRefsRaw, uint64_t maxIndex, uint64_t startingIndex = 0) noexcept {
+	inline consteval uint64_t findUniqueColumnIndex(const tuple_references& tupleRefsRaw, uint64_t maxIndex, uint64_t startingIndex = 0) {
 		byte_set seen{};
 		for (uint64_t index = startingIndex; index < maxIndex; ++index) {
 			seen.clear();
@@ -118,7 +118,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return npos64;
 	}
 
-	inline static consteval uint64_t nextPowerOfTwo(uint64_t value) noexcept {
+	inline consteval uint64_t nextPowerOfTwo(uint64_t value) {
 		uint64_t result = 16;
 		while (result < value) {
 			result <<= 1;
@@ -128,7 +128,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	alignas(64) inline constexpr uint64_t maxStorageSize{ 2048 };
 
-	inline static consteval uint64_t storageSizeFor(uint64_t keyCount) noexcept {
+	inline consteval uint64_t storageSizeFor(uint64_t keyCount) {
 		const uint64_t target{ JSONIFIER_INTERNAL_NAMESPACE::nextPowerOfTwo(keyCount * 16ull) };
 		return target < 256ull ? 256ull : (target > maxStorageSize ? maxStorageSize : target);
 	}
@@ -244,7 +244,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		uint64_t length{};
 	};
 
-	inline static consteval uint64_t countUniqueLengths(const tuple_references& sortedByLength) noexcept {
+	inline consteval uint64_t countUniqueLengths(const tuple_references& sortedByLength) {
 		uint64_t returnValue{};
 		uint64_t x{};
 		while (x < sortedByLength.count) {
@@ -257,7 +257,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return returnValue;
 	}
 
-	template<uint64_t stringLengthCount> inline static consteval array<string_lengths, stringLengthCount> collectLengths(const tuple_references& sortedByLength) noexcept {
+	template<uint64_t stringLengthCount> inline consteval array<string_lengths, stringLengthCount> collectLengths(const tuple_references& sortedByLength) {
 		array<string_lengths, stringLengthCount> valuesNew{};
 		uint64_t currentIndex{};
 		uint64_t x{};
@@ -281,7 +281,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		bool valid{};
 	};
 
-	inline static consteval first_byte_columns collectFirstByteColumns(const tuple_references& sortedByFirstByte) noexcept {
+	inline consteval first_byte_columns collectFirstByteColumns(const tuple_references& sortedByFirstByte) {
 		first_byte_columns result{};
 		result.uniqueIndexByFirstByte.fill(npos8);
 		byte_set seen{};
@@ -334,7 +334,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		array<uint8_t, 256> uniqueIndexByFirstByte{};
 	};
 
-	inline static consteval first_byte_arrays buildFirstByteArrays(const tuple_references& sortedByFirstByte, const first_byte_columns& columns) noexcept {
+	inline consteval first_byte_arrays buildFirstByteArrays(const tuple_references& sortedByFirstByte, const first_byte_columns& columns) {
 		first_byte_arrays result{};
 		result.uniqueIndexByFirstByte = columns.uniqueIndexByFirstByte;
 		result.indexByFirstByteAndChar.fill(npos8);
@@ -348,7 +348,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		return result;
 	}
 
-	inline static consteval key_stats_t keyStatsImpl(const tuple_references& tupleRefsRaw) noexcept {
+	inline consteval key_stats_t keyStatsImpl(const tuple_references& tupleRefsRaw) {
 		key_stats_t stats{};
 		for (uint64_t x = 0; x < tupleRefsRaw.count; ++x) {
 			const uint64_t num{ tupleRefsRaw.rootPtr[x].key.size() };
@@ -366,7 +366,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	template<typename value_type> alignas(64) inline constexpr auto keyStatsVal = JSONIFIER_INTERNAL_NAMESPACE::keyStatsImpl(tupleReferences<value_type>);
 
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
 		bool collided{ true };
 		for (uint64_t w = keyStatsVal<value_type>.minLength; w <= keyStatsVal<value_type>.maxLength; ++w) {
@@ -411,7 +411,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectUniquePerLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectUniquePerLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		bool fallback = false;
 		if constexpr (keyStatsVal<value_type>.maxLength < 256) {
 			constexpr auto uniqueLengthCount = JSONIFIER_INTERNAL_NAMESPACE::countUniqueLengths(tupleReferencesByLength<value_type>);
@@ -436,7 +436,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectUniqueByteAndLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectUniqueByteAndLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
 		bool collided{ true };
 		while (returnValues.uniqueIndex < keyStatsVal<value_type>.minLength) {
@@ -465,7 +465,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectFirstByteAndUniqueIndexHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectFirstByteAndUniqueIndexHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		if constexpr (keyStatsVal<value_type>.maxLength < 256 && firstByteColumns<value_type>.valid) {
 			returnValues.type = hash_map_types::first_byte_and_unique_index;
 		} else {
@@ -475,7 +475,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	// Sampled from Stephen Berry and his library, Glaze library: https://github.com/StephenBerry/Glaze
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectSingleByteHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectSingleByteHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		returnValues.uniqueIndex = keyStatsVal<value_type>.uniqueIndex;
 		if (returnValues.uniqueIndex != npos64) {
 			returnValues.uniqueIndices.fill(npos8);
@@ -492,7 +492,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	// Sampled from Stephen Berry and his library, Glaze library: https://github.com/StephenBerry/Glaze
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectTripleElementHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectTripleElementHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		returnValues.uniqueIndex = keyStatsVal<value_type>.uniqueIndex;
 		bool collided{ true };
 		while (returnValues.uniqueIndex != npos64) {
@@ -523,7 +523,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<typename value_type, uint64_t storageSize>
-	inline static consteval void collectDoubleElementHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) noexcept {
+	inline consteval void collectDoubleElementHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		returnValues.uniqueIndex = keyStatsVal<value_type>.uniqueIndex;
 		bool collided{ true };
 		while (returnValues.uniqueIndex != npos64) {
@@ -541,7 +541,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 	}
 
-	template<typename value_type, uint64_t storageSize> inline static consteval hash_map_construction_data<storageSize> collectMapConstructionDataImpl() noexcept {
+	template<typename value_type, uint64_t storageSize> inline consteval hash_map_construction_data<storageSize> collectMapConstructionDataImpl() {
 		hash_map_construction_data<storageSize> returnValues{};
 		if constexpr (tupleReferences<value_type>.count == 0) {
 			returnValues.type = hash_map_types::empty;
@@ -563,7 +563,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<typename value_type, uint64_t storageSize> alignas(64) inline constexpr auto mapConstructionDataAt = collectMapConstructionDataImpl<value_type, storageSize>();
 
-	template<typename value_type> inline static consteval const auto& selectMapConstructionData() noexcept {
+	template<typename value_type> inline consteval const auto& selectMapConstructionData() {
 		constexpr auto preferredSize = JSONIFIER_INTERNAL_NAMESPACE::storageSizeFor(tupleReferences<value_type>.count);
 		if constexpr (preferredSize < maxStorageSize && mapConstructionDataAt<value_type, preferredSize>.type == hash_map_types::unset) {
 			return mapConstructionDataAt<value_type, maxStorageSize>;
@@ -574,11 +574,11 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 
 	template<typename value_type> alignas(64) inline constexpr const auto& mapConstructionData = selectMapConstructionData<value_type>();
 
-	template<typename value_type> inline consteval hash_map_types classifyMapType() noexcept {
+	template<typename value_type> inline consteval hash_map_types classifyMapType() {
 		return mapConstructionData<value_type>.type;
 	}
 
-	template<typename value_type> inline constexpr decltype(auto) collectMapConstructionData() noexcept {
+	template<typename value_type> consteval decltype(auto) collectMapConstructionData() {
 		constexpr auto& constructionData = mapConstructionData<value_type>;
 		constexpr auto storageSize		 = base_t<decltype(constructionData)>::storageSize;
 		static_assert(constructionData.type != hash_map_types::unset, "Failed to construct that hashmap!");
@@ -604,7 +604,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 	}
 
 	template<uint64_t keyMaxLength>
-	inline static consteval array<uint8_t, (keyMaxLength + 1) * 256> generateMappingsForLengths(const tuple_references& keys, const array<uint8_t, 256>& uniqueIndices) noexcept {
+	inline consteval array<uint8_t, (keyMaxLength + 1) * 256> generateMappingsForLengths(const tuple_references& keys, const array<uint8_t, 256>& uniqueIndices) {
 		array<uint8_t, (keyMaxLength + 1) * 256> mappings{};
 		mappings.fill(npos8);
 		for (uint64_t x = 0; x < keys.count; ++x) {
@@ -749,7 +749,7 @@ namespace JSONIFIER_INTERNAL_NAMESPACE {
 		}
 
 		template<typename iterator_type01, typename iterator_type02>
-		JSONIFIER_INLINE static bool checkForEnd(const iterator_type01& iterNew, const iterator_type02& endNew, const uint64_t distance) {
+		JSONIFIER_INLINE static bool checkForEnd(const iterator_type01& iterNew, const iterator_type02& endNew, const uint64_t distance) noexcept {
 			return (iterNew + distance) < endNew;
 		}
 	};

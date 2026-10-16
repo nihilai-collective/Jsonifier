@@ -10,7 +10,7 @@
 
 namespace tuple_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Tuple Tests" << std::endl;
 
 		rt_ut::unit_test<"tuple_make_tuple_and_get_by_type", true>::assert_eq(true, [] {

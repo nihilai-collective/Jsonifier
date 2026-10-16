@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	consteval array<bool, 256> generateExpTable() noexcept {
+	consteval array<bool, 256> generateExpTable() {
 		array<bool, 256> table{};
 		table['E'] = true;
 		table['e'] = true;
@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
 
-	consteval array<bool, 256> generateExpFracTable() noexcept {
+	consteval array<bool, 256> generateExpFracTable() {
 		array<bool, 256> table{};
 		table['.'] = true;
 		table['E'] = true;
@@ -50,7 +50,7 @@ namespace jsonifier::internal {
 		bool valid{};
 	};
 
-	JSONIFIER_INLINE static parsed_number parse_number_string(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
+	JSONIFIER_INLINE parsed_number parse_number_string(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
 		parsed_number answer{};
 		answer.negative = (*iter == minus);
 		if (answer.negative) {

@@ -10,7 +10,7 @@
 
 namespace array_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Array Tests" << std::endl;
 
 		rt_ut::unit_test<"array_size_max_size_empty", true>::assert_eq(true, [] {

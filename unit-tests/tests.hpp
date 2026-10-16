@@ -23,6 +23,7 @@
 #include "integer.hpp"
 #include "intrinsics.hpp"
 #include "iterator.hpp"
+#include "memcpy.hpp"
 #include "JSONTestSuite.hpp"
 #include "minifier.hpp"
 #include "parsing_tests.hpp"
@@ -40,7 +41,7 @@
 
 namespace tests {
 
-	inline static void testFunction() {
+	inline void testFunction() {
 		add_tape_values_tests::runTests();
 		allocator_tests::runTests();
 		array_tests::runTests();
@@ -60,6 +61,7 @@ namespace tests {
 		i_to_str_tests::runTests();
 		intrinsics_tests::runTests();
 		iterator_tests::runTests();
+		memcpy_tests::runTests();
 		json_test_suite_tests::runTests();
 		minifier_tests::runTests();
 		parsing_tests::runTests();

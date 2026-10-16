@@ -130,7 +130,7 @@ namespace jsonifier {
 		JSONIFIER_INLINE json_number() noexcept : uint_val{ 0 }, number_type{ number_types::uint64 } {
 		}
 
-		JSONIFIER_INLINE number_types getType() const {
+		JSONIFIER_INLINE number_types getType() const noexcept {
 			return number_type;
 		}
 
@@ -190,7 +190,7 @@ namespace jsonifier {
 			}
 		}
 
-		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE bool contains(key_type&& key) const noexcept {
+		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE bool contains(key_type&& key) const {
 			if (!std::holds_alternative<object_type>(value)) {
 				return false;
 			}
@@ -199,7 +199,7 @@ namespace jsonifier {
 			return object.contains(static_cast<key_type_local>(key));
 		}
 
-		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE raw_json_data& operator[](key_type&& key) noexcept {
+		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE raw_json_data& operator[](key_type&& key) {
 			if (std::holds_alternative<null_type>(value)) {
 				value = object_type{};
 			}
@@ -208,17 +208,17 @@ namespace jsonifier {
 			return object[static_cast<key_type_local>(key)];
 		}
 
-		template<std::convertible_to<const string_view> key_type> JSONIFIER_INLINE const raw_json_data& operator[](key_type&& key) const noexcept {
+		template<std::convertible_to<const string_view> key_type> JSONIFIER_INLINE const raw_json_data& operator[](key_type&& key) const {
 			const auto& object	 = std::get<object_type>(value);
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object.at(static_cast<key_type_local>(key));
 		}
 
-		template<internal::uint_types index_type> JSONIFIER_INLINE const raw_json_data& operator[](index_type&& index) const noexcept {
+		template<internal::uint_types index_type> JSONIFIER_INLINE const raw_json_data& operator[](index_type&& index) const {
 			return (std::get<array_type>(value))[index];
 		}
 
-		template<internal::uint_types index_type> JSONIFIER_INLINE raw_json_data& operator[](index_type&& index) noexcept {
+		template<internal::uint_types index_type> JSONIFIER_INLINE raw_json_data& operator[](index_type&& index) {
 			return (std::get<array_type>(value))[index];
 		}
 
@@ -226,55 +226,55 @@ namespace jsonifier {
 			return value == other.value;
 		}
 
-		JSONIFIER_INLINE const object_type& getObject() const noexcept {
+		JSONIFIER_INLINE const object_type& getObject() const {
 			return std::get<object_type>(value);
 		}
 
-		JSONIFIER_INLINE const string_type& getString() const noexcept {
+		JSONIFIER_INLINE const string_type& getString() const {
 			return std::get<string_type>(value);
 		}
 
-		JSONIFIER_INLINE const number_type& getNumber() const noexcept {
+		JSONIFIER_INLINE const number_type& getNumber() const {
 			return std::get<number_type>(value);
 		}
 
-		JSONIFIER_INLINE double getDouble() const noexcept {
+		JSONIFIER_INLINE double getDouble() const {
 			return std::get<number_type>(value).getDouble();
 		}
 
-		JSONIFIER_INLINE uint64_t getUint() const noexcept {
+		JSONIFIER_INLINE uint64_t getUint() const {
 			return std::get<number_type>(value).getUint();
 		}
 
-		JSONIFIER_INLINE const array_type& getArray() const noexcept {
+		JSONIFIER_INLINE const array_type& getArray() const {
 			return std::get<array_type>(value);
 		}
 
-		JSONIFIER_INLINE int64_t getInt() const noexcept {
+		JSONIFIER_INLINE int64_t getInt() const {
 			return std::get<number_type>(value).getInt();
 		}
 
-		JSONIFIER_INLINE const bool_type& getBool() const noexcept {
+		JSONIFIER_INLINE const bool_type& getBool() const {
 			return std::get<bool_type>(value);
 		}
 
-		JSONIFIER_INLINE object_type& getObject() noexcept {
+		JSONIFIER_INLINE object_type& getObject() {
 			return std::get<object_type>(value);
 		}
 
-		JSONIFIER_INLINE string_type& getString() noexcept {
+		JSONIFIER_INLINE string_type& getString() {
 			return std::get<string_type>(value);
 		}
 
-		JSONIFIER_INLINE number_type& getNumber() noexcept {
+		JSONIFIER_INLINE number_type& getNumber() {
 			return std::get<number_type>(value);
 		}
 
-		JSONIFIER_INLINE array_type& getArray() noexcept {
+		JSONIFIER_INLINE array_type& getArray() {
 			return std::get<array_type>(value);
 		}
 
-		JSONIFIER_INLINE bool_type& getBool() noexcept {
+		JSONIFIER_INLINE bool_type& getBool() {
 			return std::get<bool_type>(value);
 		}
 

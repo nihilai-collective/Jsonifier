@@ -38,7 +38,7 @@ template<> struct jsonifier::core<printer_tests::nested_printer_struct> {
 
 namespace printer_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "JSON Printer Tests" << std::endl;
 
 		jsonifier::jsonifier_core<> parser{};

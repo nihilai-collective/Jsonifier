@@ -10,9 +10,9 @@
 
 namespace string_literal_comparator_impl_tests {
 
-	static constexpr char alphabetChars[]{ "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" };
+	inline constexpr char alphabetChars[]{ "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" };
 
-	template<uint64_t count> static constexpr jsonifier::internal::string_literal<count + 1> alphabetSourceGen() {
+	template<uint64_t count> consteval jsonifier::internal::string_literal<count + 1> alphabetSourceGen() {
 		jsonifier::internal::string_literal<count + 1> lit{};
 		for (uint64_t i = 0; i < count; ++i) {
 			lit.values[i] = alphabetChars[i % (sizeof(alphabetChars) - 1)];
@@ -21,9 +21,9 @@ namespace string_literal_comparator_impl_tests {
 		return lit;
 	}
 
-	template<uint64_t count> static constexpr auto alphabetSource{ alphabetSourceGen<count>() };
+	template<uint64_t count> inline constexpr auto alphabetSource{ alphabetSourceGen<count>() };
 
-	template<uint64_t count> static constexpr jsonifier::internal::string_literal<count + 1> binarySourceGen() {
+	template<uint64_t count> consteval jsonifier::internal::string_literal<count + 1> binarySourceGen() {
 		jsonifier::internal::string_literal<count + 1> lit{};
 		for (uint64_t i = 0; i < count; ++i) {
 			lit.values[i] = static_cast<char>((i * 37u + 11u) & 0xFFu);
@@ -32,9 +32,9 @@ namespace string_literal_comparator_impl_tests {
 		return lit;
 	}
 
-	template<uint64_t count> static constexpr auto binarySource{ binarySourceGen<count>() };
+	template<uint64_t count> inline constexpr auto binarySource{ binarySourceGen<count>() };
 
-	template<jsonifier::internal::string_literal literal> inline static bool matchesExactly() {
+	template<jsonifier::internal::string_literal literal> inline bool matchesExactly() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		std::string buffer{ localLiteral.data(), localLiteral.size() };
@@ -43,7 +43,7 @@ namespace string_literal_comparator_impl_tests {
 		return result == std::bit_cast<jsonifier::read_buffer_ptr>(buffer.data()) + localLiteral.size();
 	}
 
-	template<jsonifier::internal::string_literal literal> inline static bool detectsCorruptionAtEveryPosition() {
+	template<jsonifier::internal::string_literal literal> inline bool detectsCorruptionAtEveryPosition() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		static constexpr uint64_t len	   = localLiteral.size();
@@ -60,7 +60,7 @@ namespace string_literal_comparator_impl_tests {
 		return true;
 	}
 
-	template<jsonifier::internal::string_literal literal> inline static bool ignoresTrailingGarbage() {
+	template<jsonifier::internal::string_literal literal> inline bool ignoresTrailingGarbage() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		static constexpr uint64_t len	   = localLiteral.size();
@@ -77,7 +77,7 @@ namespace string_literal_comparator_impl_tests {
 		return true;
 	}
 
-	template<jsonifier::internal::string_literal literal> inline static bool detectsTranspositionCorruption() {
+	template<jsonifier::internal::string_literal literal> inline bool detectsTranspositionCorruption() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		static constexpr uint64_t len	   = localLiteral.size();
@@ -101,7 +101,7 @@ namespace string_literal_comparator_impl_tests {
 		}
 	}
 
-	template<jsonifier::internal::string_literal literal> inline static bool detectsDoubleCorruption() {
+	template<jsonifier::internal::string_literal literal> inline bool detectsDoubleCorruption() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		static constexpr uint64_t len	   = localLiteral.size();
@@ -155,7 +155,7 @@ namespace string_literal_comparator_impl_tests {
 		void* region{};
 	};
 
-	template<jsonifier::internal::string_literal literal> inline static bool matchesAtPageBoundary() {
+	template<jsonifier::internal::string_literal literal> inline bool matchesAtPageBoundary() {
 		static constexpr auto localLiteral = literal;
 		using sl_type					   = decltype(localLiteral);
 		static constexpr uint64_t len	   = localLiteral.size();
@@ -168,14 +168,14 @@ namespace string_literal_comparator_impl_tests {
 		}
 	}
 
-	template<rt_ut::string_literal testName, jsonifier::internal::string_literal literal> inline static void runLengthTest() {
+	template<rt_ut::string_literal testName, jsonifier::internal::string_literal literal> inline void runLengthTest() {
 		rt_ut::unit_test<testName, true>::assert_eq(true, [] {
 			return matchesExactly<literal>() && detectsCorruptionAtEveryPosition<literal>() && ignoresTrailingGarbage<literal>() && detectsTranspositionCorruption<literal>() &&
 				detectsDoubleCorruption<literal>();
 		});
 	}
 
-	template<uint64_t... indices> inline static void runExhaustiveLengths(std::integer_sequence<uint64_t, indices...>) {
+	template<uint64_t... indices> inline void runExhaustiveLengths(std::integer_sequence<uint64_t, indices...>) {
 		(( void )(rt_ut::unit_test<"slc_exhaustive", true>::assert_eq(true,
 			 [] {
 				 return matchesExactly<alphabetSource<indices + 1>>() && detectsCorruptionAtEveryPosition<alphabetSource<indices + 1>>() &&
@@ -184,7 +184,7 @@ namespace string_literal_comparator_impl_tests {
 			...);
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "string_literal_comparator_impl Tests" << std::endl;
 		runLengthTest<"slc_length_0_empty", alphabetSource<0>>();
 		runLengthTest<"slc_length_1", alphabetSource<1>>();

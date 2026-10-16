@@ -24,7 +24,7 @@ namespace jsonifier {
 		using traits_type			 = std::char_traits<value_type>;
 		static constexpr size_type npos{ std::numeric_limits<size_type>::max() };
 
-		template<typename value_type_newer = value_type> JSONIFIER_INLINE constexpr explicit operator std::basic_string<value_type_newer>() const noexcept {
+		template<typename value_type_newer = value_type> JSONIFIER_INLINE constexpr explicit operator std::basic_string<value_type_newer>() const {
 			std::basic_string<value_type_newer> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
@@ -193,13 +193,12 @@ namespace jsonifier {
 
 	using string_view = string_view_base;
 
-	template<uint64_t buffer_size>
-	JSONIFIER_INLINE static internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
+	template<uint64_t buffer_size> JSONIFIER_INLINE internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
 		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
 
-	JSONIFIER_INLINE static std::ostream& operator<<(std::ostream& os, const string_view& input) noexcept {
+	JSONIFIER_INLINE std::ostream& operator<<(std::ostream& os, const string_view& input) noexcept {
 		os << std::basic_string_view<char>{ input.data(), input.size() };
 		return os;
 	}
