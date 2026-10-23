@@ -10,15 +10,15 @@
 
 namespace intrinsics_tests {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 	using active_simd_t = jsonifier::jsonifier_simd_int_512;
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#elif JSONIFIER_AVX2
 	using active_simd_t = jsonifier::jsonifier_simd_int_256;
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
+#elif JSONIFIER_AVX
 	using active_simd_t = jsonifier::jsonifier_simd_int_128;
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#elif JSONIFIER_SVE2
 	using active_simd_t = jsonifier::jsonifier_simd_int_128;
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+#elif JSONIFIER_NEON
 	using active_simd_t = jsonifier::jsonifier_simd_int_128;
 #else
 	using active_simd_t = jsonifier::jsonifier_simd_int_128;
@@ -67,16 +67,6 @@ namespace intrinsics_tests {
 				}
 			}
 			return true;
-		});
-
-		static constexpr rt_ut::string_literal opCmpLtBasicName{ "op_cmp_lt_basic" };
-		rt_ut::unit_test<opCmpLtBasicName, true>::assert_eq(true, [] {
-			auto lo		 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x20));
-			auto hi		 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x21));
-			auto ltTrue	 = jsonifier::internal::simd::opCmpLt(lo, hi);
-			auto ltFalse = jsonifier::internal::simd::opCmpLt(hi, lo);
-			auto ltSelf	 = jsonifier::internal::simd::opCmpLt(lo, lo);
-			return ltTrue != ltFalse && ltTrue == jsonifier::internal::simd::opCmpLt(lo, hi) && ltFalse == ltSelf;
 		});
 
 		static constexpr rt_ut::string_literal opBitMaskAllZeroName{ "op_bit_mask_all_zero" };
@@ -182,27 +172,6 @@ namespace intrinsics_tests {
 			return static_cast<bool>(jsonifier::internal::simd::opTest(res));
 		});
 
-		static constexpr rt_ut::string_literal opAndNotBasicName{ "op_and_not_basic" };
-		rt_ut::unit_test<opAndNotBasicName, true>::assert_eq(true, [] {
-			auto a		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xFF));
-			auto b		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x0F));
-			auto res	  = jsonifier::internal::simd::opAndNot(a, b);
-			auto expected = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xF0));
-			auto match	  = jsonifier::internal::simd::opCmpEq(res, expected);
-			auto mismatch = jsonifier::internal::simd::opCmpEq(res, a);
-			return match != mismatch;
-		});
-
-		static constexpr rt_ut::string_literal opNotBasicName{ "op_not_basic" };
-		rt_ut::unit_test<opNotBasicName, true>::assert_eq(true, [] {
-			auto a		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x00));
-			auto res	  = jsonifier::internal::simd::opNot(a);
-			auto expected = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xFF));
-			auto match	  = jsonifier::internal::simd::opCmpEq(res, expected);
-			auto mismatch = jsonifier::internal::simd::opCmpEq(res, a);
-			return match != mismatch;
-		});
-
 		static constexpr rt_ut::string_literal opSubsSaturateName{ "op_subs_saturates_at_zero" };
 		rt_ut::unit_test<opSubsSaturateName, true>::assert_eq(true, [] {
 			auto a	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x05));
@@ -254,18 +223,6 @@ namespace intrinsics_tests {
 		rt_ut::unit_test<isAsciiFalseName, true>::assert_eq(false, [] {
 			auto v = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x80));
 			return jsonifier::internal::simd::isAscii(v);
-		});
-
-		static constexpr rt_ut::string_literal anyBitsSetTrueName{ "any_bits_set_true" };
-		rt_ut::unit_test<anyBitsSetTrueName, true>::assert_eq(true, [] {
-			auto v = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x01));
-			return jsonifier::internal::simd::anyBitsSetAnywhere(v);
-		});
-
-		static constexpr rt_ut::string_literal anyBitsSetFalseName{ "any_bits_set_false" };
-		rt_ut::unit_test<anyBitsSetFalseName, true>::assert_eq(false, [] {
-			auto v = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x00));
-			return jsonifier::internal::simd::anyBitsSetAnywhere(v);
 		});
 
 		static constexpr rt_ut::string_literal storeRoundTripName{ "store_round_trip" };

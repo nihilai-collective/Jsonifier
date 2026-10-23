@@ -47,7 +47,7 @@ target_link_libraries(your_target PRIVATE Jsonifier::Jsonifier)
 
 Pin `GIT_TAG` to a release tag (e.g. `v1.0.0`) for reproducible builds. `main` gets you the latest but can move.
 
-Note: Jsonifier's version string comes from `cmake/get_version.cmake`: an exact-match git tag if the checkout is on one, otherwise the repo's `VERSION` file, otherwise `0.0.0`. No network access is needed at configure time, and the version is cosmetic only.
+Note: Jsonifier's version string comes from `cmake/get_version.cmake`: an exact-match git tag if the checkout is on one, otherwise the repo's `Version` file, otherwise `0.0.0`. No network access is needed at configure time, and the version is cosmetic only.
 
 ## From Source
 
@@ -80,7 +80,7 @@ That pulls in the entire library. There is no separate compilation unit to link 
 
 ## ⚠️ Skipping the CMake Build? Read This.
 
-Jsonifier ships with a CPU feature-detection step baked into its CMake flow. During configure, CMake fetches [voided-hw-detection](https://github.com/nihilai-collective/voided-hw-detection), builds and runs its detector on the host machine, queries the CPU via `cpuid` (or `getauxval`/`sysctlbyname` on ARM64), and **writes the results into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp`**. That file defines the `JSONIFIER_CPU_INSTRUCTIONS` preprocessor value that the entire SIMD backend keys off of.
+Jsonifier ships with a CPU feature-detection step baked into its CMake flow. During configure, CMake fetches [voided-hw-detection](https://github.com/nihilai-collective/voided-hw-detection), builds and runs its detector on the host machine, queries the CPU via `cpuid` (or `getauxval`/`sysctlbyname` on ARM64), and **writes the results into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp`**. That file defines the per-feature macros (`JSONIFIER_LZCNT` through `JSONIFIER_SVE2`) that the entire SIMD backend keys off of.
 
 **If you drop the headers into a project without running Jsonifier's CMake configure step, that file will be empty, stale, or wrong**, and you'll get one of the following:
 
@@ -88,25 +88,27 @@ Jsonifier ships with a CPU feature-detection step baked into its CMake flow. Dur
 - A silently-selected fallback backend (no SIMD, much slower than expected)
 - A binary that uses instructions your CPU doesn't support (crashes at runtime with `SIGILL`)
 
-If you're bypassing CMake (pasting the headers into your project, using a hand-rolled Makefile, integrating into a non-CMake build system, or cross-compiling), you **must** manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` and set `JSONIFIER_CPU_INSTRUCTIONS` to the bitfield matching your target CPU:
+Cross-compiling with CMake does not need this: set `JSONIFIER_CPU_INSTRUCTIONS` to the target's features at configure time instead (see [CPU Architecture Selection](cpu_architecture_selection.md#overriding-the-detected-features)). If you're bypassing CMake (pasting the headers into your project, using a hand-rolled Makefile, or integrating into a non-CMake build system), you **must** manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` and set each feature macro to `1` or `0` to match your target CPU:
 
-| Feature   | Bit | Value |
-|-----------|-----|-------|
-| LZCNT     | 0   | `1 << 0` = 1 |
-| POPCNT    | 1   | `1 << 1` = 2 |
-| BMI       | 2   | `1 << 2` = 4 |
-| PCLMULQDQ | 3   | `1 << 3` = 8 |
-| NEON      | 4   | `1 << 4` = 16 |
-| AVX       | 5   | `1 << 5` = 32 |
-| AVX2      | 6   | `1 << 6` = 64 |
-| AVX-512   | 7   | `1 << 7` = 128 |
-| SVE2      | 8   | `1 << 8` = 256 |
+| Feature   | Macro |
+|-----------|-------|
+| LZCNT     | `JSONIFIER_LZCNT` |
+| POPCNT    | `JSONIFIER_POPCNT` |
+| BMI       | `JSONIFIER_BMI` |
+| PCLMULQDQ | `JSONIFIER_CLMUL` |
+| NEON      | `JSONIFIER_NEON` |
+| AVX       | `JSONIFIER_AVX` |
+| AVX2      | `JSONIFIER_AVX2` |
+| AVX-512   | `JSONIFIER_AVX512` |
+| SVE2      | `JSONIFIER_SVE2` |
 
-OR them together for the features your target supports, and pass the matching `-m...` or `/arch:` flags yourself, since the header alone does not enable any instructions. Only the highest AVX bit matters: `core/defines.hpp` builds the AVX tier from it. So a modern x64 CPU with AVX-512 can be written as `1 | 2 | 4 | 8 | 128 = 143`, and builds the same backend as the `239` that detection writes for it (which also carries the AVX and AVX2 bits). An ARM64 CPU with NEON would be `16`. A conservative fallback with no SIMD would be `0`. See [CPU Architecture Selection](CPU_Architecture_Selection.md) for how the AVX bits are detected.
+Set the macros for the features your target supports to `1` and the rest to `0`, and pass the matching `-m...` or `/arch:` flags yourself, since the header alone does not enable any instructions. Each macro is wrapped in `#if !defined`, so you can also define them on the compiler command line instead of editing the header. An ARM64 CPU with NEON sets only `JSONIFIER_NEON` (plus `JSONIFIER_CLMUL` if it has PMULL). A conservative fallback with no SIMD sets every macro to `0`. See [CPU Architecture Selection](cpu_architecture_selection.md) for how the AVX bits are detected.
+
+The register width is set separately, in `include/jsonifier-incl/simd/jsonifier_cpu_properties.hpp`, as `JSONIFIER_CPU_ALIGNMENT` (64 for AVX-512, 32 for AVX2, 16 for AVX, NEON, 128-bit SVE2, and the scalar fallback). It is also wrapped in `#if !defined`, so a build that picks its tier on the command line passes it alongside the feature macros, e.g. `-DJSONIFIER_AVX2=0 -DJSONIFIER_CPU_ALIGNMENT=16`; a mismatch stops the build at the `static_assert` in `simd/simd_config.hpp`.
 
 The same header also defines `JSONIFIER_SVE2_VECTOR_BITS`. It only matters when the SVE2 bit is set, in which case it must be the target's measured SVE vector length (e.g. `128`); the header `#error`s if SVE2 is selected with a vector length of `0`, or if NEON and SVE2 are both set.
 
-See the [CPU Architecture Selection](CPU_Architecture_Selection.md) page for the full breakdown and cross-compilation guidance.
+See the [CPU Architecture Selection](cpu_architecture_selection.md) page for the full breakdown and cross-compilation guidance.
 
 ## Running the Test Suite
 
@@ -137,4 +139,4 @@ If you need to override the auto-detected value even when using CMake (for examp
 cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS=143
 ```
 
-See the [CPU Architecture Selection](CPU_Architecture_Selection.md) page for the full details.
+See the [CPU Architecture Selection](cpu_architecture_selection.md) page for the full details.

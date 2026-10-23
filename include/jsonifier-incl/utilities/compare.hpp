@@ -15,18 +15,18 @@
 
 namespace jsonifier::internal {
 
-	template<uint8_t repeat, uint_types return_type> inline consteval return_type repeatByte() {
+	template<uint8_t repeat, uint_types return_type> consteval return_type repeatByte() {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
-	template<uint_types return_type> inline constexpr return_type repeatByte(uint8_t repeat) noexcept {
+	template<uint_types return_type> constexpr return_type repeatByte(uint8_t repeat) noexcept {
 		return static_cast<return_type>(static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat));
 	}
 
 	template<char valueNewer, typename char_type> struct char_comparison {
 		static constexpr char value{ valueNewer };
 		JSONIFIER_INLINE static const char_type* memchar(const char_type* data, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 			}
 #endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -158,7 +158,7 @@ namespace jsonifier::internal {
 
 	struct comparison {
 		template<typename char_type01, typename char_type02> JSONIFIER_INLINE static bool compare(const char_type01* lhs, char_type02* rhs, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -177,7 +177,7 @@ namespace jsonifier::internal {
 				}
 			}
 #endif
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -262,7 +262,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> inline consteval uint64_t getPackingSize() {
+	template<uint64_t size> consteval uint64_t getPackingSize() {
 		if constexpr (size >= 64) {
 			return 64;
 		} else if constexpr (size >= 32) {
@@ -282,11 +282,11 @@ namespace jsonifier::internal {
 
 	template<string_literal string>
 		requires(string.length == 0)
-	inline consteval auto packValues() {
+	consteval auto packValues() {
 		return uint8_t{};
 	}
 
-	template<uint64_t length> alignas(64) inline constexpr uint64_t intLength = []<uint64_t lengthNew> {
+	template<uint64_t length> inline constexpr uint64_t intLength = []<uint64_t lengthNew> {
 		if constexpr (lengthNew == 1ULL) {
 			return 1ULL;
 		} else if constexpr (lengthNew == 2ULL) {
@@ -305,7 +305,7 @@ namespace jsonifier::internal {
 	template<auto string> struct pack_values;
 
 	template<gt_0_lte_8_types auto string> struct pack_values<string> {
-		inline static consteval decltype(auto) gen() {
+		static consteval decltype(auto) gen() {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
 			for (uint64_t x = 0; x < string.length; ++x) {
@@ -317,19 +317,19 @@ namespace jsonifier::internal {
 			}
 			return returnValues;
 		}
-		alignas(64) static constexpr auto value{ gen() };
+		static constexpr auto value{ gen() };
 	};
 
 	template<gt_8_types auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, intLength<string.size()>>;
-		inline static consteval array_type gen() {
+		static consteval array_type gen() {
 			array_type outLocal{};
 			for (uint64_t i = 0; i < string.size(); ++i) {
 				outLocal[i] = static_cast<uint8_t>(string[i]);
 			}
 			return outLocal;
 		}
-		alignas(64) static constexpr auto value{ gen() };
+		alignas(simdBytesPerRegister) static constexpr auto value{ gen() };
 	};
 
 	struct string_status {
@@ -369,14 +369,14 @@ namespace jsonifier::internal {
 
 	template<typename sequence, auto stringNew, uint64_t splitMod> struct string_literal_splitter;
 
-	template<uint64_t index, typename string_type> inline constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
+	template<uint64_t index, typename string_type> constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
 		string_literal<index + 1> sl{};
 		std::copy_n(str.data(), str.size(), sl.values);
 		sl[index] = '\0';
 		return sl;
 	}
 
-	inline consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
+	consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {
 			return 64ULL;
 		} else if (inputSize >= 32ULL && simdBytesPerRegister >= 32ULL) {
@@ -389,7 +389,7 @@ namespace jsonifier::internal {
 	template<typename sl_type, base_t<sl_type> stringNew, typename = void> struct string_literal_comparator_impl;
 
 	template<uint64_t... indices, auto stringNew, uint64_t splitMod> struct string_literal_splitter<integer_sequence<indices...>, stringNew, splitMod> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			return (static_cast<void>(
 						((str = string_literal_comparator_impl<decltype(string_literal_splitter_impl<getSplitStringStatus(indices, stringNew.size()), stringNew, splitMod>::string),
 							  string_literal_splitter_impl<getSplitStringStatus(indices, stringNew.size()), stringNew, splitMod>::string>::impl(str),
@@ -407,13 +407,13 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_0_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			return str;
 		}
 	};
 
 	template<eq_1_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			return (*str == stringLiteral[0]) ? str + newCount : nullptr;
@@ -421,7 +421,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_2_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint16_t valuesNew{ pack_values<stringLiteral>::value };
@@ -432,7 +432,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_3_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 2>();
@@ -447,7 +447,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_4_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint32_t valuesNew{ pack_values<stringLiteral>::value };
@@ -458,7 +458,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_5_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 4>();
@@ -473,7 +473,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_6_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 4>();
@@ -488,7 +488,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_7_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 4>();
@@ -503,7 +503,7 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_8_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr uint64_t valuesNew{ pack_values<stringLiteral>::value };
@@ -514,7 +514,7 @@ namespace jsonifier::internal {
 	};
 
 	template<gt_8_lt_16_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 8>();
@@ -541,9 +541,9 @@ namespace jsonifier::internal {
 	};
 
 	template<eq_16_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
-			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
+			alignas(simdBytesPerRegister) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_128 data1{ simd::gatherValuesU<jsonifier_simd_int_128>(str) };
 			const jsonifier_simd_int_128 data2{ simd::gatherValues<jsonifier_simd_int_128>(valuesNew.data()) };
 			return simd::opTest(simd::opXor(data1, data2)) ? str + 16 : nullptr;
@@ -551,13 +551,13 @@ namespace jsonifier::internal {
 	};
 
 	template<gt_16_lt_32_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 16>();
 			static constexpr auto hiString = stringLiteral.template substr<newCount - 16, 16>();
-			alignas(64) static constexpr auto loValuesNew{ pack_values<loString>::value };
-			alignas(64) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
+			alignas(simdBytesPerRegister) static constexpr auto loValuesNew{ pack_values<loString>::value };
+			alignas(simdBytesPerRegister) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
 			const jsonifier_simd_int_128 lo{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_128>(str), simd::gatherValues<jsonifier_simd_int_128>(loValuesNew.data())) };
 			const jsonifier_simd_int_128 hi{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_128>(str + newCount - 16),
 				simd::gatherValues<jsonifier_simd_int_128>(hiValuesNew.data())) };
@@ -565,12 +565,12 @@ namespace jsonifier::internal {
 		}
 	};
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 
 	template<eq_32_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
-			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
+			alignas(simdBytesPerRegister) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_256 data1{ simd::gatherValuesU<jsonifier_simd_int_256>(str) };
 			const jsonifier_simd_int_256 data2{ simd::gatherValues<jsonifier_simd_int_256>(valuesNew.data()) };
 			return simd::opTest(simd::opXor(data1, data2)) ? str + 32 : nullptr;
@@ -578,13 +578,13 @@ namespace jsonifier::internal {
 	};
 
 	template<gt_32_lt_64_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto stringLiteral{ stringNew };
 			static constexpr auto newCount{ stringLiteral.size() };
 			static constexpr auto loString = stringLiteral.template substr<0, 32>();
 			static constexpr auto hiString = stringLiteral.template substr<newCount - 32, 32>();
-			alignas(64) static constexpr auto loValuesNew{ pack_values<loString>::value };
-			alignas(64) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
+			alignas(simdBytesPerRegister) static constexpr auto loValuesNew{ pack_values<loString>::value };
+			alignas(simdBytesPerRegister) static constexpr auto hiValuesNew{ pack_values<hiString>::value };
 			const jsonifier_simd_int_256 lo{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_256>(str), simd::gatherValues<jsonifier_simd_int_256>(loValuesNew.data())) };
 			const jsonifier_simd_int_256 hi{ simd::opXor(simd::gatherValuesU<jsonifier_simd_int_256>(str + newCount - 32),
 				simd::gatherValues<jsonifier_simd_int_256>(hiValuesNew.data())) };
@@ -594,11 +594,11 @@ namespace jsonifier::internal {
 
 #endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 	template<eq_64_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			static constexpr auto newLiteral{ stringNew };
-			alignas(64) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
+			alignas(simdBytesPerRegister) static constexpr auto valuesNew{ pack_values<newLiteral>::value };
 			const jsonifier_simd_int_512 data1{ simd::gatherValuesU<jsonifier_simd_int_512>(str) };
 			const jsonifier_simd_int_512 data2{ simd::gatherValues<jsonifier_simd_int_512>(valuesNew.data()) };
 			return simd::opCmpNeq(data1, data2) == 0 ? str + 64 : nullptr;
@@ -610,13 +610,13 @@ namespace jsonifier::internal {
 		static constexpr uint64_t splitMod{ jsonifier::internal::getOffsetIntoLiteralSize(stringNew.size()) };
 		static constexpr auto stringCount{ jsonifier::internal::getSplitStringCount<splitMod>(stringNew) };
 
-		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			return string_literal_splitter<make_integer_sequence<stringCount>, stringNew, splitMod>::impl(str);
 		}
 	};
 
 	template<auto string> struct string_literal_comparator {
-		JSONIFIER_INLINE static bool impl(read_buffer_ptr __restrict str, uint64_t stringLength) noexcept {
+		JSONIFIER_INLINE static bool impl(read_buffer_ptr str, uint64_t stringLength) noexcept {
 			using sl_type = decltype(string);
 			return stringLength >= string.size() ? string_literal_comparator_impl<sl_type, string>::impl(str) != nullptr : false;
 		}

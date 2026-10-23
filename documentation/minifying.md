@@ -24,7 +24,7 @@ Unlike `parseJson` and `serializeJson`, minifying doesn't involve your registere
 
 ## How It Works
 
-Minifying uses the same stage-1 structural scanner that powers [Partial Reading](PartialReading.md). Stage-1 scans the input once and builds a tape of offsets to every structural character (`{ } [ ] " , :`) and every value. Minifying then walks that tape, emitting each structural character directly and copying string and number values verbatim, with any whitespace between them stripped out.
+Minifying uses the same stage-1 structural scanner that powers [Partial Reading](partial_reading.md). Stage-1 scans the input once and builds a tape of offsets to every structural character (`{ } [ ] " , :`) and every value. Minifying then walks that tape, emitting each structural character directly and copying string and number values verbatim, with any whitespace between them stripped out.
 
 Booleans and nulls are normalized to canonical form (`true`, `false`, `null`) rather than copied byte-for-byte from the source. In practice this changes nothing because valid JSON already uses those exact literals, but if your input has any oddities the output will always be canonical.
 
@@ -40,7 +40,7 @@ if (!parser.minifyJson(input, output)) {
 }
 ```
 
-Minifier-specific error statuses live in a `minify_statuses` enum, covering cases like empty input, malformed strings, invalid numbers, unexpected structural characters, and unclosed objects or arrays. See [Error Handling](Errors.md) for the full breakdown.
+Minifier-specific error statuses live in a `minify_statuses` enum, covering cases like empty input, malformed strings, invalid numbers, unexpected structural characters, and unclosed objects or arrays. See [Error Handling](errors.md) for the full breakdown.
 
 ## What Stays the Same
 
@@ -115,6 +115,6 @@ If you have a typed object and want minified output, use `serializeJson`; going 
 
 ## What's Next
 
-- **[Prettifying](Prettifying.md)**: the inverse operation, adding indentation and newlines for human readability
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: for producing JSON directly from typed C++ objects
-- **[Error Handling](Errors.md)**: full breakdown of error reporting including minifier errors
+- **[Prettifying](prettifying.md)**: the inverse operation, adding indentation and newlines for human readability
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: for producing JSON directly from typed C++ objects
+- **[Error Handling](errors.md)**: full breakdown of error reporting including minifier errors

@@ -20,7 +20,7 @@ namespace jsonifier::internal {
 
 	template<typename = void> alignas(64) inline constexpr array<bool, 256> expTableRaw = generateExpTable();
 
-	alignas(64) inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
+	inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
 
 	consteval array<bool, 256> generateExpFracTable() {
 		array<bool, 256> table{};
@@ -32,12 +32,7 @@ namespace jsonifier::internal {
 
 	template<typename = void> alignas(64) inline constexpr array<bool, 256> expFracTableRaw = generateExpFracTable();
 
-	alignas(64) inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
-
-	alignas(64) inline constexpr char decimal{ '.' };
-	alignas(64) inline constexpr char minus{ '-' };
-	alignas(64) inline constexpr char plus{ '+' };
-	alignas(64) inline constexpr char nine{ '9' };
+	inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
 
 	struct parsed_number {
 		read_buffer_ptr lastMatch{};
@@ -52,7 +47,7 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE parsed_number parseNumberString(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
 		parsed_number answer{};
-		answer.negative = (*iter == minus);
+		answer.negative = (*iter == '-');
 		if (answer.negative) {
 			++iter;
 			if (iter == end || !isDigit(*iter)) [[unlikely]] {
@@ -96,7 +91,7 @@ namespace jsonifier::internal {
 		}
 
 		int64_t exponent{};
-		bool const hasDecimalPoint = (iter != end) && (*iter == decimal);
+		bool const hasDecimalPoint = (iter != end) && (*iter == '.');
 		if (hasDecimalPoint) {
 			++iter;
 			read_buffer_ptr const before = iter;
@@ -120,10 +115,10 @@ namespace jsonifier::internal {
 		if ((iter != end) && ((*iter == 'e') || (*iter == 'E'))) {
 			++iter;
 			bool negExp = false;
-			if ((iter != end) && (*iter == minus)) {
+			if ((iter != end) && (*iter == '-')) {
 				negExp = true;
 				++iter;
-			} else if ((iter != end) && (*iter == plus)) {
+			} else if ((iter != end) && (*iter == '+')) {
 				++iter;
 			}
 			if ((iter == end) || !isDigit(*iter)) [[unlikely]] {
@@ -146,7 +141,7 @@ namespace jsonifier::internal {
 
 		if (digitCount > 19) [[unlikely]] {
 			read_buffer_ptr start = startDigits;
-			while ((start != end) && (*start == '0' || *start == decimal)) {
+			while ((start != end) && (*start == '0' || *start == '.')) {
 				if (*start == '0') {
 					--digitCount;
 				}
@@ -212,7 +207,7 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			parsed_number pns = parseNumberString(iter, end, true);
 			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
 				return pns.lastMatch;
@@ -233,7 +228,7 @@ namespace jsonifier::internal {
 			return pns.lastMatch;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
 			if (iter >= end) [[unlikely]] {
 				return nullptr;
 			}

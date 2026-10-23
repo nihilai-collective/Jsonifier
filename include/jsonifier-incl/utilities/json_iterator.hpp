@@ -204,8 +204,9 @@ namespace jsonifier::internal {
 
 	template<parse_options parseOpts, typename iterator_type, typename string_buffer_type> struct parse_context;
 
-	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, read_buffer_ptr, string_buffer_type> {
-		using iterator_type = read_buffer_ptr;
+	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, unrestrict_t<read_buffer_ptr>, string_buffer_type> {
+		using iterator_type			 = read_buffer_ptr;
+		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
 		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
 			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew } {
@@ -238,8 +239,9 @@ namespace jsonifier::internal {
 #endif
 	};
 
-	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, write_structural_index_ptr, string_buffer_type> {
-		using iterator_type = write_structural_index_ptr;
+	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, string_buffer_type> {
+		using iterator_type			 = write_structural_index_ptr;
+		using template_iterator_type = unrestrict_t<write_structural_index_ptr>;
 
 		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr stringRootNew, read_buffer_ptr stringEndNew,
 			write_structural_index_ptr endIterNew) noexcept
@@ -271,14 +273,15 @@ namespace jsonifier::internal {
 
 	template<parse_options parseOpts, typename iterator_type> struct json_cursor;
 
-	template<parse_options parseOpts> struct json_cursor<parseOpts, read_buffer_ptr> {
-		using iterator_type = read_buffer_ptr;
+	template<parse_options parseOpts> struct json_cursor<parseOpts, unrestrict_t<read_buffer_ptr>> {
+		using iterator_type			 = read_buffer_ptr;
+		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr valuePtr(read_buffer_ptr iter, context_type&) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(read_buffer_ptr iter, context_type&) noexcept {
 			return iter;
 		}
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr stringEnd(context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> stringEnd(context_type& context) noexcept {
 			return context.endIter;
 		}
 
@@ -543,7 +546,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -565,7 +568,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -656,14 +659,15 @@ namespace jsonifier::internal {
 
 	template<parse_options parseOpts>
 		requires(!parseOpts.minified)
-	struct json_cursor<parseOpts, read_buffer_ptr> {
-		using iterator_type = read_buffer_ptr;
+	struct json_cursor<parseOpts, unrestrict_t<read_buffer_ptr>> {
+		using iterator_type			 = read_buffer_ptr;
+		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr valuePtr(read_buffer_ptr iter, context_type&) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(read_buffer_ptr iter, context_type&) noexcept {
 			return iter;
 		}
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr stringEnd(context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> stringEnd(context_type& context) noexcept {
 			return context.endIter;
 		}
 
@@ -687,7 +691,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr skipNewline(read_buffer_ptr iterLocal, [[maybe_unused]] auto& context) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> skipNewline(read_buffer_ptr iterLocal, [[maybe_unused]] auto& context) noexcept {
 			if constexpr (parseOpts.nullTerminated) {
 				while (newlineTable[static_cast<uint64_t>(*iterLocal)]) {
 					++iterLocal;
@@ -711,12 +715,12 @@ namespace jsonifier::internal {
 
 		static_assert(sizeof(uintptr_t) == 8, "pointer tagging requires 64-bit pointers");
 
-		JSONIFIER_INLINE static constexpr read_buffer_ptr setTag(read_buffer_ptr ptr, indent_result_types status) noexcept {
+		JSONIFIER_INLINE static constexpr unrestrict_t<read_buffer_ptr> setTag(read_buffer_ptr ptr, indent_result_types status) noexcept {
 			const uintptr_t raw = std::bit_cast<uintptr_t>(ptr);
 			return std::bit_cast<read_buffer_ptr>((raw & addrMask) | (static_cast<uintptr_t>(status) << tagShift));
 		}
 
-		JSONIFIER_INLINE static constexpr read_buffer_ptr stripTag(uintptr_t ptr) noexcept {
+		JSONIFIER_INLINE static constexpr unrestrict_t<read_buffer_ptr> stripTag(uintptr_t ptr) noexcept {
 			return std::bit_cast<read_buffer_ptr>(ptr & addrMask);
 		}
 
@@ -726,10 +730,10 @@ namespace jsonifier::internal {
 
 		enum class ws_sizes { eq_0, eq_1, eq_2, gt_2, eq_4, gt_4, eq_8 };
 
-		alignas(64) static constexpr ws_sizes wsSizes[9]{ ws_sizes::eq_0, ws_sizes::eq_1, ws_sizes::eq_2, ws_sizes::gt_2, ws_sizes::eq_4, ws_sizes::gt_4, ws_sizes::gt_4,
-			ws_sizes::gt_4, ws_sizes::eq_8 };
+		alignas(64) static constexpr ws_sizes wsSizes[9]{ ws_sizes::eq_0, ws_sizes::eq_1, ws_sizes::eq_2, ws_sizes::gt_2, ws_sizes::eq_4, ws_sizes::gt_4, ws_sizes::gt_4, ws_sizes::gt_4,
+			ws_sizes::eq_8 };
 
-		JSONIFIER_INLINE static read_buffer_ptr spanIsIndent(read_buffer_ptr iterLocal, uint64_t count, base_t<decltype(*read_buffer_ptr{})> wsChar) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> spanIsIndent(read_buffer_ptr iterLocal, uint64_t count, base_t<decltype(*read_buffer_ptr{})> wsChar) noexcept {
 			const uint64_t fill{ static_cast<uint64_t>(static_cast<uint8_t>(wsChar)) * 0x0101010101010101ull };
 			uint64_t remaining{ count };
 			while (remaining > 16) {
@@ -1268,7 +1272,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -1291,7 +1295,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -1327,14 +1331,15 @@ namespace jsonifier::internal {
 		return table;
 	}() };
 
-	template<parse_options parseOpts> struct json_cursor<parseOpts, write_structural_index_ptr> {
-		using iterator_type = write_structural_index_ptr;
+	template<parse_options parseOpts> struct json_cursor<parseOpts, unrestrict_t<write_structural_index_ptr>> {
+		using iterator_type			 = write_structural_index_ptr;
+		using template_iterator_type = unrestrict_t<write_structural_index_ptr>;
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr valuePtr(write_structural_index_ptr iter, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(write_structural_index_ptr iter, context_type& context) noexcept {
 			return context.stringRoot + *iter;
 		}
 
-		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr stringEnd(context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> stringEnd(context_type& context) noexcept {
 			return context.stringEnd;
 		}
 
@@ -1542,7 +1547,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			if (comparison == trueVal) {
 				value = true;
@@ -1565,7 +1570,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			if (comparison == nullVal) [[likely]] {
 				++iter;

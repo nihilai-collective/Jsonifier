@@ -142,12 +142,12 @@ int32_t main() {
 }
 ```
 
-The `event` registration is omitted from this snippet; see [Reflection](Reflection.md) for the setup.
+The `event` registration is omitted from this snippet; see [Reflection](reflection.md) for the setup.
 
 ## What's Next
 
-- **[Validating](Validating.md)**: the pure structural-check function that includes UTF-8 validation automatically
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: the full `parse_options` reference
-- **[Error Handling](Errors.md)**: how UTF-8 errors are reported through `parser.getErrors()`
+- **[Validating](validating.md)**: the pure structural-check function that includes UTF-8 validation automatically
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: the full `parse_options` reference
+- **[Error Handling](errors.md)**: how UTF-8 errors are reported through `parser.getErrors()`
 
 ---

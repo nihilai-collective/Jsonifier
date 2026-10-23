@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2 || JSONIFIER_AVX
 
 	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE uint64_t postCmpTzcnt(const value_type value) noexcept {
 		return countrZero(value);
@@ -53,11 +53,6 @@ namespace jsonifier::internal::simd {
 		return static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpeq_epi8(value, other)));
 	}
 
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		const jsonifier_simd_int_128 offset = _mm_set1_epi8(static_cast<char>(0x80));
-		return static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpgt_epi8(_mm_add_epi8(other, offset), _mm_add_epi8(value, offset))));
-	}
-
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm_cmpeq_epi8(value, other);
 	}
@@ -65,6 +60,10 @@ namespace jsonifier::internal::simd {
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		const jsonifier_simd_int_128 offset = _mm_set1_epi8(static_cast<char>(0x80));
 		return _mm_cmpgt_epi8(_mm_add_epi8(other, offset), _mm_add_epi8(value, offset));
+	}
+
+	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtSignedRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
+		return _mm_cmpgt_epi8(other, value);
 	}
 
 	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opBitMask(simd_int_t01 value) noexcept {
@@ -87,11 +86,6 @@ namespace jsonifier::internal::simd {
 		return _mm_subs_epu8(value, other);
 	}
 
-	template<int32_t permuteMask, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE auto opPermute(simd_int_t01 value, simd_int_t02) noexcept {
-		return value;
-	}
-
 	template<int32_t alignment, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE auto opAlignR(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm_alignr_epi8(value, other, alignment);
@@ -109,16 +103,8 @@ namespace jsonifier::internal::simd {
 		return _mm_or_si128(value, other);
 	}
 
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return _mm_andnot_si128(other, value);
-	}
-
 	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opTest(simd_int_t01 value) noexcept {
 		return _mm_testz_si128(value, value);
-	}
-
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opNot(simd_int_t01 value) noexcept {
-		return _mm_xor_si128(value, _mm_set1_epi64x(static_cast<int64_t>(0xFFFFFFFFFFFFFFFFll)));
 	}
 
 	template<int32_t shift, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
@@ -126,15 +112,11 @@ namespace jsonifier::internal::simd {
 		return simd::opAlignR<shift>(current, previous);
 	}
 
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !simd::opTest(value);
-	}
-
 	template<simd_int_128_types simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {
 		return opOr(chunks.template get<0>(), opOr(chunks.template get<1>(), opOr(chunks.template get<2>(), chunks.template get<3>())));
 	}
 
-	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+	#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 
 	template<simd_int_256_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE simd_int_type_new gatherValues(const void* __restrict str) noexcept {
 		return _mm256_load_si256(static_cast<const __m256i*>(str));
@@ -168,11 +150,6 @@ namespace jsonifier::internal::simd {
 		return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpeq_epi8(value, other)));
 	}
 
-	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		const jsonifier_simd_int_256 offset = _mm256_set1_epi8(static_cast<char>(0x80));
-		return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpgt_epi8(_mm256_add_epi8(other, offset), _mm256_add_epi8(value, offset))));
-	}
-
 	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm256_cmpeq_epi8(value, other);
 	}
@@ -180,6 +157,10 @@ namespace jsonifier::internal::simd {
 	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		const jsonifier_simd_int_256 offset = _mm256_set1_epi8(static_cast<char>(0x80));
 		return _mm256_cmpgt_epi8(_mm256_add_epi8(other, offset), _mm256_add_epi8(value, offset));
+	}
+
+	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtSignedRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
+		return _mm256_cmpgt_epi8(other, value);
 	}
 
 	template<simd_int_256_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opBitMask(simd_int_t01 value) noexcept {
@@ -202,11 +183,6 @@ namespace jsonifier::internal::simd {
 		return _mm256_subs_epu8(value, other);
 	}
 
-	template<int32_t permuteMask, simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE auto opPermute(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return _mm256_permute2x128_si256(value, other, permuteMask);
-	}
-
 	template<int32_t alignment, simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE auto opAlignR(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm256_alignr_epi8(value, other, alignment);
@@ -224,19 +200,11 @@ namespace jsonifier::internal::simd {
 		return _mm256_or_si256(value, other);
 	}
 
-	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return _mm256_andnot_si256(other, value);
-	}
-
 	template<simd_int_256_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opTest(simd_int_t01 value) noexcept {
 		return _mm256_testz_si256(value, value);
 	}
 
-	template<simd_int_256_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opNot(simd_int_t01 value) noexcept {
-		return _mm256_xor_si256(value, _mm256_set1_epi64x(static_cast<int64_t>(0xFFFFFFFFFFFFFFFFll)));
-	}
-
-	template<int64_t shift, simd_int_256_types simd_type> inline simd_type opPrev(simd_type cur, simd_type prev) noexcept {
+	template<int64_t shift, simd_int_256_types simd_type> simd_type opPrev(simd_type cur, simd_type prev) noexcept {
 		return _mm256_alignr_epi8(cur, _mm256_permute2x128_si256(prev, cur, 0x21), shift);
 	}
 
@@ -244,11 +212,7 @@ namespace jsonifier::internal::simd {
 		return opOr(chunks.template get<0>(), chunks.template get<1>());
 	}
 
-	template<simd_int_256_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !simd::opTest(value);
-	}
-
-		#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+		#if JSONIFIER_AVX512
 
 	template<simd_int_512_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE simd_int_type_new gatherValues(const void* __restrict str) noexcept {
 		return _mm512_load_si512(static_cast<const __m512i*>(str));
@@ -282,16 +246,16 @@ namespace jsonifier::internal::simd {
 		return static_cast<uint64_t>(_mm512_cmpeq_epi8_mask(value, other));
 	}
 
-	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return static_cast<uint64_t>(_mm512_cmplt_epu8_mask(value, other));
-	}
-
 	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm512_movm_epi8(_mm512_cmpeq_epi8_mask(value, other));
 	}
 
 	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm512_movm_epi8(_mm512_cmplt_epu8_mask(value, other));
+	}
+
+	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtSignedRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
+		return _mm512_movm_epi8(_mm512_cmplt_epi8_mask(value, other));
 	}
 
 	template<simd_int_512_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE uint64_t opBitMask(simd_int_t01 value) noexcept {
@@ -312,11 +276,6 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opSubs(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return _mm512_subs_epu8(value, other);
-	}
-
-	template<int32_t permuteMask, simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE auto opPermute(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return _mm512_shuffle_i64x2(value, other, permuteMask);
 	}
 
 	template<int32_t alignment, simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02>
@@ -340,25 +299,13 @@ namespace jsonifier::internal::simd {
 		return _mm512_or_si512(value, other);
 	}
 
-	template<simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return _mm512_andnot_si512(other, value);
-	}
-
 	template<simd_int_512_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opTest(simd_int_t01 value) noexcept {
 		return _mm512_test_epi64_mask(value, value) == 0;
-	}
-
-	template<simd_int_512_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opNot(simd_int_t01 value) noexcept {
-		return _mm512_xor_si512(value, _mm512_set1_epi64(static_cast<int64_t>(0xFFFFFFFFFFFFFFFFll)));
 	}
 
 	template<int32_t shift, simd_int_512_types simd_int_t01, simd_int_512_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE auto opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
 		return _mm512_alignr_epi8(current, _mm512_permutex2var_epi64(previous, _mm512_set_epi64(13, 12, 11, 10, 9, 8, 7, 6), current), shift);
-	}
-
-	template<simd_int_512_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !simd::opTest(value);
 	}
 
 	template<simd_int_512_types simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {

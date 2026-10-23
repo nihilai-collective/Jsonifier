@@ -53,9 +53,9 @@ If you're not sure whether your input is minified, either:
 
 ## Interaction With Other Options
 
-- **`knownOrder`**: Combining `minified = true` with `knownOrder = true` unlocks the fastest parsing path Jsonifier offers. When both are set (and `partialRead` is off), object parsing uses compile-time-generated string literals for each field including the surrounding punctuation, letting the parser check the next expected field with a single `memcmp` against the raw stream. See [Known Order Parsing](Known_Order.md).
+- **`knownOrder`**: Combining `minified = true` with `knownOrder = true` unlocks the fastest parsing path Jsonifier offers. When both are set (and `partialRead` is off), object parsing uses compile-time-generated string literals for each field including the surrounding punctuation, letting the parser check the next expected field with a single `memcmp` against the raw stream. See [Known Order Parsing](known_order.md).
 - **`partialRead`**: Fully compatible. Stage-1's tape is still built (needed for partial mode), just without the whitespace-tracking work.
-- **`nullTerminated`**: Independent knob; see the [Serializing & Parsing](Usage_Serializing_Parsing.md#-the-nullterminated-footgun) warning.
+- **`nullTerminated`**: Independent knob; see the [Serializing & Parsing](usage_serializing_parsing.md#-the-nullterminated-footgun) warning.
 
 ## Example: Dispatching on Whether Input Is Minified
 
@@ -114,8 +114,8 @@ int32_t main() {
 
 ## What's Next
 
-- **[Known Order Parsing](Known_Order.md)**: the other big performance flag, especially effective when combined with `minified`
-- **[Minifying](Minifying.md)**: how to convert whitespace-bearing JSON into a form suitable for the fast path
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: the full `parse_options` reference
+- **[Known Order Parsing](known_order.md)**: the other big performance flag, especially effective when combined with `minified`
+- **[Minifying](minifying.md)**: how to convert whitespace-bearing JSON into a form suitable for the fast path
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: the full `parse_options` reference
 
 ---

@@ -96,8 +96,8 @@ The third `knownOrder = true` call (`t3 → t4`) is the steady-state number. Com
 
 ## What's Next
 
-- **[Partial Reading](PartialReading.md)**: for JSON where the schema might not be fully known ahead of time
-- **[Optimizing For Minified JSON](Optimizing_For_Minified_Json.md)**: the `minified` flag details, including the fast-fast-path interaction
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: full reference on all parse options
+- **[Partial Reading](partial_reading.md)**: for JSON where the schema might not be fully known ahead of time
+- **[Optimizing For Minified JSON](optimizing_for_minified_json.md)**: the `minified` flag details, including the fast-fast-path interaction
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: full reference on all parse options
 
 ---

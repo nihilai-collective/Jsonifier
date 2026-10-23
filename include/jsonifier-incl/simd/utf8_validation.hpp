@@ -16,16 +16,16 @@
 
 namespace jsonifier::internal {
 
-	alignas(64) inline constexpr uint8_t tooShort	  = 1 << 0;
-	alignas(64) inline constexpr uint8_t tooLong	  = 1 << 1;
-	alignas(64) inline constexpr uint8_t overLong3	  = 1 << 2;
-	alignas(64) inline constexpr uint8_t tooLarge	  = 1 << 3;
-	alignas(64) inline constexpr uint8_t surrogate	  = 1 << 4;
-	alignas(64) inline constexpr uint8_t overLong2	  = 1 << 5;
-	alignas(64) inline constexpr uint8_t twoConts	  = 1 << 7;
-	alignas(64) inline constexpr uint8_t tooLarge1000 = 1 << 6;
-	alignas(64) inline constexpr uint8_t overLong4	  = 1 << 6;
-	alignas(64) inline constexpr uint8_t carry		  = tooShort | tooLong | twoConts;
+	inline constexpr uint8_t tooShort	  = 1 << 0;
+	inline constexpr uint8_t tooLong	  = 1 << 1;
+	inline constexpr uint8_t overLong3	  = 1 << 2;
+	inline constexpr uint8_t tooLarge	  = 1 << 3;
+	inline constexpr uint8_t surrogate	  = 1 << 4;
+	inline constexpr uint8_t overLong2	  = 1 << 5;
+	inline constexpr uint8_t twoConts	  = 1 << 7;
+	inline constexpr uint8_t tooLarge1000 = 1 << 6;
+	inline constexpr uint8_t overLong4	  = 1 << 6;
+	inline constexpr uint8_t carry		  = tooShort | tooLong | twoConts;
 
 	using namespace simd;
 
@@ -39,9 +39,9 @@ namespace jsonifier::internal {
 		return returnValue;
 	}
 
-	alignas(64) inline constexpr auto byte1HighTableRaw{ genByte1HighTable() };
+	alignas(simdBytesPerRegister) inline constexpr auto byte1HighTableRaw{ genByte1HighTable() };
 
-	alignas(64) inline constexpr const uint8_t* __restrict byte1HighTable{ byte1HighTableRaw.data() };
+	inline constexpr read_buffer_ptr byte1HighTable{ byte1HighTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte1LowTable() {
 		constexpr array<uint8_t, 16ULL> raw{ { carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
@@ -55,9 +55,9 @@ namespace jsonifier::internal {
 		return returnValue;
 	}
 
-	alignas(64) inline constexpr auto byte1LowTableRaw{ genByte1LowTable() };
+	alignas(simdBytesPerRegister) inline constexpr auto byte1LowTableRaw{ genByte1LowTable() };
 
-	alignas(64) inline constexpr const uint8_t* __restrict byte1LowTable{ byte1LowTableRaw.data() };
+	inline constexpr read_buffer_ptr byte1LowTable{ byte1LowTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte2HighTable() {
 		constexpr array<uint8_t, 16ULL> raw{ { tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
@@ -70,18 +70,18 @@ namespace jsonifier::internal {
 		return returnValue;
 	}
 
-	alignas(64) inline constexpr auto byte2HighTableRaw{ genByte2HighTable() };
+	alignas(simdBytesPerRegister) inline constexpr auto byte2HighTableRaw{ genByte2HighTable() };
 
-	alignas(64) inline constexpr const uint8_t* __restrict byte2HighTable{ byte2HighTableRaw.data() };
+	inline constexpr read_buffer_ptr byte2HighTable{ byte2HighTableRaw.data() };
 
-	alignas(64) inline constexpr uint8_t isIncompleteMax[64]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+	alignas(simdBytesPerRegister) inline constexpr uint8_t isIncompleteMax[64]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-		255, 255, 255, 255, static_cast<uint8_t>(0xF0u - 1), static_cast<uint8_t>(0xE0u - 1), static_cast<uint8_t>(0xC0u - 1) };
+		255, 255, 255, 255, 255, 255, 255, static_cast<uint8_t>(0xF0u - 1), static_cast<uint8_t>(0xE0u - 1), static_cast<uint8_t>(0xC0u - 1) };
 
 	template<typename integer_sequence> struct chunk_loader;
 
 	template<uint64_t... indices> struct chunk_loader<integer_sequence<indices...>> {
-		JSONIFIER_INLINE static simd_array_t impl(restricted_read_buffer_ptr src) noexcept {
+		JSONIFIER_INLINE static simd_array_t impl(read_buffer_ptr src) noexcept {
 			simd_array_t returnValues;
 			(returnValues.template set<indices>(gatherValuesU<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(src + indices * simdBytesPerRegister))),
 				...);
@@ -92,7 +92,7 @@ namespace jsonifier::internal {
 	template<typename derived_type, typename integer_sequence> struct step_checker;
 
 	template<typename derived_type, uint64_t... indices> struct step_checker<derived_type, integer_sequence<indices...>> {
-		JSONIFIER_INLINE void impl(restricted_read_buffer_ptr srcNew) noexcept {
+		JSONIFIER_INLINE void impl(read_buffer_ptr srcNew) noexcept {
 			(static_cast<derived_type*>(this)->checkStepImpl(srcNew + indices * simdBytesPerBlock), ...);
 		}
 	};
@@ -101,7 +101,7 @@ namespace jsonifier::internal {
 		using step_checker_type = step_checker<utf8_checker, make_integer_sequence<simdBlocksPerStep>>;
 		template<typename integer_sequence> struct chunk_processor;
 
-		JSONIFIER_INLINE void checkStepImpl(restricted_read_buffer_ptr src) noexcept {
+		JSONIFIER_INLINE void checkStepImpl(read_buffer_ptr src) noexcept {
 			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
@@ -150,7 +150,7 @@ namespace jsonifier::internal {
 		const jsonifier_simd_int_t lookup2{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte2HighTable)) };
 		const jsonifier_simd_int_t lookupL{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1LowTable)) };
 
-		JSONIFIER_INLINE void checkStep(restricted_read_buffer_ptr srcNew) noexcept {
+		JSONIFIER_INLINE void checkStep(read_buffer_ptr srcNew) noexcept {
 			step_checker_type::impl(srcNew);
 		}
 
@@ -179,7 +179,7 @@ namespace jsonifier::internal {
 		};
 	};
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
+	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
 		if (len == 0) {
 			return true;
 		}
@@ -194,7 +194,7 @@ namespace jsonifier::internal {
 		}
 
 		if (i < len) {
-			alignas(64) uint8_t tmp[simdBytesPerStep];
+			alignas(simdBytesPerRegister) uint8_t tmp[simdBytesPerStep];
 			std::memset(tmp, 0x41, simdBytesPerStep);
 			jsonifierMemcpyUpTo<simdBytesPerStep - 1>(tmp, src + i, len - i);
 			checker.checkStep(tmp);
@@ -281,7 +281,7 @@ namespace jsonifier::internal {
 				touched			   = false;
 				return;
 			}
-			alignas(64) uint8_t tmp[bytesProcessed]{};
+			alignas(simdBytesPerRegister) uint8_t tmp[bytesProcessed]{};
 			tmp[bytesProcessed - 3] = state.prevBytes[0];
 			tmp[bytesProcessed - 2] = state.prevBytes[1];
 			tmp[bytesProcessed - 1] = state.prevBytes[2];
@@ -294,7 +294,7 @@ namespace jsonifier::internal {
 			if (!touched) {
 				return;
 			}
-			alignas(64) uint8_t tmp[bytesProcessed];
+			alignas(simdBytesPerRegister) uint8_t tmp[bytesProcessed];
 			simd::store(prevInput, tmp);
 			state.prevBytes[0]	 = tmp[bytesProcessed - 3];
 			state.prevBytes[1]	 = tmp[bytesProcessed - 2];
@@ -309,7 +309,7 @@ namespace jsonifier::internal {
 			if (count == 0) {
 				return;
 			}
-			alignas(64) uint8_t tmp[bytesProcessed];
+			alignas(simdBytesPerRegister) uint8_t tmp[bytesProcessed];
 			std::memset(tmp, 32, bytesProcessed);
 			jsonifierMemcpyUpTo<bytesProcessed - 1>(tmp, src, count);
 			checkRegister(simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp)));
@@ -359,7 +359,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier {
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
+	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
 		return internal::validateUtf8(src, len);
 	}
 

@@ -158,8 +158,8 @@ If your struct doesn't have a `jsonifierExcludedKeys` member, the concept check 
 
 ## What's Next
 
-- **[Reflection](Reflection.md)**: full details on `makeJsonEntity` and how JSON key names get bound to C++ members
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: the runtime API that respects the exclusion set
-- **[Parsing Arbitrary Data](Parsing_Arbitrary_Data.md)**: for when you don't want to declare a schema at all
+- **[Reflection](reflection.md)**: full details on `makeJsonEntity` and how JSON key names get bound to C++ members
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: the runtime API that respects the exclusion set
+- **[Parsing Arbitrary Data](parsing_arbitrary_data.md)**: for when you don't want to declare a schema at all
 
 ---

@@ -24,10 +24,10 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto whitespaceTableRaw{ genWhitespaceTable() };
 
-	alignas(64) inline constexpr const bool* __restrict whitespaceTable{ whitespaceTableRaw.data() };
+	inline constexpr const bool* __restrict whitespaceTable{ whitespaceTableRaw.data() };
 
-	consteval array<int64_t, 256ULL> genNestingDeltaTable() {
-		array<int64_t, 256ULL> returnValues{};
+	consteval array<int8_t, 256ULL> genNestingDeltaTable() {
+		array<int8_t, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('{')] = 1;
 		returnValues[static_cast<uint64_t>('[')] = 1;
 		returnValues[static_cast<uint64_t>('}')] = -1;
@@ -37,7 +37,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto nestingDeltaTableRaw{ genNestingDeltaTable() };
 
-	alignas(64) inline constexpr const int64_t* __restrict nestingDeltaTable{ nestingDeltaTableRaw.data() };
+	inline constexpr const int8_t* __restrict nestingDeltaTable{ nestingDeltaTableRaw.data() };
 
 	consteval array<bool, 256ULL> genNewlineTable() {
 		array<bool, 256ULL> returnValues{};
@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto newlineTableRaw{ genNewlineTable() };
 
-	alignas(64) inline constexpr const bool* __restrict newlineTable{ newlineTableRaw.data() };
+	inline constexpr const bool* __restrict newlineTable{ newlineTableRaw.data() };
 
 	consteval array<bool, 256ULL> genNumberTable() {
 		array<bool, 256ULL> returnValues{};
@@ -68,65 +68,38 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto numberTableRaw{ genNumberTable() };
 
-	alignas(64) inline constexpr const bool* __restrict numberTable{ numberTableRaw.data() };
+	inline constexpr const bool* __restrict numberTable{ numberTableRaw.data() };
 
-	consteval array<array<char, 2>, 256ULL> genCharEscapeStorage() {
-		array<array<char, 2>, 256ULL> returnValue{};
+	struct alignas(4) char_escape_entry {
+		array<char, 2> values;
+		uint8_t size;
+	};
+
+	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
+		array<char_escape_entry, 256ULL> returnValue{};
 		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x][0] = static_cast<char>(x);
-			returnValue[x][1] = '\0';
+			returnValue[x].values[0] = static_cast<char>(x);
+			returnValue[x].values[1] = '\0';
+			returnValue[x].size		 = 1;
 		}
-		returnValue[static_cast<uint64_t>('\b')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\b')][1] = 'b';
-		returnValue[static_cast<uint64_t>('\t')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\t')][1] = 't';
-		returnValue[static_cast<uint64_t>('\n')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\n')][1] = 'n';
-		returnValue[static_cast<uint64_t>('\f')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\f')][1] = 'f';
-		returnValue[static_cast<uint64_t>('\r')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\r')][1] = 'r';
-		returnValue[static_cast<uint64_t>('\"')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\"')][1] = '\"';
-		returnValue[static_cast<uint64_t>('\\')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\\')][1] = '\\';
+		auto setEscape = [&](char value, char escaped) {
+			returnValue[static_cast<uint8_t>(value)].values[0] = '\\';
+			returnValue[static_cast<uint8_t>(value)].values[1] = escaped;
+			returnValue[static_cast<uint8_t>(value)].size	   = 2;
+		};
+		setEscape('\b', 'b');
+		setEscape('\t', 't');
+		setEscape('\n', 'n');
+		setEscape('\f', 'f');
+		setEscape('\r', 'r');
+		setEscape('\"', '\"');
+		setEscape('\\', '\\');
 		return returnValue;
 	}
 
-	alignas(64) inline constexpr auto charEscapeStorageRaw{ genCharEscapeStorage() };
+	alignas(64) inline constexpr auto charEscapeEntriesRaw{ genCharEscapeEntries() };
 
-	alignas(64) inline constexpr const array<char, 2>* __restrict charEscapeStorage{ charEscapeStorageRaw.data() };
-
-	consteval array<const char*, 256ULL> genCharEscapeTable() {
-		array<const char*, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x] = charEscapeStorage[x].data();
-		}
-		return returnValue;
-	}
-
-	alignas(64) inline constexpr auto charEscapeTableRaw{ genCharEscapeTable() };
-
-	alignas(64) inline constexpr const char* const* __restrict charEscapeTable{ charEscapeTableRaw.data() };
-
-	consteval array<uint64_t, 256ULL> genCharEscapeSizes() {
-		array<uint64_t, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x] = 1;
-		}
-		returnValue[static_cast<uint64_t>('\b')] = 2;
-		returnValue[static_cast<uint64_t>('\t')] = 2;
-		returnValue[static_cast<uint64_t>('\n')] = 2;
-		returnValue[static_cast<uint64_t>('\f')] = 2;
-		returnValue[static_cast<uint64_t>('\r')] = 2;
-		returnValue[static_cast<uint64_t>('\"')] = 2;
-		returnValue[static_cast<uint64_t>('\\')] = 2;
-		return returnValue;
-	}
-
-	alignas(64) inline constexpr auto charEscapeSizesRaw{ genCharEscapeSizes() };
-
-	alignas(64) inline constexpr const uint64_t* __restrict charEscapeSizes{ charEscapeSizesRaw.data() };
+	inline constexpr const char_escape_entry* __restrict charEscapeEntries{ charEscapeEntriesRaw.data() };
 
 	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
 		return static_cast<value_type&&>(t);
@@ -161,23 +134,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	alignas(64) inline constexpr swap_fn swap{};
-
-	template<uint_types value_type> inline constexpr value_type byteswap(value_type value) noexcept {
-		if constexpr (sizeof(value_type) == 1) {
-			return value;
-		} else if constexpr (sizeof(value_type) == 2) {
-			return static_cast<value_type>((value >> 8) | (value << 8));
-		} else if constexpr (sizeof(value_type) == 4) {
-			return static_cast<value_type>(((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) | ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24));
-		} else if constexpr (sizeof(value_type) == 8) {
-			return static_cast<value_type>(((value & 0x00000000000000FFull) << 56) | ((value & 0x000000000000FF00ull) << 40) | ((value & 0x0000000000FF0000ull) << 24) |
-				((value & 0x00000000FF000000ull) << 8) | ((value & 0x000000FF00000000ull) >> 8) | ((value & 0x0000FF0000000000ull) >> 24) |
-				((value & 0x00FF000000000000ull) >> 40) | ((value & 0xFF00000000000000ull) >> 56));
-		} else {
-			static_assert(sizeof(value_type) == 0, "byteSwap: unsupported type size");
-		}
-	}
+	inline constexpr swap_fn swap{};
 
 	template<uint64_t bytesProcessedNew, typename simd_type, typename integer_type_new, integer_type_new maskNew> struct type_holder {
 		static constexpr uint64_t bytesProcessed{ bytesProcessedNew };
@@ -325,7 +282,7 @@ namespace jsonifier::internal {
 	};
 
 	template<int16_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 5 };
+		static constexpr uint64_t value{ 6 };
 	};
 
 	template<uint8_types value_type> struct digit_sizes<value_type> {
@@ -333,16 +290,18 @@ namespace jsonifier::internal {
 	};
 
 	template<int8_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 3 };
+		static constexpr uint64_t value{ 4 };
 	};
 
 	template<float32_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 32 };
+		static constexpr uint64_t value{ 17 };
 	};
 
 	template<float64_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 32 };
+		static constexpr uint64_t value{ 34 };
 	};
+
+	template<typename value_type> inline constexpr uint64_t digit_size_v = digit_sizes<value_type>::value;
 
 #if JSONIFIER_PLATFORM_MAC
 
@@ -407,7 +366,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t bucketSize, typename sequence_type> struct memcpy_runner_impl;
 
-	alignas(64) inline constexpr uint64_t registerWidth{ cpu_properties::getValue(cpu_property_types::alignment) };
+	inline constexpr uint64_t registerWidth{ cpu_properties::getValue(cpu_property_types::alignment) };
 
 	template<uint64_t bucketSize, uint64_t... indices> struct memcpy_runner_impl<bucketSize, integer_sequence<indices...>> {
 		static_assert(std::has_single_bit(bucketSize), "Sorry, but buckets must be a power-of-2 size.");
@@ -477,7 +436,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_NEON || JSONIFIER_SVE2
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;

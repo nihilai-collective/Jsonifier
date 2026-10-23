@@ -26,7 +26,7 @@ namespace jsonifier::internal {
 		static constexpr uint64_t index{ indexNew };
 	};
 
-	template<uint64_t maxIndex, uint64_t index, auto value> inline constexpr decltype(auto) makeJsonEntityAuto() noexcept {
+	template<uint64_t maxIndex, uint64_t index, auto value> constexpr decltype(auto) makeJsonEntityAuto() noexcept {
 		if constexpr (json_entity_types<decltype(value)>) {
 			return json_entity<value.memberPtr, value.name, index, maxIndex>{};
 		} else {

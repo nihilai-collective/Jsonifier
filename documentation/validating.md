@@ -11,7 +11,7 @@ std::string json = R"({"name":"Concert","id":42})";
 bool valid = parser.validateJson(json);
 ```
 
-`validateJson` returns `true` if the input is valid JSON, `false` otherwise. Like [minifying](Minifying.md) and [prettifying](Prettifying.md), it operates on JSON strings directly, with no `jsonifier::core<T>` involved and no typed objects.
+`validateJson` returns `true` if the input is valid JSON, `false` otherwise. Like [minifying](minifying.md) and [prettifying](prettifying.md), it operates on JSON strings directly, with no `jsonifier::core<T>` involved and no typed objects.
 
 ## What Gets Checked
 
@@ -24,11 +24,11 @@ Validation walks the entire document and enforces every structural rule in RFC82
 - **Literal correctness**: `true`, `false`, `null` spelled exactly
 - **Nothing extra**: the entire input must be consumed; trailing garbage after the root value is rejected
 
-UTF-8 validation is enabled by default in `validateJson`, so you don't need to opt in. See [UTF-8 Validation](UTF8_Validation.md) for details on how the UTF-8 validator works.
+UTF-8 validation is enabled by default in `validateJson`, so you don't need to opt in. See [UTF-8 Validation](utf8_validation.md) for details on how the UTF-8 validator works.
 
 ## How It Works
 
-Validation uses the same stage-1 structural scanner that powers [Partial Reading](PartialReading.md), [Minifying](Minifying.md), and [Prettifying](Prettifying.md). Stage-1 scans the input once and builds the structural tape. Stage-2 then walks the tape recursively: for each structural position, it dispatches on the leading character (`{`, `[`, `"`, digit, `t`/`f`, `n`) and validates that value's grammar.
+Validation uses the same stage-1 structural scanner that powers [Partial Reading](partial_reading.md), [Minifying](minifying.md), and [Prettifying](prettifying.md). Stage-1 scans the input once and builds the structural tape. Stage-2 then walks the tape recursively: for each structural position, it dispatches on the leading character (`{`, `[`, `"`, digit, `t`/`f`, `n`) and validates that value's grammar.
 
 Because validation only walks structure and character classes without extracting values into typed destinations, it's faster than a full `parseJson` for the same input.
 
@@ -44,7 +44,7 @@ if (!parser.validateJson(json)) {
 }
 ```
 
-Validation errors use the `validate_statuses` enum. See [Error Handling](Errors.md) for the full breakdown of status codes and error record fields.
+Validation errors use the `validate_statuses` enum. See [Error Handling](errors.md) for the full breakdown of status codes and error record fields.
 
 ## When to Use `validateJson` vs. `parseJson`
 
@@ -89,8 +89,8 @@ int32_t main() {
 
 ## What's Next
 
-- **[UTF-8 Validation](UTF8_Validation.md)**: details on the UTF-8 validator that `validateJson` uses under the hood
-- **[Error Handling](Errors.md)**: full breakdown of `validate_statuses` and the `error` type
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: when you need typed values, not just a valid/invalid answer
+- **[UTF-8 Validation](utf8_validation.md)**: details on the UTF-8 validator that `validateJson` uses under the hood
+- **[Error Handling](errors.md)**: full breakdown of `validate_statuses` and the `error` type
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: when you need typed values, not just a valid/invalid answer
 
 ---

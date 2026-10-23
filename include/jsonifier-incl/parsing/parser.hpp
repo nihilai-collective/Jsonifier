@@ -38,7 +38,7 @@ namespace jsonifier::internal {
 
 	template<parse_options options> struct parse {
 		template<typename value_type, typename iterator_type, typename context_type>
-		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
+		static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
 				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, depth, context);
 			} else {
@@ -55,13 +55,13 @@ namespace jsonifier::internal {
 	template<parse_options options, typename value_type, typename iterator_type> struct string_scan_context {
 		using scan_result = typename string_scanner<options>::scan_result;
 
-		inline string_scan_context() noexcept									   = default;
-		inline string_scan_context& operator=(const string_scan_context&) noexcept = delete;
-		inline string_scan_context(const string_scan_context&) noexcept			   = delete;
-		inline string_scan_context& operator=(string_scan_context&&) noexcept	   = delete;
-		inline string_scan_context(string_scan_context&&) noexcept				   = delete;
+		string_scan_context() noexcept										= default;
+		string_scan_context& operator=(const string_scan_context&) noexcept = delete;
+		string_scan_context(const string_scan_context&) noexcept			= delete;
+		string_scan_context& operator=(string_scan_context&&) noexcept		= delete;
+		string_scan_context(string_scan_context&&) noexcept					= delete;
 
-		inline string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
+		string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
 			: result{ resultNew }, strIter{ strIterNew }, endIter{ endIterNew } {
 		}
 
@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 		using derived_type = derived_type_new;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
-		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
+		bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
@@ -98,7 +98,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline write_structural_index_ptr collectStructurals(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type> unrestrict_t<write_structural_index_ptr> collectStructurals(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -106,7 +106,7 @@ namespace jsonifier::internal {
 			return derivedRef.section.begin();
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline write_structural_index_ptr collectStructuralsSingle(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type> unrestrict_t<write_structural_index_ptr> collectStructuralsSingle(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -206,7 +206,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, valueIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = byteswap(comparison);
+					comparison = std::byteswap(comparison);
 				}
 				if (comparison == trueVal && remaining == 4) {
 					object = true;
@@ -229,7 +229,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, rootIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = byteswap(comparison);
+					comparison = std::byteswap(comparison);
 				}
 				rootIter += 4;
 				if (comparison == trueVal) {
@@ -273,7 +273,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) {
+		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
@@ -284,12 +284,12 @@ namespace jsonifier::internal {
 			}
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-				parse_context<parseOpts, write_structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
-					rootIter, endIter, derivedRef.section.end() };
+				parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
+					&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
 				return runParse<parseOpts>(object, derivedRef.section.begin(), context);
 			} else {
-				parse_context<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
-					endIter };
+				parse_context<parseOpts, unrestrict_t<read_buffer_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
+					&derivedRef.errors, rootIter, endIter };
 				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), context);
 			}
 		}
@@ -301,12 +301,12 @@ namespace jsonifier::internal {
 		parser& operator=(parser&& other)	   = delete;
 		parser(const parser& other)			   = delete;
 		parser(parser&& other)				   = delete;
-		inline ~parser() noexcept			   = default;
-		inline parser() noexcept			   = default;
+		~parser() noexcept					   = default;
+		parser() noexcept					   = default;
 
 		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
 		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, context_type& context) {
-			using cursor = json_cursor<parseOpts, iterator_type>;
+			using cursor = json_cursor<parseOpts, unrestrict_t<iterator_type>>;
 			if (!cursor::anyInput(iter, context)) [[unlikely]] {
 				return false;
 			}
@@ -321,7 +321,7 @@ namespace jsonifier::internal {
 			return derivedRef.errors.size() == 0;
 		}
 
-		template<bool minified> JSONIFIER_INLINE write_structural_index_ptr indexStructurals(auto* rootIter, const auto* endIter) noexcept {
+		template<bool minified> JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> indexStructurals(auto* rootIter, const auto* endIter) noexcept {
 			derivedRef.podSection.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 			return derivedRef.podSection.begin();
 		}

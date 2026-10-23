@@ -6,13 +6,14 @@
  */
 #pragma once
 
+#include "apache_builds.hpp"
 #include "canada.hpp"
 #include "citm_catalog.hpp"
 #include "discord.hpp"
+#include "github_events.hpp"
 #include "google_maps_response.hpp"
 #include "instruments.hpp"
 #include "marine_ik.hpp"
-#include "mesh.hpp"
 #include "random.hpp"
 #include "twitter.hpp"
 
@@ -72,20 +73,22 @@ namespace parsing_tests {
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline void parsingTestsImpl([[maybe_unused]] jsonifier::jsonifier_core<>& parser) {
 		std::cout << "Parsing Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		parsingTests<"Apache Builds Test (Minified)", apache_builds_message, false, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Apache Builds Test (Prettified)", apache_builds_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Canada Test (Minified)", canada_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Canada Test (Prettified)", canada_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"CitmCatalog Test (Minified)", citm_catalog_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"CitmCatalog Test (Prettified)", citm_catalog_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Discord Test (Minified)", discord_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Discord Test (Prettified)", discord_message, true, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Github Events Test (Minified)", github_events_message, false, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Github Events Test (Prettified)", github_events_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Google Maps Response Test (Minified)", google_maps_response_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Google Maps Response Test (Prettified)", google_maps_response_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Instruments Test (Minified)", instruments_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Instruments Test (Prettified)", instruments_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Marine IK Test (Minified)", marine_ik, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Marine IK Test (Prettified)", marine_ik, true, partial, knownOrder, nullTerminated>(parser);
-		parsingTests<"Mesh Test (Minified)", mesh_message, false, partial, knownOrder, nullTerminated>(parser);
-		parsingTests<"Mesh Test (Prettified)", mesh_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Random Test (Minified)", random_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Random Test (Prettified)", random_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Twitter Partial Test (Minified)", twitter_partial_message, false, partial, knownOrder, nullTerminated>(parser);

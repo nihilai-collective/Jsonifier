@@ -115,20 +115,22 @@ namespace bounds_tests {
 	template<bool partial, bool knownOrder, bool nullTerminated> inline void boundsTestsImpl() {
 		std::cout << "Starting Bounds-Truncation Test, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": "
 				  << std::endl;
+		boundsTestsImpl<"Apache Builds Test (Minified)", apache_builds_message, false, partial, knownOrder, nullTerminated>();
+		boundsTestsImpl<"Apache Builds Test (Prettified)", apache_builds_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Canada Test (Minified)", canada_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Canada Test (Prettified)", canada_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"CitmCatalog Test (Minified)", citm_catalog_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"CitmCatalog Test (Prettified)", citm_catalog_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Discord Test (Minified)", discord_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Discord Test (Prettified)", discord_message, true, partial, knownOrder, nullTerminated>();
+		boundsTestsImpl<"Github Events Test (Minified)", github_events_message, false, partial, knownOrder, nullTerminated>();
+		boundsTestsImpl<"Github Events Test (Prettified)", github_events_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Google Maps Response Test (Minified)", google_maps_response_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Google Maps Response Test (Prettified)", google_maps_response_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Instruments Test (Minified)", instruments_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Instruments Test (Prettified)", instruments_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Marine IK Test (Minified)", marine_ik, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Marine IK Test (Prettified)", marine_ik, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Mesh Test (Minified)", mesh_message, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Mesh Test (Prettified)", mesh_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Random Test (Minified)", random_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Random Test (Prettified)", random_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Twitter Partial Test (Minified)", twitter_partial_message, false, partial, knownOrder, nullTerminated>();

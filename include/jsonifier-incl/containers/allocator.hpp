@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 		using const_pointer					= const value_type*;
 		using size_type						= uint64_t;
 		using difference_type				= ptrdiff_t;
-		static constexpr uint64_t alignment = (alignof(value_type_new) > maxSimdBytesPerRegister) ? alignof(value_type_new) : maxSimdBytesPerRegister;
+		static constexpr uint64_t alignment = (alignof(value_type_new) > simdBytesPerRegister) ? alignof(value_type_new) : simdBytesPerRegister;
 
 		struct allocation_header {
 			allocated_memory_types type{};
@@ -96,7 +96,7 @@ namespace jsonifier::internal {
 				}
 #endif
 			}
-#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_ANY_AVX
 			void* p = _mm_malloc(alignedBytes, alignment);
 #elif JSONIFIER_PLATFORM_WINDOWS
 			void* p = _aligned_malloc(alignedBytes, alignment);
@@ -138,7 +138,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(allocated_memory_types::standard): {
-#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+#if (JSONIFIER_PLATFORM_WINDOWS || JSONIFIER_PLATFORM_LINUX) && JSONIFIER_ANY_AVX
 						_mm_free(base);
 #elif JSONIFIER_PLATFORM_WINDOWS
 						_aligned_free(base);

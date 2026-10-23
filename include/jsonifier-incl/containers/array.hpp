@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	template<typename value_type_new, uint64_t sizeNew> struct alignas(64) array {
+	template<typename value_type_new, uint64_t sizeNew> struct array {
 	  public:
 		static_assert(std::is_object_v<value_type_new>, "The C++ Standard forbids containers of non-object types because of [container.requirements].");
 
@@ -152,14 +152,14 @@ namespace jsonifier::internal {
 			return !(lhs == rhs);
 		}
 
-		alignas(64) value_type dataVal[sizeNew];
+		value_type dataVal[sizeNew];
 	};
 
 	template<typename first, typename... rest> array(first, rest...) -> array<base_t<first>, 1 + sizeof...(rest)>;
 
 	template<typename first, uint64_t size> array(array<first, size>) -> array<base_t<first>, size>;
 
-	template<typename value_type_new> struct alignas(64) array<value_type_new, 0ULL> {
+	template<typename value_type_new> struct array<value_type_new, 0ULL> {
 	  public:
 		using value_type	  = value_type_new;
 		using size_type		  = uint64_t;

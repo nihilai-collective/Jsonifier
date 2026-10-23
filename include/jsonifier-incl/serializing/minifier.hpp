@@ -40,7 +40,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto jsonTypesRaw{ genJsonTypes() };
 
-	alignas(64) inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
+	inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
 
 	template<typename minifier_type> struct minify_context_ro {
 		JSONIFIER_INLINE minify_context_ro(minifier_type& minifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
@@ -70,7 +70,7 @@ namespace jsonifier::internal {
 		using derived_type = derived_type_new;
 		template<typename prettifier_type> friend struct minify_context_ro;
 
-		template<string_types input_string_type, string_types output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) {
+		template<string_types input_string_type, string_types output_buffer_type> bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			derivedRef.errors.clear();
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			read_buffer_ptr endIter	 = rootIter + in.size();
@@ -102,11 +102,11 @@ namespace jsonifier::internal {
 		minifier& operator=(minifier&& other)	   = delete;
 		minifier(const minifier& other)			   = delete;
 		minifier(minifier&& other)				   = delete;
-		inline ~minifier() noexcept				   = default;
-		inline minifier() noexcept				   = default;
+		~minifier() noexcept					   = default;
+		minifier() noexcept						   = default;
 
 		template<prettify_buffer_types string_type, typename iterator, typename iterator_end>
-		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
+		uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using enum json_structural_type;
 			read_buffer_ptr previousPtr{};
 			int64_t currentDistance{};

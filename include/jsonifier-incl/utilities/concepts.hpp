@@ -37,7 +37,7 @@ namespace jsonifier {
 namespace jsonifier::internal {
 
 	template<typename context_type>
-	concept structural_context_types = std::same_as<typename context_type::iterator_type, write_structural_index_ptr>;
+	concept structural_context_types = std::same_as<typename context_type::template_iterator_type, unrestrict_t<write_structural_index_ptr>>;
 
 	template<typename context_type> using context_iterator_t = typename context_type::iterator_type;
 
@@ -48,9 +48,9 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept simd_int_128_types = sizeof(value_type) == 16;
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_SVE2
 	template<typename value_type>
-	concept simd_int_sve2_types = std::same_as<std::remove_cvref_t<value_type>, jsonifier_simd_int_t>;
+	concept simd_int_sve2_types = std::same_as<remove_cvref_t<value_type>, jsonifier_simd_int_t>;
 #endif
 
 	template<typename value_type>
@@ -64,8 +64,8 @@ namespace jsonifier::internal {
 
 	template<typename value_type> using base_t = internal::remove_cvref_t<value_type>;
 
-	template<typename, typename> alignas(64) inline constexpr bool isSame						   = false;
-	template<typename value_type> alignas(64) inline constexpr bool isSame<value_type, value_type> = true;
+	template<typename, typename> inline constexpr bool isSame						   = false;
+	template<typename value_type> inline constexpr bool isSame<value_type, value_type> = true;
 
 	template<typename value_type>
 	concept static_sized_types = requires() { base_t<value_type>::staticSize; };
@@ -292,7 +292,7 @@ namespace jsonifier::internal {
 	concept same_character_size_types = requires { sizeof(typename base_t<value_type01>::value_type) == sizeof(typename base_t<value_type02>::value_type); } &&
 		string_types<value_type01> && string_types<value_type02>;
 
-	template<typename value_type> alignas(64) inline constexpr bool hasSizeEqualToZero{ std::tuple_size_v<base_t<value_type>> == 0 };
+	template<typename value_type> inline constexpr bool hasSizeEqualToZero{ std::tuple_size_v<base_t<value_type>> == 0 };
 
 	template<typename value_type>
 	concept skip_or_always_null_types = skip_types<value_type> || always_null_types<value_type>;

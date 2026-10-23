@@ -130,7 +130,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_array_reports_element_count", true>::assert_eq(true, [&] {
-			jsonifier::internal::array<int32_t, 3> arr{ 5, 6, 7 };
+			jsonifier::internal::array<int32_t, 3> arr{ { 5, 6, 7 } };
 			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_target::stdout_target };
 			parser.printJson(arr, os);
 			auto printResult = os.view().find("array (elements: 3") != std::string::npos;

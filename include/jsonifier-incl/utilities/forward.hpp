@@ -13,9 +13,9 @@ namespace jsonifier::internal {
 
 	// from
 	// https://stackoverflow.com/questions/16337610/how-to-know-if-a-type-is-a-specialization-of-stdvector
-	template<typename, template<typename...> typename> alignas(64) inline constexpr bool isSpecialization = false;
+	template<typename, template<typename...> typename> inline constexpr bool isSpecialization = false;
 
-	template<template<typename...> typename value_type, typename... arg_types> alignas(64) inline constexpr bool isSpecialization<value_type<arg_types...>, value_type> = true;
+	template<template<typename...> typename value_type, typename... arg_types> inline constexpr bool isSpecialization<value_type<arg_types...>, value_type> = true;
 
 	template<typename value_type> struct remove_const {
 		using type = value_type;
@@ -113,5 +113,15 @@ namespace jsonifier::internal {
 		static constexpr auto simdType = avx_type::m512;
 		using type					   = jsonifier_simd_int_512;
 	};
+
+	template<typename value_type> struct unrestricter {
+		using type = value_type;
+	};
+
+	template<typename value_type> struct unrestricter<value_type* __restrict> {
+		using type = value_type*;
+	};
+
+	template<typename value_type> using unrestrict_t = typename unrestricter<value_type>::type;
 
 }

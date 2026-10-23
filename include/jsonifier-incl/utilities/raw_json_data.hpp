@@ -161,8 +161,8 @@ namespace jsonifier {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
-			internal::parse_context<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(), &context.getErrors(),
-				std::bit_cast<read_buffer_ptr>(jsonDataNew.data()), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
+			internal::parse_context<parse_options{}, internal::unrestrict_t<read_buffer_ptr>, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(),
+				&context.getErrors(), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
 			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
 
@@ -273,7 +273,7 @@ namespace jsonifier {
 	  protected:
 		template<typename value_type_new, typename context_type, parse_options options> friend struct internal::parse_impl;
 
-		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
+		template<typename context_type> void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
 			const read_buffer_ptr iter{ std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) };
 			if (jsonDataNew.size() > 0) {

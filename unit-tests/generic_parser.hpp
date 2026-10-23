@@ -10,12 +10,12 @@
 
 namespace generic_parser_tests {
 
-	template<typename value_type> inline value_type extracted(const jsonifier::generic::value& target) {
+	template<typename value_type, bool minified> inline value_type extracted(const jsonifier::generic::basic_value<minified>& target) {
 		value_type out{};
 		return target.get(out) == jsonifier::generic::error_code::success ? out : value_type{};
 	}
 
-	template<typename value_type> inline jsonifier::generic::error_code extractionError(const jsonifier::generic::value& target) {
+	template<typename value_type, bool minified> inline jsonifier::generic::error_code extractionError(const jsonifier::generic::basic_value<minified>& target) {
 		value_type out{};
 		return target.get(out);
 	}

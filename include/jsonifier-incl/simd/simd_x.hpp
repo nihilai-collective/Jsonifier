@@ -24,9 +24,9 @@ namespace jsonifier::internal::simd {
 			uint8_t xUint8[eightPer];
 		};
 
-		inline simd_x& operator=(const simd_x&) noexcept = default;
-		inline simd_x(const simd_x&) noexcept			 = default;
-		inline simd_x() noexcept						 = default;
+		simd_x& operator=(const simd_x&) noexcept = default;
+		simd_x(const simd_x&) noexcept			  = default;
+		simd_x() noexcept						  = default;
 
 		storage_type values;
 	};

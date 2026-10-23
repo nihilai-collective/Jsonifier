@@ -11,7 +11,7 @@
 namespace jsonifier::internal::simd {
 
 	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_LZCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return value == 0 ? 16ULL : static_cast<uint64_t>(__builtin_clz(value) - 16);
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
@@ -27,7 +27,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_LZCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_lzcnt_u32(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -45,7 +45,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_LZCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_LZCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_lzcnt_u64(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -67,7 +67,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI)
+#if JSONIFIER_BMI
 		return static_cast<uint64_t>(_blsr_u32(value));
 #else
 		return static_cast<uint64_t>(value & (value - 1));
@@ -75,7 +75,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI)
+#if JSONIFIER_BMI
 		return static_cast<uint64_t>(_blsr_u64(value));
 #else
 		return static_cast<uint64_t>(value & (value - 1));
@@ -83,7 +83,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countrZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return value == 0 ? 16ULL : static_cast<uint64_t>(__builtin_ctz(value));
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
@@ -103,7 +103,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countrZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_tzcnt_u32(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -121,7 +121,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countrZero(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_tzcnt_u64(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -139,7 +139,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<uint64_t>(__builtin_ctz(value));
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
@@ -155,7 +155,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_tzcnt_u32(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -173,7 +173,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_BMI) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_BMI || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_ARCH_X64 && (JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG)
 		return static_cast<uint64_t>(_tzcnt_u64(value));
 	#elif JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_MSVC
@@ -191,7 +191,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint16_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_POPCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<uint64_t>(__builtin_popcount(value));
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
@@ -207,7 +207,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_POPCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<uint64_t>(__builtin_popcount(value));
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
@@ -223,7 +223,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT) || JSONIFIER_ARCH_ARM64
+#if JSONIFIER_POPCNT || JSONIFIER_ARCH_ARM64
 	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
 		return static_cast<uint64_t>(__builtin_popcountll(value));
 	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64

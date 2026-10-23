@@ -39,7 +39,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename tuple_type> inline consteval auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
+	template<typename tuple_type> consteval auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
 		constexpr auto tupleSize = tupleSizeOf<remove_cvref_t<tuple_type>>;
 		array<tuple_reference, tupleSize> tupleRefsRaw{};
 		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
@@ -47,7 +47,7 @@ namespace jsonifier::internal {
 	}
 
 	template<uint64_t size, typename comparator_type>
-	inline consteval array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
+	consteval array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
 		array<tuple_reference, size> returnValues{ tupleRefsRaw };
 		for (uint64_t i = 1; i < size; ++i) {
 			auto key  = returnValues[i];
@@ -61,13 +61,13 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto byFirstByte = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
+	inline constexpr auto byFirstByte = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
 		const uint64_t lhsByte = lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull;
 		const uint64_t rhsByte = rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull;
 		return lhsByte < rhsByte;
 	};
 
-	alignas(64) inline constexpr auto byLength = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
+	inline constexpr auto byLength = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
 		return lhs.key.size() < rhs.key.size();
 	};
 
@@ -80,26 +80,26 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename value_type> alignas(64) inline constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
-	template<typename value_type> alignas(64) inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
-	template<typename value_type> alignas(64) inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
-	template<typename value_type> alignas(64) inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
-	template<typename value_type> alignas(64) inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
-	template<typename value_type> alignas(64) inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
+	template<typename value_type> inline constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
+	template<typename value_type> inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
+	template<typename value_type> inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
+	template<typename value_type> inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
-	template<typename value_type> using core_tuple_type								  = decltype(core<base_t<value_type>>::parseValue);
-	template<typename value_type> alignas(64) inline constexpr uint64_t coreTupleSize = tupleSizeOf<core_tuple_type<value_type>>;
+	template<typename value_type> using core_tuple_type					  = decltype(core<base_t<value_type>>::parseValue);
+	template<typename value_type> inline constexpr uint64_t coreTupleSize = tupleSizeOf<core_tuple_type<value_type>>;
 
-	template<typename value_type> alignas(64) inline constexpr bool isLeafParseType = string_types<value_type> || string_view_types<value_type> || bool_types<value_type> ||
+	template<typename value_type> inline constexpr bool isLeafParseType = string_types<value_type> || string_view_types<value_type> || bool_types<value_type> ||
 		number_types<value_type> || any_enum_types<value_type> || always_null_types<value_type>;
 
 #if JSONIFIER_COMPILER_MSVC
-	alignas(64) inline constexpr uint64_t maxParseInlineMemberCount{ 8 };
+	inline constexpr uint64_t maxParseInlineMemberCount{ 8 };
 #elif (JSONIFIER_COMPILER_GCC || (JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_MAC))
-	alignas(64) inline constexpr uint64_t maxParseInlineMemberCount{ 64 };
+	inline constexpr uint64_t maxParseInlineMemberCount{ 64 };
 #else
-	alignas(64) inline constexpr uint64_t maxParseInlineMemberCount{ 32 };
+	inline constexpr uint64_t maxParseInlineMemberCount{ 32 };
 #endif
 
 	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount();

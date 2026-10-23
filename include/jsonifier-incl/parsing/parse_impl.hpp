@@ -51,7 +51,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::iterator_type>;
+	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::template_iterator_type>;
 
 #if JSONIFIER_COMPILER_MSVC
 	template<parse_options options, typename value_type, typename context_type>
@@ -884,16 +884,16 @@ namespace jsonifier::internal {
 	};
 #else
 	template<typename... bases> struct parse_map : public bases... {
-		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_step<iterator_type> iterateValues(
-			[[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<iterator_type> step{ iter, parse_result::active_member };
+		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_step<typename context_type::iterator_type>
+		iterateValues([[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
+			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
 			static_cast<void>(((step = bases::processIndex(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
 			return step;
 		}
 
-		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_NOINLINE static parse_step<iterator_type> iterateValuesOutline(
-			[[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<iterator_type> step{ iter, parse_result::active_member };
+		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_NOINLINE static parse_step<typename context_type::iterator_type>
+		iterateValuesOutline([[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
+			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
 			static_cast<void>(((step = bases::processIndexOutline(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
 			return step;
 		}
@@ -1120,7 +1120,7 @@ namespace jsonifier::internal {
 	template<typename value_type> static thread_local uint64_t elementCountHint{};
 
 	template<typename value_type>
-	alignas(64) inline constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
+	inline constexpr uint64_t maxHintedElements{ sizeof(typename value_type::value_type) <= 4096 ? 4096 / sizeof(typename value_type::value_type) : 1 };
 
 	template<typename value_type> JSONIFIER_INLINE void reserveFromHint(value_type& value) {
 		if constexpr (reserveable_types<value_type> && !raw_json_types<typename value_type::value_type>) {
@@ -1153,9 +1153,9 @@ namespace jsonifier::internal {
 	#pragma clang diagnostic pop
 #endif
 
-	template<typename element_type> alignas(64) inline constexpr bool fullyOverwritten{ std::is_arithmetic_v<element_type> };
+	template<typename element_type> inline constexpr bool fullyOverwritten{ std::is_arithmetic_v<element_type> };
 
-	template<vector_types element_type> alignas(64) inline constexpr bool fullyOverwritten<element_type>{ fullyOverwritten<typename element_type::value_type> };
+	template<vector_types element_type> inline constexpr bool fullyOverwritten<element_type>{ fullyOverwritten<typename element_type::value_type> };
 
 	template<typename value_type, typename iterator_type> JSONIFIER_INLINE void moveAssignVec(value_type& value, iterator_type first, iterator_type last) {
 		if constexpr (std::is_trivially_copyable_v<typename value_type::value_type>) {
@@ -1866,6 +1866,16 @@ namespace jsonifier::internal {
 		}
 	};
 
+	struct digit_run_scanner {
+		template<typename char_ptr_type> JSONIFIER_INLINE static bool impl(char_ptr_type& iter, const char_ptr_type end) noexcept {
+			const auto start = iter;
+			while (iter < end && isDigit(static_cast<uint8_t>(*iter))) {
+				++iter;
+			}
+			return iter != start;
+		}
+	};
+
 	template<raw_json_types value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
@@ -1873,24 +1883,17 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
 			auto iter	   = token.data();
 			const auto end = iter + token.size();
-			auto digits	   = [&]() {
-				const auto start = iter;
-				while (iter < end && isDigit(static_cast<uint8_t>(*iter))) {
-					++iter;
-				}
-				return iter != start;
-			};
 			if (iter < end && *iter == '-') {
 				++iter;
 			}
 			if (iter < end && *iter == '0') {
 				++iter;
-			} else if (!digits()) {
+			} else if (!digit_run_scanner::impl(iter, end)) {
 				return false;
 			}
 			if (iter < end && *iter == '.') {
 				++iter;
-				if (!digits()) {
+				if (!digit_run_scanner::impl(iter, end)) {
 					return false;
 				}
 			}
@@ -1899,7 +1902,7 @@ namespace jsonifier::internal {
 				if (iter < end && (*iter == '+' || *iter == '-')) {
 					++iter;
 				}
-				if (!digits()) {
+				if (!digit_run_scanner::impl(iter, end)) {
 					return false;
 				}
 			}
