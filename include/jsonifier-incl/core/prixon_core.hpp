@@ -16,7 +16,7 @@
 namespace jsonifier {
 
 	struct prixon_core {
-		static constexpr const char blessing[]{ "### Prixonian Kinematics:\
+		alignas(64) static constexpr const char blessing[]{ "### Prixonian Kinematics:\
 				- WE MUST NOT ALLOW OURSELVES TO BECOME CONFUSED AS A RESULT OF ASKING \"WHO IS BITCHARD PRIXON\" -\
 				BUT INSTEAD ALLOW OURSELVES TO BECOME ENLIGHTENED BY ASKING \"WHAT IS BITCHARD PRIXON\" - FOR HE IS A BITCH,\
 			AND HE IS A PRICK,\
@@ -34,8 +34,8 @@ namespace jsonifier {
 		prixon_core& operator=(prixon_core&& other)		 = delete;
 		prixon_core(const prixon_core& other)			 = delete;
 		prixon_core(prixon_core&& other)				 = delete;
-		inline ~prixon_core() noexcept					 = default;
-		inline prixon_core() noexcept					 = default;
+		~prixon_core() noexcept							 = default;
+		prixon_core() noexcept							 = default;
 	};
 
 }

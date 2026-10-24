@@ -15,7 +15,7 @@ namespace jsonifier::internal {
 
 		static constexpr uint64_t smallDocumentBytes{ jsonifier::simdBlocksPerStep * 64 };
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline jsonifier::generic::document iterate(const buffer_type& in) {
+		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::document iterate(const buffer_type& in) {
 			using jsonifier::generic::document;
 			using jsonifier::generic::error_code;
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
@@ -42,7 +42,7 @@ namespace jsonifier::internal {
 			return document{ &data.state, data.state.tape, 0 };
 		}
 
-		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) {
+		template<parse_options options> uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) {
 			::jsonifier::generic::document_state& state = derivedRef.genericStorage().state;
 			if (length < smallDocumentBytes) {
 				derivedRef.podSection.template reset<options.minified>(rootIter, length);

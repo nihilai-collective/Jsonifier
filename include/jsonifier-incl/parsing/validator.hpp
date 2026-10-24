@@ -35,7 +35,7 @@ namespace jsonifier::internal {
 
 		using cursor = json_cursor<optionsVal, write_structural_index_ptr>;
 
-		template<string_types string_type> inline bool validateJson(string_type&& in) noexcept {
+		template<string_types string_type> bool validateJson(string_type&& in) noexcept {
 			auto rootIter = jsonifier::internal::getBeginIter(in);
 			auto endIter  = jsonifier::internal::getEndIter(in);
 			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
@@ -68,10 +68,10 @@ namespace jsonifier::internal {
 		validator& operator=(validator&& other)		 = delete;
 		validator(const validator& other)			 = delete;
 		validator(validator&& other)				 = delete;
-		inline ~validator() noexcept				 = default;
-		inline validator() noexcept					 = default;
+		~validator() noexcept						 = default;
+		validator() noexcept						 = default;
 
-		template<typename context_type> inline static write_structural_index_ptr impl(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> static write_structural_index_ptr impl(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!cursor::notAtEnd(iter, context)) {
 				return nullptr;
 			}
@@ -93,7 +93,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type> inline static write_structural_index_ptr validateObject(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> static write_structural_index_ptr validateObject(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'{'>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}
@@ -125,7 +125,7 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
-		template<typename context_type> inline static write_structural_index_ptr validateArray(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> static write_structural_index_ptr validateArray(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'['>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}

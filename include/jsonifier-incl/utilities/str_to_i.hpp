@@ -748,8 +748,8 @@ namespace jsonifier::internal {
 
 	namespace int_swar {
 
-		template<uint8_types auto repeat, uint_types v_type>
-		inline constexpr v_type repeatBytes = static_cast<v_type>(static_cast<v_type>(0x0101010101010101ull) * static_cast<v_type>(repeat));
+		template<uint8_types auto repeat, uint_types v_type> inline constexpr v_type repeatBytes =
+			static_cast<v_type>(static_cast<v_type>(0x0101010101010101ull) * static_cast<v_type>(repeat));
 
 		template<uint_types v_type> JSONIFIER_INLINE v_type countZeros(v_type value) noexcept {
 			if constexpr (std::endian::native == std::endian::little) {
@@ -1704,7 +1704,7 @@ namespace jsonifier::internal {
 	#endif
 		}
 
-		inline static read_buffer_ptr finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		static read_buffer_ptr finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (peekByte(iter, end) == decimal) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);

@@ -726,8 +726,8 @@ namespace jsonifier::internal {
 
 		enum class ws_sizes { eq_0, eq_1, eq_2, gt_2, eq_4, gt_4, eq_8 };
 
-		static constexpr ws_sizes wsSizes[9]{ ws_sizes::eq_0, ws_sizes::eq_1, ws_sizes::eq_2, ws_sizes::gt_2, ws_sizes::eq_4, ws_sizes::gt_4, ws_sizes::gt_4,
-			ws_sizes::gt_4, ws_sizes::eq_8 };
+		static constexpr ws_sizes wsSizes[9]{ ws_sizes::eq_0, ws_sizes::eq_1, ws_sizes::eq_2, ws_sizes::gt_2, ws_sizes::eq_4, ws_sizes::gt_4, ws_sizes::gt_4, ws_sizes::gt_4,
+			ws_sizes::eq_8 };
 
 		JSONIFIER_INLINE static read_buffer_ptr spanIsIndent(read_buffer_ptr iterLocal, uint64_t count, base_t<decltype(*read_buffer_ptr{})> wsChar) noexcept {
 			const uint64_t fill{ static_cast<uint64_t>(static_cast<uint8_t>(wsChar)) * 0x0101010101010101ull };

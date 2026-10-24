@@ -15,18 +15,18 @@
 
 namespace jsonifier::internal {
 
-	template<uint8_t repeat, uint_types return_type> inline consteval return_type repeatByte() {
+	template<uint8_t repeat, uint_types return_type> consteval return_type repeatByte() {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
-	template<uint_types return_type> inline constexpr return_type repeatByte(uint8_t repeat) noexcept {
+	template<uint_types return_type> constexpr return_type repeatByte(uint8_t repeat) noexcept {
 		return static_cast<return_type>(static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat));
 	}
 
 	template<char valueNewer, typename char_type> struct char_comparison {
 		static constexpr char value{ valueNewer };
 		JSONIFIER_INLINE static const char_type* memchar(const char_type* data, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 			}
 #endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -158,7 +158,7 @@ namespace jsonifier::internal {
 
 	struct comparison {
 		template<typename char_type01, typename char_type02> JSONIFIER_INLINE static bool compare(const char_type01* lhs, char_type02* rhs, uint64_t lengthNew) noexcept {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 			if (lengthNew >= 64) {
 				using type_list_element				 = type_list_element_t<0, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -177,7 +177,7 @@ namespace jsonifier::internal {
 				}
 			}
 #endif
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 			if (lengthNew >= 32) {
 				using type_list_element				 = type_list_element_t<1, simd::avx_list>;
 				using simd_type						 = typename type_list_element::type::type;
@@ -262,7 +262,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> inline consteval uint64_t getPackingSize() {
+	template<uint64_t size> consteval uint64_t getPackingSize() {
 		if constexpr (size >= 64) {
 			return 64;
 		} else if constexpr (size >= 32) {
@@ -282,7 +282,7 @@ namespace jsonifier::internal {
 
 	template<string_literal string>
 		requires(string.length == 0)
-	inline consteval auto packValues() {
+	consteval auto packValues() {
 		return uint8_t{};
 	}
 
@@ -305,7 +305,7 @@ namespace jsonifier::internal {
 	template<auto string> struct pack_values;
 
 	template<gt_0_lte_8_types auto string> struct pack_values<string> {
-		inline static consteval decltype(auto) gen() {
+		static consteval decltype(auto) gen() {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
 			for (uint64_t x = 0; x < string.length; ++x) {
@@ -322,7 +322,7 @@ namespace jsonifier::internal {
 
 	template<gt_8_types auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, intLength<string.size()>>;
-		inline static consteval array_type gen() {
+		static consteval array_type gen() {
 			array_type outLocal{};
 			for (uint64_t i = 0; i < string.size(); ++i) {
 				outLocal[i] = static_cast<uint8_t>(string[i]);
@@ -369,14 +369,14 @@ namespace jsonifier::internal {
 
 	template<typename sequence, auto stringNew, uint64_t splitMod> struct string_literal_splitter;
 
-	template<uint64_t index, typename string_type> inline constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
+	template<uint64_t index, typename string_type> constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
 		string_literal<index + 1> sl{};
 		std::copy_n(str.data(), str.size(), sl.values);
 		sl[index] = '\0';
 		return sl;
 	}
 
-	inline consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
+	consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {
 			return 64ULL;
 		} else if (inputSize >= 32ULL && simdBytesPerRegister >= 32ULL) {
@@ -565,7 +565,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
+#if JSONIFIER_AVX512 || JSONIFIER_AVX2
 
 	template<eq_32_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
@@ -594,7 +594,7 @@ namespace jsonifier::internal {
 
 #endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+#if JSONIFIER_AVX512
 	template<eq_64_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
 		JSONIFIER_INLINE static read_buffer_ptr impl(read_buffer_ptr __restrict str) noexcept {
 			static constexpr auto newLiteral{ stringNew };

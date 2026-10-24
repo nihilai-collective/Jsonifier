@@ -152,12 +152,12 @@ namespace jsonifier::internal {
 	};
 
 	template<typename result_type_new> struct ordering_accumulator {
-		inline constexpr ordering_accumulator& operator=(result_type_new newValue) noexcept {
+		constexpr ordering_accumulator& operator=(result_type_new newValue) noexcept {
 			value = newValue;
 			return *this;
 		}
 
-		inline constexpr operator bool() const noexcept {
+		constexpr operator bool() const noexcept {
 			return std::is_eq(value);
 		}
 
@@ -304,7 +304,7 @@ namespace jsonifier::internal {
 	}
 
 	struct completion_signal {
-		inline constexpr operator bool() const noexcept {
+		constexpr operator bool() const noexcept {
 			return notDone;
 		}
 
@@ -322,7 +322,7 @@ namespace jsonifier::internal {
 	template<typename target_type, typename tuple_type, typename integer_sequence> struct index_finder;
 
 	template<typename target_type, typename tuple_type, uint64_t... indices> struct index_finder<target_type, tuple_type, integer_sequence<indices...>> {
-		inline static consteval uint64_t getIndex() {
+		static consteval uint64_t getIndex() {
 			completion_signal result{};
 			((result = index_tag<indices, target_type, tuple_type>::value) && ...);
 			return result.index;

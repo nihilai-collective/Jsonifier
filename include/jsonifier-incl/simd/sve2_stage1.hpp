@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_SVE2
 
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128,
 		"This block collapses simdRegistersPerBlock registers into a single uint64_t bitmask, and SVE2 ADDP is segment-wise; both hold only at 128-bit VL.");
@@ -200,7 +200,7 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateWhitespaceArraySve2() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArraySve2() {
 		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -211,7 +211,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArraySve2<size>() };
 
-	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateOpArraySve2() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArraySve2() {
 		constexpr const uint8_t values[]{ 0xFFu, 0x00u, ',', ':', 0x00u, '[', ']', '{', '}', 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {

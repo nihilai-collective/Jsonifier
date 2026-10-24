@@ -16,7 +16,7 @@
 
 namespace jsonifier {
 
-	template<internal::number_types value_type01> inline string toString(const value_type01& value) noexcept {
+	template<internal::number_types value_type01> string toString(const value_type01& value) noexcept {
 		string returnString{};
 		returnString.resize(64);
 		if constexpr (sizeof(value_type01) == 8) {
@@ -40,7 +40,7 @@ namespace jsonifier {
 		return returnString;
 	}
 
-	template<uint64_t base = 10> inline double strToDouble(const string& stringNew) noexcept {
+	template<uint64_t base = 10> double strToDouble(const string& stringNew) noexcept {
 		double newValue{};
 		if (stringNew.size() > 0) [[likely]] {
 			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());
@@ -58,7 +58,7 @@ namespace jsonifier {
 		return newValue;
 	}
 
-	template<uint64_t base = 10> inline int64_t strToInt64(const string& stringNew) noexcept {
+	template<uint64_t base = 10> int64_t strToInt64(const string& stringNew) noexcept {
 		int64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
 			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());
@@ -76,7 +76,7 @@ namespace jsonifier {
 		return newValue;
 	}
 
-	template<uint64_t base = 10> inline uint64_t strToUint64(const string& stringNew) noexcept {
+	template<uint64_t base = 10> uint64_t strToUint64(const string& stringNew) noexcept {
 		uint64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
 			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());

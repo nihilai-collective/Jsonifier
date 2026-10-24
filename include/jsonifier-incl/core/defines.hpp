@@ -192,11 +192,11 @@
 	#error "Sorry, this arch is not supported."
 #endif
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
+#if JSONIFIER_ANY_AVX
 	#include <immintrin.h>
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+#elif JSONIFIER_NEON
 	#include <arm_neon.h>
-#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#elif JSONIFIER_SVE2
 	#include <arm_neon_sve_bridge.h>
 	#include <arm_neon.h>
 	#include <arm_sve.h>
@@ -279,13 +279,13 @@
 		} \
 	}
 
-template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
+template<typename... arg_types> void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
 }
 
-template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&...) noexcept {
+template<typename... arg_types> void jsonifierFailMemmoveImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memmove is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
@@ -293,11 +293,11 @@ template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&
 
 namespace std {
 
-	template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&... args) noexcept {
+	template<typename... arg_types> void jsonifierFailMemcpyImpl(arg_types&&... args) noexcept {
 		::jsonifierFailMemcpyImpl(args...);
 	}
 
-	template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&... args) noexcept {
+	template<typename... arg_types> void jsonifierFailMemmoveImpl(arg_types&&... args) noexcept {
 		::jsonifierFailMemmoveImpl(args...);
 	}
 

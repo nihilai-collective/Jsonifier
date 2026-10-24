@@ -268,7 +268,7 @@ namespace jsonifier::internal {
 		}
 
 		template<auto... values> struct tuple_member_sizer {
-			template<uint64_t index, typename value_type_new> inline static void impl(value_type_new& value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
+			template<uint64_t index, typename value_type_new> static void impl(value_type_new& value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 				if constexpr (options.prettify) {
 					requiredSize += 2 + indent;
 				} else {
@@ -545,8 +545,8 @@ namespace jsonifier::internal {
 	};
 
 	template<typename... bases> struct serialize_map : public bases... {
-		template<typename value_type>
-		JSONIFIER_INLINE_LINUX_GCC static write_buffer_ptr iterateValues([[maybe_unused]] value_type& value, write_buffer_ptr __restrict bufferPtr, [[maybe_unused]] uint64_t indent) noexcept {
+		template<typename value_type> JSONIFIER_INLINE_LINUX_GCC static write_buffer_ptr iterateValues([[maybe_unused]] value_type& value, write_buffer_ptr __restrict bufferPtr,
+			[[maybe_unused]] uint64_t indent) noexcept {
 			((bufferPtr = bases::processIndex(value, bufferPtr, indent)), ...);
 			return bufferPtr;
 		}

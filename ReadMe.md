@@ -67,7 +67,7 @@ Jsonifier automatically detects and optimizes for your CPU architecture:
 - **ARM-NEON**: SIMD instructions for ARM processors
 - **ARM-SVE2**: scalable vector extensions for ARM processors ⚠️ **experimental**: the SVE2 backend is new and still under active development; a handful of parsing cases are not yet handled correctly. NEON remains the recommended path for production ARM builds until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
-Exactly one SIMD backend is compiled into each build, chosen at configure time; nothing is selected at run time. A binary configured for AVX-512 requires AVX-512 on every machine that runs it, so configure for the lowest tier you need to support when distributing to mixed hardware. Define `JSONIFIER_MAX_AVX_TIER` (1, 2 or 3) to cap the x64 tier below what was detected. See [One tier per build](documentation/CPU_Architecture_Selection.md#one-tier-per-build).
+Exactly one SIMD backend is compiled into each build, chosen at configure time; nothing is selected at run time. A binary configured for AVX-512 requires AVX-512 on every machine that runs it, so configure for the lowest tier you need to support when distributing to mixed hardware. Pass `-DJSONIFIER_CPU_INSTRUCTIONS` at configure time to build a lower tier than the one detected. See [One tier per build](documentation/CPU_Architecture_Selection.md#one-tier-per-build).
 
 Manual configuration and cross-compilation are supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` (plus `JSONIFIER_SVE2_VECTOR_BITS` for SVE2 targets) at CMake configure time to skip native feature detection.
 
@@ -182,7 +182,7 @@ The `jsonifier_core<>` type is templated on an initial scratch-buffer size in by
 - [Known Order Parsing](documentation/Known_Order.md): Guaranteed-order optimization for hot paths
 - [Optimizing For Minified JSON](documentation/Optimizing_For_Minified_Json.md): Boost performance for minified input
 - [Partial Reading](documentation/PartialReading.md): Parse unordered or partial JSON structures
-- [CPU Architecture Selection](documentation/CPU_Architecture_Selection.md): Configure-time backend selection, tier capping, and manual CPU instruction set configuration, including SVE2 and cross-compilation overrides
+- [CPU Architecture Selection](documentation/CPU_Architecture_Selection.md): Configure-time backend selection, stage-1 step tuning, and manual CPU instruction set configuration, including SVE2 and cross-compilation overrides
 
 ### Output Formatting
 - [Prettifying](documentation/Prettifying.md): Pretty-print JSON with customizable indentation

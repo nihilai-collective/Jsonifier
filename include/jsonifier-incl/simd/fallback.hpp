@@ -12,8 +12,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512) && \
-	!JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if !JSONIFIER_AVX && !JSONIFIER_AVX2 && !JSONIFIER_AVX512 && !JSONIFIER_NEON && !JSONIFIER_SVE2
 
 	template<typename value_type> [[maybe_unused]] JSONIFIER_INLINE uint64_t postCmpTzcnt(const value_type value) noexcept {
 		return countrZero(value);
@@ -93,27 +92,6 @@ namespace jsonifier::internal::simd {
 		result |= static_cast<uint16_t>(value.values.xUint8[13] == other.values.xUint8[13]) << 13;
 		result |= static_cast<uint16_t>(value.values.xUint8[14] == other.values.xUint8[14]) << 14;
 		result |= static_cast<uint16_t>(value.values.xUint8[15] == other.values.xUint8[15]) << 15;
-		return result;
-	}
-
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE uint16_t opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		uint16_t result{};
-		result |= static_cast<uint16_t>(value.values.xUint8[0] < other.values.xUint8[0]) << 0;
-		result |= static_cast<uint16_t>(value.values.xUint8[1] < other.values.xUint8[1]) << 1;
-		result |= static_cast<uint16_t>(value.values.xUint8[2] < other.values.xUint8[2]) << 2;
-		result |= static_cast<uint16_t>(value.values.xUint8[3] < other.values.xUint8[3]) << 3;
-		result |= static_cast<uint16_t>(value.values.xUint8[4] < other.values.xUint8[4]) << 4;
-		result |= static_cast<uint16_t>(value.values.xUint8[5] < other.values.xUint8[5]) << 5;
-		result |= static_cast<uint16_t>(value.values.xUint8[6] < other.values.xUint8[6]) << 6;
-		result |= static_cast<uint16_t>(value.values.xUint8[7] < other.values.xUint8[7]) << 7;
-		result |= static_cast<uint16_t>(value.values.xUint8[8] < other.values.xUint8[8]) << 8;
-		result |= static_cast<uint16_t>(value.values.xUint8[9] < other.values.xUint8[9]) << 9;
-		result |= static_cast<uint16_t>(value.values.xUint8[10] < other.values.xUint8[10]) << 10;
-		result |= static_cast<uint16_t>(value.values.xUint8[11] < other.values.xUint8[11]) << 11;
-		result |= static_cast<uint16_t>(value.values.xUint8[12] < other.values.xUint8[12]) << 12;
-		result |= static_cast<uint16_t>(value.values.xUint8[13] < other.values.xUint8[13]) << 13;
-		result |= static_cast<uint16_t>(value.values.xUint8[14] < other.values.xUint8[14]) << 14;
-		result |= static_cast<uint16_t>(value.values.xUint8[15] < other.values.xUint8[15]) << 15;
 		return result;
 	}
 
@@ -277,11 +255,6 @@ namespace jsonifier::internal::simd {
 		b						 = other.values.xUint8[15];
 		result.values.xUint8[15] = static_cast<uint8_t>(a > b ? a - b : 0);
 		return result;
-	}
-
-	template<uint16_t permuteMask, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE simd_int_t01 opPermute(simd_int_t01 value, simd_int_t02) noexcept {
-		return value;
 	}
 
 	template<uint16_t alignment, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
@@ -479,14 +452,6 @@ namespace jsonifier::internal::simd {
 		return result;
 	}
 
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE simd_int_t01 opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		simd_int_t01 result{};
-		result.values.xUint64[0] = value.values.xUint64[0] & ~other.values.xUint64[0];
-		result.values.xUint64[1] = value.values.xUint64[1] & ~other.values.xUint64[1];
-		return result;
-	}
-
 	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool opTest(simd_int_t01 value) noexcept {
 		if (value.values.xUint64[0] != 0) {
 			return false;
@@ -497,20 +462,9 @@ namespace jsonifier::internal::simd {
 		return true;
 	}
 
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE simd_int_t01 opNot(simd_int_t01 value) noexcept {
-		simd_int_t01 result{};
-		result.values.xUint64[0] = ~value.values.xUint64[0];
-		result.values.xUint64[1] = ~value.values.xUint64[1];
-		return result;
-	}
-
 	template<uint16_t shift, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE simd_int_t01 opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
 		return opAlignR<shift>(current, previous);
-	}
-
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !opTest(value);
 	}
 
 	template<simd_int_128_types simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE simd_int_t01 orAll(simd_array<totalChunks> chunks) noexcept {

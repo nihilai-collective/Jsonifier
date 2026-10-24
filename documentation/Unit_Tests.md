@@ -31,7 +31,7 @@ cmake --build build --target jsonifier-unit-tests
 ./build/unit-tests/jsonifier-unit-tests
 ```
 
-The test binary first prints the active SIMD backend, then runs every suite in order. Any failure makes the process exit with code `1`.
+The test binary first prints the active SIMD then runs every suite in order. Any failure makes the process exit with code `1`.
 
 ---
 
@@ -214,7 +214,7 @@ About 200 tests that check both `jsonifier::validateUtf8` and validation inside 
 
 ## SIMD and Memory Primitives
 
-- **Intrinsics (`intrinsics.hpp`):** tests the SIMD layer directly, without going through the parser: `opCmpEq`/`opCmpLt`, bitmask sweeps, and/or/xor/andnot/not, saturating subtraction, shifts, `alignr`, `isAscii`, `anyBitsSet`, and aligned and unaligned store round trips.
+- **Intrinsics (`intrinsics.hpp`):** tests the SIMD layer directly, without going through the parser: `opCmpEq`, bitmask sweeps, and/or/xor, saturating subtraction, shifts, `alignr`, `isAscii`, and aligned and unaligned store round trips.
 - **Tape emission (`add_tape_values.hpp`):** turning stage-1 bitmasks into tape indices, from an empty mask through a single bit, every bit set, crossing a tape step, and spanning several blocks with order preserved.
 - **Compare (`compare.hpp`):** `compare` and `memchar` at every length around the 16-, 32-, and 64-byte SSE, AVX2, and AVX-512 widths, plus lengths that need several vectors, and zero length.
 - **String-literal comparator (`string_literal_comparator.hpp`):** compile-time literal matching at lengths from 0 to 200, at every point where the comparison splits into chunks, with binary content, near a page boundary (lengths 15 to 64), in an exhaustive mode, and through the driver's accept and reject paths.

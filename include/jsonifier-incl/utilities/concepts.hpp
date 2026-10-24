@@ -48,7 +48,7 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept simd_int_128_types = sizeof(value_type) == 16;
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_SVE2
 	template<typename value_type>
 	concept simd_int_sve2_types = std::same_as<std::remove_cvref_t<value_type>, jsonifier_simd_int_t>;
 #endif

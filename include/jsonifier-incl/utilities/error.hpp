@@ -190,7 +190,7 @@ namespace jsonifier::internal {
 	inline constexpr const bool* __restrict boolTable{ boolTableRaw.data() };
 
 	struct error {
-		inline void formatReport() noexcept {
+		void formatReport() noexcept {
 			line	   = 0;
 			localIndex = 0;
 			errorIndex = 0;
@@ -244,24 +244,24 @@ namespace jsonifier::internal {
 			reportString = stream;
 		}
 
-		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
+		template<typename error_class> error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
 			read_buffer_ptr endIterNew, error_class typeNew) noexcept
 			: sourceLocation{ sourceLocationNew }, errorClass{ errorClassNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
 			  errorType{ static_cast<uint64_t>(typeNew) } {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
+		template<status_classes errorClassNew, typename error_class> static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
 			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
+		template<status_classes errorClassNew, auto typeNew> static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
 			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
 			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
 		}
 
-		inline static void collectValues(string& stream, const string& inputValues) noexcept {
+		static void collectValues(string& stream, const string& inputValues) noexcept {
 			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
 				stream += "'";
 				appendEscapedByte(stream, inputValues[i]);
@@ -270,21 +270,21 @@ namespace jsonifier::internal {
 			return;
 		}
 
-		inline bool operator==(const error& rhs) const noexcept {
+		bool operator==(const error& rhs) const noexcept {
 			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
 		}
 
-		template<typename error_class> inline operator error_class() const noexcept {
+		template<typename error_class> operator error_class() const noexcept {
 			return static_cast<error_class>(errorType);
 		}
 
-		inline std::string_view reportError() const noexcept {
+		std::string_view reportError() const noexcept {
 			return reportString.operator std::basic_string_view<char>();
 		}
 
 		std::source_location sourceLocation{};
 
-		inline error() noexcept = default;
+		error() noexcept = default;
 
 		status_classes errorClass{};
 		read_buffer_ptr rootIter{};
@@ -297,7 +297,7 @@ namespace jsonifier::internal {
 		uint64_t line{};
 	};
 
-	template<uint64_t bufferSize> inline basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const error& errorNew) noexcept {
+	template<uint64_t bufferSize> basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const error& errorNew) noexcept {
 		os << errorNew.reportError();
 		return os;
 	}

@@ -51,7 +51,7 @@ namespace jsonifier::internal {
 		template<prettify_options options, typename prettifier_type> friend struct prettify_context_ro;
 
 		template<prettify_options options = prettify_options{}, string_types input_string_type, string_types output_buffer_type>
-		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) {
+		bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
 			read_buffer_ptr dataPtr	 = std::bit_cast<read_buffer_ptr>(in.data());
@@ -106,10 +106,10 @@ namespace jsonifier::internal {
 		prettifier& operator=(prettifier&& other)	   = delete;
 		prettifier(const prettifier& other)			   = delete;
 		prettifier(prettifier&& other)				   = delete;
-		inline ~prettifier() noexcept				   = default;
-		inline prettifier() noexcept				   = default;
+		~prettifier() noexcept						   = default;
+		prettifier() noexcept						   = default;
 
-		template<prettify_options options, prettify_buffer_types string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
+		template<prettify_options options, prettify_buffer_types string_type, typename iterator, typename iterator_end> uint64_t impl(iterator* __restrict& iter,
 			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;

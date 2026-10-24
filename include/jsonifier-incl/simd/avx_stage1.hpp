@@ -13,7 +13,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) && !JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if !JSONIFIER_NEON && !JSONIFIER_SVE2
 
 	alignas(simdBytesPerRegister) inline constexpr internal::array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
 		internal::array<uint64_t, simdRegistersPerBlock> returnValue{};
@@ -29,7 +29,7 @@ namespace jsonifier::internal::simd {
 
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_CLMUL)
+	#if JSONIFIER_CLMUL
 			const __m128i allOnes = _mm_set1_epi8(static_cast<char>(-1));
 			const __m128i result  = _mm_clmulepi64_si128(_mm_set_epi64x(0, static_cast<int64_t>(bitmask)), allOnes, 0);
 			return static_cast<uint64_t>(_mm_cvtsi128_si64(result));
@@ -271,7 +271,7 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateWhitespaceArray() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArray() {
 		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, '\t', '\n', 0x70u, 0x64u, '\r', 0x64u, 0x64u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -282,7 +282,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
 
-	template<uint64_t size> inline consteval internal::array<uint8_t, size> generateOpArray() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArray() {
 		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, ':', '{', ',', '}', 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
