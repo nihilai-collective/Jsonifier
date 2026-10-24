@@ -46,7 +46,7 @@ namespace jsonifier::generic {
 			return *this;
 		}
 
-		inline void reserve(uint64_t capacityNew) noexcept {
+		void reserve(uint64_t capacityNew) noexcept {
 			if (capacityNew > capacity) {
 				release();
 				ptr		 = allocator::allocate(capacityNew);
@@ -120,7 +120,7 @@ namespace jsonifier::generic {
 
 		string_arena& operator=(const string_arena&) = delete;
 		string_arena(const string_arena&)			 = delete;
-		inline string_arena() noexcept				 = default;
+		string_arena() noexcept						 = default;
 
 	  protected:
 		alloc_buffer<char> buffer{};
@@ -129,7 +129,7 @@ namespace jsonifier::generic {
 	};
 
 	struct field_index_group {
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_NEON || JSONIFIER_SVE2
 		static constexpr uint64_t laneShift{ 2 };
 		static constexpr uint64_t laneBits{ 0xF };
 #else
@@ -201,7 +201,7 @@ namespace jsonifier::generic {
 			if ((count + 1) * 8 > uint64_t{ slotCount } * 7) [[unlikely]] {
 				grow();
 			}
-			place(entry{ objectIndex, hash, keyIndex });
+			place(entry{ hash, objectIndex, keyIndex });
 			++count;
 		}
 
@@ -238,8 +238,8 @@ namespace jsonifier::generic {
 
 	  protected:
 		struct entry {
-			uint32_t object;
 			uint64_t hash;
+			uint32_t object;
 			uint32_t key;
 		};
 
@@ -296,7 +296,7 @@ namespace jsonifier::generic {
 			return h1 + h2;
 		}
 
-		inline void grow() noexcept {
+		void grow() noexcept {
 			const uint64_t newSlotCount = slotCount == 0 ? initialSlots : uint64_t{ slotCount } * 2;
 			alloc_buffer<int8_t> oldControls{ internal::move(controls) };
 			alloc_buffer<entry> oldEntries{ internal::move(entries) };
@@ -371,7 +371,7 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE bool escapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyLimit = root + *(iter + 1);
-			if (keyLimit <= keyStart || !std::memchr(keyStart, '\\', static_cast<uint64_t>(keyLimit - keyStart))) [[likely]] {
+			if (keyLimit <= keyStart || !internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart))) [[likely]] {
 				return false;
 			}
 			char* unescaped	   = arena->scratch();
@@ -484,11 +484,11 @@ namespace jsonifier::generic {
 			return (c | 0x20) == '}';
 		}
 
-		field_index_map* fieldIndex{};
 		read_structural_index_ptr tapeEnd{};
 		read_structural_index_ptr cursor{};
-		read_buffer_ptr root{};
 		read_structural_index_ptr tape{};
+		field_index_map* fieldIndex{};
+		read_buffer_ptr root{};
 		read_buffer_ptr end{};
 		string_arena* arena{};
 		uint64_t depth{};
@@ -548,6 +548,23 @@ namespace jsonifier::generic {
 	alignas(64) inline constexpr auto typeTableRaw{ genTypeTable() };
 
 	inline constexpr const json_type* __restrict typeTable{ typeTableRaw.data() };
+
+	consteval jsonifier::internal::array<bool, 256> genSeperatorByteTable() {
+		jsonifier::internal::array<bool, 256> returnValues{};
+		for (auto& entry: returnValues) {
+			entry = false;
+		}
+		returnValues[static_cast<uint64_t>(' ')]  = true;
+		returnValues[static_cast<uint64_t>('\n')] = true;
+		returnValues[static_cast<uint64_t>('\r')] = true;
+		returnValues[static_cast<uint64_t>('\t')] = true;
+		returnValues[static_cast<uint64_t>(',')]  = true;
+		return returnValues;
+	}
+
+	alignas(64) inline constexpr auto seperatorByteTableRaw{ genSeperatorByteTable() };
+
+	inline constexpr const bool* __restrict seperatorByteTable{ seperatorByteTableRaw.data() };
 
 	class object;
 	class array;
@@ -620,10 +637,7 @@ namespace jsonifier::generic {
 				if (out.size() < upperBound) [[unlikely]] {
 					out.resize(upperBound);
 				}
-				if (const uint64_t newLength = escaped_string_copy_context{ stringStart, doc->end, outLength }(out.data(), upperBound);
-					outLength != std::numeric_limits<uint64_t>::max()) [[likely]] {
-					out.resize(newLength);
-				}
+				out.resize(escaped_string_copy_context{ stringStart, doc->end, outLength }(out.data(), upperBound));
 			}
 			return outLength == std::numeric_limits<uint64_t>::max() ? error_code::string_error : error_code::success;
 		}
@@ -967,7 +981,7 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE string_view key() const noexcept {
 			read_buffer_ptr keyStart = doc->root + *iter + 1;
 			read_buffer_ptr keyEnd	 = doc->root + *(iter + 1);
-			while (*--keyEnd != '"') {
+			while (keyEnd > keyStart && *--keyEnd != '"') {
 			}
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
@@ -1565,7 +1579,7 @@ namespace jsonifier::generic {
 	};
 
 	struct generic_storage {
-		inline generic_storage& operator=(generic_storage&& other) noexcept {
+		generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
 				fieldIndex	= internal::move(other.fieldIndex);
 				arena		= internal::move(other.arena);
@@ -1575,13 +1589,13 @@ namespace jsonifier::generic {
 			return *this;
 		}
 
-		inline generic_storage(generic_storage&& other) noexcept : fieldIndex{ internal::move(other.fieldIndex) }, arena{ internal::move(other.arena) } {
+		generic_storage(generic_storage&& other) noexcept : fieldIndex{ internal::move(other.fieldIndex) }, arena{ internal::move(other.arena) } {
 			other.state = document_state{};
 		}
 
 		generic_storage& operator=(const generic_storage&) = delete;
 		generic_storage(const generic_storage&)			   = delete;
-		inline generic_storage() noexcept				   = default;
+		generic_storage() noexcept						   = default;
 		field_index_map fieldIndex{};
 		document_state state{};
 		string_arena arena{};
@@ -1895,7 +1909,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE static bool isSeparatorByte(uint8_t c) noexcept {
-			return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == ',';
+			return seperatorByteTable[c];
 		}
 
 		read_structural_index_ptr windowTapeEnd{};

@@ -51,14 +51,14 @@ namespace jsonifier {
 		friend struct internal::parser<jsonifier_core>;
 		friend struct internal::generic_iterator<jsonifier_core>;
 
-		inline jsonifier_core() noexcept = default;
+		jsonifier_core() noexcept = default;
 
-		inline jsonifier_core(jsonifier_core&& other) noexcept
+		jsonifier_core(jsonifier_core&& other) noexcept
 			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
 			  errors{ internal::move(other.errors) }, genericData{ internal::move(other.genericData) } {
 		}
 
-		inline jsonifier_core& operator=(jsonifier_core&& other) noexcept {
+		jsonifier_core& operator=(jsonifier_core&& other) noexcept {
 			if (this != &other) [[likely]] {
 				podSection	 = internal::move(other.podSection);
 				section		 = internal::move(other.section);
@@ -73,24 +73,24 @@ namespace jsonifier {
 		jsonifier_core(const jsonifier_core& other)			   = delete;
 
 		template<parse_options options = parse_options{ .newLineDelimited = true }, typename buffer_type>
-		inline generic::document_stream<jsonifier_core, options> iterateMany(const buffer_type& in, uint64_t batchSize = generic::defaultBatchSize) noexcept {
+		generic::document_stream<jsonifier_core, options> iterateMany(const buffer_type& in, uint64_t batchSize = generic::defaultBatchSize) noexcept {
 			return generic::document_stream<jsonifier_core, options>{ *this, std::bit_cast<read_buffer_ptr>(in.data()), in.size(), batchSize };
 		}
 
-		inline const std::vector<internal::error>& getErrors() const noexcept {
+		const std::vector<internal::error>& getErrors() const noexcept {
 			return errors;
 		}
 
-		inline std::vector<internal::error>& getErrors() noexcept {
+		std::vector<internal::error>& getErrors() noexcept {
 			return errors;
 		}
 
-		inline ~jsonifier_core() noexcept = default;
+		~jsonifier_core() noexcept = default;
 
 	  protected:
 		template<typename, parse_options> friend class generic::document_stream;
 
-		internal::pod_simd_string_reader<defaultBackend, simdBytesPerStep> podSection{};
+		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};
 		internal::simd_string_reader<initialBufferSize> section{};
 		string_base<initialBufferSize> stringBuffer{};
 		std::vector<internal::error> errors{};

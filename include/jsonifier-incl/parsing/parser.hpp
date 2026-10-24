@@ -38,7 +38,7 @@ namespace jsonifier::internal {
 
 	template<parse_options options> struct parse {
 		template<typename value_type, typename iterator_type, typename context_type>
-		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
+		static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
 				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, depth, context);
 			} else {
@@ -55,13 +55,13 @@ namespace jsonifier::internal {
 	template<parse_options options, typename value_type, typename iterator_type> struct string_scan_context {
 		using scan_result = typename string_scanner<options>::scan_result;
 
-		inline string_scan_context() noexcept									   = default;
-		inline string_scan_context& operator=(const string_scan_context&) noexcept = delete;
-		inline string_scan_context(const string_scan_context&) noexcept			   = delete;
-		inline string_scan_context& operator=(string_scan_context&&) noexcept	   = delete;
-		inline string_scan_context(string_scan_context&&) noexcept				   = delete;
+		string_scan_context() noexcept										= default;
+		string_scan_context& operator=(const string_scan_context&) noexcept = delete;
+		string_scan_context(const string_scan_context&) noexcept			= delete;
+		string_scan_context& operator=(string_scan_context&&) noexcept		= delete;
+		string_scan_context(string_scan_context&&) noexcept					= delete;
 
-		inline string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
+		string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
 			: result{ resultNew }, strIter{ strIterNew }, endIter{ endIterNew } {
 		}
 
@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 		using derived_type = derived_type_new;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
-		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
+		bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
@@ -98,7 +98,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline write_structural_index_ptr collectStructurals(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type> write_structural_index_ptr collectStructurals(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -106,7 +106,7 @@ namespace jsonifier::internal {
 			return derivedRef.section.begin();
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> inline write_structural_index_ptr collectStructuralsSingle(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type> write_structural_index_ptr collectStructuralsSingle(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -273,7 +273,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) {
+		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
@@ -301,8 +301,8 @@ namespace jsonifier::internal {
 		parser& operator=(parser&& other)	   = delete;
 		parser(const parser& other)			   = delete;
 		parser(parser&& other)				   = delete;
-		inline ~parser() noexcept			   = default;
-		inline parser() noexcept			   = default;
+		~parser() noexcept					   = default;
+		parser() noexcept					   = default;
 
 		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
 		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, context_type& context) {

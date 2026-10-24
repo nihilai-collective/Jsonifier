@@ -40,12 +40,11 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10,
-		10, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
+	inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
+		9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
 
-	inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL,
-		99999999999ULL, 999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL,
-		9999999999999999999ULL };
+	inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL, 99999999999ULL,
+		999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL, 9999999999999999999ULL };
 
 	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
 		const uint64_t originalDigitCount{ digitCounts[std::countl_zero(inputValue)] };
@@ -76,7 +75,7 @@ namespace jsonifier::internal {
 		return pos;
 	}
 
-	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) noexcept {
+	template<typename value_type> uint64_t writeInteger(char* dest, value_type value) noexcept {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
 			char* outLocal = dest;
@@ -99,7 +98,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) noexcept {
+	template<typename value_type> uint64_t writeFloat(char* dest, value_type value) noexcept {
 		auto result = std::to_chars(dest, dest + 64, value);
 		return static_cast<uint64_t>(result.ptr - dest);
 	}
@@ -112,14 +111,14 @@ namespace jsonifier::internal {
 
 	template<uint64_t bufferSize = 8192> struct basic_stream {
 		template<typename integer_type>
-		inline std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
+		std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
 			integer_type value) noexcept {
 			ensureSpace(21);
 			bufferLength += writeInteger(streamBuffer + bufferLength, value);
 			return *this;
 		}
 
-		inline void writeRaw(const char* data, uint64_t size) noexcept {
+		void writeRaw(const char* data, uint64_t size) noexcept {
 			if (size >= bufferSize) {
 				doFlush();
 				rawWrite(streamTarget, data, size);
@@ -130,57 +129,57 @@ namespace jsonifier::internal {
 			bufferLength += size;
 		}
 
-		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
+		template<typename float_type> std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
 			ensureSpace(64);
 			bufferLength += writeFloat(streamBuffer + bufferLength, value);
 			return *this;
 		}
 
-		inline basic_stream& operator<<(std::string_view value) noexcept {
+		basic_stream& operator<<(std::string_view value) noexcept {
 			writeRaw(value.data(), value.size());
 			return *this;
 		}
 
-		inline basic_stream& operator<<(bool value) noexcept {
+		basic_stream& operator<<(bool value) noexcept {
 			return (*this) << std::string_view(value ? "true" : "false");
 		}
 
-		inline basic_stream& operator<<(char value) noexcept {
+		basic_stream& operator<<(char value) noexcept {
 			ensureSpace(1);
 			streamBuffer[bufferLength++] = value;
 			return *this;
 		}
 
-		inline basic_stream& operator<<(const char* value) noexcept {
+		basic_stream& operator<<(const char* value) noexcept {
 			return (*this) << std::string_view(value);
 		}
 
-		inline void doFlush() noexcept {
+		void doFlush() noexcept {
 			if (bufferLength > 0) {
 				rawWrite(streamTarget, streamBuffer, bufferLength);
 				bufferLength = 0;
 			}
 		}
 
-		inline void ensureSpace(uint64_t needed) noexcept {
+		void ensureSpace(uint64_t needed) noexcept {
 			if (bufferLength + needed > bufferSize) {
 				doFlush();
 			}
 		}
 
-		inline explicit basic_stream(stream_target target) noexcept : streamTarget{ target }, bufferLength{ 0 } {
+		explicit basic_stream(stream_target target) noexcept : streamTarget{ target }, bufferLength{ 0 } {
 		}
 
-		inline basic_stream& operator<<(endl_t) noexcept {
+		basic_stream& operator<<(endl_t) noexcept {
 			(*this) << '\n';
 			return *this;
 		}
 
-		inline std::string_view view() const noexcept {
+		std::string_view view() const noexcept {
 			return { streamBuffer, bufferLength };
 		}
 
-		inline basic_stream& operator<<(flush_t) noexcept {
+		basic_stream& operator<<(flush_t) noexcept {
 			doFlush();
 			return *this;
 		}
@@ -188,15 +187,15 @@ namespace jsonifier::internal {
 		basic_stream& operator=(const basic_stream&) = delete;
 		basic_stream(const basic_stream&)			 = delete;
 
-		inline void discard() noexcept {
+		void discard() noexcept {
 			bufferLength = 0;
 		}
 
-		inline ~basic_stream() noexcept {
+		~basic_stream() noexcept {
 			doFlush();
 		}
 
-		inline void flushNow() noexcept {
+		void flushNow() noexcept {
 			doFlush();
 		}
 

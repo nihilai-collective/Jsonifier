@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_SVE2
 
 	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE uint64_t postCmpTzcnt(value_type value) noexcept {
 		return countrZero(value) >> 2;
@@ -79,11 +79,6 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return opBitMaskRaw(opCmpLtRaw(value, other));
-	}
-
-	template<simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_t opShuffle(simd_int_t01 value, simd_int_t02 other) noexcept {
 		const jsonifier_simd_int_t bitMask = svreinterpret_u8_u8(svdup_n_u8(0x0F));
 		return svtbl_u8(value, svand_u8_x(svptrue_b8(), other, bitMask));
@@ -104,18 +99,9 @@ namespace jsonifier::internal::simd {
 		return svorr_u8_x(svptrue_b8(), value, other);
 	}
 
-	template<simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_t opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return svbic_u8_x(svptrue_b8(), value, other);
-	}
-
 	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool opTest(simd_int_t01 value) noexcept {
 		const auto pg = svptrue_b8();
 		return !svptest_any(pg, svcmpne_n_u8(pg, value, 0));
-	}
-
-	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_t opNot(simd_int_t01 value) noexcept {
-		return svnot_u8_x(svptrue_b8(), value);
 	}
 
 	template<simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
@@ -130,10 +116,6 @@ namespace jsonifier::internal::simd {
 	template<int32_t shift, simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_t opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
 		return svext_u8(previous, current, shift);
-	}
-
-	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !opTest(value);
 	}
 
 	template<simd_int_sve2_types simd_int_t> JSONIFIER_INLINE bool isAscii(simd_int_t input) noexcept {

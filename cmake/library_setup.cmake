@@ -55,8 +55,3 @@ target_compile_definitions(${PROJECT_NAME}
     INTERFACE ${JSONIFIER_COMPILE_DEFINITIONS}
 )
 
-if(DEFINED JSONIFIER_MAX_AVX_TIER)
-    target_compile_definitions(${PROJECT_NAME}
-        INTERFACE JSONIFIER_MAX_AVX_TIER=${JSONIFIER_MAX_AVX_TIER}
-    )
-endif()

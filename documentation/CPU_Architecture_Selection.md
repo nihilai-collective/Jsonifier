@@ -6,39 +6,49 @@ Jsonifier is a SIMD-heavy library, and getting the right SIMD backend selected f
 
 At configure time, Jsonifier's CMake build fetches [voided-hw-detection](https://github.com/nihilai-collective/voided-hw-detection), which builds and runs a small standalone helper program on the host machine. The program calls `cpuid` (on x64) or queries NEON, SVE2, and PMULL/crypto (carry-less multiply) support via `getauxval`/`sysctlbyname` (on ARM64), then prints one `KEY=VALUE` line per property: the thread count and cache sizes, a `HAS_*` flag for every feature it checks (including FMA, F16C, BMI2 and the AVX-512 F/BW/VBMI2 subsets, which have no bit of their own), and `CPU_INSTRUCTION_MASK`, the raw bitfield of every [feature bit](#the-feature-bits) it found.
 
-CMake parses those lines into `JSONIFIER_HAS_*` cache variables and picks `JSONIFIER_SIMD_TIER`: `AVX512` when AVX-512F and AVX-512BW are both present, otherwise `AVX2`, `AVX`, `SVE2` (only with a known vector length), `NEON` or `NONE`. It then builds the selected bitfield from the raw mask. On x64 that is the LZCNT/POPCNT/BMI/PCLMULQDQ bits as detected, plus the detected AVX bits up to and including the tier. On ARM64 it is the PCLMULQDQ bit plus the single NEON or SVE2 bit. The selected value is written into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` as `#define JSONIFIER_CPU_INSTRUCTIONS <value>`, alongside `#define JSONIFIER_SVE2_VECTOR_BITS <value>`. The detected alignment (64 for AVX-512, 32 for AVX2, the SVE vector length in bytes for SVE2, otherwise 16) is written into the generated `jsonifier_cpu_properties.hpp`, and allocations use it as their alignment.
+CMake parses those lines into `JSONIFIER_HAS_*` cache variables and picks `JSONIFIER_SIMD_TIER`: `AVX512` when AVX-512F and AVX-512BW are both present, otherwise `AVX2`, `AVX`, `SVE2` (only with a known vector length), `NEON` or `NONE`. It then builds the selected bitfield from the raw mask. On x64 that is the LZCNT/POPCNT/BMI/PCLMULQDQ bits as detected, plus the detected AVX bits up to and including the tier. On ARM64 it is the PCLMULQDQ bit plus the single NEON or SVE2 bit. Each bit of the selected value is written into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` as its own feature macro (`JSONIFIER_LZCNT` through `JSONIFIER_SVE2`, see [The Feature Bits](#the-feature-bits)), alongside `#define JSONIFIER_SVE2_VECTOR_BITS <value>`. The detected alignment (64 for AVX-512, 32 for AVX2, the SVE vector length in bytes for SVE2, otherwise 16) is written into the generated `jsonifier_cpu_properties.hpp`. Allocations use it as their alignment, and `simd/simd_config.hpp` uses it as `simdBytesPerRegister`.
 
 CMake translates the tier and the `HAS_*` flags into compiler flags (`/arch:AVX`, `/arch:AVX2` or `/arch:AVX512` on MSVC; on GCC/Clang, the tier's `-mavx...` flags plus `-mfma`, `-mf16c`, `-mlzcnt`, `-mpopcnt`, `-mbmi`, `-mbmi2` and `-mpclmul` for each feature that was found) and attaches them to the `voided_hw_jsonifier_cpu` interface target. The Jsonifier target links that target, and it is installed and exported with it, so every consumer that links Jsonifier compiles with the flags that match the configured feature bits. The configured backend is the only one compiled in, on every architecture.
 
 ## Backends and the Core
 
-Every SIMD backend is a value of `jsonifier::jsonifier_backend` (`avx512`, `avx2`, `avx`, `neon`, `sve2`, `fallback`). `simd/simd_config.hpp` defines a `jsonifier::backend_traits<backend>` specialization for each backend the build can use. It holds the register type (`simd_int_t`), the display `name`, and the per-compiler stage-1 tuning: `blocksPerStep` (64-byte blocks scanned per step) and `tapeStep` (burst size of the scalar tape drain). The derived helpers `backendBytesPerRegister<backend>`, `backendRegistersPerBlock<backend>` and `backendBytesPerStep<backend>` come from those traits.
+Jsonifier has six SIMD backends: AVX-512, AVX2, AVX, NEON, SVE2 and a scalar fallback. There is no backend enum or traits type. `simd/simd_config.hpp` selects the configured backend with a plain `#if` chain over the feature macros and defines everything for it directly in `jsonifier`: the register type `jsonifier_simd_int_t`, the display name `cpuArchName`, and the per-compiler stage-1 tuning `simdBlocksPerStep` (64-byte blocks scanned per step) and `simdTapeStep` (burst size of the scalar tape drain; AVX-512 has none, since its drain is a vectorized compress). `simdBytesPerRegister` is the detected alignment from `jsonifier_cpu_properties.hpp`, and a `static_assert` requires it to equal `sizeof(jsonifier_simd_int_t)`. `simdRegistersPerBlock` (`64 / simdBytesPerRegister`) and `simdBytesPerStep` (`simdBlocksPerStep * 64`) follow from those.
+
+The stage-1 tuning per (ISA × compiler) cell:
+
+| Backend | Clang | GCC | MSVC/other |
+|---|---|---|---|
+| AVX-512 | 8 blocks | 8 blocks | 8 blocks |
+| AVX2 | 4 blocks, tape step 4 | 8 blocks, tape step 4 | 8 blocks, tape step 4 |
+| AVX | 8 blocks, tape step 8 | 8 blocks, tape step 8 | 8 blocks, tape step 8 |
+| SVE2 | 8 blocks, tape step 8 | 8 blocks, tape step 8 | 8 blocks, tape step 8 |
+| NEON | 4 blocks, tape step 8 | 4 blocks, tape step 8 | 4 blocks, tape step 8 |
+| Fallback | 8 blocks, tape step 8 | 8 blocks, tape step 8 | 8 blocks, tape step 8 |
 
 ### One tier per build
 
-A build compiles exactly one backend, and the configured feature bits choose it. On x64, `core/defines.hpp` reduces the bitfield to `JSONIFIER_CONFIGURED_AVX_TIER`: 3 for AVX-512, 2 for AVX2, 1 for AVX. It then sets `JSONIFIER_CPU_INSTRUCTIONS` to that tier's cumulative mask. The AVX-512 mask also carries the AVX2 and AVX bits, and every tier's mask carries whichever of LZCNT/POPCNT/BMI/PCLMULQDQ were configured. `simd/simd_config.hpp` turns that mask into `jsonifier::defaultBackend`, and `jsonifier::cpuArchName` is that backend's display name.
-
-Define `JSONIFIER_MAX_AVX_TIER` (1, 2 or 3) before including Jsonifier to cap the tier below what was detected. For example, define it as 2 to build the AVX2 backend on an AVX-512 machine.
+A build compiles exactly one backend, and the configured feature macros choose it. `simd/simd_config.hpp` checks `JSONIFIER_ANY_AVX` first and takes the highest of `JSONIFIER_AVX512`, `JSONIFIER_AVX2` and `JSONIFIER_AVX`; otherwise `JSONIFIER_SVE2`, then `JSONIFIER_NEON`, then the scalar fallback. The chosen branch defines `jsonifier_simd_int_t` and `jsonifier::cpuArchName`, the backend's display name. Code that differs per backend, such as `add_tape_values`, branches on the same feature macros. To build a lower tier than the one detected, [override the detected value](#overriding-the-auto-detected-value).
 
 The whole library is compiled once, in `jsonifier` and `jsonifier::internal`, with the translation unit's own flags. There are no target-attribute regions and no per-tier copies, so every force-inlined function can be inlined into every caller. That includes callables handed to standard-library templates, such as the contexts passed to `std::basic_string::resize_and_overwrite`.
 
-### Flag consistency check
+### Compile-time checks
 
-On x64, `core/defines.hpp` checks at compile time that the translation unit is actually compiled for the configured tier, and stops with `#error` if it is not:
+The headers stop the build with `#error` or `static_assert` when the configuration cannot work:
 
-| Configured tier | Required predefined macros |
-|-----------------|----------------------------|
-| AVX-512 | `__AVX512F__`, `__AVX512BW__`, plus `__AVX512VBMI2__` on GCC/Clang |
-| AVX2 | `__AVX2__` |
-| AVX | `__AVX__` |
+| Check | Where |
+|-------|-------|
+| `JSONIFIER_NEON` and `JSONIFIER_SVE2` both set | `jsonifier_cpu_instructions.hpp` |
+| `JSONIFIER_SVE2` set with `JSONIFIER_SVE2_VECTOR_BITS` of `0` | `jsonifier_cpu_instructions.hpp` |
+| SVE2 vector length other than 128 bits | `simd/simd_config.hpp` |
+| `simdBytesPerRegister` (the detected alignment) differs from the selected register width | `simd/simd_config.hpp` |
 
-MSVC's `/arch:AVX512` never defines `__AVX512VBMI2__`, so MSVC is checked for F and BW only. Linking the `voided_hw_jsonifier_cpu` target supplies matching flags automatically. The check catches the remaining cases, such as headers used without that target, or a stale generated header next to different compiler flags. Without it they would show up as cryptic target-feature errors or as `SIGILL` at run time.
+There is no check that the compiler flags enable the selected tier. Linking the `voided_hw::jsonifier_cpu` target supplies matching flags automatically; headers used without it, next to flags that do not enable the tier, fail with target-feature errors at compile time or `SIGILL` at run time.
 
 ### The core
 
 `jsonifier::jsonifier_core<initialBufferSize>` is a single class. It inherits the printer, prettifier, serializer, validator, minifier, parser and generic iterator through CRTP, and it owns everything those bases work on:
 
-- the fused-path structural reader (`pod_simd_string_reader<defaultBackend, simdBytesPerStep>`) and the two-stage structural reader (`simd_string_reader<initialBufferSize>`)
+- the fused-path structural reader (`pod_simd_string_reader<simdBytesPerStep>`) and the two-stage structural reader (`simd_string_reader<initialBufferSize>`)
 - the string buffer and the error list
 - the generic-parsing storage (field index, document state and string arena), held inline; its buffers are allocated on the first `iterate`
 
@@ -63,9 +73,9 @@ Every call is a direct call into code built for the configured backend; nothing 
 | AVX-512  | 7 | 128 | `JSONIFIER_AVX512` |
 | SVE2     | 8 | 256 | `JSONIFIER_SVE2` |
 
-**Important detail:** the AVX bits are cumulative. A CPU with AVX-512 reports the AVX, AVX2 and AVX-512 bits together, and the selected value keeps every detected AVX bit up to the tier, on every compiler. `core/defines.hpp` keys the build off the highest AVX bit, so the lower ones never change which backend is compiled.
+**Important detail:** the AVX bits are cumulative. A CPU with AVX-512 reports the AVX, AVX2 and AVX-512 bits together, and the selected value keeps every detected AVX bit up to the tier, on every compiler. `simd/simd_config.hpp` keys the build off the highest AVX macro, so the lower ones never change which backend is compiled.
 
-The AVX-512 bit is only detected when AVX-512F, AVX-512BW **and** AVX-512VBMI2 are all present, while the `AVX512` tier only needs F and BW. On a CPU with F and BW but no VBMI2 (Skylake-X, for example), CMake applies the AVX-512 compiler flags, but bit 7 is absent from the written value, so `core/defines.hpp` builds the AVX2 backend.
+The AVX-512 bit is only detected when AVX-512F, AVX-512BW **and** AVX-512VBMI2 are all present, while the `AVX512` tier only needs F and BW. On a CPU with F and BW but no VBMI2 (Skylake-X, for example), CMake applies the AVX-512 compiler flags and writes an alignment of 64, but bit 7 is absent from the written value, so `simd/simd_config.hpp` selects the AVX2 backend. Its 32-byte register then disagrees with the 64-byte `simdBytesPerRegister`, and the `static_assert` stops the build. Override to an AVX2 value on such machines.
 
 **On MSVC, CMake also ORs in the AVX2 and AVX bits below the selected tier** (the MSVC cascade). Detected values already carry those bits, so the cascade only changes an override that names a single tier bit: `1|2|4|128` is written as `135` on GCC/Clang and as `231` on MSVC. The cascade never adds the AVX-512 bit.
 
@@ -139,11 +149,11 @@ This mode is slower than any SIMD-enabled build, but it is **fully supported**: 
 If you drop Jsonifier's headers into a project without running its CMake configure step (hand-rolled Makefile, non-CMake build system, or copying headers into a monorepo), the `jsonifier_cpu_instructions.hpp` file will be empty, stale, or wrong, and you'll get one of:
 
 - Compilation failures because the SIMD detection macros aren't defined
-- The [flag consistency check](#flag-consistency-check) stopping the build because the header names a tier your compiler flags don't enable
+- Target-feature errors because the header names a tier your compiler flags don't enable
 - A silently-selected fallback backend (much slower than expected)
 - A binary that uses instructions your CPU doesn't support (crashes at runtime with `SIGILL`)
 
-If you're bypassing CMake, **you must manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp`**, set `JSONIFIER_CPU_INSTRUCTIONS` to a valid value, and pass the matching `-m...` or `/arch:` flags yourself. See [Installation](Installation.md) for the details on this footgun.
+If you're bypassing CMake, **you must manually edit `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp`**, set each feature macro (`JSONIFIER_LZCNT` through `JSONIFIER_SVE2`) to `0` or `1` for your target, and pass the matching `-m...` or `/arch:` flags yourself. See [Installation](Installation.md) for the details on this footgun.
 
 ## Verifying What Got Selected
 
@@ -156,12 +166,17 @@ cat include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp
 You'll see something like:
 
 ```cpp
-#define JSONIFIER_CPU_INSTRUCTIONS 111
-
 #define JSONIFIER_SVE2_VECTOR_BITS 0
+
+#if !defined(JSONIFIER_LZCNT)
+	#define JSONIFIER_LZCNT 1
+#endif
+#if !defined(JSONIFIER_POPCNT)
+	#define JSONIFIER_POPCNT 1
+#endif
 ```
 
-(`111` = `1|2|4|8|32|64`: LZCNT, POPCNT, BMI, PCLMULQDQ, AVX and AVX2, a typical AVX2-tier x64 machine on any compiler. An AVX-512 machine with VBMI2 writes `239`. `JSONIFIER_SVE2_VECTOR_BITS` is `0` unless SVE2 is the selected tier.)
+(one `#if !defined` block per feature bit, each set to `1` when the bit was selected and `0` otherwise. A typical AVX2-tier x64 machine sets LZCNT, POPCNT, BMI, CLMUL, AVX and AVX2. `JSONIFIER_SVE2_VECTOR_BITS` is `0` unless SVE2 is the selected tier.)
 
 The CMake configure output summarizes the result in two lines, for example:
 
@@ -170,19 +185,17 @@ The CMake configure output summarizes the result in two lines, for example:
 -- voided-hw-detection [JSONIFIER] CPU features: LZCNT POPCNT BMI1 BMI2 CLMUL FMA F16C AVX AVX2
 ```
 
-The first line names the tier, the alignment and the value written to the header. `detected FALSE` means no detector output and no override was available (cross-compiling, or the detector failed to build or run), so every property used its fallback. The second line lists every `HAS_*` flag that is set, and those flags are what the compiler flags are built from. When `JSONIFIER_CPU_INSTRUCTIONS` is overridden, an extra `voided-hw-detection [JSONIFIER] CPU: using manually set JSONIFIER_CPU_INSTRUCTIONS` line appears just before them.
+The first line names the tier, the alignment and the selected feature bits written to the header. `detected FALSE` means no detector output and no override was available (cross-compiling, or the detector failed to build or run), so every property used its fallback. The second line lists every `HAS_*` flag that is set, and those flags are what the compiler flags are built from. When `JSONIFIER_CPU_INSTRUCTIONS` is overridden, an extra `voided-hw-detection [JSONIFIER] CPU: using manually set JSONIFIER_CPU_INSTRUCTIONS` line appears just before them.
 
 ## The Check Macros
 
 For internal code paths (and for anyone extending Jsonifier), the header exposes compile-time predicates:
 
 ```cpp
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_POPCNT)
+#if JSONIFIER_POPCNT
     // POPCNT is available
 #endif
 ```
-
-`JSONIFIER_CHECK_FOR_INSTRUCTION` is a bitwise AND against a specific feature bit. The header also `#error`s if NEON and SVE2 are both set, or if SVE2 is set while `JSONIFIER_SVE2_VECTOR_BITS` is `0`.
 
 Convenience masks for common groups:
 

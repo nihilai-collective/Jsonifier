@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
+#if JSONIFIER_NEON
 
 	template<uint_types value_type> [[maybe_unused]] JSONIFIER_INLINE uint64_t postCmpTzcnt(value_type value) noexcept {
 		return countrZero(value) >> 2;
@@ -51,10 +51,6 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpEq(simd_int_t01 value, simd_int_t02 other) noexcept {
 		return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vceqq_u8(value, other)), 4)), 0);
-	}
-
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLt(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vcgtq_u8(other, value)), 4)), 0);
 	}
 
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpEqRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
@@ -98,17 +94,8 @@ namespace jsonifier::internal::simd {
 		return vorrq_u8(value, other);
 	}
 
-	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
-	[[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_128 opAndNot(simd_int_t01 value, simd_int_t02 other) noexcept {
-		return vbicq_u8(value, other);
-	}
-
 	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool opTest(simd_int_t01 value) noexcept {
-		return vmaxvq_u8(value) == 0;
-	}
-
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE auto opNot(simd_int_t01 value) noexcept {
-		return vmvnq_u8(value);
+		return vget_lane_u64(vreinterpret_u64_u8(vqmovn_u16(vreinterpretq_u16_u8(value))), 0) == 0;
 	}
 
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
@@ -125,12 +112,8 @@ namespace jsonifier::internal::simd {
 		return vextq_u8(previous, current, shift);
 	}
 
-	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool anyBitsSetAnywhere(simd_int_t01 value) noexcept {
-		return !opTest(value);
-	}
-
 	template<simd_int_128_types simd_int_t> JSONIFIER_INLINE bool isAscii(simd_int_t input) noexcept {
-		return vmaxvq_u8(input) < 0x80u;
+		return opTest(vandq_u8(input, vdupq_n_u8(0x80)));
 	}
 
 	template<simd_int_128_types simd_int_t01, uint64_t totalChunks> JSONIFIER_INLINE simd_int_t01 orAll(const simd_array<totalChunks> chunks) noexcept {

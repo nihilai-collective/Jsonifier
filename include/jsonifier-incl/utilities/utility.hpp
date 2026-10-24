@@ -163,7 +163,7 @@ namespace jsonifier::internal {
 
 	inline constexpr swap_fn swap{};
 
-	template<uint_types value_type> inline constexpr value_type byteswap(value_type value) noexcept {
+	template<uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
 		if constexpr (sizeof(value_type) == 1) {
 			return value;
 		} else if constexpr (sizeof(value_type) == 2) {
@@ -477,7 +477,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier::internal::simd {
 
-#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
+#if JSONIFIER_NEON || JSONIFIER_SVE2
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
