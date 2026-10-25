@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto whitespaceTableRaw{ genWhitespaceTable() };
+	inline constexpr auto whitespaceTableRaw{ genWhitespaceTable() };
 
 	inline constexpr const bool* __restrict whitespaceTable{ whitespaceTableRaw.data() };
 
@@ -162,22 +162,6 @@ namespace jsonifier::internal {
 	};
 
 	inline constexpr swap_fn swap{};
-
-	template<uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
-		if constexpr (sizeof(value_type) == 1) {
-			return value;
-		} else if constexpr (sizeof(value_type) == 2) {
-			return static_cast<value_type>((value >> 8) | (value << 8));
-		} else if constexpr (sizeof(value_type) == 4) {
-			return static_cast<value_type>(((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) | ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24));
-		} else if constexpr (sizeof(value_type) == 8) {
-			return static_cast<value_type>(((value & 0x00000000000000FFull) << 56) | ((value & 0x000000000000FF00ull) << 40) | ((value & 0x0000000000FF0000ull) << 24) |
-				((value & 0x00000000FF000000ull) << 8) | ((value & 0x000000FF00000000ull) >> 8) | ((value & 0x0000FF0000000000ull) >> 24) |
-				((value & 0x00FF000000000000ull) >> 40) | ((value & 0xFF00000000000000ull) >> 56));
-		} else {
-			static_assert(sizeof(value_type) == 0, "byteSwap: unsupported type size");
-		}
-	}
 
 	template<uint64_t bytesProcessedNew, typename simd_type, typename integer_type_new, integer_type_new maskNew> struct type_holder {
 		static constexpr uint64_t bytesProcessed{ bytesProcessedNew };
@@ -325,7 +309,7 @@ namespace jsonifier::internal {
 	};
 
 	template<int16_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 5 };
+		static constexpr uint64_t value{ 6 };
 	};
 
 	template<uint8_types value_type> struct digit_sizes<value_type> {
@@ -333,15 +317,15 @@ namespace jsonifier::internal {
 	};
 
 	template<int8_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 3 };
+		static constexpr uint64_t value{ 4 };
 	};
 
 	template<float32_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 32 };
+		static constexpr uint64_t value{ 17 };
 	};
 
 	template<float64_types value_type> struct digit_sizes<value_type> {
-		static constexpr uint64_t value{ 32 };
+		static constexpr uint64_t value{ 34 };
 	};
 
 #if JSONIFIER_PLATFORM_MAC

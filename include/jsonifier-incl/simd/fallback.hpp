@@ -143,8 +143,8 @@ namespace jsonifier::internal::simd {
 		uint64_t rawLo = value.values.xUint64[0];
 		uint64_t rawHi = value.values.xUint64[1];
 		if constexpr (std::endian::native == std::endian::big) {
-			rawLo = internal::byteswap(rawLo);
-			rawHi = internal::byteswap(rawHi);
+			rawLo = std::byteswap(rawLo);
+			rawHi = std::byteswap(rawHi);
 		}
 		uint64_t highBits0 = rawLo & 0x8080808080808080ull;
 		uint64_t highBits1 = rawHi & 0x8080808080808080ull;

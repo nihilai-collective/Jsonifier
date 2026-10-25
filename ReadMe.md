@@ -27,7 +27,7 @@ Jsonifier uses SIMD structural indexing and compile-time perfect hash maps to re
 * **Faster reads:** geometric-mean parse throughput is 1.33x to 1.48x that of Glaze and 1.42x to 2.37x that of simdjson On Demand.
 * **Faster writes:** geometric-mean serialization throughput is 2.25x to 3.72x that of Glaze and up to 6.07x that of simdjson's C++26 reflection writer.
 * **Generic (schemaless) parsing:** 1366 wins, 74 ties, and 180 losses against simdjson On Demand, running 1.20x to 1.30x faster on GCC and Clang and 2.17x faster on MSVC.
-* **Portable:** CI-verified on GCC, Clang, and MSVC, with AVX2 and NEON backends.
+* **Portable:** CI-verified on GCC, Clang, and MSVC, on both the detected SIMD backend (whatever the runner's CPU supports, such as AVX-512 on x86-64 or NEON on arm64 macOS) and the pure-scalar fallback.
 * **Strict:** fully [RFC8259](https://datatracker.ietf.org/doc/html/rfc8259) compliant.
 
 | Platform | vs Glaze (schema-aware) | vs simdjson (schema-aware) | vs simdjson On Demand (generic) |
@@ -67,9 +67,9 @@ Jsonifier automatically detects and optimizes for your CPU architecture:
 - **ARM-NEON**: SIMD instructions for ARM processors
 - **ARM-SVE2**: scalable vector extensions for ARM processors ⚠️ **experimental**: the SVE2 backend is new and still under active development; a handful of parsing cases are not yet handled correctly. NEON remains the recommended path for production ARM builds until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
-Exactly one SIMD backend is compiled into each build, chosen at configure time; nothing is selected at run time. A binary configured for AVX-512 requires AVX-512 on every machine that runs it, so configure for the lowest tier you need to support when distributing to mixed hardware. Pass `-DJSONIFIER_CPU_INSTRUCTIONS` at configure time to build a lower tier than the one detected. See [One tier per build](documentation/CPU_Architecture_Selection.md#one-tier-per-build).
+Exactly one SIMD backend is compiled into each build, chosen at configure time; nothing is selected at run time. A binary configured for AVX-512 requires AVX-512 on every machine that runs it, so configure for the lowest tier you need to support when distributing to mixed hardware. Pass `-DJSONIFIER_SIMD_TIER=AVX2` (or `AVX`, `NEON`, `NONE`, ...) at configure time to build a lower tier than the one detected. See [One tier per build](documentation/cpu_architecture_selection.md#one-tier-per-build).
 
-Manual configuration and cross-compilation are supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` (plus `JSONIFIER_SVE2_VECTOR_BITS` for SVE2 targets) at CMake configure time to skip native feature detection.
+Manual configuration and cross-compilation are supported by defining `JSONIFIER_CPU_INSTRUCTIONS` (plus `JSONIFIER_SVE2_VECTOR_BITS` for SVE2 targets) at CMake configure time, which replaces the detected feature bits with the target's. See [Overriding the Detected Features](documentation/cpu_architecture_selection.md#overriding-the-detected-features).
 
 ---
 
@@ -85,7 +85,7 @@ Structural indexing runs through a batched-drain, fused-scan architecture: chara
 Full UTF-8 validation runs as part of every parse, always, built on a Lemire/simdjson-derived table-lookup validator with both a bulk-buffer path and a streaming, register-scoped path that carries state across chunk boundaries. Validation is fused directly into string scanning rather than requiring a separate pass. Correctness is backed by the full Markus Kuhn UTF-8 stress-test corpus, alignment-sweep fuzzing, and page-boundary overrun checks.
 
 ### Purpose-Built Hash Maps
-Key lookups during parsing use compile-time-generated hash maps specialized for object size (1, 2, 3+ fields), each picking a different strategy based on what's fastest for that cardinality. No runtime hashing, no bucket walks; the lookup is generated for the specific set of keys your struct declares.
+Key lookups during parsing use compile-time-generated hash maps. Structs with 0, 1, 2, or 3 fields get dedicated maps; larger ones fall through a compile-time cascade (single distinguishing byte, first byte plus unique column, unique byte plus length, unique column per length, and finally a seeded SIMD full-key hash) until one produces a collision-free table. No bucket walks; the lookup is generated for the specific set of keys your struct declares.
 
 ### Complete JSON Support
 Full RFC8259 compliance. All types (objects, arrays, strings, numbers, booleans, null), full Unicode with proper surrogate-pair handling, all escape sequences, and `jsonifier::raw_json_data` for preserving arbitrary sub-trees verbatim.
@@ -108,7 +108,7 @@ Continuous integration runs AddressSanitizer and UndefinedBehaviorSanitizer on e
 
 ## Testing
 
-Every push runs the full unit-test suite on Ubuntu (Clang/GCC), macOS (Clang/GCC), and Windows (MSVC), with ASan and UBSan enabled where supported. See [Unit Tests](documentation/Unit_Tests.md) for the CI setup, how to run the tests locally, and a breakdown of every test suite.
+Every push runs the full unit-test suite on Ubuntu (Clang/GCC), macOS (Clang/GCC), and Windows (MSVC), with ASan and UBSan enabled where supported, once with the detected SIMD backend and once more as a pure-scalar build (`JSONIFIER_CPU_INSTRUCTIONS=0`). See [Unit Tests](documentation/unit_tests.md) for the CI setup, how to run the tests locally, and a breakdown of every test suite.
 
 ---
 
@@ -163,38 +163,38 @@ Note the `makeJsonEntity<&value_type::schema_version, "schema-version">()`: Json
 
 Warning: Include only <jsonifier>. Direct inclusion of internal headers may cause unrelated code in the including translation unit to become uncompilable.
 
-The `jsonifier_core<>` type is templated on an initial scratch-buffer size in bytes (default 1MB), e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents. It is compiled for the single SIMD tier configured at build time, so a binary configured for AVX-512 requires AVX-512 on every machine that runs it. See [Backends and the Core](documentation/CPU_Architecture_Selection.md#backends-and-the-core).
+The `jsonifier_core<>` type is templated on an initial scratch-buffer size in bytes (default 1MB), e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents. It is compiled for the single SIMD tier configured at build time, so a binary configured for AVX-512 requires AVX-512 on every machine that runs it. See [Backends and the Core](documentation/cpu_architecture_selection.md#backends-and-the-core).
 
 ---
 
 ## Documentation
 
 ### Getting Started
-- [Installation](documentation/Installation.md): Install via vcpkg, CMake FetchContent, or source
-- [Quick Start](documentation/QuickStart.md): Five-minute onramp with a working example
+- [Installation](documentation/installation.md): Install via vcpkg, CMake FetchContent, or source
+- [Quick Start](documentation/quickstart.md): Five-minute onramp with a working example
 
 ### Core Usage
-- [Reflection](documentation/Reflection.md): Registering structures with compile-time reflection
-- [Serializing & Parsing](documentation/Usage_Serializing_Parsing.md): Complete serialization/parsing guide
-- [Validating](documentation/Validating.md): JSON validation against RFC standards
+- [Reflection](documentation/reflection.md): Registering structures with compile-time reflection
+- [Serializing & Parsing](documentation/usage_serializing_parsing.md): Complete serialization/parsing guide
+- [Validating](documentation/validating.md): JSON validation against RFC standards
 
 ### Optimization
-- [Known Order Parsing](documentation/Known_Order.md): Guaranteed-order optimization for hot paths
-- [Optimizing For Minified JSON](documentation/Optimizing_For_Minified_Json.md): Boost performance for minified input
-- [Partial Reading](documentation/PartialReading.md): Parse unordered or partial JSON structures
-- [CPU Architecture Selection](documentation/CPU_Architecture_Selection.md): Configure-time backend selection, stage-1 step tuning, and manual CPU instruction set configuration, including SVE2 and cross-compilation overrides
+- [Known Order Parsing](documentation/known_order.md): Guaranteed-order optimization for hot paths
+- [Optimizing For Minified JSON](documentation/optimizing_for_minified_json.md): Boost performance for minified input
+- [Partial Reading](documentation/partial_reading.md): Parse unordered or partial JSON structures
+- [CPU Architecture Selection](documentation/cpu_architecture_selection.md): Configure-time backend selection, stage-1 step tuning, and manual CPU instruction set configuration, including SVE2 and cross-compilation overrides
 
 ### Output Formatting
-- [Prettifying](documentation/Prettifying.md): Pretty-print JSON with customizable indentation
-- [Minifying](documentation/Minifying.md): Minify JSON for compact output
+- [Prettifying](documentation/prettifying.md): Pretty-print JSON with customizable indentation
+- [Minifying](documentation/minifying.md): Minify JSON for compact output
 
 ### Advanced Topics
-- [UTF-8 Validation](documentation/UTF8_Validation.md): Cross-SIMD-width validation architecture
-- [Error Handling](documentation/Errors.md): Detailed error reporting and handling
-- [Excluding Keys at Runtime](documentation/Excluding_Keys.md): Dynamic key exclusion during serialization
-- [Parsing Arbitrary Data](documentation/Parsing_Arbitrary_Data.md): Working with unknown JSON structures
-- [Generic Parsing](documentation/Generic_Parsing.md): Schema-free, On Demand-style parsing and NDJSON streams
-- [Unit Tests](documentation/Unit_Tests.md): CI matrix, running tests locally, and everything the suite covers
+- [UTF-8 Validation](documentation/utf8_validation.md): Cross-SIMD-width validation architecture
+- [Error Handling](documentation/errors.md): Detailed error reporting and handling
+- [Excluding Keys at Runtime](documentation/excluding_keys.md): Dynamic key exclusion during serialization
+- [Parsing Arbitrary Data](documentation/parsing_arbitrary_data.md): Working with unknown JSON structures
+- [Generic Parsing](documentation/generic_parsing.md): Schema-free, On Demand-style parsing and NDJSON streams
+- [Unit Tests](documentation/unit_tests.md): CI matrix, running tests locally, and everything the suite covers
 
 ---
 

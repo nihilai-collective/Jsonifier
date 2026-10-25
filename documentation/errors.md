@@ -54,7 +54,7 @@ for (auto& err : parser.getErrors()) {
 
 - **`template<typename T> operator T()`**: `static_cast`s the raw status code to whatever you convert to: `uint64_t` for the integer, `parse_statuses` (or another status enum) for switching, `bool` for "is non-success"
 - **`operator==`**: compares two errors by class, type, global index, line, and local index
-- **Public fields**: `errorClass`, `errorType`, `errorIndex`, `line`, `localIndex`, and `sourceLocation`
+- **Public fields**: `errorClass`, `errorType`, `errorIndex`, `line`, `localIndex`, `sourceLocation`, `reportString`, and the `rootIter` / `errorPos` / `endIter` pointers into the input the error was raised against (only valid while that input is alive)
 
 For the full formatted string, call `err.reportError()`; it returns a `std::string_view` of the same text that streaming to `std::ostream` produces.
 
@@ -112,7 +112,7 @@ Produced by `validateJson`:
 | `missing_comma_or_closing_brace` | Inside an object or array, expected either `,` or the closing bracket |
 | `no_input` | Input was empty |
 
-See [Validating](Validating.md) for details on when to reach for `validateJson` vs. relying on `parseJson`'s built-in validation.
+See [Validating](validating.md) for details on when to reach for `validateJson` vs. relying on `parseJson`'s built-in validation.
 
 ### Minify Statuses
 
@@ -179,8 +179,8 @@ The first error's status is enough for high-level branching. The full `reportErr
 
 ## What's Next
 
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: the operations that produce these errors
-- **[Validating](Validating.md)**: when to use `validateJson` for pre-flight checking
-- **[Minifying](Minifying.md)** and **[Prettifying](Prettifying.md)**: the string-transform operations and their error modes
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: the operations that produce these errors
+- **[Validating](validating.md)**: when to use `validateJson` for pre-flight checking
+- **[Minifying](minifying.md)** and **[Prettifying](prettifying.md)**: the string-transform operations and their error modes
 
 ---

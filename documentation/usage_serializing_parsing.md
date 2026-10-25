@@ -1,6 +1,6 @@
 # Serializing & Parsing
 
-This page covers everything you can do with `parseJson` and `serializeJson`. If you haven't registered your types yet, see [Reflection](Reflection.md) first.
+This page covers everything you can do with `parseJson` and `serializeJson`. If you haven't registered your types yet, see [Reflection](reflection.md) first.
 
 ## The Parser
 
@@ -38,10 +38,10 @@ The full set:
 
 | Option | Default | Purpose |
 |--------|---------|---------|
-| `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Makes it cheap to skip the parts of a document you didn't register. See [Partial Reading](PartialReading.md). |
-| `knownOrder` | `false` | Tries the key declared at each position first, then a self-tuning per-position memo, before falling back to the hash map. See [Known Order Parsing](Known_Order.md). |
-| `minified` | `false` | Tells the parser the input has no whitespace, eliminating all whitespace-skipping logic in the value walker. See [Optimizing For Minified JSON](Optimizing_For_Minified_Json.md). |
-| `newLineDelimited` | `false` | Reserved; declared in `parse_options` but not currently consumed by the parser. |
+| `partialRead` | `false` | Switches to a two-stage parser architecture where structural characters are pre-scanned into a tape before values are extracted. Makes it cheap to skip the parts of a document you didn't register. See [Partial Reading](partial_reading.md). |
+| `knownOrder` | `false` | Tries the key declared at each position first, then a self-tuning per-position memo, before falling back to the hash map. See [Known Order Parsing](known_order.md). |
+| `minified` | `false` | Tells the parser the input has no whitespace, eliminating all whitespace-skipping logic in the value walker. See [Optimizing For Minified JSON](optimizing_for_minified_json.md). |
+| `newLineDelimited` | `false` | Only read by `iterateMany`: `true` separates documents by whitespace (NDJSON), `false` by commas. `iterateMany` defaults it to `true`; `parseJson` ignores it. See [Generic Parsing](generic_parsing.md#streams-iteratemany). |
 | `nullTerminated` | `true` | Whether the input buffer has a trailing null byte. **See the warning below.** |
 | `maxDepth` | `1024` | Maximum JSON nesting depth. Enforced at runtime: inputs exceeding this depth are rejected with `parse_statuses::exceeded_max_depth`. Guards against stack exhaustion on adversarial input. |
 
@@ -86,7 +86,7 @@ if (!parser.parseJson(data, json)) {
 }
 ```
 
-Errors carry source location, the specific `parse_statuses` enum value that fired, and enough context to diagnose the input. See [Error Handling](Errors.md) for the full breakdown.
+Errors carry source location, the specific `parse_statuses` enum value that fired, and enough context to diagnose the input. See [Error Handling](errors.md) for the full breakdown.
 
 The error list is reused across parse calls; `parseJson` clears it at the start of each call, so you should inspect errors before invoking the parser again.
 
@@ -117,6 +117,7 @@ The full set:
 | `indentSize` | `3` | Number of `indentChar` characters per indent level when `prettify` is on. |
 | `indentChar` | `' '` | Character used for indentation. Set to `'\t'` for tab-based indenting. |
 | `indent` | `0` | Starting indent depth. Useful when serializing a fragment into a larger pre-indented document. |
+| `prescanStrings` | `false` | Sizes the output buffer by scanning each string for the exact escaped length instead of reserving the worst case (6 bytes per character). Costs an extra pass over string data in exchange for a much smaller allocation on string-heavy objects. |
 
 Like parse options, these are template arguments; the compiler generates a specialized serializer for each option set with no runtime branching.
 
@@ -140,7 +141,7 @@ parser.serializeJson(data, minified_output);
 parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, pretty_output);
 ```
 
-For standalone pretty-printing or minification of existing JSON strings (without going through a typed object), see [Prettifying](Prettifying.md) and [Minifying](Minifying.md).
+For standalone pretty-printing or minification of existing JSON strings (without going through a typed object), see [Prettifying](prettifying.md) and [Minifying](minifying.md).
 
 ## Reusing the Parser
 
@@ -224,11 +225,11 @@ int32_t main() {
 
 ## What's Next
 
-- **[Known Order Parsing](Known_Order.md)**: the biggest single parsing optimization when applicable
-- **[Partial Reading](PartialReading.md)**: for unordered or partial JSON structures
-- **[Optimizing For Minified JSON](Optimizing_For_Minified_Json.md)**: details on the `minified` option
-- **[UTF-8 Validation](UTF8_Validation.md)**: what the always-on validator catches and how it works
-- **[Error Handling](Errors.md)**: full breakdown of the error type and `parse_statuses` enum
-- **[Prettifying](Prettifying.md)** and **[Minifying](Minifying.md)**: for reformatting JSON strings without going through typed objects
+- **[Known Order Parsing](known_order.md)**: the biggest single parsing optimization when applicable
+- **[Partial Reading](partial_reading.md)**: for unordered or partial JSON structures
+- **[Optimizing For Minified JSON](optimizing_for_minified_json.md)**: details on the `minified` option
+- **[UTF-8 Validation](utf8_validation.md)**: what the always-on validator catches and how it works
+- **[Error Handling](errors.md)**: full breakdown of the error type and `parse_statuses` enum
+- **[Prettifying](prettifying.md)** and **[Minifying](minifying.md)**: for reformatting JSON strings without going through typed objects
 
 ---

@@ -409,7 +409,8 @@ namespace jsonifier::generic {
 			return result;
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter, read_structural_index_ptr limit) noexcept {
+		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter,
+			read_structural_index_ptr limit) noexcept {
 			if (!isOpener(base[*iter])) [[likely]] {
 				return iter + 1;
 			}
@@ -440,8 +441,8 @@ namespace jsonifier::generic {
 			return internal::comparison::compare(keyStart, key.data(), keySize);
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position, read_structural_index_ptr limit,
-			uint64_t& currentDepth, uint64_t targetDepth) noexcept {
+		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position,
+			read_structural_index_ptr limit, uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			uint64_t localDepth{ currentDepth };
 			while (localDepth > targetDepth && position < limit) {
 				const uint8_t current = base[*position];
@@ -506,7 +507,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
+	inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
 
 	inline constexpr const bool* __restrict utf8StringStopTable{ utf8StringStopTableRaw.data() };
 
@@ -523,7 +524,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
+	inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
 
 	inline constexpr const bool* __restrict asciiStringStopTable{ asciiStringStopTableRaw.data() };
 
@@ -545,7 +546,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto typeTableRaw{ genTypeTable() };
+	inline constexpr auto typeTableRaw{ genTypeTable() };
 
 	inline constexpr const json_type* __restrict typeTable{ typeTableRaw.data() };
 
@@ -562,7 +563,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto seperatorByteTableRaw{ genSeperatorByteTable() };
+	inline constexpr auto seperatorByteTableRaw{ genSeperatorByteTable() };
 
 	inline constexpr const bool* __restrict seperatorByteTable{ seperatorByteTableRaw.data() };
 
@@ -891,7 +892,7 @@ namespace jsonifier::generic {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, valueStart);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = internal::byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			if constexpr (atomSize == 5) {
 				if (comparison != leadingWord || valueStart[4] != 'e') [[unlikely]] {

@@ -206,7 +206,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, valueIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = byteswap(comparison);
+					comparison = std::byteswap(comparison);
 				}
 				if (comparison == trueVal && remaining == 4) {
 					object = true;
@@ -229,7 +229,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, rootIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = byteswap(comparison);
+					comparison = std::byteswap(comparison);
 				}
 				rootIter += 4;
 				if (comparison == trueVal) {
@@ -284,12 +284,12 @@ namespace jsonifier::internal {
 			}
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-				parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
-					rootIter, endIter, derivedRef.section.end() };
+				parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
+					&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
 				return runParse<parseOpts>(object, derivedRef.section.begin(), context);
 			} else {
-				parse_context<parseOpts, unrestrict_t<read_buffer_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
-					endIter };
+				parse_context<parseOpts, unrestrict_t<read_buffer_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
+					&derivedRef.errors, rootIter, endIter };
 				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), context);
 			}
 		}

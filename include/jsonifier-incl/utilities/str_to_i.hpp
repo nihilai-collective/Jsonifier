@@ -1272,7 +1272,8 @@ namespace jsonifier::internal {
 
 	}
 
-	template<typename value_type, bool negative> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	template<typename value_type, bool negative>
+	JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		static_assert(sizeof(value_type) == 8, "parseSwarDigits only supports 64-bit integers.");
 		using v_type_local = std::make_unsigned_t<value_type>;
 		static constexpr uint64_t maxDigits{ uint_types<value_type> ? 20ULL : 19ULL };
@@ -1377,8 +1378,8 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
-			int64_t fracDigits) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign,
+			value_type fracValue, int64_t fracDigits) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
 			}
@@ -1572,8 +1573,8 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
-			int64_t fracDigits) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign,
+			value_type fracValue, int64_t fracDigits) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
 			}

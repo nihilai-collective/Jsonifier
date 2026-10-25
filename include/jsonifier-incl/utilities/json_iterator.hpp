@@ -205,7 +205,7 @@ namespace jsonifier::internal {
 	template<parse_options parseOpts, typename iterator_type, typename string_buffer_type> struct parse_context;
 
 	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, unrestrict_t<read_buffer_ptr>, string_buffer_type> {
-		using iterator_type = read_buffer_ptr;
+		using iterator_type			 = read_buffer_ptr;
 		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
 		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
@@ -240,7 +240,7 @@ namespace jsonifier::internal {
 	};
 
 	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, string_buffer_type> {
-		using iterator_type = write_structural_index_ptr;
+		using iterator_type			 = write_structural_index_ptr;
 		using template_iterator_type = unrestrict_t<write_structural_index_ptr>;
 
 		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr stringRootNew, read_buffer_ptr stringEndNew,
@@ -274,7 +274,7 @@ namespace jsonifier::internal {
 	template<parse_options parseOpts, typename iterator_type> struct json_cursor;
 
 	template<parse_options parseOpts> struct json_cursor<parseOpts, unrestrict_t<read_buffer_ptr>> {
-		using iterator_type = read_buffer_ptr;
+		using iterator_type			 = read_buffer_ptr;
 		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
 		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(read_buffer_ptr iter, context_type&) noexcept {
@@ -546,7 +546,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -568,7 +568,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -660,7 +660,7 @@ namespace jsonifier::internal {
 	template<parse_options parseOpts>
 		requires(!parseOpts.minified)
 	struct json_cursor<parseOpts, unrestrict_t<read_buffer_ptr>> {
-		using iterator_type = read_buffer_ptr;
+		using iterator_type			 = read_buffer_ptr;
 		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
 		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(read_buffer_ptr iter, context_type&) noexcept {
@@ -1272,7 +1272,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -1295,7 +1295,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -1332,7 +1332,7 @@ namespace jsonifier::internal {
 	}() };
 
 	template<parse_options parseOpts> struct json_cursor<parseOpts, unrestrict_t<write_structural_index_ptr>> {
-		using iterator_type = write_structural_index_ptr;
+		using iterator_type			 = write_structural_index_ptr;
 		using template_iterator_type = unrestrict_t<write_structural_index_ptr>;
 
 		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> valuePtr(write_structural_index_ptr iter, context_type& context) noexcept {
@@ -1547,7 +1547,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			if (comparison == trueVal) {
 				value = true;
@@ -1570,7 +1570,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = byteswap(comparison);
+				comparison = std::byteswap(comparison);
 			}
 			if (comparison == nullVal) [[likely]] {
 				++iter;

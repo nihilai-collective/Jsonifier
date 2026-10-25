@@ -33,7 +33,7 @@ int main() {
 }
 ```
 
-Generic parsing lives on `jsonifier_core<initialBufferSize>` itself, so the same core that parses, serializes and validates also exposes `iterate` and `iterateMany`, and it runs on the same [configured backend](CPU_Architecture_Selection.md#one-tier-per-build) as every other call: stage 1 uses the single SIMD tier chosen at configure time.
+Generic parsing lives on `jsonifier_core<initialBufferSize>` itself, so the same core that parses, serializes and validates also exposes `iterate` and `iterateMany`, and it runs on the same [configured backend](cpu_architecture_selection.md#one-tier-per-build) as every other call: stage 1 uses the single SIMD tier chosen at configure time.
 
 ## Lifetimes
 
@@ -134,7 +134,7 @@ for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
 
 ## `generic` vs. `raw_json_data` vs. Registered Types
 
-| | `jsonifier_core::iterate` | [`raw_json_data`](Parsing_Arbitrary_Data.md) | Registered struct |
+| | `jsonifier_core::iterate` | [`raw_json_data`](parsing_arbitrary_data.md) | Registered struct |
 |---|---|---|---|
 | Schema needed | No | No | Yes |
 | Allocates a tree | No | Yes | No |
@@ -144,8 +144,8 @@ for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
 
 ## What's Next
 
-- **[CPU Architecture Selection](CPU_Architecture_Selection.md)**: how the SIMD tier for stage 1 is chosen at configure time
-- **[Parsing Arbitrary Data](Parsing_Arbitrary_Data.md)**: `raw_json_data`, the owning dynamic tree
+- **[CPU Architecture Selection](cpu_architecture_selection.md)**: how the SIMD tier for stage 1 is chosen at configure time
+- **[Parsing Arbitrary Data](parsing_arbitrary_data.md)**: `raw_json_data`, the owning dynamic tree
 - **[Generic Parsing paper](../Generic-Parsing.md)**: design and benchmarks against simdjson On Demand
 
 ---

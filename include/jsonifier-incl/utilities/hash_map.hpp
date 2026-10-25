@@ -322,8 +322,7 @@ namespace jsonifier::internal {
 		return result;
 	}
 
-	template<typename value_type>
-	alignas(simdBytesPerRegister) inline constexpr auto firstByteColumns{ jsonifier::internal::collectFirstByteColumns(tupleReferencesByFirstByte<value_type>) };
+	template<typename value_type> inline constexpr auto firstByteColumns{ jsonifier::internal::collectFirstByteColumns(tupleReferencesByFirstByte<value_type>) };
 
 	struct first_byte_arrays {
 		array<uint8_t, 256 * 256> indexByFirstByteAndChar{};
@@ -359,7 +358,7 @@ namespace jsonifier::internal {
 		return stats;
 	}
 
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto keyStatsVal = jsonifier::internal::keyStatsImpl(tupleReferences<value_type>);
+	template<typename value_type> inline constexpr auto keyStatsVal = jsonifier::internal::keyStatsImpl(tupleReferences<value_type>);
 
 	template<typename value_type, uint64_t storageSize>
 	consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
@@ -557,8 +556,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename value_type, uint64_t storageSize>
-	alignas(simdBytesPerRegister) inline constexpr auto mapConstructionDataAt = collectMapConstructionDataImpl<value_type, storageSize>();
+	template<typename value_type, uint64_t storageSize> inline constexpr auto mapConstructionDataAt = collectMapConstructionDataImpl<value_type, storageSize>();
 
 	template<typename value_type> consteval const auto& selectMapConstructionData() {
 		constexpr auto preferredSize = jsonifier::internal::storageSizeFor(tupleReferences<value_type>.count);
@@ -643,7 +641,7 @@ namespace jsonifier::internal {
 	#endif
 #endif
 
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto hashData = collectMapConstructionData<value_type>();
+	template<typename value_type> inline constexpr auto hashData = collectMapConstructionData<value_type>();
 
 	template<typename value_type, typename iterator_newer> struct hash_map {
 		static constexpr uint64_t lengthSpread{ keyStatsVal<value_type>.maxLength - keyStatsVal<value_type>.minLength };

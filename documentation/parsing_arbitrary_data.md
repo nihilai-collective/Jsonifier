@@ -165,12 +165,12 @@ if (msg1.payload == msg2.payload) {
 - You want type safety at the C++ level
 - Parsing performance matters (a registered struct is faster than `raw_json_data` on the same input, because `raw_json_data` builds a heap-allocated variant tree)
 
-**Prefer [Generic Parsing](Generic_Parsing.md) when:**
+**Prefer [Generic Parsing](generic_parsing.md) when:**
 
 - You only need to read some values out of unknown JSON and don't need to keep, edit or serialize them
 - You want to avoid building a heap-allocated tree
 
-**Prefer [Partial Reading](PartialReading.md) when:**
+**Prefer [Partial Reading](partial_reading.md) when:**
 
 - The schema is known, but you only care about a small subset of fields
 - You want to skip most of the document efficiently without decomposing it into a dynamic tree
@@ -228,9 +228,9 @@ Two different Discord message shapes, the same top-level envelope struct, dynami
 
 ## What's Next
 
-- **[Reflection](Reflection.md)**: for registering the parts of your schema that are stable
-- **[Generic Parsing](Generic_Parsing.md)**: lazy, schema-free reads without building a tree
-- **[Partial Reading](PartialReading.md)**: for the "known schema, skip most of it" case
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: the full API that both `raw_json_data` and registered types go through
+- **[Reflection](reflection.md)**: for registering the parts of your schema that are stable
+- **[Generic Parsing](generic_parsing.md)**: lazy, schema-free reads without building a tree
+- **[Partial Reading](partial_reading.md)**: for the "known schema, skip most of it" case
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: the full API that both `raw_json_data` and registered types go through
 
 ---

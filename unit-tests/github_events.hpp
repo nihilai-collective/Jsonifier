@@ -211,9 +211,9 @@ template<> struct jsonifier::core<github_user_data> {
 };
 
 template<> struct jsonifier::core<github_comment_data> {
-	using value_type				 = github_comment_data;
-	static constexpr auto parseValue = createValue<&value_type::user, &value_type::url, &value_type::issue_url, &value_type::created_at, &value_type::body,
-		&value_type::updated_at, &value_type::id>();
+	using value_type = github_comment_data;
+	static constexpr auto parseValue =
+		createValue<&value_type::user, &value_type::url, &value_type::issue_url, &value_type::created_at, &value_type::body, &value_type::updated_at, &value_type::id>();
 };
 
 template<> struct jsonifier::core<github_author_data> {
@@ -231,14 +231,14 @@ template<> struct jsonifier::core<github_forkee_data> {
 	static constexpr auto parseValue = createValue<&value_type::description, &value_type::fork, &value_type::url, &value_type::language, &value_type::stargazers_url,
 		&value_type::clone_url, &value_type::tags_url, &value_type::full_name, &value_type::merges_url, &value_type::forks, makeJsonEntity<&value_type::privateVal, "private">(),
 		&value_type::git_refs_url, &value_type::archive_url, &value_type::collaborators_url, &value_type::owner, &value_type::languages_url, &value_type::trees_url,
-		&value_type::labels_url, &value_type::html_url, &value_type::pushed_at, &value_type::created_at, &value_type::has_issues, &value_type::forks_url,
-		&value_type::branches_url, &value_type::commits_url, &value_type::notifications_url, &value_type::open_issues, &value_type::contents_url, &value_type::blobs_url,
-		&value_type::issues_url, &value_type::compare_url, &value_type::issue_events_url, &value_type::name, &value_type::updated_at, &value_type::statuses_url,
-		&value_type::forks_count, &value_type::assignees_url, &value_type::ssh_url, makeJsonEntity<&value_type::publicVal, "public">(), &value_type::has_wiki,
-		&value_type::subscribers_url, &value_type::mirror_url, &value_type::watchers_count, &value_type::id, &value_type::has_downloads, &value_type::git_commits_url,
-		&value_type::downloads_url, &value_type::pulls_url, &value_type::homepage, &value_type::issue_comment_url, &value_type::hooks_url, &value_type::subscription_url,
-		&value_type::milestones_url, &value_type::svn_url, &value_type::events_url, &value_type::git_tags_url, &value_type::teams_url, &value_type::comments_url,
-		&value_type::open_issues_count, &value_type::keys_url, &value_type::git_url, &value_type::contributors_url, &value_type::size, &value_type::watchers>();
+		&value_type::labels_url, &value_type::html_url, &value_type::pushed_at, &value_type::created_at, &value_type::has_issues, &value_type::forks_url, &value_type::branches_url,
+		&value_type::commits_url, &value_type::notifications_url, &value_type::open_issues, &value_type::contents_url, &value_type::blobs_url, &value_type::issues_url,
+		&value_type::compare_url, &value_type::issue_events_url, &value_type::name, &value_type::updated_at, &value_type::statuses_url, &value_type::forks_count,
+		&value_type::assignees_url, &value_type::ssh_url, makeJsonEntity<&value_type::publicVal, "public">(), &value_type::has_wiki, &value_type::subscribers_url,
+		&value_type::mirror_url, &value_type::watchers_count, &value_type::id, &value_type::has_downloads, &value_type::git_commits_url, &value_type::downloads_url,
+		&value_type::pulls_url, &value_type::homepage, &value_type::issue_comment_url, &value_type::hooks_url, &value_type::subscription_url, &value_type::milestones_url,
+		&value_type::svn_url, &value_type::events_url, &value_type::git_tags_url, &value_type::teams_url, &value_type::comments_url, &value_type::open_issues_count,
+		&value_type::keys_url, &value_type::git_url, &value_type::contributors_url, &value_type::size, &value_type::watchers>();
 };
 
 template<> struct jsonifier::core<github_pull_request_data> {
@@ -254,15 +254,16 @@ template<> struct jsonifier::core<github_issue_data> {
 };
 
 template<> struct jsonifier::core<github_page_data> {
-	using value_type				 = github_page_data;
-	static constexpr auto parseValue = createValue<&value_type::page_name, &value_type::html_url, &value_type::title, &value_type::sha, &value_type::summary, &value_type::action>();
+	using value_type = github_page_data;
+	static constexpr auto parseValue =
+		createValue<&value_type::page_name, &value_type::html_url, &value_type::title, &value_type::sha, &value_type::summary, &value_type::action>();
 };
 
 template<> struct jsonifier::core<github_payload_data> {
 	using value_type				 = github_payload_data;
-	static constexpr auto parseValue = createValue<&value_type::commits, &value_type::distinct_size, &value_type::ref, &value_type::push_id, &value_type::head,
-		&value_type::before, &value_type::size, &value_type::description, &value_type::master_branch, &value_type::ref_type, &value_type::forkee, &value_type::action,
-		&value_type::issue, &value_type::comment, &value_type::pages>();
+	static constexpr auto parseValue = createValue<&value_type::commits, &value_type::distinct_size, &value_type::ref, &value_type::push_id, &value_type::head, &value_type::before,
+		&value_type::size, &value_type::description, &value_type::master_branch, &value_type::ref_type, &value_type::forkee, &value_type::action, &value_type::issue,
+		&value_type::comment, &value_type::pages>();
 };
 
 template<> struct jsonifier::core<github_repo_data> {

@@ -22,10 +22,6 @@
 #include <limits>
 #include <bit>
 
-#ifndef JSONIFIER_SVE2_VECTOR_BITS
-	#define JSONIFIER_SVE2_VECTOR_BITS 128
-#endif
-
 #if !defined(JSONIFIER_ARCH_X64)
 	#if defined(__x86_64__) || defined(_M_X64)
 		#define JSONIFIER_ARCH_X64 1
@@ -255,14 +251,6 @@
 	#define ZMIJ_ASM(x) asm x
 #else
 	#define ZMIJ_ASM(x)
-#endif
-
-#ifdef ZMIJ_CONST_DECL
-
-#elif JSONIFIER_ARCH_ARM64
-	#define ZMIJ_CONST_DECL
-#else
-	#define ZMIJ_CONST_DECL static constexpr
 #endif
 
 #ifdef ZMIJ_USE_INT128

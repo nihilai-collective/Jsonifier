@@ -597,19 +597,16 @@ namespace unit_tests {
 
 		static constexpr auto test_skip_string_escaped_quote = []() {
 			jsonifier::jsonifier_core<> parser{};
-			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
 			auto parseExact = [&](std::string_view json, simple_struct& value) {
 				std::vector<char> buffer(json.begin(), json.end());
 				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
 			};
 			simple_struct value{};
-			// Unknown key whose string value is cut off after an escaped quote.
 			for (std::string_view json: { R"({"note":"\"})", R"({"note":"a\"b)" }) {
 				if (parseExact(json, value)) {
 					return false;
 				}
 			}
-			// Escaped quotes inside a skipped value still end at the right quote.
 			if (!parseExact(R"({"note":"a\"b\"c","id":7})", value)) {
 				return false;
 			}
@@ -618,8 +615,6 @@ namespace unit_tests {
 
 		static constexpr auto test_validate_truncated_literals = []() {
 			jsonifier::jsonifier_core<> parser{};
-			// Each input sits in a heap buffer of exactly its size plus the null
-			// terminator, so AddressSanitizer reports any read past the end.
 			for (std::string_view json: { "[t", "[f", "[n", "[tru", "[fals", "[nul", "t", "f", "n" }) {
 				std::vector<char> buffer(json.size() + 1);
 				std::copy(json.begin(), json.end(), buffer.begin());
@@ -627,15 +622,12 @@ namespace unit_tests {
 					return false;
 				}
 			}
-			// A '0' followed by a byte >= 0x80 used to index numberTable with a
-			// negative offset; only the absence of a sanitizer report is checked.
 			static_cast<void>(parser.validateJson(std::string_view{ "[0\xE5]" }));
 			return true;
 		};
 
 		static constexpr auto test_validate_strict_scalars = []() {
 			jsonifier::jsonifier_core<> parser{};
-			// Each input sits in a heap buffer of exactly its size plus the null terminator.
 			auto validate = [&](std::string_view json) {
 				std::vector<char> buffer(json.size() + 1);
 				std::copy(json.begin(), json.end(), buffer.begin());
@@ -664,7 +656,6 @@ namespace unit_tests {
 			if (json != R"({"say \"hi\"":1,"C:\\dir":2,"\\\"":3})" || !parser.validateJson(json)) {
 				return false;
 			}
-			// Keys out of declaration order go through the hash lookup instead of the in-order fast path.
 			escaped_keys parsed{};
 			if (!parser.parseJson(parsed, std::string{ R"({"\\\"":3,"C:\\dir":2,"say \"hi\"":1})" })) {
 				return false;
@@ -674,12 +665,10 @@ namespace unit_tests {
 
 		static constexpr auto test_integer_truncated_fraction = []() {
 			jsonifier::jsonifier_core<> parser{};
-			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
 			auto parseExact = [&](std::string_view json, auto& value) {
 				std::vector<char> buffer(json.begin(), json.end());
 				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
 			};
-			// An integer whose fraction or exponent runs into the end of the input.
 			for (std::string_view json: { "[1.", "[1.5", "[1e", "[1e5", "[1.5e", "[1.5e1", "[1.5e+" }) {
 				std::vector<int64_t> signedValues{};
 				std::vector<uint64_t> unsignedValues{};
@@ -741,7 +730,7 @@ namespace unit_tests {
 
 		static constexpr auto test_array_of_enums = []() {
 			jsonifier::jsonifier_core<> parser{};
-			jsonifier::internal::array<Color, 3> arr{ Color::Red, Color::Green, Color::Blue };
+			jsonifier::internal::array<Color, 3> arr{ { Color::Red, Color::Green, Color::Blue } };
 			std::string json{};
 			parser.serializeJson(arr, json);
 			jsonifier::internal::array<Color, 3> parsed{};
@@ -1023,7 +1012,7 @@ namespace unit_tests {
 
 		static constexpr auto test_array_serialize = []() {
 			jsonifier::jsonifier_core<> parser{};
-			jsonifier::internal::array<int32_t, 3> arr{ 1, 2, 3 };
+			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
 			std::string json{};
 			parser.serializeJson(arr, json);
 			return json.find("[") != std::string::npos && json.find("]") != std::string::npos;

@@ -36,7 +36,7 @@ namespace jsonifier::internal {
 	}
 
 	template<serialize_options options, typename json_entity_type> struct json_entity_size : public json_entity_type {
-		template<typename value_type> JSONIFIER_INLINE static void processIndex(value_type& value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
+		template<typename value_type> JSONIFIER_INLINE static void processIndex(value_type& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 			if constexpr (excluded_keys_types<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
@@ -76,7 +76,7 @@ namespace jsonifier::internal {
 		typename get_size_getter_base<options, value_type, make_integer_sequence<coreTupleSize<value_type>>>::type;
 
 	template<jsonifier_object_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			static constexpr auto memberCount{ coreTupleSize<value_type> };
 
@@ -103,7 +103,7 @@ namespace jsonifier::internal {
 	};
 
 	template<map_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			using key_type	   = remove_cvref_t<typename remove_cvref_t<value_type_new>::key_type>;
 			using mapped_type  = remove_cvref_t<typename remove_cvref_t<value_type_new>::mapped_type>;
@@ -167,7 +167,7 @@ namespace jsonifier::internal {
 	};
 
 	template<vector_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			using elem_type	   = remove_cvref_t<typename remove_cvref_t<value_type_new>::value_type>;
 			const auto newSize = value.size();
@@ -208,7 +208,7 @@ namespace jsonifier::internal {
 
 	template<raw_array_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		template<template<typename, auto> typename value_type_new, typename value_type_internal, auto size>
-		JSONIFIER_INLINE static uint64_t impl(const value_type_new<value_type_internal, size>& value, uint64_t& __restrict indent) noexcept {
+		JSONIFIER_INLINE static uint64_t impl(const value_type_new<value_type_internal, size>& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			using elem_type				  = remove_cvref_t<value_type_internal>;
 			static constexpr auto newSize = size;
@@ -243,7 +243,7 @@ namespace jsonifier::internal {
 	template<tuple_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr auto memberCount = tupleSizeOf<value_type>;
 
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			if constexpr (memberCount > 0) {
 				if constexpr (options.prettify) {
@@ -268,7 +268,7 @@ namespace jsonifier::internal {
 		}
 
 		template<auto... values> struct tuple_member_sizer {
-			template<uint64_t index, typename value_type_new> static void impl(value_type_new& value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
+			template<uint64_t index, typename value_type_new> static void impl(value_type_new& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 				if constexpr (options.prettify) {
 					requiredSize += 2 + indent;
 				} else {
@@ -296,7 +296,7 @@ namespace jsonifier::internal {
 	};
 
 	template<string_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t&) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t&) noexcept {
 			const auto newSize = value.size();
 			if constexpr (options.prescanStrings) {
 				return string_serializer<options>::escapedSize(value.data(), newSize) + 2;
@@ -333,7 +333,7 @@ namespace jsonifier::internal {
 	};
 
 	template<any_pointer_or_optional_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			if (value) {
 				using v_type = remove_cv_t<decltype(*value)>;
@@ -355,7 +355,7 @@ namespace jsonifier::internal {
 			return get_size<options>::impl(container, indent);
 		}
 
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_type::object): {
 					return containerSize(value.getObject(), indent);
@@ -387,7 +387,7 @@ namespace jsonifier::internal {
 	};
 
 	template<variant_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& __restrict indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			internal::visit<get_size_visit_functor<options>>(value, requiredSize, indent);
 			return requiredSize;
@@ -522,7 +522,8 @@ namespace jsonifier::internal {
 	}
 
 	template<serialize_options options, typename json_entity_type> struct json_entity_serialize : public json_entity_type {
-		template<typename value_type> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> processIndex(value_type& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> processIndex(value_type& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			if constexpr (excluded_keys_types<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
@@ -545,8 +546,8 @@ namespace jsonifier::internal {
 	};
 
 	template<typename... bases> struct serialize_map : public bases... {
-		template<typename value_type> JSONIFIER_INLINE_LINUX_GCC static unrestrict_t<write_buffer_ptr> iterateValues([[maybe_unused]] value_type& value, write_buffer_ptr bufferPtr,
-			[[maybe_unused]] uint64_t indent) noexcept {
+		template<typename value_type> JSONIFIER_INLINE_LINUX_GCC static unrestrict_t<write_buffer_ptr> iterateValues([[maybe_unused]] value_type& __restrict value,
+			write_buffer_ptr bufferPtr, [[maybe_unused]] uint64_t indent) noexcept {
 			((bufferPtr = bases::processIndex(value, bufferPtr, indent)), ...);
 			return bufferPtr;
 		}
@@ -567,7 +568,8 @@ namespace jsonifier::internal {
 
 		static constexpr char_blitter<"{}"> emptyObject{};
 
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			static constexpr auto memberCount{ coreTupleSize<value_type> };
 
 			if constexpr (memberCount > 0) {
@@ -624,7 +626,8 @@ namespace jsonifier::internal {
 			return serialize<options>::impl(mapped, bufferPtr, indent);
 		}
 
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			const auto newSize = value.size();
 
 			if (newSize > 0) [[likely]] {
@@ -668,7 +671,8 @@ namespace jsonifier::internal {
 
 		static constexpr char_blitter<"[]"> emptyArray{};
 
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			const auto newSize = value.size();
 			if (newSize > 0) [[likely]] {
 				const uint64_t innerIndent = indent + options.indentSize;
@@ -711,8 +715,8 @@ namespace jsonifier::internal {
 
 		static constexpr char_blitter<"[]"> emptyArray{};
 
-		template<template<typename, auto> typename value_type_new, typename value_type_internal, auto size>
-		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(const value_type_new<value_type_internal, size>& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<template<typename, auto> typename value_type_new, typename value_type_internal, auto size> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(
+			const value_type_new<value_type_internal, size>& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			static constexpr auto newSize = size;
 			if constexpr (newSize > 0) {
 				const uint64_t innerIndent = indent + options.indentSize;
@@ -758,7 +762,7 @@ namespace jsonifier::internal {
 		static constexpr auto memberCount = tupleSizeOf<value_type>;
 
 		template<uint64_t index, typename value_type_new>
-		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> serializeMember(value_type_new& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> serializeMember(value_type_new& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			if constexpr (options.prettify) {
 				comma_indent::blitWithOverflow(bufferPtr, indent);
 			} else {
@@ -768,13 +772,14 @@ namespace jsonifier::internal {
 			return serialize<options>::impl(get<index>(value), bufferPtr, indent);
 		}
 
-		template<typename value_type_new, uint64_t... indices> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> serializeRest(value_type_new& value, write_buffer_ptr bufferPtr,
-			uint64_t indent, integer_sequence<indices...>) noexcept {
+		template<typename value_type_new, uint64_t... indices> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> serializeRest(value_type_new& __restrict value,
+			write_buffer_ptr bufferPtr, uint64_t indent, integer_sequence<indices...>) noexcept {
 			((bufferPtr = serializeMember<indices + 1>(value, bufferPtr, indent)), ...);
 			return bufferPtr;
 		}
 
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			if constexpr (memberCount > 0) {
 				const uint64_t innerIndent = indent + options.indentSize;
 				if constexpr (options.prettify) {
@@ -802,7 +807,8 @@ namespace jsonifier::internal {
 
 	template<string_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
 		static constexpr char_blitter<"\"\""> emptyString{};
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
 			const auto newSize = value.size();
 			if (newSize > 0) {
 				*bufferPtr = '"';
@@ -819,7 +825,8 @@ namespace jsonifier::internal {
 	};
 
 	template<char_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
 			*bufferPtr = '"';
 			++bufferPtr;
 			const uint8_t nextChar = static_cast<uint8_t>(value);
@@ -831,14 +838,16 @@ namespace jsonifier::internal {
 	};
 
 	template<any_enum_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			int64_t valueNew{ static_cast<int64_t>(value) };
 			return serialize<options>::impl(valueNew, bufferPtr, indent);
 		}
 	};
 
 	template<number_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
 			if constexpr (sizeof(value_type) == 8) {
 				return to_chars<std::remove_cvref_t<value_type_new>>::impl(bufferPtr, value);
 			} else {
@@ -847,14 +856,15 @@ namespace jsonifier::internal {
 				} else if constexpr (int_types<value_type>) {
 					return to_chars<int64_t>::impl(bufferPtr, static_cast<int64_t>(value));
 				} else {
-					return to_chars<double>::impl(bufferPtr, static_cast<double>(value));
+					return to_chars<std::remove_cvref_t<value_type_new>>::impl(bufferPtr, value);
 				}
 			}
 		}
 	};
 
 	template<bool_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
 			static constexpr uint64_t falseVInt{ [] {
 				if constexpr (std::endian::native == std::endian::little) {
 					return 435728179558ULL;
@@ -876,7 +886,8 @@ namespace jsonifier::internal {
 	};
 
 	template<any_pointer_or_optional_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			if (value) {
 				return serialize<options>::impl(*value, bufferPtr, indent);
 			} else {
@@ -893,7 +904,8 @@ namespace jsonifier::internal {
 			return serialize<options>::impl(container, bufferPtr, indent);
 		}
 
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_type::object): {
 					return serializeContainer(value.getObject(), bufferPtr, indent);
@@ -945,7 +957,8 @@ namespace jsonifier::internal {
 	};
 
 	template<variant_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			internal::visit<serialize_visit_functor<options>>(value, bufferPtr, indent);
 			return bufferPtr;
 		}

@@ -31,7 +31,7 @@ cmake --build build --target jsonifier-unit-tests
 ./build/unit-tests/jsonifier-unit-tests
 ```
 
-The test binary first prints the active SIMD then runs every suite in order. Any failure makes the process exit with code `1`.
+The test binary first prints the active CPU backend (`jsonifier::activeBackendName()`), then runs every suite in order. Any failure makes the process exit with code `1`.
 
 ---
 
@@ -40,7 +40,7 @@ The test binary first prints the active SIMD then runs every suite in order. Any
 The suite is built on [rt-ut](https://github.com/nihilai-collective/rt-ut), which CMake fetches with `FetchContent`. GitHub Actions runs it on this matrix:
 
 ```yaml
-name: unit-tests
+name: Unit Tests
 on:
   push:
     branches: [ "**" ]
@@ -74,6 +74,8 @@ jobs:
 
 Sanitizers are turned off automatically for GCC on macOS, which does not support them. UBSan does nothing under MSVC because MSVC has no UBSan runtime, so on Windows you need a Clang-cl, Clang or GCC build for UBSan coverage.
 
+A second workflow, `Fallback Unit Tests` (`.github/workflows/unit-tests-fallback.yml`), runs the same matrix with `-DJSONIFIER_CPU_INSTRUCTIONS=0`, so the pure-scalar fallback backend is exercised on every push as well.
+
 The full suite passes on **Ubuntu (Clang/GCC), macOS (Clang/GCC), and Windows (MSVC)** on every push.
 
 ---
@@ -100,24 +102,24 @@ These suites use the matrix: parsing, bounds/truncation, conformance (`jsoncheck
 
 | Location | Contents |
 |---|---|
-| `unit-tests/json/` | 10 real-world corpora, each minified and prettified (Canada, CitmCatalog, Discord, Google Maps Response, Instruments, Marine IK, Mesh, Random, Twitter, Twitter Partial), plus `Minify Test`, `Prettify Test`, and `Validate Test` |
+| `unit-tests/json/` | 11 real-world corpora, each minified and prettified (Apache Builds, Canada, CitmCatalog, Discord, Github Events, Google Maps Response, Instruments, Marine IK, Random, Twitter, Twitter Partial), plus `Minify Test`, `Prettify Test`, and `Validate Test` |
 | `unit-tests/jsonchecker/` | The classic `jsonchecker` corpus: 27 `pass*.json` and 79 `fail*` files |
 | `unit-tests/JSONTestSuite/test_parsing/` | The JSONTestSuite corpus: 95 `y_*` (must accept), 188 `n_*` (must reject), and 35 `i_*` (implementation-defined, deliberately unused) |
 | `unit-tests/round_trip/` | 27 `roundtripNN.json` documents and the `semanticscholar` schema |
 
-The C++ structs for each corpus are defined in `canada.hpp`, `citm_catalog.hpp`, `discord.hpp`, `google_maps_response.hpp`, `instruments.hpp`, `marine_ik.hpp`, `mesh.hpp`, `random.hpp`, and `twitter.hpp`. Shared helpers (the pass/fail runners, the file loader, and the configuration labels) live in `common.hpp`.
+The C++ structs for each corpus are defined in `apache_builds.hpp`, `canada.hpp`, `citm_catalog.hpp`, `discord.hpp`, `github_events.hpp`, `google_maps_response.hpp`, `instruments.hpp`, `marine_ik.hpp`, `random.hpp`, and `twitter.hpp`. Shared helpers (the pass/fail runners, the file loader, and the configuration labels) live in `common.hpp`.
 
 ---
 
 ## End-to-End Parsing and Serialization
 
 ### Parsing Tests (`parsing_tests.hpp`)
-- Parses all 20 corpus files into their typed structs, serializes them back, and parses the output again. Runs in all eight configurations.
+- Parses all 22 corpus files into their typed structs, serializes them back, and parses the output again. Runs in all eight configurations.
 - Runs the minify, prettify, and validate checks against `Minify Test`, `Prettify Test`, and `Validate Test`.
 
 ### Bounds and Truncation (`bounds_test.hpp`)
-- Cuts each of the same 20 corpus files at random lengths, using a seeded generator, and checks that the parser fails cleanly without reading past the end of the input.
-- That is 160 truncation runs across the eight configurations. A failure prints its seed so the run can be replayed.
+- Cuts each of the same 22 corpus files at random lengths, using a seeded generator, and checks that the parser fails cleanly without reading past the end of the input.
+- That is 176 truncation runs across the eight configurations. A failure prints its seed so the run can be replayed.
 
 ### Round Trip (`round_trip.hpp`)
 - 27 documents go through serialize, parse, and compare. They cover primitives, null, empty values, large numbers, special floats, raw pointers, `unique_ptr`, and nested objects.

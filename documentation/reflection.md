@@ -37,7 +37,7 @@ parser.parseJson(tag, json);
 
 The JSON key for each member defaults to the C++ member name: `&value_type::moderated` maps to the JSON key `"moderated"`. Jsonifier extracts this name at compile time from the member pointer itself (using `std::source_location`), so you never write the string literally.
 
-The order you pass the members in matters for the [Known Order](Known_Order.md) optimization but is otherwise cosmetic; the parser handles keys in any order by default.
+The order you pass the members in matters for the [Known Order](known_order.md) optimization but is otherwise cosmetic; the parser handles keys in any order by default.
 
 ## Custom JSON Key Names
 
@@ -139,7 +139,7 @@ Out of the box, Jsonifier handles:
 - **Enums**: serialized as their underlying integer value
 - **Null placeholders**: `std::nullptr_t` for fields that are always `null` in the JSON
 - **Nested registered types**: any type with its own `jsonifier::core<T>` specialization
-- **Arbitrary JSON**: `jsonifier::raw_json_data` for members that hold unstructured JSON verbatim (see [Parsing Arbitrary Data](Parsing_Arbitrary_Data.md))
+- **Arbitrary JSON**: `jsonifier::raw_json_data` for members that hold unstructured JSON verbatim (see [Parsing Arbitrary Data](parsing_arbitrary_data.md))
 
 ## A Real-World Example
 
@@ -193,7 +193,7 @@ Everything on this page is `constexpr` and `consteval`. When you write `createVa
 4. That tuple is sorted three different ways at compile time (by original declaration order, by first byte, and by key length) because different hash-map strategies key off different orderings.
 5. The parser's hash-map dispatch is generated from these sorted views, specialized for the exact set of keys your struct declares.
 
-The upshot: for a struct with N fields, key lookup during parsing is a compile-time-generated hash-map dispatch specialized to those specific N keys. There is no runtime string hashing, no bucket walk, no dynamic dispatch.
+The upshot: for a struct with N fields, key lookup during parsing is a compile-time-generated hash-map dispatch specialized to those specific N keys. The map's strategy, seed, and table are all chosen at compile time; most strategies index on one or two key bytes (plus length) rather than hashing the whole key, and only the last-resort SIMD strategy hashes the full key at runtime. There is no bucket walk and no dynamic dispatch.
 
 For the deep architectural detail, including how this feeds into the batched-drain fused-scan stage-1 parser, see the [Stage-1 Document](../Batched-Drain.md) and [Full Arch Document](../Two-Stages.md).
 
@@ -201,9 +201,9 @@ The reflection interface itself is adapted from ideas in [Stephen Berry's Glaze 
 
 ## What's Next
 
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: every option available on `parseJson` and `serializeJson`
-- **[Known Order Parsing](Known_Order.md)**: when the JSON keys are guaranteed to arrive in declaration order, the parser can skip lookup entirely
-- **[Partial Reading](PartialReading.md)**: for JSON where key order isn't guaranteed
-- **[Parsing Arbitrary Data](Parsing_Arbitrary_Data.md)**: for the `jsonifier::raw_json_data` escape hatch when the schema isn't fully known
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: every option available on `parseJson` and `serializeJson`
+- **[Known Order Parsing](known_order.md)**: when the JSON keys are guaranteed to arrive in declaration order, the parser can skip lookup entirely
+- **[Partial Reading](partial_reading.md)**: for JSON where key order isn't guaranteed
+- **[Parsing Arbitrary Data](parsing_arbitrary_data.md)**: for the `jsonifier::raw_json_data` escape hatch when the schema isn't fully known
 
 ---

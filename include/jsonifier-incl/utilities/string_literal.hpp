@@ -61,7 +61,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename string_type> JSONIFIER_INLINE constexpr operator string_type() const noexcept {
-			alignas(simdBytesPerRegister) string_type returnValues{ values, length };
+			string_type returnValues{ values, length };
 			return returnValues;
 		}
 
@@ -135,6 +135,6 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<string_literal literal> alignas(simdBytesPerRegister) inline constexpr auto escapedKeyLiteral{ escapeKeyLiteral<literal>() };
+	template<string_literal literal> inline constexpr auto escapedKeyLiteral{ escapeKeyLiteral<literal>() };
 
 }

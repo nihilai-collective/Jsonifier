@@ -89,9 +89,9 @@ You get back a `twitter_partial_message` with just the three fields per status y
 
 ## Interaction With Other Options
 
-- **`knownOrder`**: Works with Partial Reading. The adaptive memoization applies to whichever fields you did register. Some of the fastest-fast-path optimizations described in [Known Order Parsing](Known_Order.md) are specific to the non-partial mode, so if you're on the peak-throughput path, benchmark both.
+- **`knownOrder`**: Works with Partial Reading. The adaptive memoization applies to whichever fields you did register. Some of the fastest-fast-path optimizations described in [Known Order Parsing](known_order.md) are specific to the non-partial mode, so if you're on the peak-throughput path, benchmark both.
 - **`minified`**: Fully compatible. Stage-1 still runs; stage-2 skips the whitespace-handling paths.
-- **`nullTerminated`**: Same rules as the default parser. See the [Serializing & Parsing](Usage_Serializing_Parsing.md#-the-nullterminated-footgun) warning.
+- **`nullTerminated`**: Same rules as the default parser. See the [Serializing & Parsing](usage_serializing_parsing.md#-the-nullterminated-footgun) warning.
 
 ## When to Measure
 
@@ -114,9 +114,9 @@ auto t3 = clock::now();
 
 ## What's Next
 
-- **[Known Order Parsing](Known_Order.md)**: often combined with Partial Reading for repeated-shape workloads
-- **[Optimizing For Minified JSON](Optimizing_For_Minified_Json.md)**: the `minified` flag details
-- **[Parsing Arbitrary Data](Parsing_Arbitrary_Data.md)**: for cases where the schema isn't fully known and `raw_json_data` fits better than Partial Reading
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: full parse-options reference
+- **[Known Order Parsing](known_order.md)**: often combined with Partial Reading for repeated-shape workloads
+- **[Optimizing For Minified JSON](optimizing_for_minified_json.md)**: the `minified` flag details
+- **[Parsing Arbitrary Data](parsing_arbitrary_data.md)**: for cases where the schema isn't fully known and `raw_json_data` fits better than Partial Reading
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: full parse-options reference
 
 ---

@@ -80,13 +80,12 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
-	template<typename value_type> alignas(simdBytesPerRegister) inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
-	template<typename value_type>
-	alignas(simdBytesPerRegister) inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
+	template<typename value_type> inline constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
+	template<typename value_type> inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
+	template<typename value_type> inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
+	template<typename value_type> inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
 	template<typename value_type> using core_tuple_type					  = decltype(core<base_t<value_type>>::parseValue);

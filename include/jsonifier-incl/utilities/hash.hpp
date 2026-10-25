@@ -76,7 +76,7 @@ namespace jsonifier::internal {
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
 		if constexpr (std::endian::native == std::endian::big) {
-			result = byteswap(result);
+			result = std::byteswap(result);
 		}
 		return result;
 	}

@@ -1,6 +1,6 @@
 # Prettifying
 
-Prettifying reformats a JSON document with indentation and newlines, making it easy to read. It's the inverse of [minifying](Minifying.md): same input, human-readable output.
+Prettifying reformats a JSON document with indentation and newlines, making it easy to read. It's the inverse of [minifying](minifying.md): same input, human-readable output.
 
 ## The Basics
 
@@ -24,7 +24,7 @@ The result:
 
 `prettifyJson(input, output)` returns `bool`. Both arguments must be string types; `output` is resized to fit.
 
-Like [minifying](Minifying.md), prettifying operates on JSON strings directly. No `jsonifier::core<T>` involved, no typed objects. Just JSON string in, JSON string out.
+Like [minifying](minifying.md), prettifying operates on JSON strings directly. No `jsonifier::core<T>` involved, no typed objects. Just JSON string in, JSON string out.
 
 ## Prettify Options
 
@@ -57,7 +57,7 @@ parser.prettifyJson<jsonifier::prettify_options{
 
 ## How It Works
 
-Prettifying uses the same stage-1 structural scanner that powers [Partial Reading](PartialReading.md) and [Minifying](Minifying.md). Stage-1 scans the input once and builds a tape of offsets to structural characters and values. Stage-2 then walks the tape, emitting each token with appropriate whitespace:
+Prettifying uses the same stage-1 structural scanner that powers [Partial Reading](partial_reading.md) and [Minifying](minifying.md). Stage-1 scans the input once and builds a tape of offsets to structural characters and values. Stage-2 then walks the tape, emitting each token with appropriate whitespace:
 
 - **Structural characters** (`{`, `}`, `[`, `]`) get newlines and indentation around them
 - **Commas** are followed by a newline and the current indent
@@ -78,7 +78,7 @@ if (!parser.prettifyJson(input, output)) {
 }
 ```
 
-Prettifier-specific error statuses live in a `prettify_statuses` enum, covering cases like empty input, excessive nesting, unexpected structural characters, and unclosed objects or arrays. See [Error Handling](Errors.md) for the full breakdown.
+Prettifier-specific error statuses live in a `prettify_statuses` enum, covering cases like empty input, excessive nesting, unexpected structural characters, and unclosed objects or arrays. See [Error Handling](errors.md) for the full breakdown.
 
 ## What Stays the Same
 
@@ -159,8 +159,8 @@ Note that `prettify_options` and `serialize_options` are separate types with ove
 
 ## What's Next
 
-- **[Minifying](Minifying.md)**: the inverse operation, stripping whitespace
-- **[Serializing & Parsing](Usage_Serializing_Parsing.md)**: for producing pretty JSON directly from typed C++ objects
-- **[Error Handling](Errors.md)**: full breakdown of error reporting including prettifier errors
+- **[Minifying](minifying.md)**: the inverse operation, stripping whitespace
+- **[Serializing & Parsing](usage_serializing_parsing.md)**: for producing pretty JSON directly from typed C++ objects
+- **[Error Handling](errors.md)**: full breakdown of error reporting including prettifier errors
 
 ---

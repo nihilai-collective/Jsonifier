@@ -206,7 +206,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	alignas(64) inline constexpr auto escapeMapRaw{ genEscapeMap() };
+	inline constexpr auto escapeMapRaw{ genEscapeMap() };
 
 	inline constexpr const char* __restrict escapeMap{ escapeMapRaw.data() };
 
@@ -945,7 +945,7 @@ namespace jsonifier::internal {
 			returnValue |= static_cast<convert_length_to_int_t<string.size()>>(stringNew[x]) << x * 8;
 		}
 		if constexpr (std::endian::native == std::endian::big) {
-			returnValue = byteswap(returnValue);
+			returnValue = std::byteswap(returnValue);
 		}
 		return returnValue;
 	}

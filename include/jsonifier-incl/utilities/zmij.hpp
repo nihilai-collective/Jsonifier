@@ -475,7 +475,8 @@ namespace jsonifier::zmij {
 
 		inline constexpr uint64_t zeros = 0x0101010101010101ULL * static_cast<uint64_t>('0');
 
-		[[maybe_unused]] JSONIFIER_INLINE auto writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
+		[[maybe_unused]] JSONIFIER_INLINE auto writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept
+			-> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
 			*buffer = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
 			return buffer + (condition ? 1 : 0);
 		}
@@ -842,7 +843,8 @@ namespace jsonifier::zmij {
 
 	namespace detail {
 
-		template<typename float_type> JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> write(float_type value, jsonifier::write_buffer_ptr buffer) noexcept {
+		template<typename float_type>
+		JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> write(float_type value, jsonifier::write_buffer_ptr buffer) noexcept {
 			using traits = float_traits<float_type>;
 			auto bits	 = traits::toBits(value);
 			auto binExp	 = traits::getExp(bits);
