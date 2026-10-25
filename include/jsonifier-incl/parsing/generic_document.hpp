@@ -409,7 +409,7 @@ namespace jsonifier::generic {
 			return result;
 		}
 
-		JSONIFIER_INLINE static read_structural_index_ptr skipValue(read_buffer_ptr base, read_structural_index_ptr iter, read_structural_index_ptr limit) noexcept {
+		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter, read_structural_index_ptr limit) noexcept {
 			if (!isOpener(base[*iter])) [[likely]] {
 				return iter + 1;
 			}
@@ -427,7 +427,7 @@ namespace jsonifier::generic {
 			return limit;
 		}
 
-		JSONIFIER_INLINE read_structural_index_ptr skipValue(read_structural_index_ptr iter) const noexcept {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
 			return skipValue(root, iter, tapeEnd);
 		}
 
@@ -440,7 +440,7 @@ namespace jsonifier::generic {
 			return internal::comparison::compare(keyStart, key.data(), keySize);
 		}
 
-		JSONIFIER_INLINE static read_structural_index_ptr finishToDepth(read_buffer_ptr base, read_structural_index_ptr position, read_structural_index_ptr limit,
+		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position, read_structural_index_ptr limit,
 			uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			uint64_t localDepth{ currentDepth };
 			while (localDepth > targetDepth && position < limit) {
@@ -1765,7 +1765,7 @@ namespace jsonifier::generic {
 			return !document_state::isOpener(c) && c != ',' && c != ':';
 		}
 
-		JSONIFIER_INLINE read_structural_index_ptr lastDocumentStart() const {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const {
 			const document_state& state = storage().state;
 			for (read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
 				if (startsDocument(state.charAt(iter)) && endsValue(state.charAt(iter - 1))) {
@@ -1795,7 +1795,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE read_structural_index_ptr consumedEnd() {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() {
 			document_state& state = storage().state;
 			if (state.depth > 0) {
 				state.finishToDepth(0);
@@ -1807,7 +1807,7 @@ namespace jsonifier::generic {
 			return state.skipValue(docBegin);
 		}
 
-		JSONIFIER_INLINE read_structural_index_ptr findDocumentEnd(read_structural_index_ptr start) {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) {
 			const document_state& state = storage().state;
 			const uint8_t first			= state.charAt(start);
 			if (document_state::isOpener(first)) {

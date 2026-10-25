@@ -212,7 +212,7 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			parsed_number pns = parseNumberString(iter, end, true);
 			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
 				return pns.lastMatch;
@@ -233,7 +233,7 @@ namespace jsonifier::internal {
 			return pns.lastMatch;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
 			if (iter >= end) [[unlikely]] {
 				return nullptr;
 			}

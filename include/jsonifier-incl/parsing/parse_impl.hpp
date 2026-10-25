@@ -51,7 +51,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::iterator_type>;
+	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::template_iterator_type>;
 
 #if JSONIFIER_COMPILER_MSVC
 	template<parse_options options, typename value_type, typename context_type>
@@ -884,16 +884,16 @@ namespace jsonifier::internal {
 	};
 #else
 	template<typename... bases> struct parse_map : public bases... {
-		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_step<iterator_type> iterateValues(
+		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_step<typename context_type::iterator_type> iterateValues(
 			[[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<iterator_type> step{ iter, parse_result::active_member };
+			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
 			static_cast<void>(((step = bases::processIndex(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
 			return step;
 		}
 
-		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_NOINLINE static parse_step<iterator_type> iterateValuesOutline(
+		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_NOINLINE static parse_step<typename context_type::iterator_type> iterateValuesOutline(
 			[[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<iterator_type> step{ iter, parse_result::active_member };
+			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
 			static_cast<void>(((step = bases::processIndexOutline(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
 			return step;
 		}
@@ -1120,7 +1120,7 @@ namespace jsonifier::internal {
 	template<typename value_type> static thread_local uint64_t elementCountHint{};
 
 	template<typename value_type>
-	inline constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
+	inline constexpr uint64_t maxHintedElements{ sizeof(typename value_type::value_type) <= 4096 ?4096 / sizeof(typename value_type::value_type) : 1 };
 
 	template<typename value_type> JSONIFIER_INLINE void reserveFromHint(value_type& value) {
 		if constexpr (reserveable_types<value_type> && !raw_json_types<typename value_type::value_type>) {

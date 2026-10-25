@@ -670,7 +670,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if constexpr (int_types<value_type>) {
 				if (iter < end) [[likely]] {
 					if (*iter == minus) {
@@ -764,13 +764,13 @@ namespace jsonifier::internal {
 			uint64_t digits;
 		};
 
-		template<uint_types v_type> JSONIFIER_INLINE v_type load(restricted_read_buffer_ptr str) noexcept {
+		template<uint_types v_type> JSONIFIER_INLINE v_type load(read_buffer_ptr str) noexcept {
 			v_type chunk;
 			pow2MemcpyWrapper<sizeof(v_type)>(&chunk, str);
 			return chunk;
 		}
 
-		template<uint8_types v_type> JSONIFIER_INLINE v_type load(restricted_read_buffer_ptr str) noexcept {
+		template<uint8_types v_type> JSONIFIER_INLINE v_type load(read_buffer_ptr str) noexcept {
 			return *str;
 		}
 
@@ -824,7 +824,7 @@ namespace jsonifier::internal {
 		template<integer_types v_type, uint64_t length> struct parse_fixed;
 
 		template<integer_types v_type> struct parse_fixed<v_type, 1ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint8_t s1 = load<uint8_t>(str);
 				if (incorrect(s1)) [[unlikely]] {
 					return { 0, 0 };
@@ -834,7 +834,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 2ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint16_t s2 = load<uint16_t>(str);
 				const uint16_t m2 = mask(s2);
 				if (m2) [[unlikely]] {
@@ -845,7 +845,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 3ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint16_t s2 = load<uint16_t>(str);
 				const uint8_t s1  = load<uint8_t>(str + 2);
 				const uint16_t m2 = mask(s2);
@@ -860,7 +860,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 4ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint32_t s4 = load<uint32_t>(str);
 				const uint32_t m4 = mask(s4);
 				if (m4) [[unlikely]] {
@@ -871,7 +871,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 5ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint32_t s4 = load<uint32_t>(str);
 				const uint8_t s1  = load<uint8_t>(str + 4);
 				const uint32_t m4 = mask(s4);
@@ -886,7 +886,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 6ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint32_t s4 = load<uint32_t>(str);
 				const uint16_t s2 = load<uint16_t>(str + 4);
 				const uint32_t m4 = mask(s4);
@@ -902,7 +902,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 7ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint32_t s4 = load<uint32_t>(str);
 				const uint16_t s2 = load<uint16_t>(str + 4);
 				const uint8_t s1  = load<uint8_t>(str + 6);
@@ -922,7 +922,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 8ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint64_t m8 = mask(s8);
 				if (m8) [[unlikely]] {
@@ -933,7 +933,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 9ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint8_t s1  = load<uint8_t>(str + 8);
 				const uint64_t m8 = mask(s8);
@@ -948,7 +948,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 10ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint16_t s2 = load<uint16_t>(str + 8);
 				const uint64_t m8 = mask(s8);
@@ -964,7 +964,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 11ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint16_t s2 = load<uint16_t>(str + 8);
 				const uint8_t s1  = load<uint8_t>(str + 10);
@@ -984,7 +984,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 12ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint32_t s4 = load<uint32_t>(str + 8);
 				const uint64_t m8 = mask(s8);
@@ -1000,7 +1000,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 13ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint32_t s4 = load<uint32_t>(str + 8);
 				const uint8_t s1  = load<uint8_t>(str + 12);
@@ -1020,7 +1020,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 14ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint32_t s4 = load<uint32_t>(str + 8);
 				const uint16_t s2 = load<uint16_t>(str + 12);
@@ -1041,7 +1041,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 15ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8 = load<uint64_t>(str);
 				const uint32_t s4 = load<uint32_t>(str + 8);
 				const uint16_t s2 = load<uint16_t>(str + 12);
@@ -1068,7 +1068,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 16ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8a = load<uint64_t>(str);
 				const uint64_t s8b = load<uint64_t>(str + 8);
 				const uint64_t m8a = mask(s8a);
@@ -1084,7 +1084,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 17ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8a = load<uint64_t>(str);
 				const uint64_t s8b = load<uint64_t>(str + 8);
 				const uint8_t s1   = load<uint8_t>(str + 16);
@@ -1104,7 +1104,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 18ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8a = load<uint64_t>(str);
 				const uint64_t s8b = load<uint64_t>(str + 8);
 				const uint16_t s2  = load<uint16_t>(str + 16);
@@ -1125,7 +1125,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 19ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8a = load<uint64_t>(str);
 				const uint64_t s8b = load<uint64_t>(str + 8);
 				const uint16_t s2  = load<uint16_t>(str + 16);
@@ -1152,7 +1152,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct parse_fixed<v_type, 20ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
 				const uint64_t s8a = load<uint64_t>(str);
 				const uint64_t s8b = load<uint64_t>(str + 8);
 				const uint32_t s4  = load<uint32_t>(str + 16);
@@ -1175,7 +1175,7 @@ namespace jsonifier::internal {
 		template<integer_types v_type, uint64_t maxLength> struct dispatch_table;
 
 		template<integer_types v_type> struct dispatch_table<v_type, 19ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str, uint64_t length) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str, uint64_t length) noexcept {
 				switch (length) {
 					case 1:
 						return parse_fixed<v_type, 1ULL>::impl(str);
@@ -1220,7 +1220,7 @@ namespace jsonifier::internal {
 		};
 
 		template<integer_types v_type> struct dispatch_table<v_type, 20ULL> {
-			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(restricted_read_buffer_ptr str, uint64_t length) noexcept {
+			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str, uint64_t length) noexcept {
 				switch (length) {
 					case 1:
 						return parse_fixed<v_type, 1ULL>::impl(str);
@@ -1272,7 +1272,7 @@ namespace jsonifier::internal {
 
 	}
 
-	template<typename value_type, bool negative> JSONIFIER_INLINE read_buffer_ptr parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	template<typename value_type, bool negative> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> parseSwarDigits(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		static_assert(sizeof(value_type) == 8, "parseSwarDigits only supports 64-bit integers.");
 		using v_type_local = std::make_unsigned_t<value_type>;
 		static constexpr uint64_t maxDigits{ uint_types<value_type> ? 20ULL : 19ULL };
@@ -1348,7 +1348,7 @@ namespace jsonifier::internal {
 
 	// Reads exponent digits. Accumulation stops at 1000 so a long exponent cannot overflow;
 	// every caller rejects exponents of 19 or more anyway.
-	JSONIFIER_INLINE read_buffer_ptr parseExponentDigits(int64_t& expValue, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+	JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> parseExponentDigits(int64_t& expValue, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		expValue = 0;
 		while (isDigit(peekByte(iter, end))) {
 			if (expValue < 1000) {
@@ -1362,7 +1362,7 @@ namespace jsonifier::internal {
 	template<typename value_type> struct integer_parser;
 
 	template<int_types value_type> struct integer_parser<value_type> {
-		template<bool negative> JSONIFIER_INLINE static read_buffer_ptr parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		template<bool negative> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			using v_type_local = std::make_unsigned_t<value_type>;
 			iter			   = parseSwarDigits<value_type, negative>(value, iter, end);
 			if (!iter) [[unlikely]] {
@@ -1377,7 +1377,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
 			int64_t fracDigits) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
@@ -1413,7 +1413,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
 			}
@@ -1429,7 +1429,7 @@ namespace jsonifier::internal {
 								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
 				value_type fracValue{};
 				int64_t fracDigits{};
@@ -1461,7 +1461,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
 				if (*iter == minus) {
 					++iter;
@@ -1537,7 +1537,7 @@ namespace jsonifier::internal {
 	#endif
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (peekByte(iter, end) == decimal) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
@@ -1561,7 +1561,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types value_type> struct integer_parser<value_type> {
-		JSONIFIER_INLINE static read_buffer_ptr parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			iter = parseSwarDigits<value_type, false>(value, iter, end);
 			if (!iter) [[unlikely]] {
 				return nullptr;
@@ -1572,7 +1572,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign, value_type fracValue,
 			int64_t fracDigits) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
@@ -1608,7 +1608,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
 			}
@@ -1624,7 +1624,7 @@ namespace jsonifier::internal {
 								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
 				value_type fracValue{};
 				int64_t fracDigits{};
@@ -1704,7 +1704,7 @@ namespace jsonifier::internal {
 	#endif
 		}
 
-		static read_buffer_ptr finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (peekByte(iter, end) == decimal) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
@@ -1726,7 +1726,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static read_buffer_ptr parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
 				read_buffer_ptr resultPtr = parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
 				if (resultPtr) [[likely]] {

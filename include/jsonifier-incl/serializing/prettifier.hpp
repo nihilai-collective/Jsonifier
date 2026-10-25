@@ -110,7 +110,7 @@ namespace jsonifier::internal {
 		prettifier() noexcept						   = default;
 
 		template<prettify_options options, prettify_buffer_types string_type, typename iterator, typename iterator_end> uint64_t impl(iterator* __restrict& iter,
-			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
+			iterator_end* __restrict endStructural, read_buffer_ptr stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;
 			using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;

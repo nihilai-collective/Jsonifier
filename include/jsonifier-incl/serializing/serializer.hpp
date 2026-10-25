@@ -24,7 +24,7 @@ namespace jsonifier::internal {
 	};
 
 	template<serialize_options options> struct serialize {
-		template<typename value_type_new> JSONIFIER_INLINE static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+		template<typename value_type_new> JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			return serialize_impl<value_type, options>::impl(internal::forward<value_type_new>(value), bufferPtr, indent);
 		}

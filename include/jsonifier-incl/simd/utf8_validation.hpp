@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 
 	alignas(simdBytesPerRegister) inline constexpr auto byte1HighTableRaw{ genByte1HighTable() };
 
-	inline constexpr const uint8_t* __restrict byte1HighTable{ byte1HighTableRaw.data() };
+	inline constexpr read_buffer_ptr byte1HighTable{ byte1HighTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte1LowTable() {
 		constexpr array<uint8_t, 16ULL> raw{ { carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
@@ -57,7 +57,7 @@ namespace jsonifier::internal {
 
 	alignas(simdBytesPerRegister) inline constexpr auto byte1LowTableRaw{ genByte1LowTable() };
 
-	inline constexpr const uint8_t* __restrict byte1LowTable{ byte1LowTableRaw.data() };
+	inline constexpr read_buffer_ptr byte1LowTable{ byte1LowTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte2HighTable() {
 		constexpr array<uint8_t, 16ULL> raw{ { tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
@@ -72,7 +72,7 @@ namespace jsonifier::internal {
 
 	alignas(simdBytesPerRegister) inline constexpr auto byte2HighTableRaw{ genByte2HighTable() };
 
-	inline constexpr const uint8_t* __restrict byte2HighTable{ byte2HighTableRaw.data() };
+	inline constexpr read_buffer_ptr byte2HighTable{ byte2HighTableRaw.data() };
 
 	alignas(simdBytesPerRegister) inline constexpr uint8_t isIncompleteMax[64]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -81,7 +81,7 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct chunk_loader;
 
 	template<uint64_t... indices> struct chunk_loader<integer_sequence<indices...>> {
-		JSONIFIER_INLINE static simd_array_t impl(restricted_read_buffer_ptr src) noexcept {
+		JSONIFIER_INLINE static simd_array_t impl(read_buffer_ptr src) noexcept {
 			simd_array_t returnValues;
 			(returnValues.template set<indices>(gatherValuesU<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(src + indices * simdBytesPerRegister))),
 				...);
@@ -92,7 +92,7 @@ namespace jsonifier::internal {
 	template<typename derived_type, typename integer_sequence> struct step_checker;
 
 	template<typename derived_type, uint64_t... indices> struct step_checker<derived_type, integer_sequence<indices...>> {
-		JSONIFIER_INLINE void impl(restricted_read_buffer_ptr srcNew) noexcept {
+		JSONIFIER_INLINE void impl(read_buffer_ptr srcNew) noexcept {
 			(static_cast<derived_type*>(this)->checkStepImpl(srcNew + indices * simdBytesPerBlock), ...);
 		}
 	};
@@ -101,7 +101,7 @@ namespace jsonifier::internal {
 		using step_checker_type = step_checker<utf8_checker, make_integer_sequence<simdBlocksPerStep>>;
 		template<typename integer_sequence> struct chunk_processor;
 
-		JSONIFIER_INLINE void checkStepImpl(restricted_read_buffer_ptr src) noexcept {
+		JSONIFIER_INLINE void checkStepImpl(read_buffer_ptr src) noexcept {
 			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
@@ -150,7 +150,7 @@ namespace jsonifier::internal {
 		const jsonifier_simd_int_t lookup2{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte2HighTable)) };
 		const jsonifier_simd_int_t lookupL{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1LowTable)) };
 
-		JSONIFIER_INLINE void checkStep(restricted_read_buffer_ptr srcNew) noexcept {
+		JSONIFIER_INLINE void checkStep(read_buffer_ptr srcNew) noexcept {
 			step_checker_type::impl(srcNew);
 		}
 
@@ -179,7 +179,7 @@ namespace jsonifier::internal {
 		};
 	};
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
+	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
 		if (len == 0) {
 			return true;
 		}
@@ -359,7 +359,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier {
 
-	inline bool validateUtf8(restricted_read_buffer_ptr src, uint64_t len) noexcept {
+	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
 		return internal::validateUtf8(src, len);
 	}
 

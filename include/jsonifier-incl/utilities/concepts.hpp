@@ -37,7 +37,7 @@ namespace jsonifier {
 namespace jsonifier::internal {
 
 	template<typename context_type>
-	concept structural_context_types = std::same_as<typename context_type::iterator_type, write_structural_index_ptr>;
+	concept structural_context_types = std::same_as<typename context_type::template_iterator_type, unrestrict_t<write_structural_index_ptr>>;
 
 	template<typename context_type> using context_iterator_t = typename context_type::iterator_type;
 

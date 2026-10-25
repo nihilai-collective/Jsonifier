@@ -11,12 +11,10 @@
 
 namespace jsonifier {
 
-	using restricted_read_buffer_ptr  = const uint8_t* __restrict;
-	using restricted_write_buffer_ptr = uint8_t* __restrict;
-	using read_structural_index_ptr	  = const uint32_t*;
-	using read_buffer_ptr			  = const uint8_t*;
-	using write_structural_index_ptr  = uint32_t*;
-	using write_buffer_ptr			  = uint8_t*;
+	using read_structural_index_ptr	 = const uint32_t* __restrict;
+	using read_buffer_ptr			 = const uint8_t* __restrict;
+	using write_structural_index_ptr = uint32_t* __restrict;
+	using write_buffer_ptr			 = uint8_t* __restrict;
 
 #if JSONIFIER_AVX512
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
@@ -28,11 +26,7 @@ namespace jsonifier {
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
 	#endif
 #elif JSONIFIER_NEON
-	#if JSONIFIER_COMPILER_GCC
-	inline constexpr uint64_t simdTapeStep{ 2 };
-	#else
-	inline constexpr uint64_t simdTapeStep{ 2 };
-	#endif
+	inline constexpr uint64_t simdTapeStep{ 8 };
 	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 #else
 	inline constexpr uint64_t simdTapeStep{ 8 };

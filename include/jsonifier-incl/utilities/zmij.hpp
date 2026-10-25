@@ -454,7 +454,7 @@ namespace jsonifier::zmij {
 			return static_cast<int32_t>((70ULL - static_cast<uint64_t>(clz((x << 1U) | 1ULL))) / 8ULL);
 		}
 
-		[[maybe_unused]] JSONIFIER_INLINE auto digits2(uint64_t value) noexcept -> jsonifier::read_buffer_ptr {
+		[[maybe_unused]] JSONIFIER_INLINE auto digits2(uint64_t value) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::read_buffer_ptr> {
 			static const char data[] = "0001020304050607080910111213141516171819"
 									   "2021222324252627282930313233343536373839"
 									   "4041424344454647484950515253545556575859"
@@ -475,7 +475,7 @@ namespace jsonifier::zmij {
 
 		inline constexpr uint64_t zeros = 0x0101010101010101ULL * static_cast<uint64_t>('0');
 
-		[[maybe_unused]] JSONIFIER_INLINE auto writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept -> jsonifier::write_buffer_ptr {
+		[[maybe_unused]] JSONIFIER_INLINE auto writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
 			*buffer = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
 			return buffer + (condition ? 1 : 0);
 		}
@@ -705,7 +705,7 @@ namespace jsonifier::zmij {
 		}
 
 		JSONIFIER_INLINE auto writeExpFloatSimd(jsonifier::write_buffer_ptr buffer, const dec_digits<32>& dig, int32_t lastDigit, bool hasLastDigit, bool hasExtraDigit,
-			[[maybe_unused]] uint64_t expData) noexcept -> jsonifier::write_buffer_ptr {
+			[[maybe_unused]] uint64_t expData) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
 			uint32_t prefix				   = (static_cast<uint32_t>('.') << 8) + static_cast<uint32_t>('0') + static_cast<uint32_t>(lastDigit);
 			[[maybe_unused]] uint64_t tail = expData | (static_cast<uint64_t>(prefix) << 32);
 			auto entry					   = staticData.expFloatShuffles.getEntry(dig.numDigits, hasLastDigit, hasExtraDigit);
@@ -725,7 +725,7 @@ namespace jsonifier::zmij {
 		}
 
 		[[maybe_unused]] JSONIFIER_INLINE auto writeExpFloatSimd(jsonifier::write_buffer_ptr, const dec_digits<64>&, int32_t, bool, bool, uint64_t) noexcept
-			-> jsonifier::write_buffer_ptr {
+			-> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
 			return nullptr;
 		}
 
@@ -842,7 +842,7 @@ namespace jsonifier::zmij {
 
 	namespace detail {
 
-		template<typename float_type> JSONIFIER_INLINE jsonifier::write_buffer_ptr write(float_type value, jsonifier::write_buffer_ptr buffer) noexcept {
+		template<typename float_type> JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> write(float_type value, jsonifier::write_buffer_ptr buffer) noexcept {
 			using traits = float_traits<float_type>;
 			auto bits	 = traits::toBits(value);
 			auto binExp	 = traits::getExp(bits);

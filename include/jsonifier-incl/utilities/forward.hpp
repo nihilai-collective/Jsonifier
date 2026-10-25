@@ -114,4 +114,14 @@ namespace jsonifier::internal {
 		using type					   = jsonifier_simd_int_512;
 	};
 
+	template<typename value_type> struct unrestricter {
+		using type = value_type;
+	};
+
+	template<typename value_type> struct unrestricter<value_type* __restrict> {
+		using type = value_type*;
+	};
+
+	template<typename value_type> using unrestrict_t = typename unrestricter<value_type>::type;
+
 }
