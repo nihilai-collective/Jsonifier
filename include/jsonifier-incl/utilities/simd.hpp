@@ -46,6 +46,43 @@ namespace jsonifier::internal {
 		cout << endl << endl;
 	}
 
+	struct tail_block_builder {
+		static constexpr uint64_t pageSize = 4096;
+
+		alignas(64) static constexpr uint8_t laneIndices[64]{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+			31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63 };
+
+		JSONIFIER_INLINE static bool readStaysInPage(read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {
+			const uint64_t lastValid = std::bit_cast<uint64_t>(src) + remaining - 1;
+			const uint64_t lastRead	 = std::bit_cast<uint64_t>(src) + paddedBytes - 1;
+			return !JSONIFIER_ASAN_ENABLED && (lastValid ^ lastRead) < pageSize;
+		}
+
+		JSONIFIER_INLINE static void buildInPlace(write_buffer_ptr dst, read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {
+			const jsonifier_simd_int_t spaces = simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x20));
+			const jsonifier_simd_int_t lanes  = simd::gatherValues<jsonifier_simd_int_t>(+laneIndices);
+			for (uint64_t offset = 0; offset < paddedBytes; offset += simdBytesPerRegister) {
+				const uint64_t lanesLeft		= remaining > offset ? std::min<uint64_t>(remaining - offset, simdBytesPerRegister) : 0;
+				const jsonifier_simd_int_t keep = simd::opCmpLtRaw(lanes, simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(lanesLeft)));
+				const jsonifier_simd_int_t data = simd::gatherValuesU<jsonifier_simd_int_t>(src + offset);
+				simd::storeU(simd::opXor(spaces, simd::opAnd(simd::opXor(data, spaces), keep)), dst + offset);
+			}
+		}
+
+		JSONIFIER_INLINE static void buildByCopy(write_buffer_ptr dst, read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {
+			std::memset(dst + remaining, static_cast<uint8_t>(0x20), paddedBytes - remaining);
+			jsonifierMemcpy(dst, src, remaining);
+		}
+
+		JSONIFIER_INLINE static void impl(write_buffer_ptr dst, read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {
+			if (readStaysInPage(src, remaining, paddedBytes)) [[likely]] {
+				buildInPlace(dst, src, remaining, paddedBytes);
+			} else {
+				buildByCopy(dst, src, remaining, paddedBytes);
+			}
+		}
+	};
+
 	struct string_block_reader {
 		static constexpr uint64_t stepBytes = simdBlocksPerStep * 64;
 
@@ -60,8 +97,7 @@ namespace jsonifier::internal {
 			if (length == index) [[unlikely]] {
 				return nullptr;
 			}
-			std::memset(+block + (length - index), static_cast<uint8_t>(0x20), stepBytes - (length - index));
-			jsonifierMemcpy(+block, inString + index, length - index);
+			tail_block_builder::impl(+block, inString + index, length - index, stepBytes);
 			return +block;
 		}
 
@@ -90,10 +126,7 @@ namespace jsonifier::internal {
 		static constexpr uint64_t stepBytes = simdBlocksPerStep * 64;
 
 		JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getRemainder(uint64_t paddedBytes) noexcept {
-			write_buffer_ptr blockPtr = +block;
-			read_buffer_ptr srcPtr	  = inString + index;
-			std::memset(blockPtr + (length - index), static_cast<uint8_t>(0x20), paddedBytes - (length - index));
-			jsonifierMemcpy(blockPtr, srcPtr, length - index);
+			tail_block_builder::impl(+block, inString + index, length - index, paddedBytes);
 			return +block;
 		}
 
@@ -113,11 +146,14 @@ namespace jsonifier::internal {
 
 	template<uint64_t stepBytes = simdBytesPerStep> struct pod_block_reader {
 		JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getRemainder() noexcept {
-			const uint64_t remaining  = lengthVal - indexVal;
-			write_buffer_ptr blockPtr = +block;
-			read_buffer_ptr srcPtr	  = inString + indexVal;
-			jsonifierMemcpyUpTo<simdBytesPerBlock - 1>(blockPtr, srcPtr, remaining);
-			std::memset(blockPtr + remaining, static_cast<uint8_t>(0x20), simdBytesPerBlock - remaining);
+			const uint64_t remaining = lengthVal - indexVal;
+			read_buffer_ptr srcPtr	 = inString + indexVal;
+			if (tail_block_builder::readStaysInPage(srcPtr, remaining, simdBytesPerBlock)) [[likely]] {
+				tail_block_builder::buildInPlace(+block, srcPtr, remaining, simdBytesPerBlock);
+			} else {
+				jsonifierMemcpyUpTo<simdBytesPerBlock - 1>(+block, srcPtr, remaining);
+				std::memset(+block + remaining, static_cast<uint8_t>(0x20), simdBytesPerBlock - remaining);
+			}
 			return +block;
 		}
 
