@@ -830,8 +830,9 @@ namespace jsonifier::internal {
 			*bufferPtr = '"';
 			++bufferPtr;
 			const uint8_t nextChar = static_cast<uint8_t>(value);
-			jsonifierMemcpy(bufferPtr, charEscapeTable[nextChar], charEscapeSizes[nextChar]);
-			bufferPtr += charEscapeSizes[nextChar];
+			const char_escape_entry& entry = charEscapeEntries[nextChar];
+			pow2MemcpyWrapper<2>(bufferPtr, entry.values.data());
+			bufferPtr += entry.size;
 			*bufferPtr = '"';
 			return bufferPtr + 1;
 		}

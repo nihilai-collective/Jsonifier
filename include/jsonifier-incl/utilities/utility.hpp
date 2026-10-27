@@ -22,12 +22,12 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto whitespaceTableRaw{ genWhitespaceTable() };
+	alignas(64) inline constexpr auto whitespaceTableRaw{ genWhitespaceTable() };
 
 	inline constexpr const bool* __restrict whitespaceTable{ whitespaceTableRaw.data() };
 
-	consteval array<int64_t, 256ULL> genNestingDeltaTable() {
-		array<int64_t, 256ULL> returnValues{};
+	consteval array<int8_t, 256ULL> genNestingDeltaTable() {
+		array<int8_t, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('{')] = 1;
 		returnValues[static_cast<uint64_t>('[')] = 1;
 		returnValues[static_cast<uint64_t>('}')] = -1;
@@ -35,9 +35,9 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto nestingDeltaTableRaw{ genNestingDeltaTable() };
+	alignas(64) inline constexpr auto nestingDeltaTableRaw{ genNestingDeltaTable() };
 
-	inline constexpr const int64_t* __restrict nestingDeltaTable{ nestingDeltaTableRaw.data() };
+	inline constexpr const int8_t* __restrict nestingDeltaTable{ nestingDeltaTableRaw.data() };
 
 	consteval array<bool, 256ULL> genNewlineTable() {
 		array<bool, 256ULL> returnValues{};
@@ -46,7 +46,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto newlineTableRaw{ genNewlineTable() };
+	alignas(64) inline constexpr auto newlineTableRaw{ genNewlineTable() };
 
 	inline constexpr const bool* __restrict newlineTable{ newlineTableRaw.data() };
 
@@ -66,67 +66,40 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto numberTableRaw{ genNumberTable() };
+	alignas(64) inline constexpr auto numberTableRaw{ genNumberTable() };
 
 	inline constexpr const bool* __restrict numberTable{ numberTableRaw.data() };
 
-	consteval array<array<char, 2>, 256ULL> genCharEscapeStorage() {
-		array<array<char, 2>, 256ULL> returnValue{};
+	struct alignas(4) char_escape_entry {
+		array<char, 2> values;
+		uint8_t size;
+	};
+
+	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
+		array<char_escape_entry, 256ULL> returnValue{};
 		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x][0] = static_cast<char>(x);
-			returnValue[x][1] = '\0';
+			returnValue[x].values[0] = static_cast<char>(x);
+			returnValue[x].values[1] = '\0';
+			returnValue[x].size		 = 1;
 		}
-		returnValue[static_cast<uint64_t>('\b')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\b')][1] = 'b';
-		returnValue[static_cast<uint64_t>('\t')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\t')][1] = 't';
-		returnValue[static_cast<uint64_t>('\n')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\n')][1] = 'n';
-		returnValue[static_cast<uint64_t>('\f')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\f')][1] = 'f';
-		returnValue[static_cast<uint64_t>('\r')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\r')][1] = 'r';
-		returnValue[static_cast<uint64_t>('\"')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\"')][1] = '\"';
-		returnValue[static_cast<uint64_t>('\\')][0] = '\\';
-		returnValue[static_cast<uint64_t>('\\')][1] = '\\';
+		auto setEscape = [&](char value, char escaped) {
+			returnValue[static_cast<uint8_t>(value)].values[0] = '\\';
+			returnValue[static_cast<uint8_t>(value)].values[1] = escaped;
+			returnValue[static_cast<uint8_t>(value)].size	   = 2;
+		};
+		setEscape('\b', 'b');
+		setEscape('\t', 't');
+		setEscape('\n', 'n');
+		setEscape('\f', 'f');
+		setEscape('\r', 'r');
+		setEscape('\"', '\"');
+		setEscape('\\', '\\');
 		return returnValue;
 	}
 
-	inline constexpr auto charEscapeStorageRaw{ genCharEscapeStorage() };
+	alignas(64) inline constexpr auto charEscapeEntriesRaw{ genCharEscapeEntries() };
 
-	inline constexpr const array<char, 2>* __restrict charEscapeStorage{ charEscapeStorageRaw.data() };
-
-	consteval array<const char*, 256ULL> genCharEscapeTable() {
-		array<const char*, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x] = charEscapeStorage[x].data();
-		}
-		return returnValue;
-	}
-
-	inline constexpr auto charEscapeTableRaw{ genCharEscapeTable() };
-
-	inline constexpr const char* const* __restrict charEscapeTable{ charEscapeTableRaw.data() };
-
-	consteval array<uint64_t, 256ULL> genCharEscapeSizes() {
-		array<uint64_t, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x] = 1;
-		}
-		returnValue[static_cast<uint64_t>('\b')] = 2;
-		returnValue[static_cast<uint64_t>('\t')] = 2;
-		returnValue[static_cast<uint64_t>('\n')] = 2;
-		returnValue[static_cast<uint64_t>('\f')] = 2;
-		returnValue[static_cast<uint64_t>('\r')] = 2;
-		returnValue[static_cast<uint64_t>('\"')] = 2;
-		returnValue[static_cast<uint64_t>('\\')] = 2;
-		return returnValue;
-	}
-
-	inline constexpr auto charEscapeSizesRaw{ genCharEscapeSizes() };
-
-	inline constexpr const uint64_t* __restrict charEscapeSizes{ charEscapeSizesRaw.data() };
+	inline constexpr const char_escape_entry* __restrict charEscapeEntries{ charEscapeEntriesRaw.data() };
 
 	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
 		return static_cast<value_type&&>(t);

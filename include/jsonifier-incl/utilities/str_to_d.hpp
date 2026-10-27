@@ -18,7 +18,7 @@ namespace jsonifier::internal {
 		return table;
 	}
 
-	template<typename = void> inline constexpr array<bool, 256> expTableRaw = generateExpTable();
+	template<typename = void> alignas(64) inline constexpr array<bool, 256> expTableRaw = generateExpTable();
 
 	inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
 
@@ -30,7 +30,7 @@ namespace jsonifier::internal {
 		return table;
 	}
 
-	template<typename = void> inline constexpr array<bool, 256> expFracTableRaw = generateExpFracTable();
+	template<typename = void> alignas(64) inline constexpr array<bool, 256> expFracTableRaw = generateExpFracTable();
 
 	inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
 

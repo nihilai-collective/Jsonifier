@@ -367,6 +367,81 @@ namespace jsonifier::generic {
 		uint64_t count{};
 	};
 
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+	consteval jsonifier::internal::array<int8_t, 256> genDepthDeltaTable() {
+		jsonifier::internal::array<int8_t, 256> returnValues{};
+		for (auto& entry: returnValues) {
+			entry = 0;
+		}
+		returnValues[static_cast<uint64_t>('{')] = 1;
+		returnValues[static_cast<uint64_t>('[')] = 1;
+		returnValues[static_cast<uint64_t>('}')] = -1;
+		returnValues[static_cast<uint64_t>(']')] = -1;
+		return returnValues;
+	}
+
+	alignas(64) inline constexpr auto depthDeltaTableRaw{ genDepthDeltaTable() };
+
+	inline constexpr const int8_t* __restrict depthDeltaTable{ depthDeltaTableRaw.data() };
+
+	class closer_jump_table {
+	  public:
+		JSONIFIER_INLINE read_structural_index_ptr afterClose(read_buffer_ptr base, read_structural_index_ptr tape, read_structural_index_ptr tapeEnd,
+			read_structural_index_ptr opener) noexcept {
+			if (!built) [[unlikely]] {
+				build(base, tape, tapeEnd);
+			}
+			return tape + closes.data()[opener - tape];
+		}
+
+		JSONIFIER_INLINE void invalidate() noexcept {
+			built = false;
+		}
+
+		JSONIFIER_INLINE closer_jump_table& operator=(closer_jump_table&& other) noexcept {
+			if (this != &other) [[likely]] {
+				closes	= internal::move(other.closes);
+				openers = internal::move(other.openers);
+				built	= std::exchange(other.built, false);
+			}
+			return *this;
+		}
+
+		JSONIFIER_INLINE closer_jump_table(closer_jump_table&& other) noexcept
+			: closes{ internal::move(other.closes) }, openers{ internal::move(other.openers) }, built{ std::exchange(other.built, false) } {
+		}
+
+		closer_jump_table& operator=(const closer_jump_table&) = delete;
+		closer_jump_table(const closer_jump_table&)			   = delete;
+		closer_jump_table() noexcept						   = default;
+
+	  protected:
+		void build(read_buffer_ptr base, read_structural_index_ptr tape, read_structural_index_ptr tapeEnd) noexcept {
+			const uint32_t count = static_cast<uint32_t>(tapeEnd - tape);
+			closes.reserve(count);
+			openers.reserve(count);
+			uint32_t* const closeIndices = closes.data();
+			uint32_t* const openStack	 = openers.data();
+			uint64_t top{};
+			for (uint32_t index = 0; index < count; ++index) {
+				const int8_t delta = depthDeltaTable[base[tape[index]]];
+				if (delta > 0) {
+					openStack[top++] = index;
+				} else if (delta < 0 && top != 0) {
+					closeIndices[openStack[--top]] = index + 1;
+				}
+			}
+			while (top != 0) {
+				closeIndices[openStack[--top]] = count;
+			}
+			built = true;
+		}
+
+		alloc_buffer<uint32_t> closes{};
+		alloc_buffer<uint32_t> openers{};
+		bool built{};
+	};
+
 	struct document_state {
 		JSONIFIER_INLINE bool escapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
@@ -386,10 +461,10 @@ namespace jsonifier::generic {
 			uint64_t currentDepth			   = depth;
 			if (currentDepth == containerDepth) {
 				if (position <= childValue) {
-					position = skipValue(base, childValue, limit);
+					position = skipValue(childValue);
 				}
 			} else if (currentDepth > containerDepth) {
-				position = finishToDepth(base, position, limit, currentDepth, containerDepth);
+				position = finishToDepth(position, currentDepth, containerDepth);
 			}
 			error_code result{ error_code::tape_error };
 			if (position >= limit) [[unlikely]] {
@@ -409,27 +484,11 @@ namespace jsonifier::generic {
 			return result;
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter,
-			read_structural_index_ptr limit) noexcept {
-			if (!isOpener(base[*iter])) [[likely]] {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
+			if (!isOpener(root[*iter])) [[likely]] {
 				return iter + 1;
 			}
-			uint64_t openCount{ 1 };
-			++iter;
-			while (iter < limit) {
-				const uint8_t current = base[*iter];
-				++iter;
-				if (isOpener(current)) {
-					++openCount;
-				} else if (isCloser(current) && --openCount == 0) {
-					return iter;
-				}
-			}
-			return limit;
-		}
-
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
-			return skipValue(root, iter, tapeEnd);
+			return jumps->afterClose(root, tape, tapeEnd, iter);
 		}
 
 		JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
@@ -441,25 +500,28 @@ namespace jsonifier::generic {
 			return internal::comparison::compare(keyStart, key.data(), keySize);
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position,
-			read_structural_index_ptr limit, uint64_t& currentDepth, uint64_t targetDepth) noexcept {
-			uint64_t localDepth{ currentDepth };
-			while (localDepth > targetDepth && position < limit) {
-				const uint8_t current = base[*position];
-				++position;
-				if (isOpener(current)) {
-					++localDepth;
-				} else if (isCloser(current)) {
-					--localDepth;
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_structural_index_ptr position, uint64_t& currentDepth,
+			uint64_t targetDepth) const noexcept {
+			const read_buffer_ptr base			  = root;
+			const read_structural_index_ptr limit = tapeEnd;
+			int64_t localDepth{ static_cast<int64_t>(currentDepth) };
+			const int64_t target{ static_cast<int64_t>(targetDepth) };
+			while (localDepth > target && position < limit) {
+				const int8_t delta = depthDeltaTable[base[*position]];
+				if (delta > 0) {
+					position = jumps->afterClose(base, tape, limit, position);
+				} else {
+					localDepth += delta;
+					++position;
 				}
 			}
-			currentDepth = localDepth;
+			currentDepth = static_cast<uint64_t>(localDepth);
 			return position;
 		}
 
 		JSONIFIER_INLINE void finishToDepth(uint64_t targetDepth) noexcept {
 			uint64_t currentDepth{ depth };
-			cursor = finishToDepth(root, cursor, tapeEnd, currentDepth, targetDepth);
+			cursor = finishToDepth(cursor, currentDepth, targetDepth);
 			depth  = currentDepth;
 		}
 
@@ -489,6 +551,7 @@ namespace jsonifier::generic {
 		read_structural_index_ptr cursor{};
 		read_structural_index_ptr tape{};
 		field_index_map* fieldIndex{};
+		closer_jump_table* jumps{};
 		read_buffer_ptr root{};
 		read_buffer_ptr end{};
 		string_arena* arena{};
@@ -507,7 +570,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
+	alignas(64) inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
 
 	inline constexpr const bool* __restrict utf8StringStopTable{ utf8StringStopTableRaw.data() };
 
@@ -524,7 +587,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
+	alignas(64) inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
 
 	inline constexpr const bool* __restrict asciiStringStopTable{ asciiStringStopTableRaw.data() };
 
@@ -546,7 +609,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	inline constexpr auto typeTableRaw{ genTypeTable() };
+	alignas(64) inline constexpr auto typeTableRaw{ genTypeTable() };
 
 	inline constexpr const json_type* __restrict typeTable{ typeTableRaw.data() };
 
@@ -563,7 +626,7 @@ namespace jsonifier::generic {
 		return returnValues;
 	}
 
-	inline constexpr auto seperatorByteTableRaw{ genSeperatorByteTable() };
+	alignas(64) inline constexpr auto seperatorByteTableRaw{ genSeperatorByteTable() };
 
 	inline constexpr const bool* __restrict seperatorByteTable{ seperatorByteTableRaw.data() };
 
@@ -1583,6 +1646,7 @@ namespace jsonifier::generic {
 		generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
 				fieldIndex	= internal::move(other.fieldIndex);
+				jumps		= internal::move(other.jumps);
 				arena		= internal::move(other.arena);
 				state		= document_state{};
 				other.state = document_state{};
@@ -1590,7 +1654,8 @@ namespace jsonifier::generic {
 			return *this;
 		}
 
-		generic_storage(generic_storage&& other) noexcept : fieldIndex{ internal::move(other.fieldIndex) }, arena{ internal::move(other.arena) } {
+		generic_storage(generic_storage&& other) noexcept
+			: fieldIndex{ internal::move(other.fieldIndex) }, jumps{ internal::move(other.jumps) }, arena{ internal::move(other.arena) } {
 			other.state = document_state{};
 		}
 
@@ -1598,6 +1663,7 @@ namespace jsonifier::generic {
 		generic_storage(const generic_storage&)			   = delete;
 		generic_storage() noexcept						   = default;
 		field_index_map fieldIndex{};
+		closer_jump_table jumps{};
 		document_state state{};
 		string_arena arena{};
 	};
@@ -1812,12 +1878,10 @@ namespace jsonifier::generic {
 			const document_state& state = storage().state;
 			const uint8_t first			= state.charAt(start);
 			if (document_state::isOpener(first)) {
-				uint64_t openCount{ 1 };
+				int64_t openCount{ 1 };
 				for (read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
-					const uint8_t current = state.charAt(iter);
-					if (document_state::isOpener(current)) {
-						++openCount;
-					} else if (document_state::isCloser(current) && --openCount == 0) {
+					openCount += depthDeltaTable[state.charAt(iter)];
+					if (openCount == 0) {
 						return iter + 1;
 					}
 				}
@@ -1851,6 +1915,8 @@ namespace jsonifier::generic {
 			data.arena.reset(windowLength);
 			data.state.arena	  = &data.arena;
 			data.state.fieldIndex = &data.fieldIndex;
+			data.state.jumps	  = &data.jumps;
+			data.jumps.invalidate();
 			if constexpr (options.newLineDelimited) {
 				findCompleteEnd();
 			}
@@ -1884,6 +1950,7 @@ namespace jsonifier::generic {
 			data.state.cursor	  = begin;
 			data.state.depth	  = 0;
 			data.fieldIndex.reset();
+			data.jumps.invalidate();
 		}
 
 		JSONIFIER_INLINE document current() const {

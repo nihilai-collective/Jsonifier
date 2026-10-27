@@ -40,10 +40,10 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
+	alignas(64) inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
 		9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
 
-	inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL, 99999999999ULL,
+	alignas(64) inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL, 99999999999ULL,
 		999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL, 9999999999999999999ULL };
 
 	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
@@ -53,7 +53,7 @@ namespace jsonifier::internal {
 
 	inline char* writeUnsigned(char* bufferEnd, uint64_t value) noexcept {
 		char* pos							  = bufferEnd;
-		static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
+		alignas(64) static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
 												"2021222324252627282930313233343536373839"
 												"4041424344454647484950515253545556575859"
 												"6061626364656667686970717273747576777879"

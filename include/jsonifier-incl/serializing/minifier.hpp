@@ -38,7 +38,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto jsonTypesRaw{ genJsonTypes() };
+	alignas(64) inline constexpr auto jsonTypesRaw{ genJsonTypes() };
 
 	inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
 

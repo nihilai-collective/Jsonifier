@@ -167,6 +167,15 @@ The `jsonifier_core<>` type is templated on an initial scratch-buffer size in by
 
 ---
 
+## Godbolt
+
+Some users may want to browse code along with the compiled assembly. The following examples use the Jsonifier trunk available on Compiler Explorer:
+
+- Schema-aware parsing: [Ice Lake (AVX-512)](https://godbolt.org/z/nzMP4qsMq), [Haswell (AVX2)](https://godbolt.org/z/69T5dqf55), [NEON](https://godbolt.org/z/r6a7qc8zM)
+- Schema-aware serializing: [Ice Lake (AVX-512)](https://godbolt.org/z/ce1jdvfzs), [Haswell (AVX2)](https://godbolt.org/z/YoEoq6YW8), [NEON](https://godbolt.org/z/Te4vjP44f)
+
+---
+
 ## Documentation
 
 ### Getting Started

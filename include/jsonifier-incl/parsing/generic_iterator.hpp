@@ -37,8 +37,10 @@ namespace jsonifier::internal {
 			}
 			data.arena.reset(length);
 			data.fieldIndex.reset();
+			data.jumps.invalidate();
 			data.state.arena	  = &data.arena;
 			data.state.fieldIndex = &data.fieldIndex;
+			data.state.jumps	  = &data.jumps;
 			return document{ &data.state, data.state.tape, 0 };
 		}
 

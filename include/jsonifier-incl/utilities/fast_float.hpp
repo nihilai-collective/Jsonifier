@@ -220,9 +220,9 @@ namespace jsonifier::internal {
 	};
 
 	template<typename unused_type> struct binary_format_lookup_tables<double, unused_type> {
-		static constexpr double powersOfTen[]{ 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22 };
+		alignas(64) static constexpr double powersOfTen[]{ 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22 };
 
-		static constexpr uint64_t maxMantissa[]{ 0x20000000000000, 0x20000000000000 / 5, 0x20000000000000 / (5 * 5), 0x20000000000000 / (5 * 5 * 5),
+		alignas(64) static constexpr uint64_t maxMantissa[]{ 0x20000000000000, 0x20000000000000 / 5, 0x20000000000000 / (5 * 5), 0x20000000000000 / (5 * 5 * 5),
 			0x20000000000000 / (5 * 5 * 5 * 5), 0x20000000000000 / (constant55555), 0x20000000000000 / (constant55555 * 5), 0x20000000000000 / (constant55555 * 5 * 5),
 			0x20000000000000 / (constant55555 * 5 * 5 * 5), 0x20000000000000 / (constant55555 * 5 * 5 * 5 * 5), 0x20000000000000 / (constant55555 * constant55555),
 			0x20000000000000 / (constant55555 * constant55555 * 5), 0x20000000000000 / (constant55555 * constant55555 * 5 * 5),
@@ -237,9 +237,9 @@ namespace jsonifier::internal {
 	};
 
 	template<typename unused_type> struct binary_format_lookup_tables<float, unused_type> {
-		static constexpr float powersOfTen[]{ 1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f };
+		alignas(64) static constexpr float powersOfTen[]{ 1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f };
 
-		static constexpr uint64_t maxMantissa[]{ 0x1000000, 0x1000000 / 5, 0x1000000 / (5 * 5), 0x1000000 / (5 * 5 * 5), 0x1000000 / (5 * 5 * 5 * 5), 0x1000000 / (constant55555),
+		alignas(64) static constexpr uint64_t maxMantissa[]{ 0x1000000, 0x1000000 / 5, 0x1000000 / (5 * 5), 0x1000000 / (5 * 5 * 5), 0x1000000 / (5 * 5 * 5 * 5), 0x1000000 / (constant55555),
 			0x1000000 / (constant55555 * 5), 0x1000000 / (constant55555 * 5 * 5), 0x1000000 / (constant55555 * 5 * 5 * 5), 0x1000000 / (constant55555 * 5 * 5 * 5 * 5),
 			0x1000000 / (constant55555 * constant55555), 0x1000000 / (constant55555 * constant55555 * 5) };
 	};
@@ -259,7 +259,7 @@ namespace jsonifier::internal {
 	template<typename char_types> inline constexpr int32_t intCmpLen{ sizeof(uint64_t) / sizeof(char_types) };
 
 	template<typename = void> struct int_luts {
-		static constexpr uint8_t chdigit[]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		alignas(64) static constexpr uint8_t chdigit[]{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255, 255, 255, 255, 255, 255,
 			255, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 10, 11, 12, 13, 14, 15, 16,
 			17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -268,10 +268,10 @@ namespace jsonifier::internal {
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
 
-		static constexpr uint64_t maxdigitsU64[]{ 64, 41, 32, 28, 25, 23, 22, 21, 20, 19, 18, 18, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13,
+		alignas(64) static constexpr uint64_t maxdigitsU64[]{ 64, 41, 32, 28, 25, 23, 22, 21, 20, 19, 18, 18, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13,
 			13, 13, 13 };
 
-		static constexpr uint64_t minSafeU64[]{ 9223372036854775808ull, 12157665459056928801ull, 4611686018427387904, 7450580596923828125, 4738381338321616896, 3909821048582988049,
+		alignas(64) static constexpr uint64_t minSafeU64[]{ 9223372036854775808ull, 12157665459056928801ull, 4611686018427387904, 7450580596923828125, 4738381338321616896, 3909821048582988049,
 			9223372036854775808ull, 12157665459056928801ull, 10000000000000000000ull, 5559917313492231481, 2218611106740436992, 8650415919381337933, 2177953337809371136,
 			6568408355712890625, 1152921504606846976, 2862423051509815793, 6746640616477458432, 15181127029874798299ull, 1638400000000000000, 3243919932521508681,
 			6221821273427820544, 11592836324538749809ull, 876488338465357824, 1490116119384765625, 2481152873203736576, 4052555153018976267, 6502111422497947648,
@@ -279,7 +279,7 @@ namespace jsonifier::internal {
 			4738381338321616896 };
 	};
 
-	inline constexpr uint64_t pow10Table[]{ 1ull, 10ull, 100ull, 1000ull, 10000ull, 100000ull, 1000000ull, 10000000ull, 100000000ull, 1000000000ull, 10000000000ull,
+	alignas(64) inline constexpr uint64_t pow10Table[]{ 1ull, 10ull, 100ull, 1000ull, 10000ull, 100000ull, 1000000ull, 10000000ull, 100000000ull, 1000000000ull, 10000000000ull,
 		100000000000ull };
 
 	template<uint64_t size> struct parse_x_digits_unrolled;
@@ -339,7 +339,7 @@ namespace jsonifier::internal {
 		static constexpr int32_t largestPowerOfFive	 = binary_format<double>::largestPowerOfTen;
 		static constexpr int32_t numberOfEntries	 = 2 * (largestPowerOfFive - smallestPowerOfFive + 1);
 
-		static constexpr uint64_t powerOfFive128[numberOfEntries]{ 0xeef453d6923bd65a, 0x113faa2906a13b3f, 0x9558b4661b6565f8, 0x4ac7ca59a424c507, 0xbaaee17fa23ebf76,
+		alignas(64) static constexpr uint64_t powerOfFive128[numberOfEntries]{ 0xeef453d6923bd65a, 0x113faa2906a13b3f, 0x9558b4661b6565f8, 0x4ac7ca59a424c507, 0xbaaee17fa23ebf76,
 			0x5d79bcf00d2df649, 0xe95a99df8ace6f53, 0xf4d82c2c107973dc, 0x91d8a02bb6c10594, 0x79071b9b8a4be869, 0xb64ec836a47146f9, 0x9748e2826cdee284, 0xe3e27a444d8d98b7,
 			0xfd1b1b2308169b25, 0x8e6d8c6ab0787f72, 0xfe30f0f5e50e20f7, 0xb208ef855c969f4f, 0xbdbd2d335e51a935, 0xde8b2b66b3bc4723, 0xad2c788035e61382, 0x8b16fb203055ac76,
 			0x4c3bcb5021afcc31, 0xaddcb9e83c6b1793, 0xdf4abe242a1bbf3d, 0xd953e8624b85dd78, 0xd71d6dad34a2af0d, 0x87d4713d6f33aa6b, 0x8672648c40e5ad68, 0xa9c98d8ccb009506,
@@ -892,10 +892,10 @@ namespace jsonifier::internal {
 
 	template<typename = void> struct pow5_tables {
 		static constexpr uint32_t largeStep = 135;
-		static constexpr uint64_t smallPowerOf5[]{ 1UL, 5UL, 25UL, 125UL, 625UL, 3125UL, 15625UL, 78125UL, 390625UL, 1953125UL, 9765625UL, 48828125UL, 244140625UL, 1220703125UL,
+		alignas(64) static constexpr uint64_t smallPowerOf5[]{ 1UL, 5UL, 25UL, 125UL, 625UL, 3125UL, 15625UL, 78125UL, 390625UL, 1953125UL, 9765625UL, 48828125UL, 244140625UL, 1220703125UL,
 			6103515625UL, 30517578125UL, 152587890625UL, 762939453125UL, 3814697265625UL, 19073486328125UL, 95367431640625UL, 476837158203125UL, 2384185791015625UL,
 			11920928955078125UL, 59604644775390625UL, 298023223876953125UL, 1490116119384765625UL, 7450580596923828125UL };
-		static constexpr limb largePowerOf5[]{ 1414648277510068013UL, 9180637584431281687UL, 4539964771860779200UL, 10482974169319127550UL, 198276706040285095UL };
+		alignas(64) static constexpr limb largePowerOf5[]{ 1414648277510068013UL, 9180637584431281687UL, 4539964771860779200UL, 10482974169319127550UL, 198276706040285095UL };
 	};
 
 	struct bigint : pow5_tables<> {
@@ -1043,7 +1043,7 @@ namespace jsonifier::internal {
 		stackvec<bigintLimbs> vec;
 	};
 
-	inline constexpr uint64_t powersOfTenUint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL, 100000000000UL,
+	alignas(64) inline constexpr uint64_t powersOfTenUint64[]{ 1UL, 10UL, 100UL, 1000UL, 10000UL, 100000UL, 1000000UL, 10000000UL, 100000000UL, 1000000000UL, 10000000000UL, 100000000000UL,
 		1000000000000UL, 10000000000000UL, 100000000000000UL, 1000000000000000UL, 10000000000000000UL, 100000000000000000UL, 1000000000000000000UL, 10000000000000000000UL };
 
 	JSONIFIER_INLINE constexpr int64_t scientificExponent(uint64_t mantissa, int64_t exponent) noexcept {

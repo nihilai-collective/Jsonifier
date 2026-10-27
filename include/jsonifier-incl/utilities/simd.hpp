@@ -53,9 +53,13 @@ namespace jsonifier::internal {
 			31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63 };
 
 		JSONIFIER_INLINE static bool readStaysInPage(read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {
-			const uint64_t lastValid = std::bit_cast<uint64_t>(src) + remaining - 1;
-			const uint64_t lastRead	 = std::bit_cast<uint64_t>(src) + paddedBytes - 1;
-			return !JSONIFIER_ASAN_ENABLED && (lastValid ^ lastRead) < pageSize;
+			if constexpr (JSONIFIER_ASAN_ENABLED) {
+				return false;
+			} else {
+				const uint64_t lastValid = std::bit_cast<uint64_t>(src) + remaining - 1;
+				const uint64_t lastRead	 = std::bit_cast<uint64_t>(src) + paddedBytes - 1;
+				return (lastValid ^ lastRead) < pageSize;
+			}
 		}
 
 		JSONIFIER_INLINE static void buildInPlace(write_buffer_ptr dst, read_buffer_ptr src, uint64_t remaining, uint64_t paddedBytes) noexcept {

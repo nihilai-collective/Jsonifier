@@ -15,7 +15,7 @@
 
 namespace jsonifier::internal {
 
-	template<typename = void> inline constexpr uint32_t digitToVal32[]{ 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+	template<typename = void> alignas(64) inline constexpr uint32_t digitToVal32[]{ 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
@@ -206,7 +206,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto escapeMapRaw{ genEscapeMap() };
+	alignas(64) inline constexpr auto escapeMapRaw{ genEscapeMap() };
 
 	inline constexpr const char* __restrict escapeMap{ escapeMapRaw.data() };
 
@@ -598,7 +598,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto escapeTable{ genEscapeTable() };
+	alignas(64) inline constexpr auto escapeTable{ genEscapeTable() };
 
 	template<serialize_options options> struct string_serializer {
 		struct string_serialize_step {

@@ -39,7 +39,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename v_type, bool negative> inline constexpr auto compValsRaw{ genRawCompVals<v_type, negative>() };
+	template<typename v_type, bool negative> alignas(64) inline constexpr auto compValsRaw{ genRawCompVals<v_type, negative>() };
 
 	template<typename v_type, bool negative> inline constexpr const std::make_unsigned_t<v_type>* __restrict compVals{ compValsRaw<v_type, negative>.data() };
 
@@ -78,13 +78,13 @@ namespace jsonifier::internal {
 	template<typename> struct powers_of_ten;
 
 	template<int_types value_type> struct powers_of_ten<value_type> {
-		static constexpr array<int64_t, 19> valueRaw{ generatePowerOfTen<int64_t, 19>() };
+		alignas(64) static constexpr array<int64_t, 19> valueRaw{ generatePowerOfTen<int64_t, 19>() };
 
 		static constexpr const int64_t* __restrict value{ valueRaw.data() };
 	};
 
 	template<uint_types value_type> struct powers_of_ten<value_type> {
-		static constexpr array<uint64_t, 20> valueRaw{ generatePowerOfTen<uint64_t, 20>() };
+		alignas(64) static constexpr array<uint64_t, 20> valueRaw{ generatePowerOfTen<uint64_t, 20>() };
 
 		static constexpr const uint64_t* __restrict value{ valueRaw.data() };
 	};
@@ -740,7 +740,7 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	template<typename v_type, bool negative> inline constexpr auto compValsRaw{ genRawCompVals<v_type, negative>() };
+	template<typename v_type, bool negative> alignas(64) inline constexpr auto compValsRaw{ genRawCompVals<v_type, negative>() };
 
 	template<typename v_type, bool negative> inline constexpr const std::make_unsigned_t<v_type>* __restrict compVals{ compValsRaw<v_type, negative>.data() };
 
@@ -1330,13 +1330,13 @@ namespace jsonifier::internal {
 	template<typename> struct powers_of_ten;
 
 	template<int_types value_type> struct powers_of_ten<value_type> {
-		static constexpr array<int64_t, 19> valueRaw{ genPowerOfTenTable<int64_t, 19ULL>() };
+		alignas(64) static constexpr array<int64_t, 19> valueRaw{ genPowerOfTenTable<int64_t, 19ULL>() };
 
 		static constexpr const int64_t* __restrict value{ valueRaw.data() };
 	};
 
 	template<uint_types value_type> struct powers_of_ten<value_type> {
-		static constexpr array<uint64_t, 20> valueRaw{ genPowerOfTenTable<uint64_t, 20ULL>() };
+		alignas(64) static constexpr array<uint64_t, 20> valueRaw{ genPowerOfTenTable<uint64_t, 20ULL>() };
 
 		static constexpr const uint64_t* __restrict value{ valueRaw.data() };
 	};
