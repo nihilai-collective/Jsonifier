@@ -32,6 +32,7 @@ namespace jsonifier::internal {
 			data.state.end								= rootIter + length;
 			data.state.cursor							= data.state.tape;
 			data.state.depth							= 0;
+			data.state.reverseScore						= 0;
 			data.state.minified							= options.minified;
 			if (tapeCount > 1 && !::jsonifier::generic::document_state::isOpener(rootIter[data.state.tape[0]])) [[unlikely]] {
 				return document{ error_code::trailing_content };

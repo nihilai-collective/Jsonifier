@@ -500,6 +500,21 @@ namespace jsonifier::generic {
 			return (c | 0x20) == '}';
 		}
 
+		JSONIFIER_INLINE bool reverseMode() const noexcept {
+			return reverseScore >= reverseEngageScore;
+		}
+
+		JSONIFIER_INLINE void noteBackwardHit() noexcept {
+			reverseScore += static_cast<uint8_t>(reverseScore < reverseMaxScore);
+		}
+
+		JSONIFIER_INLINE void noteForwardHit() noexcept {
+			reverseScore -= static_cast<uint8_t>(reverseScore > 0);
+		}
+
+		static constexpr uint8_t reverseEngageScore{ 4 };
+		static constexpr uint8_t reverseMaxScore{ 8 };
+
 		read_structural_index_ptr tapeEnd{};
 		read_structural_index_ptr cursor{};
 		read_structural_index_ptr tape{};
@@ -508,6 +523,7 @@ namespace jsonifier::generic {
 		read_buffer_ptr end{};
 		string_arena* arena{};
 		uint64_t depth{};
+		uint8_t reverseScore{};
 		bool minified{};
 	};
 
@@ -1171,11 +1187,25 @@ namespace jsonifier::generic {
 			value found{ error_code::no_such_field };
 			if (!indexed) {
 				if (!indexEarned) {
-					found = scanFields<false>(key, state->tapeEnd);
-					if (found.err == error_code::no_such_field && resumePoint != open + 1) {
-						state->cursor = open + 1;
-						found		  = scanFields<false>(key, resumePoint);
-						indexEarned	  = ++wrapCount >= wrapThreshold && skippedKeys >= indexThreshold;
+					const bool resumed = resumePoint != open + 1;
+					if (resumed && state->reverseMode()) {
+						found = scanBeforeResume(key, resumePoint);
+						if (found.err == error_code::no_such_field) {
+							state->cursor = resumePoint;
+							found		  = scanFields<false>(key, state->tapeEnd);
+							if (found.err == error_code::success) {
+								state->noteForwardHit();
+							}
+						}
+					} else {
+						found = scanFields<false>(key, state->tapeEnd);
+						if (found.err == error_code::success) {
+							if (resumed) {
+								state->noteForwardHit();
+							}
+						} else if (found.err == error_code::no_such_field && resumed) {
+							found = scanBeforeResume(key, resumePoint);
+						}
 					}
 					if (found.err == error_code::no_such_field) {
 						found = escapeAwareRetry(key, resumePoint);
@@ -1196,6 +1226,16 @@ namespace jsonifier::generic {
 			}
 			if (found.err == error_code::no_such_field) {
 				found = escapeAwareRetry(key, resumePoint);
+			}
+			return found;
+		}
+
+		JSONIFIER_INLINE value scanBeforeResume(string_view key, read_structural_index_ptr resumePoint) const noexcept {
+			doc->cursor = open + 1;
+			value found{ scanFields<false>(key, resumePoint) };
+			indexEarned = ++wrapCount >= wrapThreshold && skippedKeys >= indexThreshold;
+			if (found.err == error_code::success) {
+				doc->noteBackwardHit();
 			}
 			return found;
 		}
