@@ -880,15 +880,23 @@ namespace jsonifier::generic {
 			const jsonifier_simd_int_t backslashes	  = internal::simd::gatherValue<jsonifier_simd_int_t>('\\');
 			const jsonifier_simd_int_t quotes		  = internal::simd::gatherValue<jsonifier_simd_int_t>('"');
 			const jsonifier_simd_int_t controlCeiling = internal::simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x20));
-			const jsonifier_simd_int_t asciiCeiling	  = internal::simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x7F));
+#if JSONIFIER_AVX || JSONIFIER_AVX2 || JSONIFIER_AVX512
+			using mask_type			= std::make_unsigned_t<decltype(internal::simd::opBitMask(jsonifier_simd_int_t{}))>;
+			const uint64_t nonAscii = static_cast<uint64_t>(static_cast<mask_type>(internal::simd::opBitMask(values)));
+			const auto stopsAndHigh = internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
+				internal::simd::opCmpLtSignedRaw(values, controlCeiling));
+			return { nonAscii, static_cast<uint64_t>(static_cast<mask_type>(internal::simd::opBitMask(stopsAndHigh))) & ~nonAscii };
+#else
+			const jsonifier_simd_int_t asciiCeiling = internal::simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x7F));
 			const auto stops = internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
 				internal::simd::opCmpLtRaw(values, controlCeiling));
-#if JSONIFIER_NEON
+	#if JSONIFIER_NEON
 			return { internal::simd::opBitMaskRaw(internal::simd::opCmpLtRaw(asciiCeiling, values)), internal::simd::opBitMaskRaw(stops) };
-#else
+	#else
 			using mask_type = std::make_unsigned_t<decltype(internal::simd::opBitMask(jsonifier_simd_int_t{}))>;
 			return { static_cast<uint64_t>(static_cast<mask_type>(internal::simd::opBitMask(internal::simd::opCmpLtRaw(asciiCeiling, values)))),
 				static_cast<uint64_t>(static_cast<mask_type>(internal::simd::opBitMask(stops))) };
+	#endif
 #endif
 		}
 
@@ -1181,6 +1189,7 @@ namespace jsonifier::generic {
 		static constexpr uint32_t indexThreshold{ 8 };
 #endif
 		static constexpr uint32_t wrapThreshold{ 2 };
+		static constexpr uint32_t trailCapacity{ 16 };
 
 	  protected:
 		JSONIFIER_INLINE value indexedField(string_view key) const noexcept {
@@ -1190,6 +1199,24 @@ namespace jsonifier::generic {
 			if (!indexed) {
 				if (!indexEarned) {
 					const bool resumed = resumePoint != open + 1;
+					if (!trailOverflow) {
+						if (!trailBuilt && !(resumed && state->reverseMode())) {
+							found = scanFields<false>(key, state->tapeEnd);
+							if (found.err != error_code::no_such_field) {
+								if (found.err == error_code::success && resumed) {
+									state->noteForwardHit();
+								}
+								return found;
+							}
+						}
+						if (!trailBuilt) {
+							buildTrail();
+						}
+						if (!trailOverflow) {
+							return trailLookup(key, resumePoint, resumed);
+						}
+						state->cursor = resumePoint;
+					}
 					if (resumed && state->reverseMode()) {
 						found = scanBeforeResume(key, resumePoint);
 						if (found.err == error_code::no_such_field) {
@@ -1240,6 +1267,78 @@ namespace jsonifier::generic {
 				doc->noteBackwardHit();
 			}
 			return found;
+		}
+
+		JSONIFIER_INLINE void buildTrail() const noexcept {
+			document_state* const state		  = doc;
+			read_structural_index_ptr cursor  = open + 1;
+			read_structural_index_ptr tapeEnd = state->tapeEnd;
+			trailBuilt						  = true;
+			while (cursor < tapeEnd) {
+				const uint8_t current = state->charAt(cursor);
+				if (current == '}') {
+					return;
+				}
+				if (current == ',') {
+					++cursor;
+					continue;
+				}
+				if (current == '"' && cursor + 1 < tapeEnd && state->template charAt<':'>(cursor + 1)) [[likely]] {
+					if (trailCount == trailCapacity) {
+						trailOverflow = true;
+						return;
+					}
+					const uint32_t keyOffset = static_cast<uint32_t>(cursor - state->tape);
+					pow2MemcpyWrapper<sizeof(uint32_t)>(trailBytes + trailCount * sizeof(uint32_t), &keyOffset);
+					++trailCount;
+					cursor += 2;
+				}
+				cursor = state->skipValue(cursor);
+			}
+			trailOverflow = true;
+		}
+
+		JSONIFIER_INLINE uint32_t trailEntry(uint32_t index) const noexcept {
+			uint32_t keyOffset;
+			pow2MemcpyWrapper<sizeof(uint32_t)>(&keyOffset, trailBytes + index * sizeof(uint32_t));
+			return keyOffset;
+		}
+
+		JSONIFIER_INLINE value trailHit(read_structural_index_ptr keyIter, read_structural_index_ptr resumePoint, bool resumed) const noexcept {
+			if (resumed) {
+				if (keyIter < resumePoint) {
+					doc->noteBackwardHit();
+				} else {
+					doc->noteForwardHit();
+				}
+			}
+			doc->cursor = keyIter + 2;
+			return value{ doc, keyIter + 2, depth };
+		}
+
+		JSONIFIER_INLINE value trailLookup(string_view key, read_structural_index_ptr resumePoint, bool resumed) const noexcept {
+			document_state* const state = doc;
+			for (uint32_t x = 0; x < trailCount; ++x) {
+				read_structural_index_ptr keyIter = state->tape + trailEntry(x);
+				if (state->keyMatches(keyIter, key)) {
+					return trailHit(keyIter, resumePoint, resumed);
+				}
+			}
+			if (!escapeFree) {
+				bool sawEscape{};
+				for (uint32_t x = 0; x < trailCount; ++x) {
+					read_structural_index_ptr keyIter = state->tape + trailEntry(x);
+					if (state->keyHasEscape(keyIter)) {
+						sawEscape = true;
+						if (state->unescapedKeyMatches(keyIter, key)) {
+							return trailHit(keyIter, resumePoint, resumed);
+						}
+					}
+				}
+				escapeFree = !sawEscape;
+			}
+			state->cursor = resumePoint;
+			return value{ error_code::no_such_field };
 		}
 
 		JSONIFIER_INLINE void indexAllFields() const noexcept {
@@ -1368,11 +1467,15 @@ namespace jsonifier::generic {
 
 		error_code err{ error_code::success };
 		read_structural_index_ptr open{};
+		mutable unsigned char trailBytes[trailCapacity * sizeof(uint32_t)];
 		mutable uint32_t skippedKeys{};
 		mutable uint32_t wrapCount{};
+		mutable uint32_t trailCount{};
 		mutable bool escapedKeySeen{};
+		mutable bool trailOverflow{};
 		mutable bool indexEarned{};
 		mutable bool escapeFree{};
+		mutable bool trailBuilt{};
 		mutable bool indexed{};
 		document_state* doc{};
 		uint64_t depth{};
