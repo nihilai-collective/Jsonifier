@@ -385,13 +385,15 @@ namespace jsonifier::generic {
 	inline constexpr const int8_t* __restrict depthDeltaTable{ depthDeltaTableRaw.data() };
 
 	struct document_state {
-		JSONIFIER_INLINE bool escapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
+		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyLimit = root + *(iter + 1);
-			if (keyLimit <= keyStart || !internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart))) [[likely]] {
-				return false;
-			}
-			char* unescaped	   = arena->scratch();
+			return keyLimit > keyStart && internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
+		}
+
+		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
+			read_buffer_ptr keyStart = root + *iter + 1;
+			char* unescaped			 = arena->scratch();
 			const auto scanned = internal::string_scanner<parse_options{}>::impl(keyStart, end, std::bit_cast<write_buffer_ptr>(unescaped));
 			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
 		}
@@ -1283,7 +1285,15 @@ namespace jsonifier::generic {
 				}
 				if (current == '"' && cursor + 1 < tapeEnd && state->template charAt<':'>(cursor + 1)) [[likely]] {
 					read_structural_index_ptr valueIter = cursor + 2;
-					if (escapeAware ? state->escapedKeyMatches(cursor, key) : state->keyMatches(cursor, key)) {
+					bool matched{};
+					if constexpr (escapeAware) {
+						const bool hasEscape = state->keyHasEscape(cursor);
+						escapedKeySeen |= hasEscape;
+						matched = hasEscape && state->unescapedKeyMatches(cursor, key);
+					} else {
+						matched = state->keyMatches(cursor, key);
+					}
+					if (matched) {
 						state->cursor = valueIter;
 						return value{ state, valueIter, depth };
 					}
@@ -1322,9 +1332,15 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE value escapeAwareRetry(string_view key, read_structural_index_ptr restorePoint) const noexcept {
-			doc->cursor = open + 1;
+			if (escapeFree) {
+				doc->cursor = restorePoint;
+				return value{ error_code::no_such_field };
+			}
+			doc->cursor	   = open + 1;
+			escapedKeySeen = false;
 			value found{ scanFields<true>(key, doc->tapeEnd) };
 			if (found.err == error_code::no_such_field) {
+				escapeFree	= !escapedKeySeen;
 				doc->cursor = restorePoint;
 			}
 			return found;
@@ -1354,7 +1370,9 @@ namespace jsonifier::generic {
 		read_structural_index_ptr open{};
 		mutable uint32_t skippedKeys{};
 		mutable uint32_t wrapCount{};
+		mutable bool escapedKeySeen{};
 		mutable bool indexEarned{};
+		mutable bool escapeFree{};
 		mutable bool indexed{};
 		document_state* doc{};
 		uint64_t depth{};
