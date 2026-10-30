@@ -467,9 +467,14 @@ namespace jsonifier::generic {
 			read_structural_index_ptr limit, uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			int64_t localDepth{ static_cast<int64_t>(currentDepth) };
 			const int64_t target{ static_cast<int64_t>(targetDepth) };
-			while (localDepth > target && position < limit) {
-				localDepth += depthDeltaTable[base[*position]];
-				++position;
+			if (localDepth > target) {
+				while (position < limit) {
+					localDepth += depthDeltaTable[base[*position]];
+					++position;
+					if (localDepth <= target) {
+						break;
+					}
+				}
 			}
 			currentDepth = static_cast<uint64_t>(localDepth);
 			return position;
