@@ -176,7 +176,8 @@ namespace jsonifier::generic {
 			return mix64(low ^ hashSeed ^ lengthAndObject, mixMultiplier) ^ mix64(high + mixMultiplier, hashSeed ^ lengthAndObject);
 		}
 
-		template<typename matcher_type> JSONIFIER_INLINE uint32_t find(uint64_t hash, uint32_t objectIndex, matcher_type&& keyMatches) const noexcept {
+		template<typename matcher_type, typename state_type, typename key_type>
+		JSONIFIER_INLINE uint32_t find(uint64_t hash, uint32_t objectIndex, state_type&& state, key_type&& key) const noexcept {
 			const int8_t control = static_cast<int8_t>(hash & 0x7F);
 			uint64_t group		 = (hash >> 7) & groupMask;
 			for (uint64_t probe = 0; probe <= groupMask; ++probe) {
@@ -184,7 +185,7 @@ namespace jsonifier::generic {
 				for (uint64_t mask = field_index_group::match(groupControls, control); mask != 0;) {
 					const uint64_t lane	   = field_index_group::firstLane(mask);
 					const entry& candidate = entries.data()[group * groupWidth + lane];
-					if (candidate.hash == hash && candidate.object == objectIndex && keyMatches(candidate.key)) {
+					if (candidate.hash == hash && candidate.object == objectIndex && matcher_type::impl(state, key, candidate.key)) {
 						return candidate.key;
 					}
 					mask = field_index_group::clearLane(mask);
@@ -1066,6 +1067,12 @@ namespace jsonifier::generic {
 		uint64_t depth{};
 	};
 
+	struct key_matcher {
+		template<typename state_type, typename key_type> JSONIFIER_INLINE static bool impl(state_type&& state, key_type&& key, uint32_t keyIndex) {
+			return state->keyMatches(state->tape + keyIndex, key);
+		}
+	};
+
 	template<bool minified> class basic_object {
 	  public:
 		using document_state = generic::document_state<minified>;
@@ -1259,11 +1266,10 @@ namespace jsonifier::generic {
 				indexAllFields();
 				indexed = true;
 			}
+
 			const uint32_t object = objectIndex();
 			const uint64_t hash	  = field_index_map::hashKey(std::bit_cast<read_buffer_ptr>(key.data()), key.size(), object);
-			const uint32_t hit	  = state->fieldIndex->find(hash, object, [state, key](uint32_t keyIndex) noexcept {
-				return state->keyMatches(state->tape + keyIndex, key);
-			});
+			const uint32_t hit	  = state->fieldIndex->template find<key_matcher>(hash, object, state, key);
 			if (hit != field_index_map::npos) {
 				state->cursor = state->tape + hit + 2;
 				found		  = value{ state, state->cursor, depth };
