@@ -25,6 +25,7 @@ namespace jsonifier::zmij {
 
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/avx.hpp>
+#include <jsonifier-incl/simd/bit_ops.hpp>
 
 namespace jsonifier::zmij {
 	namespace impl {
@@ -55,11 +56,11 @@ namespace jsonifier::zmij {
 		}
 
 		JSONIFIER_INLINE auto clz(uint64_t x) noexcept -> int32_t {
-			return static_cast<int32_t>(std::countl_zero(x));
+			return static_cast<int32_t>(internal::simd::countlZero(x));
 		}
 
 		JSONIFIER_INLINE auto ctz(uint64_t x) noexcept -> int32_t {
-			return static_cast<int32_t>(std::countr_zero(x));
+			return static_cast<int32_t>(internal::simd::countrZero(x));
 		}
 
 		JSONIFIER_INLINE auto select(uint64_t condition, int64_t trueValue, int64_t falseValue) noexcept -> int64_t {

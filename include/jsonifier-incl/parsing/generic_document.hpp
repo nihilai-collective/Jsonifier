@@ -144,7 +144,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE static uint64_t firstLane(uint64_t mask) noexcept {
-			return static_cast<uint64_t>(std::countr_zero(mask)) >> laneShift;
+			return static_cast<uint64_t>(internal::simd::countrZero(mask)) >> laneShift;
 		}
 
 		JSONIFIER_INLINE static uint64_t clearLane(uint64_t mask) noexcept {
@@ -951,7 +951,7 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE static uint64_t resolveMaskedStop(read_buffer_ptr stringStart, read_buffer_ptr current, string_stop_masks masks, bool sawNonAscii) noexcept {
 			const uint64_t beforeStop = (masks.stops & (0 - masks.stops)) - 1;
-			return resolveStringStop(stringStart, current + (std::countr_zero(masks.stops) >> stopMaskLaneShift), sawNonAscii || (masks.nonAscii & beforeStop) != 0);
+			return resolveStringStop(stringStart, current + (internal::simd::countrZero(masks.stops) >> stopMaskLaneShift), sawNonAscii || (masks.nonAscii & beforeStop) != 0);
 		}
 
 		JSONIFIER_INLINE static uint64_t resolveStringStop(read_buffer_ptr stringStart, read_buffer_ptr stop, bool sawNonAscii) noexcept {

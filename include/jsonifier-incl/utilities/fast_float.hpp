@@ -615,8 +615,7 @@ namespace jsonifier::internal {
 		static_assert(n > 0, "Value must be greater than zero.");
 		static_assert((n & (n - 1)) == 0, "Value must be a power of two.");
 
-		using value_type = decltype(n);
-		return static_cast<uint64_t>(std::countr_zero(static_cast<std::make_unsigned_t<value_type>>(n)));
+		return simd::countrZero(n);
 	}
 
 	inline constexpr uint64_t limbBitsPow2 = getPowerOfTwo<limbBits>();

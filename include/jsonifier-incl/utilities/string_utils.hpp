@@ -731,7 +731,7 @@ namespace jsonifier::internal {
 					string2 += 8;
 					continue;
 				}
-				const uint64_t offset = static_cast<uint64_t>(std::countr_zero(flags)) >> 3;
+				const uint64_t offset = static_cast<uint64_t>(simd::countrZero(flags)) >> 3;
 				string1Start += offset;
 				string2 += offset;
 				const auto& entry = escapeTable[static_cast<uint8_t>(*string1Start)];

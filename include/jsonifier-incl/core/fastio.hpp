@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <jsonifier-incl/simd/bit_ops.hpp>
+
 namespace jsonifier::internal {
 
 	enum class stream_target { stdout_target, stderr_target };
@@ -47,7 +49,7 @@ namespace jsonifier::internal {
 		999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL, 9999999999999999999ULL };
 
 	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
-		const uint64_t originalDigitCount{ digitCounts[std::countl_zero(inputValue)] };
+		const uint64_t originalDigitCount{ digitCounts[simd::countlZero(inputValue)] };
 		return originalDigitCount + static_cast<uint64_t>(inputValue > digitCountThresholds[originalDigitCount]);
 	}
 

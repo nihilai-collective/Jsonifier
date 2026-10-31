@@ -187,7 +187,7 @@ namespace jsonifier::internal {
 						(((quotes - 0x0101010101010101ull) & ~quotes) | ((backslashes - 0x0101010101010101ull) & ~backslashes) | ((chunk - 0x2020202020202020ull) & ~chunk)) &
 						0x8080808080808080ull;
 					if (flagged != 0) {
-						ptr += static_cast<uint64_t>(std::countr_zero(flagged)) >> 3;
+						ptr += static_cast<uint64_t>(simd::countrZero(flagged)) >> 3;
 						found = true;
 						break;
 					}
@@ -262,7 +262,7 @@ namespace jsonifier::internal {
 						nonDigits |= 0x80ull << (remaining * 8);
 					}
 					if (nonDigits != 0) {
-						newerPtr += static_cast<uint64_t>(std::countr_zero(nonDigits)) >> 3;
+						newerPtr += static_cast<uint64_t>(simd::countrZero(nonDigits)) >> 3;
 						return newerPtr != start;
 					}
 					newerPtr += 8;

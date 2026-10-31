@@ -751,9 +751,9 @@ namespace jsonifier::internal {
 
 		template<uint_types v_type> JSONIFIER_INLINE v_type countZeros(v_type value) noexcept {
 			if constexpr (std::endian::native == std::endian::little) {
-				return static_cast<v_type>(std::countr_zero(value));
+				return static_cast<v_type>(simd::countrZero(value));
 			} else {
-				return static_cast<v_type>(std::countl_zero(value));
+				return static_cast<v_type>(simd::countlZero(value));
 			}
 		}
 
