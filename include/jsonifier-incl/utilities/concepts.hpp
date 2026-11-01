@@ -214,7 +214,8 @@ namespace jsonifier::internal {
 		(std::is_pointer_v<base_t<value_type>> || ( std::is_null_pointer_v<base_t<value_type>> && !std::is_array_v<base_t<value_type>> )) && !always_null_types<value_type>;
 
 	template<typename value_type>
-	concept char_types = std::same_as<base_t<value_type>, char>;
+	concept char_types = std::same_as<base_t<value_type>, char> || std::same_as<base_t<value_type>, wchar_t> || std::same_as<base_t<value_type>, char8_t> ||
+		std::same_as<base_t<value_type>, char16_t> || std::same_as<base_t<value_type>, char32_t>;
 
 	template<typename value_type>
 	concept number_types = (float_types<value_type> || uint_types<value_type> || int_types<value_type>) && !char_types<value_type>;

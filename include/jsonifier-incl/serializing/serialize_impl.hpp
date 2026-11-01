@@ -308,7 +308,7 @@ namespace jsonifier::internal {
 	};
 
 	template<char_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		static constexpr uint64_t staticSize{ 8 };
+		static constexpr uint64_t staticSize{ char_size_v<value_type> };
 
 		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new&, uint64_t&) noexcept {
 			return staticSize;
@@ -826,12 +826,41 @@ namespace jsonifier::internal {
 	template<char_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
 		template<typename value_type_new>
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
-			*bufferPtr = '"';
+			using char_type = base_t<value_type>;
+			*bufferPtr		= '"';
 			++bufferPtr;
-			const uint8_t nextChar = static_cast<uint8_t>(value);
-			const char_escape_entry& entry = charEscapeEntries[nextChar];
-			pow2MemcpyWrapper<2>(bufferPtr, entry.values.data());
-			bufferPtr += entry.size;
+			if constexpr (sizeof(char_type) == 1) {
+				const char_escape_entry& entry = charEscapeEntries[static_cast<uint8_t>(value)];
+				pow2MemcpyWrapper<8>(bufferPtr, entry.values);
+				bufferPtr += entry.size;
+			} else {
+				const uint32_t codePoint = static_cast<uint32_t>(static_cast<std::make_unsigned_t<char_type>>(value));
+				if (codePoint < 0x80) {
+					const char_escape_entry& entry = charEscapeEntries[codePoint];
+					pow2MemcpyWrapper<8>(bufferPtr, entry.values);
+					bufferPtr += entry.size;
+				} else if (codePoint < 0x800) {
+					bufferPtr[0] = static_cast<char>(0xC0 | (codePoint >> 6));
+					bufferPtr[1] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr += 2;
+				} else if ((codePoint >= 0xD800 && codePoint <= 0xDFFF) || codePoint > 0x10FFFF) {
+					bufferPtr[0] = static_cast<char>(0xEF);
+					bufferPtr[1] = static_cast<char>(0xBF);
+					bufferPtr[2] = static_cast<char>(0xBD);
+					bufferPtr += 3;
+				} else if (codePoint < 0x10000) {
+					bufferPtr[0] = static_cast<char>(0xE0 | (codePoint >> 12));
+					bufferPtr[1] = static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+					bufferPtr[2] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr += 3;
+				} else {
+					bufferPtr[0] = static_cast<char>(0xF0 | (codePoint >> 18));
+					bufferPtr[1] = static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F));
+					bufferPtr[2] = static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+					bufferPtr[3] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr += 4;
+				}
+			}
 			*bufferPtr = '"';
 			return bufferPtr + 1;
 		}

@@ -188,7 +188,7 @@
 	#error "Sorry, this arch is not supported."
 #endif
 
-#if JSONIFIER_ANY_AVX
+#if JSONIFIER_ANY_AVX || (JSONIFIER_ARCH_X64 && (JSONIFIER_LZCNT || JSONIFIER_POPCNT || JSONIFIER_BMI))
 	#include <immintrin.h>
 #elif JSONIFIER_NEON
 	#include <arm_neon.h>

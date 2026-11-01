@@ -144,7 +144,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE static uint64_t firstLane(uint64_t mask) noexcept {
-			return static_cast<uint64_t>(internal::simd::countrZero(mask)) >> laneShift;
+			return static_cast<uint64_t>(internal::simd::countrZeroUnsafe(mask)) >> laneShift;
 		}
 
 		JSONIFIER_INLINE static uint64_t clearLane(uint64_t mask) noexcept {
@@ -385,6 +385,124 @@ namespace jsonifier::generic {
 
 	inline constexpr const int8_t* __restrict depthDeltaTable{ depthDeltaTableRaw.data() };
 
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+	struct string_parser {
+		using scan_result = typename internal::string_scanner<parse_options{}>::scan_result;
+
+		struct parse_state {
+			internal::utf8_validation_state validationState{};
+			scan_result result{};
+		};
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static bool parseEscape(basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out) noexcept {
+			if (end - current < 2) [[unlikely]] {
+				return false;
+			}
+			if (current[1] == 'u') {
+				do {
+					if (!internal::handleUnicodeCodePoint(current, out, end)) [[unlikely]] {
+						return false;
+					}
+				} while (end - current >= 2 && current[0] == '\\' && current[1] == 'u');
+				return true;
+			}
+			const uint8_t decoded = static_cast<uint8_t>(internal::escapeMap[static_cast<uint8_t>(current[1])]);
+			if (decoded == 0u) [[unlikely]] {
+				return false;
+			}
+			*out = static_cast<internal::remove_cvref_t<decltype(*out)>>(decoded);
+			++out;
+			current += 2;
+			return true;
+		}
+
+		template<typename validator_type, typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static bool resolveStop(validator_type& validator, uint64_t offset, basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out,
+			const basic_iterator01 stringStart, const basic_iterator02 outStart, parse_state& state) noexcept {
+			const uint8_t foundChar = static_cast<uint8_t>(current[offset]);
+			if (foundChar < 32) [[unlikely]] {
+				return false;
+			}
+			validator.checkPartial(current, offset);
+			current += offset;
+			out += offset;
+			if (validator.errors()) [[unlikely]] {
+				return false;
+			}
+			if (foundChar == '"') {
+				state.result = { static_cast<uint64_t>(out - outStart), static_cast<uint64_t>(current - stringStart) };
+				return false;
+			}
+			if (!parseEscape(current, end, out)) [[unlikely]] {
+				return false;
+			}
+			validator.reset();
+			return true;
+		}
+
+		struct parse_step {
+			template<uint64_t index, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static basic_iterator01 impl(basic_iterator01& current,
+				const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart, parse_state& state) noexcept {
+				using simd_list_local					 = internal::type_list_element_t<index, internal::simd::avx_integer_list>;
+				using integer_type						 = typename simd_list_local::integer_type;
+				static constexpr auto simdType			 = simd_list_local::type::simdType;
+				using simd_type_local					 = typename internal::simd_type_wrapper<simdType>::type;
+				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
+				internal::utf8_register_validator<internal::simd_type_wrapper<simdType>> validator{ state.validationState };
+				const simd_type_local backslashes = internal::simd::gatherValue<simd_type_local>('\\');
+				const simd_type_local quotes	  = internal::simd::gatherValue<simd_type_local>('"');
+				const simd_type_local controls	  = internal::simd::gatherValue<simd_type_local>(static_cast<char>(32));
+				while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
+					const simd_type_local values = internal::simd::gatherValuesU<simd_type_local>(current);
+					internal::simd::storeU(values, out);
+					const integer_type stops = static_cast<integer_type>(internal::simd::opBitMask(internal::simd::opOr(
+						internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)), internal::simd::opCmpLtRaw(values, controls))));
+					if (stops == static_cast<integer_type>(0)) {
+						validator.checkRegister(values);
+						current += bytesProcessed;
+						out += bytesProcessed;
+						continue;
+					}
+					if (!resolveStop(validator, static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops)), current, end, out, stringStart, outStart, state)) {
+						return nullptr;
+					}
+				}
+				validator.flush();
+				if constexpr (index == internal::listSize - 1) {
+					while (current < end) {
+						const uint64_t remaining = static_cast<uint64_t>(end - current);
+						alignas(simdBytesPerRegister) uint8_t padded[bytesProcessed];
+						std::memset(padded, 32, bytesProcessed);
+						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(padded, current, remaining);
+						const simd_type_local values = internal::simd::gatherValues<simd_type_local>(std::bit_cast<const simd_type_local* __restrict>(+padded));
+						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(internal::simd::opOr(
+							internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)), internal::simd::opCmpLtRaw(values, controls))));
+						if (stops == static_cast<integer_type>(0)) {
+							return nullptr;
+						}
+						const uint64_t offset = static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops));
+						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(out, current, offset);
+						if (!resolveStop(validator, offset, current, end, out, stringStart, outStart, state)) {
+							return nullptr;
+						}
+					}
+					return nullptr;
+				} else {
+					return current;
+				}
+			}
+		};
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static scan_result impl(basic_iterator01 current, const basic_iterator01 end, basic_iterator02 out) noexcept {
+			const auto stringStart = current;
+			const auto outStart	   = out;
+			parse_state state{};
+			internal::string_parse_executor<parse_step, internal::make_ascending_range<internal::startIndex, internal::listSize>>::impl(current, end, out, stringStart, outStart, state);
+			return state.result;
+		}
+	};
 	template<bool minified> struct document_state {
 		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
@@ -395,7 +513,7 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			char* unescaped			 = arena->scratch();
-			const auto scanned = internal::string_scanner<parse_options{}>::impl(keyStart, end, std::bit_cast<write_buffer_ptr>(unescaped));
+			const auto scanned		 = string_parser::impl(keyStart, end, unescaped);
 			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
 		}
 
@@ -544,37 +662,6 @@ namespace jsonifier::generic {
 
 	using array_type_table = internal::array<json_type, 256>;
 
-	consteval internal::array<bool, 256ULL> genUtf8StringStopTable() {
-		internal::array<bool, 256ULL> returnValues{};
-		for (uint64_t x = 0; x < 0x20; ++x) {
-			returnValues[x] = true;
-		}
-		returnValues[static_cast<uint64_t>('"')]  = true;
-		returnValues[static_cast<uint64_t>('\\')] = true;
-		return returnValues;
-	}
-
-	alignas(64) inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
-
-	inline constexpr const bool* __restrict utf8StringStopTable{ utf8StringStopTableRaw.data() };
-
-	consteval internal::array<bool, 256ULL> genAsciiStringStopTable() {
-		internal::array<bool, 256ULL> returnValues{};
-		for (uint64_t x = 0; x < 0x20; ++x) {
-			returnValues[x] = true;
-		}
-		for (uint64_t x = 0x80; x < 0x100; ++x) {
-			returnValues[x] = true;
-		}
-		returnValues[static_cast<uint64_t>('"')]  = true;
-		returnValues[static_cast<uint64_t>('\\')] = true;
-		return returnValues;
-	}
-
-	alignas(64) inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
-
-	inline constexpr const bool* __restrict asciiStringStopTable{ asciiStringStopTableRaw.data() };
-
 	consteval array_type_table genTypeTable() {
 		array_type_table returnValues{};
 		for (auto& entry: returnValues) {
@@ -614,6 +701,37 @@ namespace jsonifier::generic {
 
 	inline constexpr const bool* __restrict seperatorByteTable{ seperatorByteTableRaw.data() };
 
+	consteval internal::array<bool, 256ULL> genUtf8StringStopTable() {
+		internal::array<bool, 256ULL> returnValues{};
+		for (uint64_t x = 0; x < 0x20; ++x) {
+			returnValues[x] = true;
+		}
+		returnValues[static_cast<uint64_t>('"')]  = true;
+		returnValues[static_cast<uint64_t>('\\')] = true;
+		return returnValues;
+	}
+
+	alignas(64) inline constexpr auto utf8StringStopTableRaw{ genUtf8StringStopTable() };
+
+	inline constexpr const bool* __restrict utf8StringStopTable{ utf8StringStopTableRaw.data() };
+
+	consteval internal::array<bool, 256ULL> genAsciiStringStopTable() {
+		internal::array<bool, 256ULL> returnValues{};
+		for (uint64_t x = 0; x < 0x20; ++x) {
+			returnValues[x] = true;
+		}
+		for (uint64_t x = 0x80; x < 0x100; ++x) {
+			returnValues[x] = true;
+		}
+		returnValues[static_cast<uint64_t>('"')]  = true;
+		returnValues[static_cast<uint64_t>('\\')] = true;
+		return returnValues;
+	}
+
+	alignas(64) inline constexpr auto asciiStringStopTableRaw{ genAsciiStringStopTable() };
+
+	inline constexpr const bool* __restrict asciiStringStopTable{ asciiStringStopTableRaw.data() };
+
 	struct utf8_span_step {
 		template<uint64_t index> JSONIFIER_INLINE static internal::unrestrict_t<read_buffer_ptr> impl(internal::unrestrict_t<read_buffer_ptr>& current, read_buffer_ptr end,
 			internal::utf8_validation_state& state) noexcept {
@@ -641,21 +759,39 @@ namespace jsonifier::generic {
 	template<bool minified> class basic_array;
 	template<bool minified> class basic_field;
 
-	struct escaped_string_copy_context {
+	struct plain_string_copy_context {
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t length) const noexcept {
+			jsonifier::internal::jsonifierMemcpy(ptrNew, source, length);
+			return length;
+		}
+
+		JSONIFIER_INLINE plain_string_copy_context(read_buffer_ptr sourceNew) noexcept : source{ sourceNew } {
+		}
+
+		plain_string_copy_context& operator=(const plain_string_copy_context&) noexcept = delete;
+		plain_string_copy_context& operator=(plain_string_copy_context&&) noexcept		= delete;
+		plain_string_copy_context(const plain_string_copy_context&) noexcept			= delete;
+		plain_string_copy_context(plain_string_copy_context&&) noexcept					= delete;
+		plain_string_copy_context() noexcept											= delete;
+
+		read_buffer_ptr source{};
+	};
+
+	struct string_parse_context {
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) const noexcept {
-			outLength = internal::string_scanner<parse_options{}>::impl(source, sourceEnd, ptrNew).outLength;
+			outLength = string_parser::impl(source, sourceEnd, static_cast<char*>(ptrNew)).outLength;
 			return outLength == std::numeric_limits<uint64_t>::max() ? uint64_t{} : outLength;
 		}
 
-		JSONIFIER_INLINE escaped_string_copy_context(read_buffer_ptr sourceNew, read_buffer_ptr sourceEndNew, uint64_t& outLengthNew) noexcept
+		JSONIFIER_INLINE string_parse_context(read_buffer_ptr sourceNew, read_buffer_ptr sourceEndNew, uint64_t& outLengthNew) noexcept
 			: sourceEnd{ sourceEndNew }, source{ sourceNew }, outLength{ outLengthNew } {
 		}
 
-		escaped_string_copy_context& operator=(const escaped_string_copy_context&) noexcept = delete;
-		escaped_string_copy_context& operator=(escaped_string_copy_context&&) noexcept		= delete;
-		escaped_string_copy_context(const escaped_string_copy_context&) noexcept			= delete;
-		escaped_string_copy_context(escaped_string_copy_context&&) noexcept					= delete;
-		escaped_string_copy_context() noexcept												= delete;
+		string_parse_context& operator=(const string_parse_context&) noexcept = delete;
+		string_parse_context& operator=(string_parse_context&&) noexcept	  = delete;
+		string_parse_context(const string_parse_context&) noexcept			  = delete;
+		string_parse_context(string_parse_context&&) noexcept				  = delete;
+		string_parse_context() noexcept										  = delete;
 
 		read_buffer_ptr sourceEnd{};
 		read_buffer_ptr source{};
@@ -678,15 +814,24 @@ namespace jsonifier::generic {
 			}
 			consume();
 			read_buffer_ptr stringStart = doc->root + *iter + 1;
+			if (const uint64_t directLength = zeroCopyLength<false>(stringStart); directLength != noZeroCopy) [[likely]] {
+				if constexpr (internal::resize_and_overwriteable_types<string_type>) {
+					out.resize_and_overwrite(directLength, plain_string_copy_context{ stringStart });
+				} else {
+					out.resize(directLength);
+					plain_string_copy_context{ stringStart }(out.data(), directLength);
+				}
+				return error_code::success;
+			}
 			const uint64_t upperBound = static_cast<uint64_t>(doc->root + *(iter + 1) - stringStart) + 64;
 			uint64_t outLength{};
 			if constexpr (internal::resize_and_overwriteable_types<string_type>) {
-				out.resize_and_overwrite(upperBound, escaped_string_copy_context{ stringStart, doc->end, outLength });
+				out.resize_and_overwrite(upperBound, string_parse_context{ stringStart, doc->end, outLength });
 			} else {
 				if (out.size() < upperBound) [[unlikely]] {
 					out.resize(upperBound);
 				}
-				out.resize(escaped_string_copy_context{ stringStart, doc->end, outLength }(out.data(), upperBound));
+				out.resize(string_parse_context{ stringStart, doc->end, outLength }(out.data(), upperBound));
 			}
 			return outLength == std::numeric_limits<uint64_t>::max() ? error_code::string_error : error_code::success;
 		}
@@ -897,18 +1042,18 @@ namespace jsonifier::generic {
 				result = value_type{ std::bit_cast<const char*>(stringStart), directLength };
 				return error_code::success;
 			}
-			char* scratch	   = doc->arena->scratch();
-			const auto scanned = internal::string_scanner<parse_options{}>::impl(stringStart, doc->end, std::bit_cast<write_buffer_ptr>(scratch));
-			if (scanned.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
+			char* scratch	  = doc->arena->scratch();
+			const auto parsed = string_parser::impl(stringStart, doc->end, scratch);
+			if (parsed.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				return error_code::string_error;
 			}
-			if (scanned.outLength == scanned.rawLength) {
-				result = value_type{ std::bit_cast<const char*>(stringStart), scanned.rawLength };
+			if (parsed.outLength == parsed.rawLength) {
+				result = value_type{ std::bit_cast<const char*>(stringStart), parsed.rawLength };
 				return error_code::success;
 			}
 			char* slot = doc->arena->slot(static_cast<uint64_t>(stringStart - doc->root));
-			jsonifier::internal::jsonifierMemcpy(slot, scratch, scanned.outLength);
-			result = value_type{ slot, scanned.outLength };
+			jsonifier::internal::jsonifierMemcpy(slot, scratch, parsed.outLength);
+			result = value_type{ slot, parsed.outLength };
 			return error_code::success;
 		}
 
@@ -951,7 +1096,7 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE static uint64_t resolveMaskedStop(read_buffer_ptr stringStart, read_buffer_ptr current, string_stop_masks masks, bool sawNonAscii) noexcept {
 			const uint64_t beforeStop = (masks.stops & (0 - masks.stops)) - 1;
-			return resolveStringStop(stringStart, current + (internal::simd::countrZero(masks.stops) >> stopMaskLaneShift), sawNonAscii || (masks.nonAscii & beforeStop) != 0);
+			return resolveStringStop(stringStart, current + (internal::simd::countrZeroUnsafe(masks.stops) >> stopMaskLaneShift), sawNonAscii || (masks.nonAscii & beforeStop) != 0);
 		}
 
 		JSONIFIER_INLINE static uint64_t resolveStringStop(read_buffer_ptr stringStart, read_buffer_ptr stop, bool sawNonAscii) noexcept {

@@ -150,23 +150,6 @@ namespace jsonifier::internal {
 		return offset > 0;
 	}
 
-	template<typename simd_type, typename integer_type>
-	[[maybe_unused]] JSONIFIER_INLINE integer_type findSerialize(simd_type simdValue, simd_type simdValues01, simd_type simdValues02, simd_type simdValues03) noexcept {
-		auto result01 = simd::opOr(simd::opOr(simd::opCmpLtRaw(simdValue, simdValues03), simd::opCmpEqRaw(simdValue, simdValues02)), simd::opCmpEqRaw(simdValue, simdValues01));
-		return static_cast<integer_type>(simd::postCmpTzcnt(static_cast<integer_type>(simd::opBitMaskRaw(result01))));
-	}
-
-	template<uint_types simd_type, uint_types integer_type> [[maybe_unused]] JSONIFIER_INLINE integer_type findSerialize(simd_type& simdValue) noexcept {
-		static constexpr integer_type mask{ jsonifier::internal::repeatByte<0b01111111, integer_type>() };
-		static constexpr integer_type less32Bits{ jsonifier::internal::repeatByte<0b01100000, integer_type>() };
-		static constexpr integer_type hiBits{ jsonifier::internal::repeatByte<0b10000000, integer_type>() };
-		static constexpr integer_type quoteBits{ jsonifier::internal::repeatByte<'"', integer_type>() };
-		static constexpr integer_type bsBits{ jsonifier::internal::repeatByte<'\\', integer_type>() };
-		const integer_type lo7	= simdValue & mask;
-		const integer_type next = ~((((lo7 ^ quoteBits) + mask) & ((lo7 ^ bsBits) + mask) & ((simdValue & less32Bits) + mask)) | simdValue) & hiBits;
-		return static_cast<integer_type>(simd::countrZero(next) >> 3u);
-	}
-
 	// Sampled from Stephen Berry's library, Glaze: https://github.com/StephenBerry/Glaze
 	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
 		if (static_cast<int64_t>(lengthNew) > 0) {
@@ -322,7 +305,7 @@ namespace jsonifier::internal {
 						string2 += bytesProcessed;
 						continue;
 					}
-					const uint64_t offset	= static_cast<uint64_t>(simd::countrZero(delimiters));
+					const uint64_t offset	= static_cast<uint64_t>(simd::countrZeroUnsafe(delimiters));
 					const uint8_t foundChar = static_cast<uint8_t>(string1Start[offset]);
 					if (foundChar < 32) [[unlikely]] {
 						scanState.outLength = std::numeric_limits<uint64_t>::max();
@@ -466,7 +449,7 @@ namespace jsonifier::internal {
 						string1Start += bytesProcessed;
 						continue;
 					}
-					const uint64_t offset		 = static_cast<uint64_t>(simd::countrZero(delimiters));
+					const uint64_t offset		 = static_cast<uint64_t>(simd::countrZeroUnsafe(delimiters));
 					const integer_type preceding = static_cast<integer_type>((static_cast<integer_type>(1) << offset) - static_cast<integer_type>(1));
 					scanState.result.control |= (controls & preceding) != static_cast<integer_type>(0);
 					scanState.result.nonAscii |= (nonAscii & preceding) != static_cast<integer_type>(0);
@@ -731,7 +714,7 @@ namespace jsonifier::internal {
 					string2 += 8;
 					continue;
 				}
-				const uint64_t offset = static_cast<uint64_t>(simd::countrZero(flags)) >> 3;
+				const uint64_t offset = static_cast<uint64_t>(simd::countrZeroUnsafe(flags)) >> 3;
 				string1Start += offset;
 				string2 += offset;
 				const auto& entry = escapeTable[static_cast<uint8_t>(*string1Start)];

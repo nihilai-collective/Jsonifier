@@ -555,7 +555,7 @@ namespace jsonifier::internal {
 			return answer;
 		}
 
-		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZero(w));
+		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZeroUnsafe(w));
 		w <<= lz;
 
 		value_128 product = computeProductApproximation<binary::mantissaExplicitBits + 3>(q, w);

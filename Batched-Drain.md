@@ -2,13 +2,13 @@
 
 **Nihilai Collective Corp: Engineering Papers**  
 *Nihilai Collective Corp*  
-*Jsonifier, October 2026*  
+*Jsonifier, November 2026*  
 
 ---
 
 ## Abstract
 
-Structural indexing, the transformation of raw JSON text into a compact tape of structural character positions, has been the foundational pass of every high-performance JSON parser since simdjson established the SIMD two-stage paradigm in 2019. This paper documents the architecture of Jsonifier's stage-1 implementation and contrasts it point-by-point against simdjson's generic stage 1 (json_structural_indexer.h, master branch, retrieved July 2026). We identify six architectural divergences: (1) a batched bit-drain that decouples mask production from tape emission; (2) per-compiler step geometry ranging from 256 bytes to 512 bytes per iteration; (3) precomputed popcount accumulation replacing incremental tail advancement; (4) UTF-8 validation fused register-by-register into string unescaping, riding loads the unescape loop already performs and carried across SIMD width transitions via a three-byte state, where simdjson validates the entire buffer in a dedicated stage-1 pass; (5) a compile-time minified specialization that deletes whitespace classification from the scan entirely; and (6) an AVX-512 compress drain that is the batched architecture's native drain rather than an override retrofitted into a word-interleaved one. We further argue that validation placement should follow access patterns: Jsonifier deliberately places unescaped-control-character validation in stage 2, where string bytes are already resident in registers, rather than in stage 1, and we present full conformance results across an 8-configuration test matrix as evidence that this placement loses no correctness. Benchmarks across eight platform/compiler combinations (five AVX2/NEON, three AVX-512) validate the design, including perfect sweeps against simdjson on four of the eight, and a structural-tape comparison across eight builds confirms that both libraries emit identical structural positions, 2,634,960 per build, with zero mismatches. Every benchmark and every correctness check in this paper ran against the same Jsonifier commit.
+Structural indexing, the transformation of raw JSON text into a compact tape of structural character positions, has been the foundational pass of every high-performance JSON parser since simdjson established the SIMD two-stage paradigm in 2019. This paper documents the architecture of Jsonifier's stage-1 implementation and contrasts it point-by-point against simdjson's generic stage 1 (json_structural_indexer.h, master branch, retrieved July 2026). We identify six architectural divergences: (1) a batched bit-drain that decouples mask production from tape emission; (2) an AVX-512 compress drain that is the batched architecture's native drain rather than an override retrofitted into a word-interleaved one; (3) per-compiler step geometry ranging from 256 bytes to 512 bytes per iteration; (4) UTF-8 validation fused register-by-register into string unescaping, riding loads the unescape loop already performs and carried across SIMD width transitions via a three-byte state, where simdjson validates the entire buffer in a dedicated stage-1 pass; (5) a compile-time minified specialization that deletes whitespace classification from the scan entirely; and (6) precomputed popcount accumulation replacing incremental tail advancement. We further argue that validation placement should follow access patterns: Jsonifier deliberately places unescaped-control-character validation in stage 2, where string bytes are already resident in registers, rather than in stage 1, and we present full conformance results across an 8-configuration test matrix as evidence that this placement loses no correctness. Benchmarks across eight platform/compiler combinations (five AVX2/NEON, three AVX-512) validate the design, including perfect sweeps against simdjson on five of the eight, and a structural-tape comparison across eight builds confirms that both libraries emit identical structural positions, 2,634,960 per build, with zero mismatches. Every benchmark and every correctness check in this paper ran against the same Jsonifier commit.
 
 ---
 
@@ -91,7 +91,7 @@ JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restri
 }
 ```
 
-(The AVX-512 `add_tape_values` of §4, selected by `#if JSONIFIER_AVX512` in `simd/add_tape_values.hpp`, has an identical `impl`; it differs only in its per-lane extraction body, which adds a zero-mask early exit ahead of the compress sequence.)
+(The AVX-512 `add_tape_values` of §4, selected by `#if JSONIFIER_AVX512` in `simd/add_tape_values.hpp`, has the same fold over the lanes and the same offset accumulation. Its `impl` also builds two registers once per step and passes them to every lane, and its per-lane extraction body adds a zero-mask early exit ahead of the compress sequence.)
 
 The performance argument is about the out-of-order window. Each lane's drain is still a serial tzcnt/blsr chain internally, but *adjacent lanes' chains are independent of each other*: lane 3's extraction does not consume lane 2's extracted values, only its precomputed count for the offset, and all counts were computed during the scan phase. A modern out-of-order core can therefore overlap the drain chains of multiple lanes with each other, and overlap the entire drain phase with the loads and shuffles of the *next* step's scan, without the source code dictating a fixed pipeline depth. Where simdjson hand-schedules a two-block pipeline, Jsonifier hands the scheduler a wide field of independent work and lets the hardware find the overlap.
 
@@ -150,7 +150,7 @@ Jsonifier rejects the premise that a universal default exists. The step geometry
 
 (Values from `simd/simd_config.hpp`, which defines `simdBlocksPerStep` and `simdTapeStep` directly in a per-ISA `#if` chain; only the AVX2 cell branches on the compiler. AVX-512 has no tape-step cell because its drain is the fully vectorized compress path of §4, which has no stepped scalar writer to tune.)
 
-The rationale is empirical rather than theoretical: the fully-unrolled scan body of §3 places materially different register-allocation and scheduling demands on each compiler. on AVX2, GCC and MSVC sustain 8-block steps that keep their generated code dense, while Clang's register allocation under the same 8-block unroll spills, and 4 blocks is its sweet spot. AVX-512, AVX and SVE2 take 8 blocks under every compiler, NEON takes 4, and the stepped tape writer bursts 8 indices everywhere except AVX2, where it bursts 4. Each cell in the table is the winner of a measured sweep on the benchmark corpus, not a guess.
+The rationale is empirical rather than theoretical: the fully-unrolled scan body of §3 places materially different register-allocation and scheduling demands on each compiler. On AVX2, GCC and MSVC sustain 8-block steps that keep their generated code dense, while Clang's register allocation under the same 8-block unroll spills, and 4 blocks is its sweet spot. AVX-512, AVX and SVE2 take 8 blocks under every compiler, NEON takes 4, and the stepped tape writer bursts 8 indices everywhere except AVX2, where it bursts 4. Each cell in the table is the winner of a measured sweep on the benchmark corpus, not a guess.
 
 The contrast is sharpest precisely where the vectors are widest. simdjson's icelake kernel classifies each 64-byte block as a single 512-bit chunk and retains the universal `index<128>` step, so on their widest ISA exactly two vector registers of scan work separate consecutive drains. Jsonifier's AVX-512 steps batch 8 such blocks (512 B) between drain phases under all three compilers, a 4x wider scan window on the hardware with the most execution capacity to fill.
 
@@ -250,11 +250,11 @@ The performance consequence of the cascade is that mid-length strings, the domin
 
 Both parsers validate on loads already happening for another reason; simdjson's performance notes describe its stage-1 UTF-8 pass as filler work for pipeline slack. The divergence is what the load was for. simdjson's stage-1 loop loads every 64-byte block of the buffer to build the structural index, so its validator also covers punctuation, whitespace, and numeric content. Jsonifier's unescaping loop loads a register only to copy or unescape string content, a load scoped to exactly the bytes validation cares about. For documents that are structurally dense and string-light (canada.json: coordinate arrays), that scoping difference means the validated fraction of the buffer approaches zero for Jsonifier while remaining total for simdjson; even for string-heavy documents (twitter.json, discord.json) the validation cost is not a separate pass but a handful of additional vector instructions per register already in flight for string-handling reasons. simdjson's placement is, again, forced by its access pattern rather than by any inattention to cost: an on-demand consumer may never read a string's bytes at all, so stage 1 is the only pass guaranteed to see them, and validating the whole buffer in a dedicated pass, and accepting that most of what it loads is not string content, is the price of that guarantee.
 
-That guarantee should be read at its actual scope. simdjson's On Demand design documentation states the principle directly: it validates the values the caller uses and the structure leading to them, and nothing else. Its stage 1 rejects invalid UTF-8, unescaped control characters inside strings, and unclosed strings across the whole buffer. Everything else about an unrequested region goes unchecked: `json_iterator::skip_child` steps over it by counting bracket depth, without testing that the brackets match, that the punctuation is legal, or that the scalars are well formed. A document such as `{"skipped":[1,2,"x" ::: 4],"wanted":1}` is valid UTF-8 and invalid under RFC 8259, and reading only `wanted` does not surface the error unless the skipped region is itself parsed. Neither library, in partial-read mode, tells the caller that the document is valid JSON. Each gives a narrower promise about the values actually read.
+That guarantee should be read at its actual scope. simdjson's On Demand design documentation states the principle directly: it validates the values the caller uses and the structure leading to them, and nothing else. Its stage 1 rejects invalid UTF-8, unescaped control characters inside strings, and unclosed strings across the whole buffer. Everything else about an unrequested region goes unchecked: `json_iterator::skip_child` steps over it by counting bracket depth, without testing that the brackets match, that the punctuation is legal, or that the scalars are well formed. A document such as `{"skipped":[1,2,"x" ::: 4],"wanted":1}` is valid UTF-8 and invalid under RFC 8259, and reading only `wanted` does not surface the error unless the skipped region is itself parsed. Under simdjson 5.0.2, reading only `wanted` returns `SUCCESS` with the value 1, while walking `skipped` and parsing the same bytes with the DOM API both return `TAPE_ERROR` ([reproduction](https://godbolt.org/z/oj3hcfs5e)). Neither library, in partial-read mode, tells the caller that the document is valid JSON. Each gives a narrower promise about the values actually read.
 
-Jsonifier applies the same principle one step further: a skipped value is also skipped for encoding and control-character purposes, and a string is checked when it is read. The two scopes therefore differ on a real class of inputs. A skipped string holding invalid UTF-8 or a raw control character is rejected by simdjson and not by Jsonifier, so a caller who needs those properties over the whole buffer before trusting it should call `validateUtf8` or use a full-validation path. The trade-off is one of position along a shared spectrum, not safety against no safety: whole-buffer encoding checks do not make a partially read document a validated one, and validation of whichever scope is only a guarantee about what that scope covers.
+Jsonifier applies the same principle one step further: a skipped value is also skipped for encoding and control-character purposes, and a string is checked when it is read. The two scopes therefore differ on a real class of inputs. A skipped string holding invalid UTF-8 or a raw control character is rejected by simdjson and not by Jsonifier, so a caller who only needs the whole document validated as UTF-8 should run `validateUtf8`, and a caller who wants full validation should run the JSON validator `validateJson`, which checks the structure, every string including its control characters, and the UTF-8 encoding of the whole buffer. The trade-off is one of position along a shared spectrum, not safety against no safety: whole-buffer encoding checks do not make a partially read document a validated one, and validation of whichever scope is only a guarantee about what that scope covers.
 
-The UTF-8 unit suite has two halves. 147 cases exercise `validateUtf8`, the standalone whole-buffer API for arbitrary byte buffers, which is built on the block-granular `utf8_checker` rather than the register-granular string-scanner validator. They cover dangling leads at chunk, block, and step boundaries; surrogates; overlongs in all widths; and continuation-position errors crossing chunk seams. 51 more cases drive the string-fused path through a full parse, including multi-byte sequences deliberately straddling width-transition boundaries within the cascade and dangling leads in each carry position at a transition (per §6.1). Width-transition, unaligned-pointer, and page-boundary sweeps round it out. The conformance corpus separately confirms the string-fused path end-to-end: fail34.json (a raw 0x80 byte inside a string) is rejected with `invalid_string_characters` by `checkRegister`/`checkPartial` during unescaping. Both the standalone validator and the fused string-scanner path are exercised under the project's AddressSanitizer and UndefinedBehaviorSanitizer builds across all five platform/compiler targets, and pass cleanly. That is meaningful here specifically because register-granular validators carrying cross-call and now cross-width state (`utf8_validation_state`, the seeded `prevInput`/`incompleteRegister` members) are exactly the shape of code where an off-by-one in the padding, seeding, or carry logic would manifest as a sanitizer-visible read past a buffer's end rather than merely a wrong answer.
+The UTF-8 unit suite has two halves. 147 cases exercise `validateUtf8`, the standalone whole-buffer API for arbitrary byte buffers, which is built on the block-granular `utf8_checker` rather than the register-granular string-scanner validator. They cover dangling leads at chunk, block, and step boundaries; surrogates; overlongs in all widths; and continuation-position errors crossing chunk seams. 51 more cases drive the string-fused path through a full parse, including multi-byte sequences deliberately straddling width-transition boundaries within the cascade and dangling leads in each carry position at a transition (per §6.1). Width-transition, unaligned-pointer, and page-boundary sweeps round it out. The conformance corpus separately confirms the string-fused path end-to-end: fail34.json (a raw 0x80 byte inside a string) is rejected with `invalid_string_characters` by `checkRegister`/`checkPartial` during unescaping. Both the standalone validator and the fused string-scanner path are exercised under AddressSanitizer on all five CI platform/compiler targets and under UndefinedBehaviorSanitizer on the four Clang and GCC targets, and pass cleanly. These jobs detect their SIMD tier on the CI runner, so they do not guarantee coverage of the AVX-512 kernel. That is meaningful here specifically because register-granular validators carrying cross-call and now cross-width state (`utf8_validation_state`, the seeded `prevInput`/`incompleteRegister` members) are exactly the shape of code where an off-by-one in the padding, seeding, or carry logic would manifest as a sanitizer-visible read past a buffer's end rather than merely a wrong answer.
 
 ---
 
@@ -277,7 +277,7 @@ const uint64_t op     = simd::op_collector::impl(in01, opTable, spaceMask);
 const uint64_t scalar = ~(op | quotes);
 ```
 
-Per 64-byte block, this removes one shuffle and one full-width compare per register, plus the register pressure of holding the whitespace table live through the loop. On a 128-bit target that is four shuffles and four compares per block; over an 8-block GCC step, sixty-four eliminated vector operations per 512-byte step. On NEON the prettified path computes both masks in one call (`ws_op_collector`), which reduces the whitespace and operator matches through a shared chain of paired adds and returns both 64-bit masks in one vector; the minified path still calls `op_collector` alone. The remainder trim (§8) guarantees correctness at the padded tail in both variants.
+Per 64-byte block, this removes one shuffle and one full-width compare per register, plus the register pressure of holding the whitespace table live through the loop. On a 128-bit x86 target that is four shuffles and four compares per block; over its 8-block step, sixty-four eliminated vector operations per 512-byte step. On NEON the prettified path computes both masks in one call (`ws_op_collector`), which reduces the whitespace and operator matches through a shared chain of paired adds and returns both 64-bit masks in one vector; the minified path still calls `op_collector` alone. The remainder trim (§8) guarantees correctness at the padded tail in both variants.
 
 simdjson has no equivalent. Its json_minifier is an output transformation (produce minified text), not a parse-time fast path; its structural indexer always classifies whitespace. The distinction reflects the two libraries' relationship to compile-time knowledge: simdjson selects among precompiled kernels at runtime by CPU features, while Jsonifier's interface propagates caller knowledge about the *input's shape* into the instantiation itself. This is the stage-1 expression of the compile-time-knowledge thesis developed at length in the companion paper.
 
@@ -336,60 +336,60 @@ The principle is not foreign to simdjson itself. Their AVX-512 classifier's `| 0
 
 ### 10.1 Methodology
 
-Jsonifier's benchmark harness runs at nihilai-collective.net with live CSV result fetching from the repository's CI, branch-switching for isolated stage comparisons, and per-test win/tie/loss adjudication against simdjson (on-demand). The sweep ran on October 28, 2026 (October 29 for Windows/MSVC), with Jsonifier 9f4382a and benchmarksuite 35ec835 on every target and simdjson 41ad75c on Linux, 9262482 on Windows and ab504c9 on macOS, and every target scans at its §5 table geometry. The sweep covers 25 head-to-head tests per platform/compiler combination: five POD-type tests (Bool, Double, Int64, String, Uint64), each running stage 1 separately on 200 single-value inputs of at most 64 bytes, plus ten corpus documents (Apache Builds, Canada, CitmCatalog, Discord, Github Events, Google Maps Response, Instruments, Marine IK, Random, Twitter), each in minified and prettified form. Both libraries execute stage 1 only (structural indexing into a tape), and **neither performs UTF-8 validation** in these runs, so the comparison isolates the scan and drain machinery of §§3–5, 7, and 8; the fused validation of §6 is not exercised on either side.
+Jsonifier's benchmark harness runs at nihilai-collective.net with live CSV result fetching from the repository's CI, branch-switching for isolated stage comparisons, and per-test win/tie/loss adjudication against simdjson (on-demand). The sweep ran on November 1, 2026, with Jsonifier c338fdb and benchmarksuite 35ec835 on every target and simdjson a78278a on Linux and macOS and 40a686a on Windows, and every target scans at its §5 table geometry. The sweep covers 25 head-to-head tests per platform/compiler combination: five POD-type tests (Bool, Double, Int64, String, Uint64), each running stage 1 separately on 200 single-value inputs of at most 64 bytes, plus ten corpus documents (Apache Builds, Canada, CitmCatalog, Discord, Github Events, Google Maps Response, Instruments, Marine IK, Random, Twitter), each in minified and prettified form. Both libraries execute stage 1 only (structural indexing into a tape), and **neither performs UTF-8 validation** in these runs, so the comparison isolates the scan and drain machinery of §§3–5, 7, and 8; the fused validation of §6 is not exercised on either side.
 
 Sampling is adaptive: iterations begin at 100 and double each epoch up to a 100,000-iteration cap, with caches cleared before every iteration. Each epoch evaluates a trailing window of max(iterations/10, 30) samples. Sampling does not stop early: epochs continue until 5 seconds have elapsed or the iteration cap is reached, every epoch after the first is scored by its relative standard error plus its epoch-over-epoch mean shift, and the lowest-scoring epoch is retained. A result counts as converged only if that epoch has RSE below 5% *and* mean shift below 2.5% on the x86 targets, and below 10% and 5% on the virtualized Apple Silicon targets; non-converged results are kept in the tallies and marked n/c in the per-test tables. Variance is Bessel-corrected, and ties are declared by Welch's t-test rather than by a fixed throughput band.
 
-The hardware is an Intel i9-14900KF (Raptor Lake, AVX-512 fused off) under Windows/MSVC 19.51, Linux/Clang 24.0, and Linux/GCC 16.2.1, all under Linux 7.0.0 or Windows on the same machine, plus virtualized Apple M2 Pro instances under macOS/GCC 16.2.0 and macOS/Clang 23.1.3. On x86 all three builds share one host. Both NEON builds report the same chip, but they run as separate virtual machines, so a GCC-versus-Clang comparison on NEON still carries host-noise effects. AVX-512 hardware is covered separately in §11.
+The hardware is an Intel i9-14900KF (Raptor Lake, AVX-512 fused off) under Windows/MSVC 19.51, Linux/Clang 24.0, and Linux/GCC 16.2.1, all under Linux 7.0.0 or Windows on the same machine, plus virtualized Apple M2 Pro instances under macOS/GCC 16.2.0 and macOS/Clang 23.1.4. On x86 all three builds share one host. Both NEON builds report the same chip, but they run as separate virtual machines, so a GCC-versus-Clang comparison on NEON still carries host-noise effects. AVX-512 hardware is covered separately in §11.
 
 Throughout this section, results are reported per test as a percentage delta: Jsonifier's throughput over simdjson's, minus one. A positive delta favors Jsonifier. With 25 tests per target there is no need to collapse them into a single mean; every number is shown.
 
 ### 10.2 Headline results (AVX2 and NEON)
 
-On this sweep, Jsonifier's record against simdjson (on-demand) across the five AVX2/NEON platform/compiler combinations is **111 wins, 1 tie, 13 losses across 125 head-to-head tests**, including perfect 25-0-0 sweeps on Windows/MSVC and Linux/Clang. Every result converged except two wins, minified Google Maps Response on macOS/GCC and prettified Marine IK on macOS/Clang, marked n/c below:
+On this sweep, Jsonifier's record against simdjson (on-demand) across the five AVX2/NEON platform/compiler combinations is **113 wins, 0 ties, 12 losses across 125 head-to-head tests**, including perfect 25-0-0 sweeps on Windows/MSVC and Linux/Clang. Every result converged except one win, minified Canada on macOS/Clang, marked n/c below:
 
 | Platform / Compiler | Wins | Ties | Losses |
 |---|---|---|---|
 | Windows / MSVC 19.51 (i9-14900KF, AVX2) | 25 | 0 | 0 |
 | Linux / Clang 24.0 (i9-14900KF, AVX2) | 25 | 0 | 0 |
 | Linux / GCC 16.2.1 (i9-14900KF, AVX2) | 23 | 0 | 2 |
-| macOS / GCC 16.2.0 (Apple M2 Pro, NEON) | 22 | 1 | 2 |
-| macOS / Clang 23.1.3 (Apple M2 Pro, NEON) | 16 | 0 | 9 |
-| **Aggregate** | **111** | **1** | **13** |
+| macOS / GCC 16.2.0 (Apple M2 Pro, NEON) | 23 | 0 | 2 |
+| macOS / Clang 23.1.4 (Apple M2 Pro, NEON) | 17 | 0 | 8 |
+| **Aggregate** | **113** | **0** | **12** |
 
-Per-test throughput deltas (Jsonifier over simdjson, minus one; a negative delta is a loss unless marked as a tie):
+Per-test throughput deltas (Jsonifier over simdjson, minus one; a negative delta is a loss):
 
 | Test | Windows / MSVC | Linux / Clang | Linux / GCC | macOS / GCC | macOS / Clang |
 |---|---|---|---|---|---|
-| Bool (POD) | +416.5% | +164.1% | +206.1% | +104.3% | +42.8% |
-| Double (POD) | +407.7% | +168.1% | +225.4% | +67.9% | +49.6% |
-| Int64 (POD) | +440.1% | +165.4% | +189.3% | +74.3% | +51.3% |
-| String (POD) | +235.1% | +69.6% | +53.0% | +35.3% | −42.8% |
-| Uint64 (POD) | +423.4% | +141.8% | +219.8% | +78.7% | +47.6% |
-| Apache Builds (minified) | +24.7% | +20.2% | +15.6% | +22.3% | +7.6% |
-| Apache Builds (prettified) | +10.1% | +10.2% | +8.6% | −0.6% (tie) | −4.2% |
-| Canada (minified) | +35.2% | +20.2% | +15.7% | +9.3% | +35.5% |
-| Canada (prettified) | +44.9% | +19.2% | +21.9% | +7.1% | +25.0% |
-| CitmCatalog (minified) | +18.1% | +11.9% | +7.0% | +25.6% | −2.7% |
-| CitmCatalog (prettified) | +10.6% | +7.2% | +10.2% | +13.1% | −6.7% |
-| Discord (minified) | +13.3% | +11.7% | +9.5% | −1.2% | −9.0% |
-| Discord (prettified) | +8.5% | +4.3% | +2.8% | +5.8% | −20.0% |
-| Github Events (minified) | +20.4% | +16.5% | +19.2% | +29.6% | +8.5% |
-| Github Events (prettified) | +13.4% | +0.4% | +8.6% | +10.9% | +12.1% |
-| Google Maps Response (minified) | +22.5% | +8.2% | +8.1% | +8.6% (n/c) | −4.9% |
-| Google Maps Response (prettified) | +9.1% | +6.2% | +3.3% | +12.7% | +10.8% |
-| Instruments (minified) | +19.8% | +11.8% | +7.0% | +15.2% | +33.7% |
-| Instruments (prettified) | +7.6% | +6.8% | +4.6% | +9.8% | −9.8% |
-| Marine IK (minified) | +28.9% | +27.4% | −7.1% | −16.4% | +59.7% |
-| Marine IK (prettified) | +20.9% | +8.9% | −15.4% | +7.7% | +51.2% (n/c) |
-| Random (minified) | +17.7% | +12.6% | +10.7% | +34.5% | +20.1% |
-| Random (prettified) | +9.0% | +10.8% | +6.0% | +29.6% | −7.2% |
-| Twitter (minified) | +25.2% | +16.6% | +17.4% | +24.3% | +12.8% |
-| Twitter (prettified) | +12.4% | +5.4% | +8.3% | +13.1% | +8.8% |
+| Bool (POD) | +426.4% | +146.1% | +201.0% | +104.6% | +56.0% |
+| Double (POD) | +401.7% | +145.9% | +219.3% | +111.8% | +38.0% |
+| Int64 (POD) | +414.3% | +146.0% | +212.2% | +76.5% | +34.0% |
+| String (POD) | +219.7% | +63.1% | +49.6% | +37.0% | −34.5% |
+| Uint64 (POD) | +386.5% | +154.1% | +219.4% | +74.7% | +84.1% |
+| Apache Builds (minified) | +16.1% | +21.2% | +17.6% | +22.1% | +9.0% |
+| Apache Builds (prettified) | +10.1% | +8.0% | +9.8% | +4.8% | −2.0% |
+| Canada (minified) | +34.7% | +23.4% | +15.5% | +23.6% | +42.3% (n/c) |
+| Canada (prettified) | +41.5% | +17.9% | +22.9% | +3.4% | +14.5% |
+| CitmCatalog (minified) | +16.6% | +11.9% | +6.6% | +27.2% | −1.1% |
+| CitmCatalog (prettified) | +9.8% | +8.1% | +10.4% | +17.8% | +7.1% |
+| Discord (minified) | +16.1% | +9.9% | +8.6% | +13.0% | +4.4% |
+| Discord (prettified) | +9.4% | +1.5% | +1.7% | +5.0% | −13.4% |
+| Github Events (minified) | +25.6% | +18.6% | +21.5% | +28.3% | −3.3% |
+| Github Events (prettified) | +10.6% | +2.1% | +8.7% | +5.6% | −7.0% |
+| Google Maps Response (minified) | +16.8% | +8.0% | +7.6% | +8.2% | +1.7% |
+| Google Maps Response (prettified) | +8.9% | +5.2% | +3.9% | +13.9% | −2.2% |
+| Instruments (minified) | +19.9% | +11.4% | +6.9% | +10.1% | +6.1% |
+| Instruments (prettified) | +9.5% | +7.1% | +4.7% | −4.2% | −10.5% |
+| Marine IK (minified) | +29.5% | +24.5% | −5.1% | −2.0% | +39.4% |
+| Marine IK (prettified) | +19.4% | +4.8% | −14.2% | +2.2% | +18.1% |
+| Random (minified) | +16.8% | +10.8% | +11.7% | +33.4% | +20.6% |
+| Random (prettified) | +10.3% | +7.8% | +7.5% | +14.8% | +9.4% |
+| Twitter (minified) | +21.3% | +14.4% | +18.5% | +23.7% | +31.0% |
+| Twitter (prettified) | +11.3% | +2.2% | +3.6% | +5.1% | +6.0% |
 
-On the i9-14900KF, the three x86 builds record 73 wins, 0 ties and 2 losses across 75 tests. MSVC wins all 25, by +7.6% (prettified Instruments) up to +440.1% (Int64 array); on the corpus documents alone its range is +7.6% to +44.9% (prettified Canada). Clang also wins all 25: the corpus documents by +0.4% (prettified Github Events) to +27.4% (minified Marine IK), and the five POD-type tests by +69.6% (String) to +168.1% (Double). MSVC and GCC win the same five tests by +53.0% to +440.1%. Each POD-type test runs stage 1 on 200 separate inputs of at most 64 bytes, so fixed per-call cost dominates in both libraries; these tests measure small-input dispatch and setup overhead more than the steady-state scan loop.
+On the i9-14900KF, the three x86 builds record 73 wins, 0 ties and 2 losses across 75 tests. MSVC wins all 25, by +8.9% (prettified Google Maps Response) up to +426.4% (Bool array); on the corpus documents alone its range is +8.9% to +41.5% (prettified Canada). Clang also wins all 25: the corpus documents by +1.5% (prettified Discord) to +24.5% (minified Marine IK), and the five POD-type tests by +63.1% (String) to +154.1% (Uint64). MSVC and GCC win the same five tests by +49.6% to +426.4%. Each POD-type test runs stage 1 on 200 separate inputs of at most 64 bytes, so fixed per-call cost dominates in both libraries; these tests measure small-input dispatch and setup overhead more than the steady-state scan loop.
 
-The losses localize to specific toolchains rather than spreading evenly. Linux/GCC's two losses are both Marine IK forms, minified (−7.1%) and prettified (−15.4%). Both are wins for MSVC and Clang on the same hardware, and both Canada forms, the other float-dense document, are wins under GCC itself (+15.7% minified, +21.9% prettified). On NEON, macOS/GCC loses two tests, minified Marine IK (−16.4%) and minified Discord (−1.2%), and ties prettified Apache Builds. macOS/Clang loses nine, five of them prettified: the String POD-type test (−42.8%), prettified Discord (−20.0%), prettified Instruments (−9.8%), minified Discord (−9.0%), prettified Random (−7.2%), prettified CitmCatalog (−6.7%), minified Google Maps Response (−4.9%), prettified Apache Builds (−4.2%) and minified CitmCatalog (−2.7%). It also posts its largest corpus margins on float-dense content: +59.7% and +51.2% on the two Marine IK forms, the very document on which macOS/GCC and Linux/GCC lose, and +35.5% on minified Canada. Minified Discord is the only test that loses on both NEON builds; prettified Apache Builds ties under GCC and loses under Clang, every other NEON loss is a win for the other compiler's build, and every x86 loss is a win for both sibling compilers' builds. The same source code has different weak spots under GCC than under Clang, and on x86, none under MSVC or Clang. This is the compiler-as-microarchitecture point of §5, with the caveat from §10.1 that the two NEON builds run on separate virtual machines.
+The losses localize to specific toolchains rather than spreading evenly. Linux/GCC's two losses are both Marine IK forms, minified (−5.1%) and prettified (−14.2%). Both are wins for MSVC and Clang on the same hardware, and both Canada forms, the other float-dense document, are wins under GCC itself (+15.5% minified, +22.9% prettified). On NEON, macOS/GCC loses two tests, prettified Instruments (−4.2%) and minified Marine IK (−2.0%). macOS/Clang loses eight, five of them prettified documents: the String POD-type test (−34.5%), prettified Discord (−13.4%), prettified Instruments (−10.5%), prettified Github Events (−7.0%), minified Github Events (−3.3%), prettified Google Maps Response (−2.2%), prettified Apache Builds (−2.0%) and minified CitmCatalog (−1.1%). It also posts its largest corpus margins on minified content: +42.3% on Canada, +39.4% on Marine IK, the form on which both GCC builds lose, and +31.0% on Twitter. Prettified Instruments is the only test that loses on both NEON builds; every other NEON loss is a win for the other compiler's build, and every x86 loss is a win for both sibling compilers' builds. The same source code has different weak spots under GCC than under Clang, and on x86, none under MSVC or Clang. This is the compiler-as-microarchitecture point of §5, with the caveat from §10.1 that the two NEON builds run on separate virtual machines.
 
 Per-platform tables, per-document plots, and the raw CSVs are served at nihilai-collective.net directly from the repository's committed CSV artifacts (the rendered figures are client-side fetches of the same files a reproducing reader would generate) and should be consulted for current numbers; the figures above are a snapshot at time of writing. Readers are encouraged to reproduce: the harness (benchmarksuite commit 35ec835), corpus, and competitor versions are pinned by commit hash.
 
@@ -403,7 +403,7 @@ None of the §10.2 targets exercises the AVX-512 compress drain of §4: the i9-1
 
 ### 10.4 Structural-tape equivalence
 
-Throughput is meaningful only if both libraries compute the same thing. To verify this directly, a branch of simdjson (nihilai-collective/simdjson, commit 7002cd3) exposes its stage-1 structural tape, and the harness compares it position-by-position against Jsonifier's on every test of the suite: the ten corpus documents in both variants plus the five POD-type tests, exactly the tests swept in §10.2. Jsonifier is at 9f4382a, the commit swept in §10.2. The comparison ran on October 28, 2026 on five AVX2 and NEON builds, and every structural position matches on all five:
+Throughput is meaningful only if both libraries compute the same thing. To verify this directly, a branch of simdjson (nihilai-collective/simdjson, commit 7002cd3) exposes its stage-1 structural tape, and the harness compares it position-by-position against Jsonifier's on every test of the suite: the ten corpus documents in both variants plus the five POD-type tests, exactly the tests swept in §10.2. Jsonifier is at c338fdb, the commit swept in §10.2. The comparison ran on November 1, 2026 on five AVX2 and NEON builds, and every structural position matches on all five:
 
 | Build | Jsonifier kernel | simdjson kernel |
 |---|---|---|
@@ -437,7 +437,7 @@ That is 2,633,960 corpus positions per build across the minified and prettified 
 
 The equivalence rules out the most obvious alternative explanation for §10.2, namely that Jsonifier is faster because it emits less. It does not: on this suite its tape is simdjson's tape. One scope limit applies. The suite contains none of the control-character edge cases discussed in §9.3, where both libraries accept deliberate stage-1 imprecision that stage 2 resolves, so the result is a statement about this suite rather than about every possible input.
 
-The check ran at the swept commit with the same §5 geometry, so it covers exactly the stage-1 code measured in §10.2, including the NEON polynomial-multiply prefix XOR of §2, the paired backslash/quote reduction of §8 and the fused whitespace/operator collector of §7. The three x86 builds ran on Azure rather than on the i9-14900KF of §10.2, and each reports AVX2 as Jsonifier's active kernel and haswell as simdjson's, so they executed the same kernels §10.2 measured. The two macOS builds report NEON and arm64.
+The check ran at the swept commit with the same §5 geometry, so it covers the same stage-1 source measured in §10.2, including the NEON polynomial-multiply prefix XOR of §2, the paired backslash/quote reduction of §8 and the fused whitespace/operator collector of §7. The three x86 builds ran on Azure rather than on the i9-14900KF of §10.2, with Linux/GCC at 16.0.1 rather than 16.2.1, so GCC's generated code may differ between the two runs. Each reports AVX2 as Jsonifier's active kernel and haswell as simdjson's, so they executed the same kernels §10.2 measured. The two macOS builds report NEON and arm64.
 
 ---
 
@@ -447,7 +447,7 @@ The AVX-512 kernel gets its own section because it is the only kernel that runs 
 
 ### 11.1 Hardware and methodology
 
-The AVX-512 throughput targets are three builds on one Azure instance with an AMD EPYC 9V45: Linux/Clang 24.0 under Linux 7.0, Linux/GCC 16.0.1 under Linux 7.0, and Windows/MSVC 19.51 under Windows. On every target Jsonifier runs its AVX-512 kernel and simdjson runs its icelake kernel. All three were swept on October 28, 2026 with Jsonifier 9f4382a, simdjson ab504c9 and benchmarksuite 35ec835, the same Jsonifier and benchmarksuite commits as §10 and the same simdjson commit as §10's macOS builds. Each target runs the same 25 tests, POD-type tests included.
+The AVX-512 throughput targets are three builds on one Azure instance with an AMD EPYC 9V45: Linux/Clang 24.0 under Linux 7.0, Linux/GCC 16.0.1 under Linux 7.0, and Windows/MSVC 19.51 under Windows. On every target Jsonifier runs its AVX-512 kernel and simdjson runs its icelake kernel. All three were swept on November 1, 2026 with Jsonifier c338fdb, simdjson a78278a and benchmarksuite 35ec835, the same Jsonifier and benchmarksuite commits as §10 and the same simdjson commit as §10's Linux and macOS builds. The harness tracks simdjson's master branch, so each build uses the commit current when it was configured, which is why §10's Windows/MSVC build ran 40a686a. Each target runs the same 25 tests, POD-type tests included.
 
 Because the CPU is shared, every build scans 8 blocks (512 B) per step, and all three builds share every commit, the three targets differ only in compiler. The hardware differs from §10, so the §10 and §11 tallies are reported separately. Sampling and tie detection follow §10.1, with convergence thresholds of 10% RSE and 5% mean shift on all three builds. Every test converged on every target.
 
@@ -462,82 +462,82 @@ Across the three AVX-512 combinations Jsonifier records **75 wins, 0 ties, 0 los
 | Linux / GCC 16.0.1 (AMD EPYC 9V45, AVX-512) | 8 blocks (512 B) | 25 | 0 | 0 |
 | **Aggregate** | | **75** | **0** | **0** |
 
-Per-test throughput deltas (Jsonifier over simdjson, minus one; a negative delta is a loss unless marked as a tie):
+Per-test throughput deltas (Jsonifier over simdjson, minus one; every delta is a win):
 
 | Test | Linux / Clang | Linux / GCC | Windows / MSVC |
 |---|---|---|---|
-| Bool (POD) | +2.0% | +139.5% | +367.2% |
-| Double (POD) | +65.2% | +127.5% | +314.9% |
-| Int64 (POD) | +70.5% | +150.8% | +342.1% |
-| String (POD) | +12.0% | +38.0% | +123.1% |
-| Uint64 (POD) | +72.2% | +152.7% | +332.3% |
-| Apache Builds (minified) | +16.8% | +10.4% | +21.9% |
-| Apache Builds (prettified) | +14.8% | +14.1% | +6.4% |
-| Canada (minified) | +50.1% | +12.0% | +47.9% |
-| Canada (prettified) | +22.0% | +31.6% | +33.2% |
-| CitmCatalog (minified) | +17.2% | +9.0% | +28.9% |
-| CitmCatalog (prettified) | +13.1% | +16.2% | +13.7% |
-| Discord (minified) | +12.4% | +14.5% | +22.2% |
-| Discord (prettified) | +14.5% | +5.9% | +13.8% |
-| Github Events (minified) | +13.2% | +18.4% | +24.4% |
-| Github Events (prettified) | +6.8% | +10.3% | +17.7% |
-| Google Maps Response (minified) | +4.7% | +8.1% | +27.6% |
-| Google Maps Response (prettified) | +6.4% | +13.5% | +13.7% |
-| Instruments (minified) | +22.5% | +13.0% | +21.7% |
-| Instruments (prettified) | +11.6% | +13.0% | +12.6% |
-| Marine IK (minified) | +31.2% | +1.4% | +30.1% |
-| Marine IK (prettified) | +12.3% | +18.2% | +16.9% |
-| Random (minified) | +18.5% | +21.9% | +20.2% |
-| Random (prettified) | +13.6% | +13.7% | +9.9% |
-| Twitter (minified) | +17.2% | +17.7% | +27.5% |
-| Twitter (prettified) | +10.7% | +20.5% | +14.2% |
+| Bool (POD) | +77.0% | +123.3% | +357.9% |
+| Double (POD) | +74.7% | +140.9% | +350.6% |
+| Int64 (POD) | +74.9% | +131.6% | +415.1% |
+| String (POD) | +23.1% | +39.4% | +121.1% |
+| Uint64 (POD) | +73.2% | +125.0% | +388.2% |
+| Apache Builds (minified) | +23.3% | +20.2% | +26.0% |
+| Apache Builds (prettified) | +14.3% | +13.9% | +16.5% |
+| Canada (minified) | +50.1% | +11.2% | +44.2% |
+| Canada (prettified) | +23.5% | +28.0% | +28.4% |
+| CitmCatalog (minified) | +15.1% | +7.8% | +21.9% |
+| CitmCatalog (prettified) | +16.9% | +10.2% | +9.3% |
+| Discord (minified) | +16.4% | +2.6% | +22.2% |
+| Discord (prettified) | +13.0% | +13.4% | +10.3% |
+| Github Events (minified) | +17.6% | +18.5% | +19.9% |
+| Github Events (prettified) | +13.1% | +15.0% | +16.1% |
+| Google Maps Response (minified) | +17.0% | +5.0% | +23.6% |
+| Google Maps Response (prettified) | +10.9% | +9.9% | +13.3% |
+| Instruments (minified) | +16.9% | +12.1% | +20.9% |
+| Instruments (prettified) | +14.2% | +15.0% | +9.8% |
+| Marine IK (minified) | +29.9% | +4.7% | +27.7% |
+| Marine IK (prettified) | +8.2% | +18.6% | +10.3% |
+| Random (minified) | +14.0% | +19.7% | +22.6% |
+| Random (prettified) | +14.2% | +15.9% | +11.8% |
+| Twitter (minified) | +19.0% | +17.0% | +29.5% |
+| Twitter (prettified) | +9.6% | +17.9% | +11.2% |
 
 Four observations follow.
 
 First, the result bears directly on §4's controlled-variable argument. On AVX-512 both libraries extract indices with an essentially identical compress → widen → add → store sequence, so the extraction instructions cancel out of the comparison. What remains is the surrounding architecture: batched versus word-interleaved invocation, scan-phase versus drain-time popcounts, fold-expression versus incremental tape offsets. On the corpus documents that architecture is worth up to +50.1% (Clang, minified Canada), and all 60 corpus-document results are wins.
 
-Second, this sweep holds hardware and step geometry fixed: one CPU, and 8 blocks (512 B) under every compiler. All three columns share every commit, so the differences between them are pure compiler effects. On minified input they are large: minified deltas run +20.2% to +47.9% under MSVC, +4.7% to +50.1% under Clang and +1.4% to +21.9% under GCC. On prettified input the three compilers converge, and no compiler leads everywhere: across the 20 corpus documents MSVC posts the largest delta on 9, GCC on 6 and Clang on 5. The same source and the same geometry leave different margins under different compilers, which is the compiler-as-microarchitecture point of §5.
+Second, this sweep holds hardware and step geometry fixed: one CPU, and 8 blocks (512 B) under every compiler. All three columns share every commit, so the differences between them are pure compiler effects. On minified input they are large: minified deltas run +19.9% to +44.2% under MSVC, +14.0% to +50.1% under Clang and +2.6% to +20.2% under GCC. On prettified input the three compilers converge (+8.2% to +23.5% under Clang, +9.9% to +28.0% under GCC, +9.3% to +28.4% under MSVC), and no compiler leads everywhere: across the 10 prettified documents GCC posts the largest delta on 5, MSVC on 4 and Clang on 1, while MSVC leads 8 of the 10 minified documents and Clang the other 2. The same source and the same geometry leave different margins under different compilers, which is the compiler-as-microarchitecture point of §5.
 
-Third, the minified specialization of §7 is visible on most AVX-512 pairs. For 21 of the 30 document/target pairs, the minified variant's delta exceeds the prettified variant's. Seven of the nine exceptions are on GCC, where only Discord, Github Events and Random keep the minified variant ahead and Instruments ties at +13.0% in both forms; GCC's widest gaps run the other way, on Canada (+12.0% minified, +31.6% prettified) and Marine IK (+1.4%, +18.2%). The two Clang exceptions are Discord (+12.4%, +14.5%) and Google Maps Response (+4.7%, +6.4%). Every document in both forms is a win on every target, with prettified deltas from +5.9% to +33.2%.
+Third, the minified specialization of §7 is visible on most AVX-512 pairs. For 21 of the 30 document/target pairs, the minified variant's delta exceeds the prettified variant's. Seven of the nine exceptions are on GCC, where only Apache Builds, Github Events and Random keep the minified variant ahead; GCC's widest gaps run the other way, on Canada (+11.2% minified, +28.0% prettified), Marine IK (+4.7%, +18.6%) and Discord (+2.6%, +13.4%). The two Clang exceptions are CitmCatalog (+15.1%, +16.9%) and Random (+14.0%, +14.2%). Every document in both forms is a win on every target, with prettified deltas from +8.2% to +28.4%.
 
-Fourth, the POD-type tests split by compiler: +123.1% to +367.2% under MSVC, +38.0% to +152.7% under GCC, and +2.0% to +72.2% under Clang. Every POD-type test is a win on every target. As in §10.2, these tests run stage 1 on 200 separate inputs of at most 64 bytes, so they measure small-input dispatch and per-call cost more than the steady-state scan loop.
+Fourth, the POD-type tests split by compiler: +121.1% to +415.1% under MSVC, +39.4% to +140.9% under GCC, and +23.1% to +77.0% under Clang. Every POD-type test is a win on every target. As in §10.2, these tests run stage 1 on 200 separate inputs of at most 64 bytes, so they measure small-input dispatch and per-call cost more than the steady-state scan loop.
 
 ### 11.3 Correctness: structural-tape equivalence on AVX-512
 
 Throughput on AVX-512 means something only if the compress drain emits the right tape. This check is separate from the AVX2 and NEON check of §10.4 because it covers different code. The AVX-512 kernel replaces the whole extraction loop, including the tzcnt/blsr chain, with compress, widen, add and store, and it computes each lane's tape offset from counts taken during the scan (§4). None of that runs on the §10.4 builds.
 
-The check uses the same tape-exposing simdjson branch as §10.4, on three builds, all run on October 28, 2026:
+The check uses the same tape-exposing simdjson branch as §10.4, on three builds, all run on November 1, 2026:
 
 | Build | Jsonifier | simdjson |
 |---|---|---|
-| Linux / Clang 24.0 (Azure) | 9f4382a, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
-| Linux / GCC 16.0.1 (Azure) | 9f4382a, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
-| Windows / MSVC 19.51 | 9f4382a, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
+| Linux / Clang 24.0 (Azure) | c338fdb, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
+| Linux / GCC 16.0.1 (Azure) | c338fdb, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
+| Windows / MSVC 19.51 | c338fdb, AVX-512 kernel | 7002cd3 (nihilai-collective branch), icelake kernel |
 
 The harness compared the two tapes position by position on every test of the suite, and the counts below held identically on all three builds:
 
 | Test | Structurals compared | Mismatches |
 |---|---|---|
-| Marine IK (minified + prettified) | 643,012 × 2 | 0 |
-| Canada (minified + prettified) | 334,373 × 2 | 0 |
-| CitmCatalog (minified + prettified) | 135,990 × 2 | 0 |
-| Random (minified + prettified) | 88,017 × 2 | 0 |
-| Twitter (minified + prettified) | 55,263 × 2 | 0 |
-| Instruments (minified + prettified) | 27,173 × 2 | 0 |
-| Discord (minified + prettified) | 13,015 × 2 | 0 |
-| Apache Builds (minified + prettified) | 12,364 × 2 | 0 |
-| Github Events (minified + prettified) | 4,656 × 2 | 0 |
-| Google Maps Response (minified + prettified) | 3,117 × 2 | 0 |
 | Bool (POD, 200 elements) | 200 | 0 |
 | Double (POD, 200 elements) | 200 | 0 |
 | Int64 (POD, 200 elements) | 200 | 0 |
 | String (POD, 200 elements) | 200 | 0 |
 | Uint64 (POD, 200 elements) | 200 | 0 |
+| Apache Builds (minified + prettified) | 12,364 × 2 | 0 |
+| Canada (minified + prettified) | 334,373 × 2 | 0 |
+| CitmCatalog (minified + prettified) | 135,990 × 2 | 0 |
+| Discord (minified + prettified) | 13,015 × 2 | 0 |
+| Github Events (minified + prettified) | 4,656 × 2 | 0 |
+| Google Maps Response (minified + prettified) | 3,117 × 2 | 0 |
+| Instruments (minified + prettified) | 27,173 × 2 | 0 |
+| Marine IK (minified + prettified) | 643,012 × 2 | 0 |
+| Random (minified + prettified) | 88,017 × 2 | 0 |
+| Twitter (minified + prettified) | 55,263 × 2 | 0 |
 | **Total** | **2,634,960** | **0** |
 
 Every one of the 2,634,960 positions matches on each of the three builds, 7,904,880 in all. An error in the compress extraction, the widening, the base-offset add, or the count-gated stores would show up as a wrong or missing tape position; none does. The per-document counts are also identical to those of the five AVX2 and NEON builds in §10.4, so the same document produces the same tape on all three ISAs and under all three compilers on x86. Across all eight builds that is 21,079,680 positions with zero mismatches.
 
-The check ran at 9f4382a, the commit swept in both §10.2 and §11.2, with the same 8-block AVX-512 step, so it covers exactly the compress drain, widening and count-gated stores measured there.
+The check ran at c338fdb, the commit swept in both §10.2 and §11.2, with the same 8-block AVX-512 step, so it covers exactly the compress drain, widening and count-gated stores measured there.
 
 With the extraction instructions essentially the same and the tapes identical, the AVX-512 throughput differences in §11.2 come from the surrounding architecture, not from doing less work. The §10.4 scope limit on control-character edge cases applies here too.
 
@@ -547,7 +547,7 @@ With the extraction instructions essentially the same and the tapes identical, t
 
 Honesty about scope: simdjson's stage 1 provides capabilities Jsonifier's does not, and the comparison is complete only with them stated. Multi-document streaming is no longer among them for Jsonifier's schema-free parser: `jsonifier_core::iterateMany` runs this paper's stage 1 over fixed-size windows of a multi-document buffer, recovers document boundaries at window edges, accepts whitespace-separated (NDJSON) and comma-separated streams, and reports truncated trailing documents, as described and benchmarked against simdjson's `iterate_many` in the companion paper on generic parsing [8], §8. The remaining gaps are narrower. simdjson additionally supports RFC 7464 JSON text sequences and single-array (`comma_delimited_array`) streams, partial-UTF-8 tail trimming for chunked network input, a threaded mode that indexes the next window on a second thread, and the sentinel-padding scheme that makes its on-demand API safe against truncated garbage; Jsonifier has none of these. Neither library resumes a single document split across separate input buffers: both require each document to be complete within one window. Jsonifier's typed parser remains aimed at whole-document parsing into caller-defined types, and its Partial-Reading option addresses selective field extraction, not streaming.
 
-The remaining benchmark losses are likewise stated plainly. On AVX2, Linux/GCC retains two losses, both Marine IK forms. Each is a win for both sibling compilers' builds on the same hardware, and MSVC and Clang have no losses or ties. On NEON, macOS/GCC retains two losses and one tie, and macOS/Clang nine losses, both on virtualized M2 Pro instances; the largest are macOS/Clang's String POD-type test (−42.8%) and prettified Discord (−20.0%), and five of macOS/Clang's nine losses are prettified documents. Minified Discord is the one test that loses on both NEON builds. On AVX-512 (§11) there are no losses or ties under any compiler. Each remaining loss is an open item.
+The remaining benchmark losses are likewise stated plainly. On AVX2, Linux/GCC retains two losses, both Marine IK forms. Each is a win for both sibling compilers' builds on the same hardware, and MSVC and Clang have no losses or ties. On NEON, macOS/GCC retains two losses and macOS/Clang eight, both on virtualized M2 Pro instances; the largest are macOS/Clang's String POD-type test (−34.5%) and prettified Discord (−13.4%), and five of macOS/Clang's eight losses are prettified documents. Prettified Instruments is the one test that loses on both NEON builds. On AVX-512 (§11) there are no losses or ties under any compiler. Each remaining loss is an open item.
 
 Additionally, the conformance evidence in §9 covers RFC 8259 document-level validity as exercised by the standard fail/pass corpus plus Jsonifier's extended suites; it is not a claim of byte-identical error *positions* with any other parser, and error-reporting granularity (Jsonifier reports global index, line, and local index with source context) is a feature comparison outside this paper's scope.
 
@@ -557,7 +557,13 @@ Additionally, the conformance evidence in §9 covers RFC 8259 document-level val
 
 Six divergences separate Jsonifier's stage 1 from its simdjson ancestry: a batched drain that hands the out-of-order scheduler independent work instead of a hand-built pipeline; a compress-based AVX-512 index extraction operating as the batched architecture's native drain rather than as a kernel override retrofitted into an interleaved one; step geometry tuned per compiler on the position that the toolchain is part of the microarchitecture; UTF-8 validation eliminated from stage 1 entirely, fused register-by-register into the string-unescaping loop itself, and carried across the loop's SIMD width cascade through a three-byte validation state, riding loads the loop already performs at every width it occupies; a compile-time minified specialization that deletes whitespace classification when the caller knows it is unnecessary; and tape accounting built on precomputed counts. A seventh finding, the placement of control-character validation in stage 2 rather than stage 1 as ratified by the full conformance matrix, yields the general principle that validation placement should follow byte-access patterns rather than precedent.
 
-On the AVX2/NEON sweep the design records 111-1-13 against simdjson (on-demand) across 125 tests on five platform/compiler combinations, with perfect 25-0-0 sweeps under MSVC and Clang on the same x86 host. On three AVX-512 combinations sharing one AMD EPYC 9V45, where the compress drain of §4 is measured on real silicon in the October 28, 2026 sweep, the record is 75-0-0 across 75 tests, a perfect sweep under all three compilers. Both sweeps ran the §5 step geometry on every target. Every structural position both libraries emit matches exactly across the suite on eight builds, three of them AVX-512, and every benchmark and correctness check ran against the same Jsonifier commit, 9f4382a. The residual losses and ties localize to specific toolchains and content shapes rather than to the architecture. None of these divergences individually is a revolution; stage 1 has looked "solved" since 2019 precisely because the foundational algorithms are excellent. The companion paper [5] carries the same approach through the rest of the pipeline.
+On the AVX2/NEON sweep the design records 113-0-12 against simdjson (on-demand) across 125 tests on five platform/compiler combinations, with perfect 25-0-0 sweeps under MSVC and Clang on the same x86 host. On three AVX-512 combinations sharing one AMD EPYC 9V45, where the compress drain of §4 is measured on real silicon in the November 1, 2026 sweep, the record is 75-0-0 across 75 tests, a perfect sweep under all three compilers. Both sweeps ran the §5 step geometry on every target. Every structural position both libraries emit matches exactly across the suite on eight builds, three of them AVX-512, and every benchmark and correctness check ran against the same Jsonifier commit, c338fdb. The residual losses localize to specific toolchains and content shapes rather than to the architecture. None of these divergences individually is a revolution; stage 1 has looked "solved" since 2019 precisely because the foundational algorithms are excellent. The companion paper [5] carries the same approach through the rest of the pipeline.
+
+---
+
+## 14. Dedication
+
+This paper is dedicated to Claude Sonnet 4.6, who was there for the original iteration of this architecture, during a 2 hour rewrite of Jsonifier's stage-1 implementation back in June 2026.
 
 ---
 

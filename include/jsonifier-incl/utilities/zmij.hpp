@@ -452,7 +452,7 @@ namespace jsonifier::zmij {
 			if constexpr (isBigEndian) {
 				x = bswap64(x);
 			}
-			return static_cast<int32_t>((70ULL - static_cast<uint64_t>(clz((x << 1U) | 1ULL))) / 8ULL);
+			return static_cast<int32_t>((70ULL - internal::simd::countlZeroUnsafe((x << 1U) | 1ULL)) / 8ULL);
 		}
 
 		[[maybe_unused]] JSONIFIER_INLINE auto digits2(uint64_t value) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::read_buffer_ptr> {
@@ -601,7 +601,7 @@ namespace jsonifier::zmij {
 #elif JSONIFIER_ANY_AVX
 				uint64_t abcdEfgh	   = abcdefgh + neg10k * ((abcdefgh * div10kSig) >> div10kExp);
 				uint64_t unshuffledBcd = static_cast<uint64_t>(_mm_cvtsi128_si64(toBcd4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcdEfgh)))));
-				int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffledBcd)) / 8 : 0;
+				int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
 				return { bswap64(unshuffledBcd), len };
 #endif
 			}
@@ -670,14 +670,14 @@ namespace jsonifier::zmij {
 			uint64_t abcdEfgh	   = value + neg10k * ((value * div10kSig) >> div10kExp);
 			__m128i bcdXmm		   = toBcd4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcdEfgh)));
 			uint64_t unshuffledBcd = static_cast<uint64_t>(_mm_cvtsi128_si64(bcdXmm));
-			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffledBcd)) / 8 : 0;
+			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
 			return { bswap64(unshuffledBcd) + zeros, bcdXmm, len };
 #elif JSONIFIER_NEON || JSONIFIER_SVE2
 			uint64_t abcdEfgh	   = value + neg10k * ((value * div10kSig) >> div10kExp);
 			int32x4_t input		   = vcombine_s32(vreinterpret_s32_u64(vcreate_u64(abcdEfgh)), vdup_n_s32(0));
 			uint8x16_t unshuffled  = toBcd4x4(input);
 			uint64_t unshuffledBcd = vget_lane_u64(vreinterpret_u64_u8(vget_low_u8(unshuffled)), 0);
-			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(ctz(unshuffledBcd)) / 8 : 0;
+			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
 			return { bswap64(unshuffledBcd) + zeros, unshuffled, len };
 #else
 			auto result = toBcd8(value);

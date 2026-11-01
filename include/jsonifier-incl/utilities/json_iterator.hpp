@@ -101,7 +101,7 @@ namespace jsonifier::internal {
 					it += 8;
 					continue;
 				}
-				const uint64_t offset	 = simd::countrZero(hits) >> 3;
+				const uint64_t offset	 = simd::countrZeroUnsafe(hits) >> 3;
 				const uint64_t preceding = offset == 0 ? uint64_t{} : (~uint64_t{} >> (64 - 8 * offset));
 				asciiAcc |= chunk & preceding;
 				if (it[offset] != '"' || (asciiAcc & highs) != 0) {

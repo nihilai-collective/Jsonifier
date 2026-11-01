@@ -721,9 +721,8 @@ namespace jsonifier::internal {
 						const uint64_t resultIndex = group * hashData<value_type>.bucketSize;
 						const uint64_t matches{ simd::opCmpEq(simd::gatherValue<simd_type>(static_cast<uint8_t>(hash)),
 							simd::gatherValues<simd_type>(ctrlBytesPtr + resultIndex)) };
-						const uint64_t tz = simd::postCmpTzcnt(matches);
 						if (matches != 0) [[likely]] {
-							return hashData<value_type>.indices[resultIndex + tz];
+							return hashData<value_type>.indices[resultIndex + simd::postCmpTzcntUnsafe(matches)];
 						}
 						return hashData<value_type>.storageSize;
 					}

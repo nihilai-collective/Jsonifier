@@ -10,229 +10,223 @@
 
 namespace jsonifier::internal::simd {
 
-	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if (JSONIFIER_LZCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 16ULL : static_cast<uint64_t>(__builtin_clz(value) - 16);
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return value == 0 ? 16ULL : static_cast<uint64_t>(__lzcnt16(static_cast<uint16_t>(value)));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountLeadingZeros16(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
+	template<uint16_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZero(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(__lzcnt16(static_cast<uint16_t>(value)));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return value == 0 ? 16ULL : static_cast<uint64_t>(__builtin_clz(value) - 16);
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros(value) - 16);
 #else
-		return static_cast<uint64_t>(std::countl_zero(value));
+			return static_cast<uint64_t>(std::countl_zero(value));
 #endif
+		}
 	}
 
-	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if (JSONIFIER_LZCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 32ULL : static_cast<uint64_t>(__builtin_clz(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__lzcnt(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountLeadingZeros(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
+	template<uint32_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZero(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_lzcnt_u32(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return value == 0 ? 32ULL : static_cast<uint64_t>(__builtin_clz(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros(value));
 #else
-		return static_cast<uint64_t>(std::countl_zero(value));
+			return static_cast<uint64_t>(std::countl_zero(value));
 #endif
+		}
 	}
 
-	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countlZero(value_type value) noexcept {
-#if (JSONIFIER_LZCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 64ULL : static_cast<uint64_t>(__builtin_clzll(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__lzcnt64(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountLeadingZeros64(value));
-	#else
-		return static_cast<uint64_t>(std::countl_zero(value));
-	#endif
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZero(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_lzcnt_u64(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return value == 0 ? 64ULL : static_cast<uint64_t>(__builtin_clzll(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros64(value));
 #else
-		return static_cast<uint64_t>(std::countl_zero(value));
+			return static_cast<uint64_t>(std::countl_zero(value));
 #endif
+		}
 	}
 
-	template<uint16_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
-		return static_cast<uint64_t>(value & (value - 1));
+	template<uint16_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(__lzcnt16(static_cast<uint16_t>(value)));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_clz(value) - 16);
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros(value) - 16);
+#else
+			return static_cast<uint64_t>(std::countl_zero(value));
+#endif
+		}
 	}
 
-	template<uint32_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
-#if JSONIFIER_BMI
-		return static_cast<uint64_t>(_blsr_u32(value));
+	template<uint32_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_lzcnt_u32(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_clz(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros(value));
 #else
-		return static_cast<uint64_t>(value & (value - 1));
+			return static_cast<uint64_t>(std::countl_zero(value));
 #endif
+		}
 	}
 
-	template<uint64_types value_type> JSONIFIER_INLINE uint64_t blsr(value_type value) noexcept {
-#if JSONIFIER_BMI
-		return static_cast<uint64_t>(_blsr_u64(value));
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t countlZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countl_zero(value));
+		} else {
+#if JSONIFIER_LZCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_lzcnt_u64(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_clzll(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountLeadingZeros64(value));
 #else
-		return static_cast<uint64_t>(value & (value - 1));
+			return static_cast<uint64_t>(std::countl_zero(value));
 #endif
+		}
+	}
+
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t blsr(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(value & (value - 1));
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_blsr_u64(value));
+#else
+			return static_cast<uint64_t>(value & (value - 1));
+#endif
+		}
 	}
 
 	template<uint16_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZero(value_type value) noexcept {
 		if consteval {
 			return static_cast<uint64_t>(std::countr_zero(value));
-		}
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 16ULL : static_cast<uint64_t>(__builtin_ctz(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return value == 0 ? 16ULL : static_cast<uint64_t>(_tzcnt_u32(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros16(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u32(static_cast<uint32_t>(value) | 0x10000U));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_ctz(static_cast<uint32_t>(value) | 0x10000U));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros(static_cast<uint32_t>(value) | 0x10000U));
 #else
-		return static_cast<uint64_t>(std::countr_zero(value));
+			return static_cast<uint64_t>(std::countr_zero(value));
 #endif
-	}
-
-	template<uint8_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZero(value_type value) noexcept {
-		return value == 0 ? 8ULL : countrZero(static_cast<uint16_t>(value));
+		}
 	}
 
 	template<uint32_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZero(value_type value) noexcept {
 		if consteval {
 			return static_cast<uint64_t>(std::countr_zero(value));
-		}
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 32ULL : static_cast<uint64_t>(__builtin_ctz(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(_tzcnt_u32(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u32(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return value == 0 ? 32ULL : static_cast<uint64_t>(__builtin_ctz(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros(value));
 #else
-		return static_cast<uint64_t>(std::countr_zero(value));
+			return static_cast<uint64_t>(std::countr_zero(value));
 #endif
+		}
 	}
 
 	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZero(value_type value) noexcept {
 		if consteval {
 			return static_cast<uint64_t>(std::countr_zero(value));
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u64(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return value == 0 ? 64ULL : static_cast<uint64_t>(__builtin_ctzll(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros64(value));
+#else
+			return static_cast<uint64_t>(std::countr_zero(value));
+#endif
 		}
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return value == 0 ? 64ULL : static_cast<uint64_t>(__builtin_ctzll(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(_tzcnt_u64(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros64(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-#endif
 	}
 
-	template<uint16_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_ctz(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(_tzcnt_u32(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
+	template<uint16_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countr_zero(value));
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u32(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_ctz(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros(value));
 #else
-		return static_cast<uint64_t>(std::countr_zero(value));
+			return static_cast<uint64_t>(std::countr_zero(value));
 #endif
+		}
 	}
 
-	template<uint32_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_ctz(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(_tzcnt_u32(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
+	template<uint32_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countr_zero(value));
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u32(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_ctz(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros(value));
 #else
-		return static_cast<uint64_t>(std::countr_zero(value));
+			return static_cast<uint64_t>(std::countr_zero(value));
 #endif
+		}
 	}
 
-	template<uint64_types value_type> JSONIFIER_INLINE uint64_t countrZeroUnsafe(value_type value) noexcept {
-#if (JSONIFIER_BMI && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_ctzll(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(_tzcnt_u64(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountTrailingZeros64(value));
-	#else
-		return static_cast<uint64_t>(std::countr_zero(value));
-	#endif
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t countrZeroUnsafe(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::countr_zero(value));
+		} else {
+#if JSONIFIER_BMI && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_tzcnt_u64(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_ctzll(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountTrailingZeros64(value));
 #else
-		return static_cast<uint64_t>(std::countr_zero(value));
+			return static_cast<uint64_t>(std::countr_zero(value));
 #endif
+		}
 	}
 
-	template<uint16_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if (JSONIFIER_POPCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_popcount(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__popcnt16(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountOneBits(value));
-	#else
-		return static_cast<uint64_t>(std::popcount(value));
-	#endif
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t popCount(value_type value) noexcept {
+		if consteval {
+			return static_cast<uint64_t>(std::popcount(value));
+		} else {
+#if JSONIFIER_POPCNT && JSONIFIER_ARCH_X64
+			return static_cast<uint64_t>(_mm_popcnt_u64(value));
+#elif JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
+			return static_cast<uint64_t>(__builtin_popcountll(value));
+#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
+			return static_cast<uint64_t>(_CountOneBits64(value));
 #else
-		return static_cast<uint64_t>(std::popcount(value));
+			return static_cast<uint64_t>(std::popcount(value));
 #endif
+		}
 	}
-
-	template<uint32_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if (JSONIFIER_POPCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_popcount(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__popcnt(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountOneBits(value));
-	#else
-		return static_cast<uint64_t>(std::popcount(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::popcount(value));
-#endif
-	}
-
-	template<uint64_types value_type> JSONIFIER_INLINE uint64_t popCount(value_type value) noexcept {
-#if (JSONIFIER_POPCNT && JSONIFIER_COMPILER_MSVC) || JSONIFIER_ARCH_ARM64
-	#if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-		return static_cast<uint64_t>(__builtin_popcountll(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_X64
-		return static_cast<uint64_t>(__popcnt64(value));
-	#elif JSONIFIER_COMPILER_MSVC && JSONIFIER_ARCH_ARM64
-		return static_cast<uint64_t>(_CountOneBits64(value));
-	#else
-		return static_cast<uint64_t>(std::popcount(value));
-	#endif
-#else
-		return static_cast<uint64_t>(std::popcount(value));
-#endif
-	}
-
 }

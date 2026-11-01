@@ -70,22 +70,39 @@ namespace jsonifier::internal {
 
 	inline constexpr const bool* __restrict numberTable{ numberTableRaw.data() };
 
-	struct alignas(4) char_escape_entry {
-		array<char, 2> values;
-		uint8_t size;
+	struct alignas(8) char_escape_entry {
+		char values[8]{};
+		uint64_t size{};
 	};
 
 	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
+		constexpr char hexDigits[]{ "0123456789ABCDEF" };
 		array<char_escape_entry, 256ULL> returnValue{};
 		for (uint64_t x = 0; x < 256ULL; ++x) {
-			returnValue[x].values[0] = static_cast<char>(x);
-			returnValue[x].values[1] = '\0';
-			returnValue[x].size		 = 1;
+			if (x < 0x20) {
+				returnValue[x].values[0] = '\\';
+				returnValue[x].values[1] = 'u';
+				returnValue[x].values[2] = '0';
+				returnValue[x].values[3] = '0';
+				returnValue[x].values[4] = hexDigits[(x >> 4) & 0xF];
+				returnValue[x].values[5] = hexDigits[x & 0xF];
+				returnValue[x].size		 = 6;
+			} else if (x < 0x80) {
+				returnValue[x].values[0] = static_cast<char>(x);
+				returnValue[x].size		 = 1;
+			} else {
+				returnValue[x].values[0] = static_cast<char>(0xEF);
+				returnValue[x].values[1] = static_cast<char>(0xBF);
+				returnValue[x].values[2] = static_cast<char>(0xBD);
+				returnValue[x].size		 = 3;
+			}
 		}
 		auto setEscape = [&](char value, char escaped) {
-			returnValue[static_cast<uint8_t>(value)].values[0] = '\\';
-			returnValue[static_cast<uint8_t>(value)].values[1] = escaped;
-			returnValue[static_cast<uint8_t>(value)].size	   = 2;
+			auto& entry		= returnValue[static_cast<uint8_t>(value)];
+			entry			= char_escape_entry{};
+			entry.values[0] = '\\';
+			entry.values[1] = escaped;
+			entry.size		= 2;
 		};
 		setEscape('\b', 'b');
 		setEscape('\t', 't');
@@ -99,7 +116,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto charEscapeEntriesRaw{ genCharEscapeEntries() };
 
-	inline constexpr const char_escape_entry* __restrict charEscapeEntries{ charEscapeEntriesRaw.data() };
+	inline constexpr const char_escape_entry* charEscapeEntries{ charEscapeEntriesRaw.data() };
 
 	template<typename value_type> JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>& t JSONIFIER_LIFETIME_BOUND) noexcept {
 		return static_cast<value_type&&>(t);
@@ -303,6 +320,12 @@ namespace jsonifier::internal {
 
 	template<typename value_type> inline constexpr uint64_t digit_size_v = digit_sizes<value_type>::value;
 
+	template<char_types value_type> struct char_sizes {
+		static constexpr uint64_t value{ 16 };
+	};
+
+	template<typename value_type> inline constexpr uint64_t char_size_v = char_sizes<value_type>::value;
+
 #if JSONIFIER_PLATFORM_MAC
 
 	template<uint64_t chunkBytes> JSONIFIER_INLINE void copyOverlappingChunks(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byteCount) {
@@ -441,15 +464,15 @@ namespace jsonifier::internal::simd {
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }
