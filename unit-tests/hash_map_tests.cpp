@@ -7,6 +7,7 @@
 #include <jsonifier/hash_map.hpp>
 
 #include <cstdio>
+#include <cstring>
 #include <initializer_list>
 #include <string>
 
@@ -69,8 +70,97 @@ template<uint64_t minLength, uint64_t maxLength> struct comparison_check {
 	}
 };
 
+inline constexpr char hashText[]{ "the quick brown fox jumps over the lazy dog while the slow green turtle naps under an old oak tree beside a very quiet little stream" };
+
+template<uint64_t... lengths> struct hash_agreement_check {
+	static constexpr uint64_t seed{ 0x0123456789ABCDEFull };
+
+	template<uint64_t length> static bool check() {
+		static constexpr uint64_t expected{ jsonifier::internal::key_hash<0, jsonifier::internal::npos64>::impl(seed, hashText, length) };
+		const std::string copy(hashText, length);
+		const uint64_t wide{ jsonifier::internal::key_hash<0, jsonifier::internal::npos64>::impl(seed, copy.data(), copy.size()) };
+		const uint64_t narrow{ jsonifier::internal::key_hash<length, length>::impl(seed, copy.data(), copy.size()) };
+		if (wide != expected || narrow != expected) {
+			std::printf("FAIL [hash]: compile-time and runtime hashes differ at length %llu\n", static_cast<unsigned long long>(length));
+			return false;
+		}
+		return true;
+	}
+
+	static bool impl() {
+		const bool passed = (check<lengths>() && ...);
+		std::printf("%s hash agreement\n", passed ? "OK  " : "FAIL");
+		return passed;
+	}
+};
+
+#if JSONIFIER_MASKED_COMPARE
+alignas(4096) inline char pageBuffer[8192]{};
+
+template<uint64_t width> struct masked_compare_check {
+	static bool compare(const char* data, uint64_t length, const char* stored) {
+		return jsonifier::internal::masked_compare<width>::impl(data, length, stored);
+	}
+
+	static bool impl() {
+		bool passed{ true };
+		for (uint64_t length = 1; length <= width; ++length) {
+			alignas(64) char stored[64]{};
+			for (uint64_t x = 0; x < length; ++x) {
+				stored[x] = static_cast<char>('a' + x % 26);
+			}
+			const uint64_t offsets[2]{ 0, 4096 - length };
+			for (const uint64_t offset: offsets) {
+				char* data{ pageBuffer + offset };
+				std::memcpy(data, stored, length);
+				if (!compare(data, length, stored)) {
+					std::printf("FAIL [masked]: width %llu, length %llu at offset %llu did not match\n", static_cast<unsigned long long>(width), static_cast<unsigned long long>(length),
+						static_cast<unsigned long long>(offset));
+					passed = false;
+				}
+				for (uint64_t x = 0; x < length; ++x) {
+					const char original{ data[x] };
+					data[x] = static_cast<char>(original ^ 0x01);
+					const bool lowBitMatched{ compare(data, length, stored) };
+					data[x] = static_cast<char>(original ^ 0x80);
+					const bool highBitMatched{ compare(data, length, stored) };
+					data[x] = original;
+					if (lowBitMatched || highBitMatched) {
+						std::printf("FAIL [masked]: width %llu, length %llu missed a difference at byte %llu\n", static_cast<unsigned long long>(width),
+							static_cast<unsigned long long>(length), static_cast<unsigned long long>(x));
+						passed = false;
+					}
+				}
+				if (length < width && compare(data, length - 1, stored)) {
+					std::printf("FAIL [masked]: width %llu, a prefix of length %llu matched\n", static_cast<unsigned long long>(width), static_cast<unsigned long long>(length - 1));
+					passed = false;
+				}
+			}
+		}
+		std::printf("%s masked compare width %llu\n", passed ? "OK  " : "FAIL", static_cast<unsigned long long>(width));
+		return passed;
+	}
+};
+#endif
+
 int main() {
 	bool passed{ true };
+#if JSONIFIER_MASKED_COMPARE
+	passed &= masked_compare_check<16>::impl();
+	passed &= masked_compare_check<32>::impl();
+	passed &= masked_compare_check<64>::impl();
+#endif
+	passed &= hash_agreement_check<0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 24, 31, 32, 33, 48, 49, 64, 65, 100>::impl();
+	passed &= key_set_check<jsonifier::hash_map<"a_long_shared_prefix_for_key_00", "a_long_shared_prefix_for_key_01", "a_long_shared_prefix_for_key_02", "a_long_shared_prefix_for_key_03",
+		"a_long_shared_prefix_for_key_10", "a_long_shared_prefix_for_key_11", "a_long_shared_prefix_for_key_12", "a_long_shared_prefix_for_key_13">>::impl("long shared prefix",
+		{ "a_long_shared_prefix_for_key_00", "a_long_shared_prefix_for_key_01", "a_long_shared_prefix_for_key_02", "a_long_shared_prefix_for_key_03", "a_long_shared_prefix_for_key_10",
+			"a_long_shared_prefix_for_key_11", "a_long_shared_prefix_for_key_12", "a_long_shared_prefix_for_key_13" },
+		{ "", "a", "a_long_shared_prefix_for_key_0", "a_long_shared_prefix_for_key_04", "a_long_shared_prefix_for_key_000", "b_long_shared_prefix_for_key_00" });
+	passed &= key_set_check<jsonifier::hash_map<"BA", "BAC", "BK", "BKNG", "AMD", "AMGN", "AMT", "AMZN", "C", "CAT", "CL", "COF", "COP", "COST">>::impl("mixed short lengths",
+		{ "BA", "BAC", "BK", "BKNG", "AMD", "AMGN", "AMT", "AMZN", "C", "CAT", "CL", "COF", "COP", "COST" }, { "", "B", "A", "BAD", "AMGM", "AMGNX", "COPS", "CLX", "Z" });
+	passed &= key_set_check<jsonifier::hash_map<"a_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_one", "b_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_two">>::impl(
+		"beyond flat table", { "a_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_one", "b_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_two" },
+		{ "", "a", "a_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_onf", "c_key_that_is_longer_than_the_sixty_four_byte_flat_table_limit_number_two" });
 	passed &= comparison_check<1, 1>::impl();
 	passed &= comparison_check<5, 5>::impl();
 	passed &= comparison_check<0, 5>::impl();

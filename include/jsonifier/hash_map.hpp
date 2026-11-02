@@ -51,6 +51,24 @@
 	#include <arm_neon.h>
 #endif
 
+#if JSONIFIER_SSE2 || JSONIFIER_NEON
+	#define JSONIFIER_MASKED_COMPARE 1
+#else
+	#define JSONIFIER_MASKED_COMPARE 0
+#endif
+
+#if defined(_MSC_VER) && !defined(__clang__)
+	#define JSONIFIER_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
+#else
+	#define JSONIFIER_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+	#define JSONIFIER_OBJECT_SIZE(pointer) __builtin_object_size(pointer, 0)
+#else
+	#define JSONIFIER_OBJECT_SIZE(pointer) (~static_cast<std::size_t>(0))
+#endif
+
 namespace jsonifier {
 
 	template<std::size_t sizeNew> struct string_literal {
@@ -86,9 +104,9 @@ namespace jsonifier::internal {
 #if JSONIFIER_AVX512
 			return _mm512_cmpeq_epi8_mask(_mm512_set1_epi8(static_cast<char>(byte)), _mm512_load_si512(bucket));
 #elif JSONIFIER_AVX2
-			return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpeq_epi8(_mm256_set1_epi8(static_cast<char>(byte)), _mm256_load_si256(reinterpret_cast<const __m256i*>(bucket)))));
+			return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpeq_epi8(_mm256_set1_epi8(static_cast<char>(byte)), _mm256_load_si256(std::bit_cast<const __m256i*>(bucket)))));
 #elif JSONIFIER_SSE2
-			return static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpeq_epi8(_mm_set1_epi8(static_cast<char>(byte)), _mm_load_si128(reinterpret_cast<const __m128i*>(bucket)))));
+			return static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpeq_epi8(_mm_set1_epi8(static_cast<char>(byte)), _mm_load_si128(std::bit_cast<const __m128i*>(bucket)))));
 #elif JSONIFIER_NEON
 			const uint8x16_t matches = vceqq_u8(vdupq_n_u8(byte), vld1q_u8(bucket));
 			return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(matches), 4)), 0);
@@ -132,12 +150,12 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool upTo32(const char* lhs, const char* rhs, uint64_t length) noexcept {
 #if JSONIFIER_SSE2
-			const __m128i head = _mm_cmpeq_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(lhs)), _mm_loadu_si128(reinterpret_cast<const __m128i*>(rhs)));
-			const __m128i tail = _mm_cmpeq_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(lhs + length - 16)), _mm_loadu_si128(reinterpret_cast<const __m128i*>(rhs + length - 16)));
+			const __m128i head = _mm_cmpeq_epi8(_mm_loadu_si128(std::bit_cast<const __m128i*>(lhs)), _mm_loadu_si128(std::bit_cast<const __m128i*>(rhs)));
+			const __m128i tail = _mm_cmpeq_epi8(_mm_loadu_si128(std::bit_cast<const __m128i*>(lhs + length - 16)), _mm_loadu_si128(std::bit_cast<const __m128i*>(rhs + length - 16)));
 			return _mm_movemask_epi8(_mm_and_si128(head, tail)) == 0xFFFF;
 #elif JSONIFIER_NEON
-			const uint8x16_t head = vceqq_u8(vld1q_u8(reinterpret_cast<const uint8_t*>(lhs)), vld1q_u8(reinterpret_cast<const uint8_t*>(rhs)));
-			const uint8x16_t tail = vceqq_u8(vld1q_u8(reinterpret_cast<const uint8_t*>(lhs + length - 16)), vld1q_u8(reinterpret_cast<const uint8_t*>(rhs + length - 16)));
+			const uint8x16_t head = vceqq_u8(vld1q_u8(std::bit_cast<const uint8_t*>(lhs)), vld1q_u8(std::bit_cast<const uint8_t*>(rhs)));
+			const uint8x16_t tail = vceqq_u8(vld1q_u8(std::bit_cast<const uint8_t*>(lhs + length - 16)), vld1q_u8(std::bit_cast<const uint8_t*>(rhs + length - 16)));
 			return vminvq_u8(vandq_u8(head, tail)) == 0xFFu;
 #else
 			return ((load<uint64_t>(lhs) ^ load<uint64_t>(rhs)) | (load<uint64_t>(lhs + 8) ^ load<uint64_t>(rhs + 8)) |
@@ -147,8 +165,8 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool upTo64(const char* lhs, const char* rhs, uint64_t length) noexcept {
 #if JSONIFIER_AVX2
-			const __m256i head = _mm256_cmpeq_epi8(_mm256_loadu_si256(reinterpret_cast<const __m256i*>(lhs)), _mm256_loadu_si256(reinterpret_cast<const __m256i*>(rhs)));
-			const __m256i tail = _mm256_cmpeq_epi8(_mm256_loadu_si256(reinterpret_cast<const __m256i*>(lhs + length - 32)), _mm256_loadu_si256(reinterpret_cast<const __m256i*>(rhs + length - 32)));
+			const __m256i head = _mm256_cmpeq_epi8(_mm256_loadu_si256(std::bit_cast<const __m256i*>(lhs)), _mm256_loadu_si256(std::bit_cast<const __m256i*>(rhs)));
+			const __m256i tail = _mm256_cmpeq_epi8(_mm256_loadu_si256(std::bit_cast<const __m256i*>(lhs + length - 32)), _mm256_loadu_si256(std::bit_cast<const __m256i*>(rhs + length - 32)));
 			return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_and_si256(head, tail))) == 0xFFFFFFFFu;
 #else
 			return upTo32(lhs, rhs, 32) && upTo32(lhs + length - 32, rhs + length - 32, 32);
@@ -230,34 +248,88 @@ namespace jsonifier::internal {
 		8724494295438506783ull, 9277533619161797917ull, 13495127262014153477ull, 2883303557104387784ull, 3039599040070277986ull, 4196273005435491662ull, 5417879022829474871ull,
 		6476778602757520149ull, 7959620869796075525ull, 8518936512742009562ull, 9635246566869230345ull } };
 
-	template<typename value_type> consteval value_type readBitsCt(const char* ptr) {
-		std::array<char, sizeof(value_type)> values{};
-		std::copy_n(ptr, sizeof(value_type), values.begin());
-		return std::bit_cast<value_type>(values);
-	}
+	inline constexpr char hashZeroes[4]{};
+
+	struct key_hash_mix {
+		static constexpr uint64_t primary{ 0x9E3779B185EBCA87ull };
+		static constexpr uint64_t secondary{ 0xC2B2AE3D27D4EB4Full };
+
+		template<typename value_type> JSONIFIER_INLINE static constexpr value_type load(const char* ptr) noexcept {
+			if (std::is_constant_evaluated()) {
+				std::array<char, sizeof(value_type)> values{};
+				std::copy_n(ptr, sizeof(value_type), values.begin());
+				return std::bit_cast<value_type>(values);
+			}
+			value_type value;
+			std::memcpy(&value, ptr, sizeof(value_type));
+			return value;
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t finish(uint64_t value) noexcept {
+			const uint64_t folded{ (value ^ (value >> 32)) * primary };
+			return folded ^ (folded >> 32);
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t sampled(uint64_t seed, const char* value, uint64_t length) noexcept {
+			const uint64_t bytes{ static_cast<uint64_t>(static_cast<uint8_t>(value[0])) | (static_cast<uint64_t>(static_cast<uint8_t>(value[length >> 1])) << 8) |
+				(static_cast<uint64_t>(static_cast<uint8_t>(value[length - 1])) << 16) | (length << 24) };
+			const uint64_t mixed{ (seed ^ bytes) * primary };
+			return mixed ^ (mixed >> 32);
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t upTo8(uint64_t seed, const char* value, uint64_t length) noexcept {
+			const uint64_t hasWords{ length >= 4 };
+			const char* const sources[2]{ hashZeroes, value };
+			const uint64_t tailOffset{ (length - 4) & (0ull - hasWords) };
+			const uint64_t words{ static_cast<uint64_t>(load<uint32_t>(sources[hasWords])) | (static_cast<uint64_t>(load<uint32_t>(sources[hasWords] + tailOffset)) << 32) };
+			const uint64_t bytes{ static_cast<uint64_t>(static_cast<uint8_t>(value[0])) | (static_cast<uint64_t>(static_cast<uint8_t>(value[length >> 1])) << 8) |
+				(static_cast<uint64_t>(static_cast<uint8_t>(value[length - 1])) << 16) | (length << 24) };
+			return finish(seed ^ (words * primary) ^ (bytes * secondary));
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t upTo16(uint64_t seed, const char* value, uint64_t length) noexcept {
+			return finish(seed ^ (load<uint64_t>(value) * primary) ^ ((load<uint64_t>(value + length - 8) ^ length) * secondary));
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t longer(uint64_t seed, const char* value, uint64_t length) noexcept {
+			const char* tail{ value + length - 16 };
+			uint64_t seed64{ seed ^ (length * primary) };
+			while (length > 16) {
+				seed64 = std::rotl(seed64 ^ (load<uint64_t>(value) * primary) ^ (load<uint64_t>(value + 8) * secondary), 23);
+				value += 16;
+				length -= 16;
+			}
+			return finish(seed64 ^ (load<uint64_t>(tail) * primary) ^ (load<uint64_t>(tail + 8) * secondary));
+		}
+	};
+
+	template<uint64_t minLength, uint64_t maxLength> struct key_hash {
+		JSONIFIER_INLINE static constexpr uint64_t impl(uint64_t seed, const char* value, uint64_t length) noexcept {
+			if constexpr (minLength == maxLength) {
+				length = minLength;
+			}
+			if constexpr (maxLength > 16) {
+				if (minLength > 16 || length > 16) {
+					return key_hash_mix::longer(seed, value, length);
+				}
+			}
+			if constexpr (maxLength > 8) {
+				if (minLength > 8 || length > 8) {
+					return key_hash_mix::upTo16(seed, value, length);
+				}
+			}
+			if constexpr (minLength == 0) {
+				if (length == 0) {
+					return key_hash_mix::finish(seed);
+				}
+			}
+			return key_hash_mix::upTo8(seed, value, length);
+		}
+	};
 
 	struct ct_key_hasher {
 		consteval uint64_t hashKeyCt(const char* value, uint64_t length) const {
-			uint64_t seed64{ seed };
-			while (length >= 8) {
-				seed64 ^= readBitsCt<uint64_t>(value) * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
-			}
-			if (length >= 4) {
-				seed64 ^= readBitsCt<uint32_t>(value) * 0x9E3779B185EBCA87ull;
-				value += 4;
-				length -= 4;
-			}
-			if (length >= 2) {
-				seed64 ^= readBitsCt<uint16_t>(value) * 0x9E3779B185EBCA87ull;
-				value += 2;
-				length -= 2;
-			}
-			if (length > 0) {
-				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
-			}
-			return seed64 ^ (seed64 >> 32);
+			return key_hash<0, npos64>::impl(seed, value, length);
 		}
 
 		constexpr void updateSeed() noexcept {
@@ -271,37 +343,6 @@ namespace jsonifier::internal {
 
 		uint64_t index{};
 		uint64_t seed{};
-	};
-
-	template<uint64_t seedNew> struct rt_key_hasher {
-		JSONIFIER_INLINE static uint64_t impl(const char* value, uint64_t length) noexcept {
-			uint64_t seed64{ seedNew };
-			while (length >= 8) {
-				uint64_t chunk64;
-				std::memcpy(&chunk64, value, 8);
-				seed64 ^= chunk64 * 0x9E3779B185EBCA87ull;
-				value += 8;
-				length -= 8;
-			}
-			if (length >= 4) {
-				uint32_t chunk32;
-				std::memcpy(&chunk32, value, 4);
-				seed64 ^= chunk32 * 0x9E3779B185EBCA87ull;
-				value += 4;
-				length -= 4;
-			}
-			if (length >= 2) {
-				uint16_t chunk16;
-				std::memcpy(&chunk16, value, 2);
-				seed64 ^= chunk16 * 0x9E3779B185EBCA87ull;
-				value += 2;
-				length -= 2;
-			}
-			if (length > 0) {
-				seed64 ^= static_cast<uint64_t>(static_cast<uint8_t>(*value)) * 0x9E3779B185EBCA87ull;
-			}
-			return seed64 ^ (seed64 >> 32);
-		}
 	};
 
 	template<string_literal... keys> struct key_list {
@@ -462,6 +503,7 @@ namespace jsonifier::internal {
 		uint64_t uniqueIndex{};
 		hash_map_types type{};
 		char firstChar{};
+		bool sampled{};
 	};
 
 	struct empty_data {
@@ -531,7 +573,7 @@ namespace jsonifier::internal {
 		static constexpr uint64_t numGroups{ storageSizeNew / simdBytesPerRegister };
 
 		constexpr simd_full_length_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: controlBytes{ newData.controlBytes }, indices{ newData.indices }, uniqueIndex{ newData.uniqueIndex }, seed{ newData.hasher.seed }, type{ newData.type } {
+			: controlBytes{ newData.controlBytes }, indices{ newData.indices }, uniqueIndex{ newData.uniqueIndex }, seed{ newData.hasher.seed }, type{ newData.type }, sampled{ newData.sampled } {
 		}
 
 		alignas(simdBytesPerRegister) std::array<uint8_t, storageSizeNew + 1ULL> controlBytes{};
@@ -539,6 +581,7 @@ namespace jsonifier::internal {
 		uint64_t uniqueIndex{};
 		uint64_t seed{};
 		hash_map_types type{};
+		bool sampled{};
 	};
 
 	struct string_lengths : public tuple_references {
@@ -668,35 +711,49 @@ namespace jsonifier::internal {
 	template<typename value_type> inline constexpr auto keyStatsVal = keyStatsImpl(tupleReferences<value_type>);
 
 	template<typename value_type, uint64_t storageSize>
-	consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
+	consteval bool placeSimdKeys(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
 		constexpr uint64_t numGroups{ hash_map_construction_data<storageSize>::numGroups };
+		returnValues.bucketSizes.fill(0);
+		returnValues.controlBytes.fill(npos8);
+		returnValues.indices.fill(indexSentinel);
+		returnValues.hasher.updateSeed();
+		for (uint64_t y = 0; y < pairsNew.count; ++y) {
+			const auto& key			 = pairsNew.rootPtr[y].key;
+			const auto keyLength	 = returnValues.uniqueIndex > key.size() ? key.size() : returnValues.uniqueIndex;
+			const auto hash			 = returnValues.sampled ? key_hash_mix::sampled(returnValues.hasher.seed, key.data(), key.size()) : returnValues.hasher.hashKeyCt(key.data(), keyLength);
+			const auto groupPos		 = (hash >> 8) % numGroups;
+			const auto ctrlByte		 = static_cast<uint8_t>(hash);
+			const auto bucketStart	 = groupPos * simdBytesPerRegister;
+			const auto bucketSizeNew = returnValues.bucketSizes[groupPos]++;
+			const auto slot			 = bucketStart + bucketSizeNew;
+			if (bucketSizeNew >= simdBytesPerRegister || returnValues.indices[slot] != indexSentinel ||
+				contains(returnValues.controlBytes.data() + bucketStart, ctrlByte, simdBytesPerRegister)) {
+				return false;
+			}
+			returnValues.controlBytes[slot] = ctrlByte;
+			returnValues.indices[slot]		= pairsNew.rootPtr[y].oldIndex;
+		}
+		return true;
+	}
+
+	template<typename value_type, uint64_t storageSize>
+	consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
+		if constexpr (keyStatsVal<value_type>.minLength > 0) {
+			returnValues.sampled = true;
+			for (uint64_t x = 0; x < 64; ++x) {
+				if (placeSimdKeys<value_type>(returnValues, pairsNew)) {
+					returnValues.type = hash_map_types::simd_full_length;
+					return;
+				}
+			}
+			returnValues.sampled = false;
+		}
 		bool collided{ true };
 		for (uint64_t w = keyStatsVal<value_type>.minLength; w <= keyStatsVal<value_type>.maxLength; ++w) {
 			returnValues.uniqueIndex = w;
 			for (uint64_t x = 0; x < 16; ++x) {
-				returnValues.bucketSizes.fill(0);
-				returnValues.controlBytes.fill(npos8);
-				returnValues.indices.fill(indexSentinel);
-				returnValues.hasher.updateSeed();
-				collided = false;
-				for (uint64_t y = 0; y < pairsNew.count; ++y) {
-					const auto& key			 = pairsNew.rootPtr[y].key;
-					const auto keyLength	 = returnValues.uniqueIndex > key.size() ? key.size() : returnValues.uniqueIndex;
-					const auto hash			 = returnValues.hasher.hashKeyCt(key.data(), keyLength);
-					const auto groupPos		 = (hash >> 8) % numGroups;
-					const auto ctrlByte		 = static_cast<uint8_t>(hash);
-					const auto bucketStart	 = groupPos * simdBytesPerRegister;
-					const auto bucketSizeNew = returnValues.bucketSizes[groupPos]++;
-					const auto slot			 = bucketStart + bucketSizeNew;
-					if (bucketSizeNew >= simdBytesPerRegister || returnValues.indices[slot] != indexSentinel ||
-						contains(returnValues.controlBytes.data() + bucketStart, ctrlByte, simdBytesPerRegister)) {
-						collided = true;
-						break;
-					}
-					returnValues.controlBytes[slot] = ctrlByte;
-					returnValues.indices[slot]		= pairsNew.rootPtr[y].oldIndex;
-				}
+				collided = !placeSimdKeys<value_type>(returnValues, pairsNew);
 				if (!collided) {
 					break;
 				}
@@ -924,6 +981,220 @@ namespace jsonifier::internal {
 	template<typename value_type> inline constexpr auto lengthMappings{ generateMappingsForLengths<keyStatsVal<value_type>.maxLength>(tupleReferencesByLength<value_type>,
 		hashData<value_type>.uniqueIndices) };
 
+	template<typename value_type> consteval std::string_view strategyNameOf() {
+		constexpr hash_map_types type{ hashData<value_type>.type };
+		if constexpr (type == hash_map_types::simd_full_length) {
+			return hashData<value_type>.sampled ? "simd_sampled_hash" : "simd_full_hash";
+		} else if constexpr (type == hash_map_types::empty) {
+			return "empty";
+		} else if constexpr (type == hash_map_types::single_element) {
+			return "single_element";
+		} else if constexpr (type == hash_map_types::double_element) {
+			return "double_element";
+		} else if constexpr (type == hash_map_types::triple_element) {
+			return "triple_element";
+		} else if constexpr (type == hash_map_types::single_byte) {
+			return "single_byte";
+		} else if constexpr (type == hash_map_types::first_byte_and_unique_index) {
+			return "first_byte_and_unique_index";
+		} else if constexpr (type == hash_map_types::unique_byte_and_length) {
+			return "unique_byte_and_length";
+		} else {
+			return "unique_per_length";
+		}
+	}
+
+	consteval uint64_t maskedCompareWidth(uint64_t maxLength) {
+		return maxLength <= 16 ? 16 : (maxLength <= 32 ? 32 : 64);
+	}
+
+	consteval std::array<uint8_t, 128> buildMaskWindow() {
+		std::array<uint8_t, 128> window{};
+		for (uint64_t x = 0; x < 64; ++x) {
+			window[x] = 0xFFu;
+		}
+		return window;
+	}
+
+	alignas(64) inline constexpr std::array<uint8_t, 128> maskWindow{ buildMaskWindow() };
+
+#if JSONIFIER_MASKED_COMPARE
+	template<uint64_t bytes> struct masked_chunk;
+
+	template<> struct masked_chunk<16> {
+		static constexpr uint32_t fullMask{ 0xFFFFu };
+
+	#if JSONIFIER_SSE2
+		using vector_type = __m128i;
+
+		JSONIFIER_INLINE JSONIFIER_NO_SANITIZE_ADDRESS static vector_type loadInput(const char* data, uint64_t length) noexcept {
+			if (JSONIFIER_OBJECT_SIZE(data) >= 16 && (reinterpret_cast<uintptr_t>(data) & 4095u) <= 4096u - 16u) [[likely]] {
+				return _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
+			}
+			alignas(16) char buffer[16]{};
+			std::memcpy(buffer, data, length);
+			return _mm_load_si128(reinterpret_cast<const __m128i*>(buffer));
+		}
+
+		JSONIFIER_INLINE static uint32_t impl(const char* data, uint64_t length, const char* stored) noexcept {
+			const __m128i mask{ _mm_loadu_si128(reinterpret_cast<const __m128i*>(maskWindow.data() + 64 - length)) };
+			const __m128i input{ _mm_and_si128(loadInput(data, length), mask) };
+			return static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpeq_epi8(input, _mm_load_si128(reinterpret_cast<const __m128i*>(stored)))));
+		}
+	#else
+		using vector_type = uint8x16_t;
+
+		JSONIFIER_INLINE JSONIFIER_NO_SANITIZE_ADDRESS static vector_type loadInput(const char* data, uint64_t length) noexcept {
+			if (JSONIFIER_OBJECT_SIZE(data) >= 16 && (reinterpret_cast<uintptr_t>(data) & 4095u) <= 4096u - 16u) [[likely]] {
+				return vld1q_u8(reinterpret_cast<const uint8_t*>(data));
+			}
+			alignas(16) uint8_t buffer[16]{};
+			std::memcpy(buffer, data, length);
+			return vld1q_u8(buffer);
+		}
+
+		JSONIFIER_INLINE static uint32_t impl(const char* data, uint64_t length, const char* stored) noexcept {
+			const uint8x16_t input{ vandq_u8(loadInput(data, length), vld1q_u8(maskWindow.data() + 64 - length)) };
+			return vminvq_u8(vceqq_u8(input, vld1q_u8(reinterpret_cast<const uint8_t*>(stored)))) == 0xFFu ? fullMask : 0u;
+		}
+	#endif
+	};
+
+	#if JSONIFIER_AVX2
+	template<> struct masked_chunk<32> {
+		static constexpr uint32_t fullMask{ 0xFFFFFFFFu };
+
+		JSONIFIER_INLINE JSONIFIER_NO_SANITIZE_ADDRESS static __m256i loadInput(const char* data, uint64_t length) noexcept {
+			if (JSONIFIER_OBJECT_SIZE(data) >= 32 && (reinterpret_cast<uintptr_t>(data) & 4095u) <= 4096u - 32u) [[likely]] {
+				return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data));
+			}
+			alignas(32) char buffer[32]{};
+			std::memcpy(buffer, data, length);
+			return _mm256_load_si256(reinterpret_cast<const __m256i*>(buffer));
+		}
+
+		JSONIFIER_INLINE static uint32_t impl(const char* data, uint64_t length, const char* stored) noexcept {
+			const __m256i mask{ _mm256_loadu_si256(reinterpret_cast<const __m256i*>(maskWindow.data() + 64 - length)) };
+			const __m256i input{ _mm256_and_si256(loadInput(data, length), mask) };
+			return static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpeq_epi8(input, _mm256_load_si256(reinterpret_cast<const __m256i*>(stored)))));
+		}
+	};
+	#endif
+
+	template<uint64_t width> struct masked_compare {
+	#if JSONIFIER_AVX2
+		static constexpr uint64_t chunkBytes{ width >= 32 ? 32 : 16 };
+	#else
+		static constexpr uint64_t chunkBytes{ 16 };
+	#endif
+		using chunk_type = masked_chunk<chunkBytes>;
+
+		JSONIFIER_INLINE static bool impl(const char* data, uint64_t length, const char* stored) noexcept {
+			const uint64_t clamped{ length < width ? length : width };
+	#if JSONIFIER_AVX512
+			if constexpr (width == 64) {
+				const __mmask64 mask{ clamped >= 64 ? ~0ull : (1ull << clamped) - 1ull };
+				const __m512i input{ _mm512_maskz_loadu_epi8(mask, data) };
+				return _mm512_cmpneq_epi8_mask(input, _mm512_load_si512(stored)) == 0;
+			}
+	#endif
+			uint32_t matches{ chunk_type::fullMask };
+			for (uint64_t x = 0; x < width / chunkBytes; ++x) {
+				const uint64_t offset{ x * chunkBytes };
+				const uint64_t remaining{ clamped > offset ? clamped - offset : 0 };
+				const uint64_t chunkLength{ remaining < chunkBytes ? remaining : chunkBytes };
+				matches &= chunk_type::impl(chunkLength > 0 ? data + offset : stored + offset, chunkLength, stored + offset);
+			}
+			return matches == chunk_type::fullMask;
+		}
+	};
+#endif
+
+	template<typename value_type> struct flat_key_table {
+		static constexpr uint64_t keyCount{ value_type::values.size() };
+		static constexpr uint64_t maxLength{ keyStatsVal<value_type>.maxLength };
+		static constexpr uint64_t paddedLength{ std::bit_ceil(maxLength > 0 ? maxLength : 1ull) };
+		static constexpr uint64_t stride{ paddedLength > maskedCompareWidth(maxLength) ? paddedLength : maskedCompareWidth(maxLength) };
+
+		consteval flat_key_table() {
+			for (uint64_t x = 0; x < keyCount; ++x) {
+				const std::string_view key{ value_type::values[x] };
+				lengths[x] = key.size();
+				for (uint64_t y = 0; y < key.size(); ++y) {
+					keys[x * stride + y] = key[y];
+				}
+			}
+			lengths[keyCount] = npos64;
+		}
+
+		alignas(64) std::array<char, (keyCount + 1) * stride> keys{};
+		std::array<uint64_t, keyCount + 1> lengths{};
+	};
+
+	struct verify_entry {
+		const char* data{};
+		uint64_t size{ npos64 };
+	};
+
+	template<typename value_type> consteval std::array<verify_entry, value_type::values.size() + 1> buildVerifyEntries() {
+		std::array<verify_entry, value_type::values.size() + 1> entries{};
+		for (uint64_t x = 0; x < value_type::values.size(); ++x) {
+			entries[x].data = value_type::values[x].data();
+			entries[x].size = value_type::values[x].size();
+		}
+		return entries;
+	}
+
+	template<typename value_type> inline constexpr auto verifyEntries{ buildVerifyEntries<value_type>() };
+
+	template<typename value_type> inline constexpr flat_key_table<value_type> flatKeys{};
+
+	consteval bool hasSingleCompareTier(uint64_t minLength, uint64_t maxLength) {
+		return (minLength >= 1 && maxLength <= 3) || (minLength >= 4 && maxLength <= 8) || (minLength >= 8 && maxLength <= 16) || (minLength >= 16 && maxLength <= 32) || (minLength >= 32 && maxLength <= 64);
+	}
+
+	enum class verify_modes : uint8_t {
+		exact_flat,
+		masked_flat,
+		indirect,
+	};
+
+	consteval verify_modes selectVerifyMode(uint64_t minLength, uint64_t maxLength) {
+		if (hasSingleCompareTier(minLength, maxLength)) {
+			return verify_modes::exact_flat;
+		}
+		return (JSONIFIER_MASKED_COMPARE && maxLength <= 64) ? verify_modes::masked_flat : verify_modes::indirect;
+	}
+
+	template<typename value_type, verify_modes mode = selectVerifyMode(keyStatsVal<value_type>.minLength, keyStatsVal<value_type>.maxLength)> struct key_verifier {
+		using comparison_type = key_comparison<keyStatsVal<value_type>.minLength, keyStatsVal<value_type>.maxLength>;
+
+		JSONIFIER_INLINE static bool impl(uint64_t index, const char* data, uint64_t length) noexcept {
+			return flatKeys<value_type>.lengths[index] == length && comparison_type::impl(data, flatKeys<value_type>.keys.data() + index * flat_key_table<value_type>::stride, length);
+		}
+	};
+
+#if JSONIFIER_MASKED_COMPARE
+	template<typename value_type> struct key_verifier<value_type, verify_modes::masked_flat> {
+		using comparison_type = masked_compare<maskedCompareWidth(keyStatsVal<value_type>.maxLength)>;
+
+		JSONIFIER_INLINE static bool impl(uint64_t index, const char* data, uint64_t length) noexcept {
+			const bool lengthMatches{ flatKeys<value_type>.lengths[index] == length };
+			const bool bytesMatch{ comparison_type::impl(data, length, flatKeys<value_type>.keys.data() + index * flat_key_table<value_type>::stride) };
+			return lengthMatches & bytesMatch;
+		}
+	};
+#endif
+
+	template<typename value_type> struct key_verifier<value_type, verify_modes::indirect> {
+		using comparison_type = key_comparison<keyStatsVal<value_type>.minLength, keyStatsVal<value_type>.maxLength>;
+
+		JSONIFIER_INLINE static bool impl(uint64_t index, const char* data, uint64_t length) noexcept {
+			const verify_entry& expected{ verifyEntries<value_type>[index] };
+			return expected.size == length && comparison_type::impl(data, expected.data, length);
+		}
+	};
+
 	template<typename value_type, hash_map_types type = hashData<value_type>.type> struct candidate_finder;
 
 	template<typename value_type> struct candidate_finder<value_type, hash_map_types::empty> {
@@ -998,10 +1269,23 @@ namespace jsonifier::internal {
 
 	template<typename value_type> struct candidate_finder<value_type, hash_map_types::simd_full_length> {
 		static constexpr uint64_t groupMask{ std::remove_cvref_t<decltype(hashData<value_type>)>::numGroups - 1 };
+		static constexpr uint64_t minLength{ keyStatsVal<value_type>.minLength };
+		static constexpr uint64_t lengthSpread{ keyStatsVal<value_type>.maxLength - minLength };
+
+		JSONIFIER_INLINE static uint64_t computeHash(const char* data, uint64_t length) noexcept {
+			if constexpr (hashData<value_type>.sampled) {
+				return key_hash_mix::sampled(hashData<value_type>.seed, data, length);
+			} else {
+				const uint64_t hashLength{ hashData<value_type>.uniqueIndex > length ? length : hashData<value_type>.uniqueIndex };
+				return key_hash<minLength, hashData<value_type>.uniqueIndex>::impl(hashData<value_type>.seed, data, hashLength);
+			}
+		}
 
 		JSONIFIER_INLINE static uint64_t impl(const char* data, uint64_t length) noexcept {
-			const uint64_t hashLength{ hashData<value_type>.uniqueIndex > length ? length : hashData<value_type>.uniqueIndex };
-			const uint64_t hash{ rt_key_hasher<hashData<value_type>.seed>::impl(data, hashLength) };
+			if (length - minLength > lengthSpread) {
+				return npos64;
+			}
+			const uint64_t hash{ computeHash(data, length) };
 			const uint64_t bucketStart{ ((hash >> 8) & groupMask) * simdBytesPerRegister };
 			const uint64_t matches{ bucket_search::matchMask(hashData<value_type>.controlBytes.data() + bucketStart, static_cast<uint8_t>(hash)) };
 			return matches != 0 ? hashData<value_type>.indices[bucketStart + bucket_search::firstOffset(matches)] : npos64;
@@ -1016,15 +1300,16 @@ namespace jsonifier {
 		static constexpr uint64_t keyCount{ sizeof...(keys) };
 		static_assert(keyCount < internal::npos8, "hash_map supports at most 254 keys.");
 
+		static consteval std::string_view strategyName() {
+			return internal::strategyNameOf<value_type>();
+		}
+
 		JSONIFIER_INLINE static uint64_t findIndex(std::string_view key) noexcept {
-			const uint64_t index{ internal::candidate_finder<value_type>::impl(key.data(), key.size()) };
+			const uint64_t candidate{ internal::candidate_finder<value_type>::impl(key.data(), key.size()) };
 			if constexpr (keyCount > 0) {
-				if (index < keyCount) {
-					const std::string_view expected{ value_type::values[index] };
-					if (expected.size() == key.size() &&
-						internal::key_comparison<internal::keyStatsVal<value_type>.minLength, internal::keyStatsVal<value_type>.maxLength>::impl(key.data(), expected.data(), key.size())) {
-						return index;
-					}
+				const uint64_t index{ candidate < keyCount ? candidate : keyCount };
+				if (internal::key_verifier<value_type>::impl(index, key.data(), key.size())) {
+					return index;
 				}
 			}
 			return keyCount;
