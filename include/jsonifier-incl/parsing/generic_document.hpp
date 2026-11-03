@@ -417,9 +417,9 @@ namespace jsonifier::generic {
 			return true;
 		}
 
-		template<typename validator_type, typename basic_iterator01, typename basic_iterator02>
-		JSONIFIER_INLINE static bool resolveStop(validator_type& validator, uint64_t offset, basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out,
-			const basic_iterator01 stringStart, const basic_iterator02 outStart, parse_state& state) noexcept {
+		template<typename validator_type, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static bool resolveStop(validator_type& validator, uint64_t offset,
+			basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart,
+			parse_state& state) noexcept {
 			const uint8_t foundChar = static_cast<uint8_t>(current[offset]);
 			if (foundChar < 32) [[unlikely]] {
 				return false;
@@ -456,8 +456,9 @@ namespace jsonifier::generic {
 				while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
 					const simd_type_local values = internal::simd::gatherValuesU<simd_type_local>(current);
 					internal::simd::storeU(values, out);
-					const integer_type stops = static_cast<integer_type>(internal::simd::opBitMask(internal::simd::opOr(
-						internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)), internal::simd::opCmpLtRaw(values, controls))));
+					const integer_type stops = static_cast<integer_type>(internal::simd::opBitMask(
+						internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
+							internal::simd::opCmpLtRaw(values, controls))));
 					if (stops == static_cast<integer_type>(0)) {
 						validator.checkRegister(values);
 						current += bytesProcessed;
@@ -476,8 +477,9 @@ namespace jsonifier::generic {
 						std::memset(padded, 32, bytesProcessed);
 						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(padded, current, remaining);
 						const simd_type_local values = internal::simd::gatherValues<simd_type_local>(std::bit_cast<const simd_type_local* __restrict>(+padded));
-						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(internal::simd::opOr(
-							internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)), internal::simd::opCmpLtRaw(values, controls))));
+						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(
+							internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
+								internal::simd::opCmpLtRaw(values, controls))));
 						if (stops == static_cast<integer_type>(0)) {
 							return nullptr;
 						}
@@ -499,7 +501,8 @@ namespace jsonifier::generic {
 			const auto stringStart = current;
 			const auto outStart	   = out;
 			parse_state state{};
-			internal::string_parse_executor<parse_step, internal::make_ascending_range<internal::startIndex, internal::listSize>>::impl(current, end, out, stringStart, outStart, state);
+			internal::string_parse_executor<parse_step, internal::make_ascending_range<internal::startIndex, internal::listSize>>::impl(current, end, out, stringStart, outStart,
+				state);
 			return state.result;
 		}
 	};
@@ -846,6 +849,9 @@ namespace jsonifier::generic {
 				if (afterClose == doc->tapeEnd && !document_state::isCloser(doc->charAt(afterClose - 1))) [[unlikely]] {
 					return error_code::unclosed_container;
 				}
+				if (doc->cursor == iter) [[likely]] {
+					doc->cursor = afterClose;
+				}
 				out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(doc->root + *(afterClose - 1) + 1 - valueStart) };
 				return error_code::success;
 			}
@@ -1096,7 +1102,8 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE static uint64_t resolveMaskedStop(read_buffer_ptr stringStart, read_buffer_ptr current, string_stop_masks masks, bool sawNonAscii) noexcept {
 			const uint64_t beforeStop = (masks.stops & (0 - masks.stops)) - 1;
-			return resolveStringStop(stringStart, current + (internal::simd::countrZeroUnsafe(masks.stops) >> stopMaskLaneShift), sawNonAscii || (masks.nonAscii & beforeStop) != 0);
+			return resolveStringStop(stringStart, current + (internal::simd::countrZeroUnsafe(masks.stops) >> stopMaskLaneShift),
+				sawNonAscii || (masks.nonAscii & beforeStop) != 0);
 		}
 
 		JSONIFIER_INLINE static uint64_t resolveStringStop(read_buffer_ptr stringStart, read_buffer_ptr stop, bool sawNonAscii) noexcept {
@@ -1532,12 +1539,12 @@ namespace jsonifier::generic {
 				}
 				if (current == '}') {
 					state->cursor = cursor;
-					skippedKeys   = skipped;
+					skippedKeys	  = skipped;
 					return value{ error_code::no_such_field };
 				}
 				if (expectSeparator) [[unlikely]] {
 					state->cursor = cursor;
-					skippedKeys   = skipped;
+					skippedKeys	  = skipped;
 					return value{ error_code::tape_error };
 				}
 				if (current == '"' && cursor + 1 < tapeEnd && state->template charAt<':'>(cursor + 1)) [[likely]] {
@@ -1552,7 +1559,7 @@ namespace jsonifier::generic {
 					}
 					if (matched) {
 						state->cursor = valueIter;
-						skippedKeys   = skipped;
+						skippedKeys	  = skipped;
 						return value{ state, valueIter, depth };
 					}
 					++skipped;
@@ -1562,7 +1569,7 @@ namespace jsonifier::generic {
 				expectSeparator = true;
 			}
 			state->cursor = cursor;
-			skippedKeys   = skipped;
+			skippedKeys	  = skipped;
 			return value{ cursor >= tapeEnd ? error_code::unclosed_container : error_code::no_such_field };
 		}
 
@@ -1793,7 +1800,8 @@ namespace jsonifier::generic {
 		return array{ doc, iter, depth + 1 };
 	}
 
-	template<bool minified> template<jsonifier::internal::string_view_convertible_types key_type> JSONIFIER_INLINE basic_value<minified> basic_value<minified>::operator[](key_type&& key) const noexcept {
+	template<bool minified> template<jsonifier::internal::string_view_convertible_types key_type>
+	JSONIFIER_INLINE basic_value<minified> basic_value<minified>::operator[](key_type&& key) const noexcept {
 		return getObject().findFieldUnordered(static_cast<string_view>(key));
 	}
 
@@ -2201,15 +2209,15 @@ namespace jsonifier::generic {
 			finalWindow				   = start + windowLength == inputLength;
 			read_buffer_ptr windowRoot = input + start;
 			parser->template indexGenericWindow<options>(windowRoot, windowLength);
-			generic_storage& data  = storage();
-			document_state& state  = data.template stateFor<options.minified>();
-			windowTape			   = state.tape;
-			windowTapeEnd		   = state.tapeEnd;
-			state.root			   = windowRoot;
-			state.end			   = windowRoot + windowLength;
+			generic_storage& data = storage();
+			document_state& state = data.template stateFor<options.minified>();
+			windowTape			  = state.tape;
+			windowTapeEnd		  = state.tapeEnd;
+			state.root			  = windowRoot;
+			state.end			  = windowRoot + windowLength;
 			data.arena.reset(windowLength);
-			state.arena			   = &data.arena;
-			state.fieldIndex	   = &data.fieldIndex;
+			state.arena		 = &data.arena;
+			state.fieldIndex = &data.fieldIndex;
 			if constexpr (options.newLineDelimited) {
 				findCompleteEnd();
 			}

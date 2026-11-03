@@ -205,8 +205,11 @@
 #if JSONIFIER_PLATFORM_WINDOWS
 	#include <windows.h>
 #elif JSONIFIER_PLATFORM_LINUX || JSONIFIER_PLATFORM_MAC || JSONIFIER_PLATFORM_ANDROID
+	#include <sys/types.h>
 	#include <sys/mman.h>
 	#include <unistd.h>
+	#include <cerrno>
+	#include <poll.h>
 #endif
 
 #if defined(__SANITIZE_ADDRESS__)

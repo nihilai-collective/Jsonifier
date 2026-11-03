@@ -18,25 +18,26 @@
 
 ---
 
-Parsing at least slightly more gigabytes of JSON per second, most of the time.
-===============================================
+# At least slightly\* faster than most JSON libraries, most of the time.  
+##### *Often more than slightly.
 
-Jsonifier uses SIMD structural indexing and compile-time perfect hash maps to read and write JSON **1.8x to 2.3x faster than Glaze** and **1.6x to 3.1x faster than simdjson**, across every major compiler and both x86-64 and ARM64. ([Oct 21, 2026 results](https://github.com/nihilai-collective/Json-Performance))
+----
+Jsonifier uses SIMD structural indexing and compile-time perfect hash maps to read and write JSON **1.8x to 2.3x faster than Glaze** and **1.5x to 3.1x faster than simdjson**, across every major compiler and both x86-64 and ARM64. ([Nov 02, 2026 results](https://github.com/nihilai-collective/Json-Performance))
 
-* **Schema-aware (reflected structs):** 913 wins, 12 ties, and 40 losses in 965 head-to-head tests against Glaze and simdjson on Linux, macOS, and Windows.
-* **Faster reads:** geometric-mean parse throughput is 1.33x to 1.48x that of Glaze and 1.42x to 2.37x that of simdjson On Demand.
-* **Faster writes:** geometric-mean serialization throughput is 2.25x to 3.72x that of Glaze and up to 6.07x that of simdjson's C++26 reflection writer.
-* **Generic (schemaless) parsing:** 1366 wins, 74 ties, and 180 losses against simdjson On Demand, running 1.20x to 1.30x faster on GCC and Clang and 2.17x faster on MSVC.
+* **Schema-aware (reflected structs):** 983 wins, 16 ties, and 46 losses in 1045 head-to-head tests against Glaze and simdjson on Linux, macOS, and Windows.
+* **Faster reads:** geometric-mean parse throughput is 1.32x to 1.48x that of Glaze and 1.44x to 2.04x that of simdjson On Demand.
+* **Faster writes:** geometric-mean serialization throughput is 2.33x to 3.61x that of Glaze and up to 6.44x that of simdjson's C++26 reflection writer.
+* **Generic (schemaless) parsing:** 1576 wins, 70 ties, and 154 losses in 1800 head-to-head tests against simdjson On Demand, running 1.24x to 1.33x faster on GCC and Clang and 1.61x faster on MSVC.
 * **Portable:** CI-verified on GCC, Clang, and MSVC, on both the detected SIMD backend (whatever the runner's CPU supports, such as AVX-512 on x86-64 or NEON on arm64 macOS) and the pure-scalar fallback.
 * **Strict:** fully [RFC8259](https://datatracker.ietf.org/doc/html/rfc8259) compliant.
 
 | Platform | vs Glaze (schema-aware) | vs simdjson (schema-aware) | vs simdjson On Demand (generic) |
 | :--- | :---: | :---: | :---: |
-| Linux GCC 16.2.1 | 1.79x | 2.72x | 1.22x |
-| Linux Clang 24.0.0 | 1.79x | 1.59x | 1.22x |
-| macOS GCC 16.2.0 | 2.20x | 3.13x | 1.30x |
-| macOS Clang 23.1.3 | 2.27x | 1.78x | 1.20x |
-| Windows MSVC 19.51 / 19.44 | 1.83x | 2.47x | 2.17x |
+| Linux GCC 16.2.1 | 1.79x | 2.67x | 1.25x |
+| Linux Clang 24.0.0 | 1.85x | 1.46x | 1.24x |
+| macOS GCC 16.2.0 | 2.20x | 3.06x | 1.33x |
+| macOS Clang 23.1.4 | 2.29x | 1.67x | 1.25x |
+| Windows MSVC 19.51 | 1.77x | 2.04x | 1.61x |
 
 <sub>Geometric mean of per-test throughput ratios: Jsonifier's best variant against each competitor's best variant. Glaze has no schemaless entry in the generic suite.</sub>
 

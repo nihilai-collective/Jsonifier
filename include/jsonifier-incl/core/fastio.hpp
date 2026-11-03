@@ -13,27 +13,47 @@ namespace jsonifier::internal {
 	enum class stream_target { stdout_target, stderr_target };
 
 	inline uint64_t rawWrite(stream_target target, const char* data, uint64_t len) noexcept {
+		if (len == 0 || data == nullptr) {
+			return 0;
+		}
 #if JSONIFIER_PLATFORM_WINDOWS
-		HANDLE handle  = GetStdHandle(target == stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
-		DWORD written  = 0;
+		static constexpr DWORD handle_ids[2]{ STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
+		static constexpr uint64_t max_chunk = 1ull << 30;
+		HANDLE handle						= GetStdHandle(handle_ids[static_cast<uint64_t>(target)]);
+		if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
+			return 0;
+		}
 		uint64_t total = 0;
 		while (total < len) {
-			DWORD chunk = static_cast<DWORD>(len - total);
-			if (!WriteFile(handle, data + total, chunk, &written, nullptr)) {
+			uint64_t remaining = len - total;
+			DWORD chunk		   = static_cast<DWORD>(remaining < max_chunk ? remaining : max_chunk);
+			DWORD written	   = 0;
+			if (!WriteFile(handle, data + total, chunk, &written, nullptr) || written == 0) {
 				break;
 			}
 			total += written;
-			if (written == 0) {
-				break;
-			}
 		}
 		return total;
 #else
-		int32_t fd	   = target == stream_target::stdout_target ? 1 : 2;
+		static constexpr int32_t stream_types[2]{ 1, 2 };
+		int32_t fd	   = stream_types[static_cast<uint64_t>(target)];
 		uint64_t total = 0;
 		while (total < len) {
 			ssize_t result = write(fd, data + total, len - total);
-			if (result <= 0) {
+			if (result < 0) {
+				if (errno == EINTR) {
+					continue;
+				}
+				if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					pollfd pfd{ fd, POLLOUT, 0 };
+					if (poll(&pfd, 1, -1) < 0 && errno != EINTR) {
+						break;
+					}
+					continue;
+				}
+				break;
+			}
+			if (result == 0) {
 				break;
 			}
 			total += static_cast<uint64_t>(result);
@@ -42,11 +62,12 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	alignas(64) inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10, 10, 10, 10,
-		9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
+	alignas(64) inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10,
+		10, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
 
-	alignas(64) inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL, 99999999999ULL,
-		999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL, 9999999999999999999ULL };
+	alignas(64) inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL,
+		99999999999ULL, 999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL,
+		9999999999999999999ULL };
 
 	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
 		const uint64_t originalDigitCount{ digitCounts[simd::countlZero(inputValue)] };
@@ -54,12 +75,12 @@ namespace jsonifier::internal {
 	}
 
 	inline char* writeUnsigned(char* bufferEnd, uint64_t value) noexcept {
-		char* pos							  = bufferEnd;
+		char* pos										  = bufferEnd;
 		alignas(64) static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
-												"2021222324252627282930313233343536373839"
-												"4041424344454647484950515253545556575859"
-												"6061626364656667686970717273747576777879"
-												"8081828384858687888990919293949596979899";
+															"2021222324252627282930313233343536373839"
+															"4041424344454647484950515253545556575859"
+															"6061626364656667686970717273747576777879"
+															"8081828384858687888990919293949596979899";
 		while (value >= 100) {
 			auto pair = value % 100;
 			value /= 100;

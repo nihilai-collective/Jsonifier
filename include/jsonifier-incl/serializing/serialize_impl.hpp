@@ -840,24 +840,24 @@ namespace jsonifier::internal {
 					pow2MemcpyWrapper<8>(bufferPtr, entry.values);
 					bufferPtr += entry.size;
 				} else if (codePoint < 0x800) {
-					bufferPtr[0] = static_cast<char>(0xC0 | (codePoint >> 6));
-					bufferPtr[1] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr[0] = static_cast<uint8_t>(0xC0 | (codePoint >> 6));
+					bufferPtr[1] = static_cast<uint8_t>(0x80 | (codePoint & 0x3F));
 					bufferPtr += 2;
 				} else if ((codePoint >= 0xD800 && codePoint <= 0xDFFF) || codePoint > 0x10FFFF) {
-					bufferPtr[0] = static_cast<char>(0xEF);
-					bufferPtr[1] = static_cast<char>(0xBF);
-					bufferPtr[2] = static_cast<char>(0xBD);
+					bufferPtr[0] = static_cast<uint8_t>(0xEF);
+					bufferPtr[1] = static_cast<uint8_t>(0xBF);
+					bufferPtr[2] = static_cast<uint8_t>(0xBD);
 					bufferPtr += 3;
 				} else if (codePoint < 0x10000) {
-					bufferPtr[0] = static_cast<char>(0xE0 | (codePoint >> 12));
-					bufferPtr[1] = static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
-					bufferPtr[2] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr[0] = static_cast<uint8_t>(0xE0 | (codePoint >> 12));
+					bufferPtr[1] = static_cast<uint8_t>(0x80 | ((codePoint >> 6) & 0x3F));
+					bufferPtr[2] = static_cast<uint8_t>(0x80 | (codePoint & 0x3F));
 					bufferPtr += 3;
 				} else {
-					bufferPtr[0] = static_cast<char>(0xF0 | (codePoint >> 18));
-					bufferPtr[1] = static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F));
-					bufferPtr[2] = static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
-					bufferPtr[3] = static_cast<char>(0x80 | (codePoint & 0x3F));
+					bufferPtr[0] = static_cast<uint8_t>(0xF0 | (codePoint >> 18));
+					bufferPtr[1] = static_cast<uint8_t>(0x80 | ((codePoint >> 12) & 0x3F));
+					bufferPtr[2] = static_cast<uint8_t>(0x80 | ((codePoint >> 6) & 0x3F));
+					bufferPtr[3] = static_cast<uint8_t>(0x80 | (codePoint & 0x3F));
 					bufferPtr += 4;
 				}
 			}

@@ -247,9 +247,8 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<typename rope_block> template<uint64_t registerBytes, uint64_t registerCount>
-	JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
-		const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept {
+	template<typename rope_block> template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(
+		const pod_simd_array_t<registerCount, registerBytes> in01, const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept {
 		const uint64_t escaped = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, bsRegister));
 		const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, quoteRegister) & ~escaped);
 		rope_block::escaped	   = escaped;

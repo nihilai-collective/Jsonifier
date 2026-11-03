@@ -1387,7 +1387,7 @@ namespace jsonifier::internal {
 			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
 			constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift = expSign * expValue - fracDigits;
+			const int64_t shift			   = expSign * expValue - fracDigits;
 			const value_type fractionalCorrection =
 				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 19 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
 			if (expSign > 0) {
@@ -1579,7 +1579,7 @@ namespace jsonifier::internal {
 			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
 			constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift = expSign * expValue - fracDigits;
+			const int64_t shift			   = expSign * expValue - fracDigits;
 			const value_type fractionalCorrection =
 				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 20 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
 			if (expSign > 0) {

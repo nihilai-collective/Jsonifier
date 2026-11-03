@@ -37,34 +37,6 @@ namespace array_tests {
 				arr[jsonifier::internal::tag<uint64_t{ 2 }>{}] == 7;
 		});
 
-		rt_ut::unit_test<"array_at_returns_value_for_valid_index", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			const auto& constArr = arr;
-			return arr.at(2) == 3 && constArr.at(0) == 1;
-		});
-
-		rt_ut::unit_test<"array_at_throws_on_out_of_range_index", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			bool threw = false;
-			try {
-				arr.at(3);
-			} catch (const std::runtime_error&) {
-				threw = true;
-			}
-			return threw;
-		});
-
-		rt_ut::unit_test<"array_const_at_throws_on_out_of_range_index", true>::assert_eq(true, [] {
-			const jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			bool threw = false;
-			try {
-				arr.at(3);
-			} catch (const std::runtime_error&) {
-				threw = true;
-			}
-			return threw;
-		});
-
 		rt_ut::unit_test<"array_fill_sets_every_element", true>::assert_eq(true, [] {
 			jsonifier::internal::array<int32_t, 5> arr{};
 			arr.fill(7);

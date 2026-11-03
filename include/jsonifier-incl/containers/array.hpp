@@ -79,22 +79,6 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		template<indexable_types<size_type> index_type> JSONIFIER_INLINE constexpr reference at(index_type position) noexcept(false) JSONIFIER_LIFETIME_BOUND {
-			if (sizeNew <= static_cast<uint64_t>(position)) {
-				throw std::runtime_error{ "invalid array<T, N> subscript" };
-			}
-
-			return dataVal[static_cast<uint64_t>(position)];
-		}
-
-		template<indexable_types<size_type> index_type> JSONIFIER_INLINE constexpr const_reference at(index_type position) const noexcept(false) JSONIFIER_LIFETIME_BOUND {
-			if (sizeNew <= static_cast<uint64_t>(position)) {
-				throw std::runtime_error{ "invalid array<T, N> subscript" };
-			}
-
-			return dataVal[static_cast<uint64_t>(position)];
-		}
-
 		template<indexable_types<size_type> index_type> JSONIFIER_INLINE constexpr const_r_reference operator[](index_type position) const&& noexcept {
 			return static_cast<const_r_reference>(dataVal[static_cast<uint64_t>(position)]);
 		}
