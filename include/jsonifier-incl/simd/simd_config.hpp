@@ -88,10 +88,8 @@ namespace jsonifier {
 
 #if JSONIFIER_AVX2 && !JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
 	inline constexpr uint64_t podBlocksPerStep{ 4 };
-	inline constexpr uint64_t podDocumentBytes{ 4096 };
 #else
 	inline constexpr uint64_t podBlocksPerStep{ simdBlocksPerStep };
-	inline constexpr uint64_t podDocumentBytes{ simdBytesPerStep };
 #endif
 	inline constexpr uint64_t podBytesPerStep = podBlocksPerStep * simdBytesPerBlock;
 
