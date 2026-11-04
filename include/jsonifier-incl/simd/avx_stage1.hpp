@@ -85,6 +85,27 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
+	struct bracket_masks {
+		uint64_t opens;
+		uint64_t closes;
+	};
+
+	struct bracket_collector {
+		JSONIFIER_INLINE static bracket_masks impl(const simd_array_t in01, const jsonifier_simd_int_t spaceMask, const jsonifier_simd_int_t openRegister,
+			const jsonifier_simd_int_t closeRegister) noexcept {
+			simd_array_t folded;
+			folded.set<0>(simd::opOr(in01.get<0>(), spaceMask));
+			if constexpr (simdRegistersPerBlock > 1) {
+				folded.set<1>(simd::opOr(in01.get<1>(), spaceMask));
+				if constexpr (simdRegistersPerBlock > 2) {
+					folded.set<2>(simd::opOr(in01.get<2>(), spaceMask));
+					folded.set<3>(simd::opOr(in01.get<3>(), spaceMask));
+				}
+			}
+			return { cmp_eq_op::impl(folded, openRegister), cmp_eq_op::impl(folded, closeRegister) };
+		}
+	};
+
 	template<typename rope_block> struct rope_detector : rope_block {
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
 			if (!backslashLocal) {

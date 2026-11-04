@@ -271,6 +271,73 @@ namespace jsonifier::internal {
 #endif
 	};
 
+#if JSONIFIER_ANY_AVX || (JSONIFIER_NEON && !JSONIFIER_SVE2)
+	struct container_skipper {
+		JSONIFIER_INLINE static simd_array_t loadBlock(read_buffer_ptr blockPtr) noexcept {
+			simd_array_t block;
+			block.template set<0>(simd::gatherValuesU<jsonifier_simd_int_t>(blockPtr));
+			if constexpr (simdRegistersPerBlock > 1) {
+				block.template set<1>(simd::gatherValuesU<jsonifier_simd_int_t>(blockPtr + simdBytesPerRegister));
+				if constexpr (simdRegistersPerBlock > 2) {
+					block.template set<2>(simd::gatherValuesU<jsonifier_simd_int_t>(blockPtr + simdBytesPerRegister * 2));
+					block.template set<3>(simd::gatherValuesU<jsonifier_simd_int_t>(blockPtr + simdBytesPerRegister * 3));
+				}
+			}
+			return block;
+		}
+
+		JSONIFIER_INLINE static uint64_t closerOffset(simd::rope_detector<rope_block>& rope, const simd_array_t block, uint64_t& depth, const jsonifier_simd_int_t bsRegister,
+			const jsonifier_simd_int_t quoteRegister, const jsonifier_simd_int_t spaceMask, const jsonifier_simd_int_t openRegister,
+			const jsonifier_simd_int_t closeRegister) noexcept {
+			rope.next(block, bsRegister, quoteRegister);
+			const simd::bracket_masks masks = simd::bracket_collector::impl(block, spaceMask, openRegister, closeRegister);
+			const uint64_t opens			= masks.opens & ~rope.inString;
+			const uint64_t closes			= masks.closes & ~rope.inString;
+			const uint64_t closeCount		= static_cast<uint64_t>(std::popcount(closes));
+			if (depth > closeCount) [[likely]] {
+				depth = depth - closeCount + static_cast<uint64_t>(std::popcount(opens));
+				return simdBytesPerBlock;
+			}
+			uint64_t events = opens | closes;
+			while (events) {
+				const uint64_t offset = static_cast<uint64_t>(std::countr_zero(events));
+				if ((opens >> offset) & 1u) {
+					++depth;
+				} else if (--depth == 0) {
+					return offset;
+				}
+				events &= events - 1;
+			}
+			return simdBytesPerBlock;
+		}
+
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(unrestrict_t<read_buffer_ptr> iter, read_buffer_ptr end) noexcept {
+			const jsonifier_simd_int_t bsRegister	 = simd::gatherValue<jsonifier_simd_int_t>('\\');
+			const jsonifier_simd_int_t quoteRegister = simd::gatherValue<jsonifier_simd_int_t>('"');
+			const jsonifier_simd_int_t spaceMask	 = simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x20));
+			const jsonifier_simd_int_t openRegister	 = simd::gatherValue<jsonifier_simd_int_t>('{');
+			const jsonifier_simd_int_t closeRegister = simd::gatherValue<jsonifier_simd_int_t>('}');
+			simd::rope_detector<rope_block> rope{};
+			uint64_t depth{};
+			while (static_cast<uint64_t>(end - iter) >= simdBytesPerBlock) {
+				if (const uint64_t offset = closerOffset(rope, loadBlock(iter), depth, bsRegister, quoteRegister, spaceMask, openRegister, closeRegister);
+					offset < simdBytesPerBlock) {
+					return iter + offset + 1;
+				}
+				iter += simdBytesPerBlock;
+			}
+			if (const uint64_t remaining = static_cast<uint64_t>(end - iter); remaining != 0) {
+				alignas(simdBytesPerRegister) uint8_t tail[simdBytesPerBlock];
+				tail_block_builder::impl(tail, iter, remaining, simdBytesPerBlock);
+				if (const uint64_t offset = closerOffset(rope, loadBlock(tail), depth, bsRegister, quoteRegister, spaceMask, openRegister, closeRegister); offset < remaining) {
+					return iter + offset + 1;
+				}
+			}
+			return nullptr;
+		}
+	};
+#endif
+
 	template<parse_options parseOpts, typename iterator_type> struct json_cursor;
 
 	template<parse_options parseOpts> struct json_cursor<parseOpts, unrestrict_t<read_buffer_ptr>> {
@@ -355,6 +422,13 @@ namespace jsonifier::internal {
 				case '{':
 					[[fallthrough]];
 				case '[': {
+#if JSONIFIER_ANY_AVX || (JSONIFIER_NEON && !JSONIFIER_SVE2)
+					if (const unrestrict_t<read_buffer_ptr> after = container_skipper::impl(iter, context.endIter); after) [[likely]] {
+						iter = after;
+						return true;
+					}
+					return reject<parse_statuses::unexpected_string_end>(context.endIter, context);
+#else
 					uint64_t depth{};
 					if constexpr (parseOpts.nullTerminated) {
 						while (*iter != '\0') {
@@ -394,6 +468,7 @@ namespace jsonifier::internal {
 						}
 					}
 					return reject<parse_statuses::unexpected_string_end>(iter, context);
+#endif
 				}
 				default: {
 					if constexpr (parseOpts.nullTerminated) {
@@ -1038,6 +1113,13 @@ namespace jsonifier::internal {
 				case '{':
 					[[fallthrough]];
 				case '[': {
+#if JSONIFIER_ANY_AVX || (JSONIFIER_NEON && !JSONIFIER_SVE2)
+					if (const unrestrict_t<read_buffer_ptr> after = container_skipper::impl(iter, context.endIter); after) [[likely]] {
+						iter = after;
+						return true;
+					}
+					return reject<parse_statuses::unexpected_string_end>(context.endIter, context);
+#else
 					uint64_t depth{};
 					if constexpr (parseOpts.nullTerminated) {
 						while (*iter != '\0') {
@@ -1085,6 +1167,7 @@ namespace jsonifier::internal {
 						}
 					}
 					return reject<parse_statuses::unexpected_string_end>(iter, context);
+#endif
 				}
 				default: {
 					if constexpr (parseOpts.nullTerminated) {

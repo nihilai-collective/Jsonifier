@@ -90,6 +90,31 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
+	struct bracket_masks {
+		uint64_t opens;
+		uint64_t closes;
+	};
+
+	struct bracket_collector {
+		JSONIFIER_INLINE static uint8x16_t partialBitmask(const uint8x16_t f0, const uint8x16_t f1, const uint8x16_t f2, const uint8x16_t f3,
+			const uint8x16_t target) noexcept {
+			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
+			const uint8x16_t sum0 = vpaddq_u8(vandq_u8(vceqq_u8(f0, target), bitMask), vandq_u8(vceqq_u8(f1, target), bitMask));
+			const uint8x16_t sum1 = vpaddq_u8(vandq_u8(vceqq_u8(f2, target), bitMask), vandq_u8(vceqq_u8(f3, target), bitMask));
+			return vpaddq_u8(sum0, sum1);
+		}
+
+		JSONIFIER_INLINE static bracket_masks impl(const simd_array_t in01, const uint8x16_t spaceMask, const uint8x16_t openRegister, const uint8x16_t closeRegister) noexcept {
+			const uint8x16_t f0			= vorrq_u8(in01.template get<0>(), spaceMask);
+			const uint8x16_t f1			= vorrq_u8(in01.template get<1>(), spaceMask);
+			const uint8x16_t f2			= vorrq_u8(in01.template get<2>(), spaceMask);
+			const uint8x16_t f3			= vorrq_u8(in01.template get<3>(), spaceMask);
+			const uint64x2_t pairedMasks = vreinterpretq_u64_u8(
+				vpaddq_u8(partialBitmask(f0, f1, f2, f3, openRegister), partialBitmask(f0, f1, f2, f3, closeRegister)));
+			return { vgetq_lane_u64(pairedMasks, 0), vgetq_lane_u64(pairedMasks, 1) };
+		}
+	};
+
 	struct ws_op_collector {
 		JSONIFIER_INLINE static uint64x2_t impl(const simd_array_t in01, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t,
 			const jsonifier_simd_int_t whitespaceTableLocal) noexcept {
