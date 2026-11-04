@@ -86,6 +86,15 @@ namespace jsonifier {
 	inline constexpr uint64_t simdBytesPerBlock{ 64 };
 	inline constexpr uint64_t simdBytesPerStep = simdBlocksPerStep * simdBytesPerBlock;
 
+#if JSONIFIER_AVX2 && !JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t podBlocksPerStep{ 4 };
+	inline constexpr uint64_t podDocumentBytes{ 4096 };
+#else
+	inline constexpr uint64_t podBlocksPerStep{ simdBlocksPerStep };
+	inline constexpr uint64_t podDocumentBytes{ simdBytesPerStep };
+#endif
+	inline constexpr uint64_t podBytesPerStep = podBlocksPerStep * simdBytesPerBlock;
+
 	static_assert(simdBytesPerRegister == sizeof(jsonifier_simd_int_t),
 		"simdBytesPerRegister disagrees with the actual register width; simdRegistersPerBlock and every bitmask collapse depend on these matching.");
 	static_assert(simdBytesPerBlock % simdBytesPerRegister == 0, "Register width must evenly divide the 64-byte block.");

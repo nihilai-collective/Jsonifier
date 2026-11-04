@@ -13,7 +13,7 @@ namespace jsonifier::internal {
 	template<typename derived_type_new> struct generic_iterator {
 		using derived_type = derived_type_new;
 
-		static constexpr uint64_t smallDocumentBytes{ jsonifier::simdBlocksPerStep * 64 };
+		static constexpr uint64_t smallDocumentBytes{ jsonifier::podDocumentBytes };
 
 		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::basic_document<options.minified> iterate(const buffer_type& in) {
 			using document		 = jsonifier::generic::basic_document<options.minified>;

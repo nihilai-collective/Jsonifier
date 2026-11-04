@@ -654,7 +654,7 @@ namespace jsonifier::internal {
 	template<uint64_t initialBufferSize> struct pod_simd_string_reader_locals : alloc_wrapper<uint32_t> {
 		using allocator = alloc_wrapper<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
-		static constexpr uint64_t stepBytes{ simdBytesPerStep };
+		static constexpr uint64_t stepBytes{ podBytesPerStep };
 
 		template<uint64_t blocksPerStep, uint64_t registerBytes, uint64_t registerCount, typename... simd_types>
 		JSONIFIER_INLINE static uint64_t processBlocks(rope_type& __restrict rope, read_buffer_ptr blockPtr, write_structural_index_ptr tapePtr, uint64_t stepBaseIndex,
@@ -871,7 +871,7 @@ namespace jsonifier::internal {
 	template<uint64_t initialBufferSize> struct pod_simd_string_reader_members : simd::rope_detector<rope_block>, alloc_wrapper<uint32_t> {
 		using allocator = alloc_wrapper<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
-		static constexpr uint64_t stepBytes{ simdBytesPerStep };
+		static constexpr uint64_t stepBytes{ podBytesPerStep };
 
 		template<uint64_t blocksPerStep, uint64_t registerBytes, uint64_t registerCount, typename... simd_types> JSONIFIER_INLINE void processBlocks(read_buffer_ptr blockPtr,
 			uint64_t stepBaseIndex, const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister,
