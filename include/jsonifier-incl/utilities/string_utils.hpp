@@ -608,8 +608,20 @@ namespace jsonifier::internal {
 						string2 += bytesProcessed;
 						string1Start += bytesProcessed;
 					} else {
-						for (uint64_t lane = 0; lane < laneCount; ++lane) {
-							const integer_type laneEscapes = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (laneBitCount * lane)) & laneMask);
+						if constexpr (laneCount > 0) {
+							const integer_type laneEscapes = static_cast<integer_type>(static_cast<integer_type>(escapeMask) & laneMask);
+							string2						   = escapeLane<bitsPerByte>(string1Start, string1Start + 16, string2, laneEscapes);
+						}
+						if constexpr (laneCount > 1) {
+							const integer_type laneEscapes = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (laneBitCount * 1)) & laneMask);
+							string2						   = escapeLane<bitsPerByte>(string1Start, string1Start + 16, string2, laneEscapes);
+						}
+						if constexpr (laneCount > 2) {
+							const integer_type laneEscapes = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (laneBitCount * 2)) & laneMask);
+							string2						   = escapeLane<bitsPerByte>(string1Start, string1Start + 16, string2, laneEscapes);
+						}
+						if constexpr (laneCount > 3) {
+							const integer_type laneEscapes = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (laneBitCount * 3)) & laneMask);
 							string2						   = escapeLane<bitsPerByte>(string1Start, string1Start + 16, string2, laneEscapes);
 						}
 					}
