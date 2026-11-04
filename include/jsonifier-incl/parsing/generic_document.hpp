@@ -557,6 +557,21 @@ namespace jsonifier::generic {
 			}
 			int64_t openCount{ 1 };
 			++iter;
+			while (limit - iter >= 4) {
+				const int64_t delta01 = depthDeltaTable[base[iter[0]]];
+				const int64_t delta02 = depthDeltaTable[base[iter[1]]];
+				const int64_t delta03 = depthDeltaTable[base[iter[2]]];
+				const int64_t delta04 = depthDeltaTable[base[iter[3]]];
+				const int64_t depth01 = openCount + delta01;
+				const int64_t depth02 = openCount + (delta01 + delta02);
+				const int64_t depth03 = depth02 + delta03;
+				const int64_t depth04 = depth02 + (delta03 + delta04);
+				if (((depth01 == 0) | (depth02 == 0) | (depth03 == 0) | (depth04 == 0)) != 0) [[unlikely]] {
+					return iter + (depth01 == 0 ? 1 : depth02 == 0 ? 2 : depth03 == 0 ? 3 : 4);
+				}
+				openCount = depth04;
+				iter += 4;
+			}
 			while (iter < limit) {
 				openCount += depthDeltaTable[base[*iter]];
 				++iter;
@@ -583,6 +598,17 @@ namespace jsonifier::generic {
 			} else {
 				return span > keySize + 2 && keyStart[keySize] == '"' && internal::comparison::compare(keyStart, key.data(), keySize);
 			}
+		}
+
+		JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
+			read_buffer_ptr keyStart = root + *iter + 1;
+			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
+			if constexpr (!minified) {
+				while (keyEnd > keyStart && *keyEnd != '"') {
+					--keyEnd;
+				}
+			}
+			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
 
 		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position,
@@ -1183,6 +1209,10 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE bool keyEquals(string_view keyNew) const noexcept {
 			return doc->keyMatches(iter, keyNew);
+		}
+
+		JSONIFIER_INLINE string_view rawKey() const noexcept {
+			return doc->rawKey(iter);
 		}
 
 		JSONIFIER_INLINE error_code error() const noexcept {
