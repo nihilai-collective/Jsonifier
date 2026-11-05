@@ -933,4 +933,4 @@ The Windows build has landed (table above), but its assembly has not been inspec
 
 ## Dedication
 
-This whitepaper is dedicated to Sonny Moore (Skrillex), for showing what it looks like when someone’s vocation is also their resting state.
+This paper is dedicated to Sonny Moore (Skrillex), for showing what it looks like when someone’s vocation is also their resting state.
