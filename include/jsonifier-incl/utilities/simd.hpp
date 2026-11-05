@@ -321,8 +321,9 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename... jsonifier_simd_int_types> JSONIFIER_INLINE void processTailBlock(read_buffer_ptr blockPtr, uint64_t blockBaseIndex, const jsonifier_simd_int_t bsRegister,
-			const jsonifier_simd_int_t quoteRegister, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t spaceMask, const jsonifier_simd_int_types... args) noexcept {
+		template<typename... jsonifier_simd_int_types> JSONIFIER_INLINE void processTailBlock(read_buffer_ptr blockPtr, uint64_t blockBaseIndex,
+			const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t spaceMask,
+			const jsonifier_simd_int_types... args) noexcept {
 			array<uint64_t, 1> bitsArr;
 			array<uint64_t, 1> cntsArr;
 			processBlocksImpl<0>(bitsArr, cntsArr, blockPtr, bsRegister, quoteRegister, opTable, spaceMask, args...);

@@ -304,21 +304,21 @@ namespace jsonifier::internal {
 
 	template<uint64_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			return value < 100000000ULL			  ? value < 10000ULL ? value < 100ULL ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
-																									: (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, charTable2DigitData + value)), buf + 2)
-								  : value < 1000U ? (static_cast<void>(copy3Digits(buf, value)), buf + 3)
-																					  : (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
-							  : value < 1000000ULL ? value < 100000ULL ? implInternal<5ULL>(buf, value) : implInternal<6ULL>(buf, value)
-							  : value < 10000000ULL ? implInternal<7ULL>(buf, value)
-																	 : implInternal<8ULL>(buf, value)
-						  : value < 1000000000000ULL ? value < 10000000000ULL ? value < 1000000000ULL ? implInternal<9ULL>(buf, value) : implInternal<10ULL>(buf, value)
-							  : value < 100000000000ULL ? implInternal<11ULL>(buf, value)
-																			  : implInternal<12ULL>(buf, value)
-						  : value < 10000000000000000ULL ? value < 100000000000000ULL ? value < 10000000000000ULL ? implInternal<13ULL>(buf, value) : implInternal<14ULL>(buf, value)
-							  : value < 1000000000000000ULL ? implInternal<15ULL>(buf, value)
-																					  : implInternal<16ULL>(buf, value)
-						  : value < 1000000000000000000ULL ? value < 100000000000000000ULL ? implInternal<17ULL>(buf, value) : implInternal<18ULL>(buf, value)
-						  : value < 10000000000000000000ULL ? implInternal<19ULL>(buf, value)
+			return value < 100000000ULL ? value < 10000ULL ? value < 100ULL ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
+																						  : (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, charTable2DigitData + value)), buf + 2)
+						: value < 1000U										? (static_cast<void>(copy3Digits(buf, value)), buf + 3)
+																			: (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
+					: value < 1000000ULL				   ? value < 100000ULL ? implInternal<5ULL>(buf, value) : implInternal<6ULL>(buf, value)
+					: value < 10000000ULL				   ? implInternal<7ULL>(buf, value)
+														   : implInternal<8ULL>(buf, value)
+				: value < 1000000000000ULL		  ? value < 10000000000ULL ? value < 1000000000ULL ? implInternal<9ULL>(buf, value) : implInternal<10ULL>(buf, value)
+					: value < 100000000000ULL						? implInternal<11ULL>(buf, value)
+																	: implInternal<12ULL>(buf, value)
+				: value < 10000000000000000ULL	  ? value < 100000000000000ULL ? value < 10000000000000ULL ? implInternal<13ULL>(buf, value) : implInternal<14ULL>(buf, value)
+					: value < 1000000000000000ULL							? implInternal<15ULL>(buf, value)
+																			: implInternal<16ULL>(buf, value)
+				: value < 1000000000000000000ULL  ? value < 100000000000000000ULL ? implInternal<17ULL>(buf, value) : implInternal<18ULL>(buf, value)
+				: value < 10000000000000000000ULL ? implInternal<19ULL>(buf, value)
 												  : implInternal<20ULL>(buf, value);
 		}
 	};
@@ -328,11 +328,11 @@ namespace jsonifier::internal {
 			return value < 100000U	  ? value < 1000U ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
 																				   : (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, charTable2DigitData + value)), buf + 2)
 																	 : (static_cast<void>(copy3Digits(buf, value)), buf + 3)
-					   : value < 10000ULL ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
-													  : implInternal<5ULL>(buf, value)
-				   : value < 10000000U ? value < 1000000U ? implInternal<6ULL>(buf, value) : implInternal<7ULL>(buf, value)
-				   : value < 1000000000U ? value < 100000000U ? implInternal<8ULL>(buf, value) : implInternal<9ULL>(buf, value)
-										 : implInternal<10ULL>(buf, value);
+					: value < 10000ULL			   ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
+												   : implInternal<5ULL>(buf, value)
+				: value < 10000000U	  ? value < 1000000U ? implInternal<6ULL>(buf, value) : implInternal<7ULL>(buf, value)
+				: value < 1000000000U ? value < 100000000U ? implInternal<8ULL>(buf, value) : implInternal<9ULL>(buf, value)
+									  : implInternal<10ULL>(buf, value);
 		}
 	};
 
@@ -341,7 +341,7 @@ namespace jsonifier::internal {
 			return value < 1000U   ? value < 100U ? value < 10U ? (static_cast<void>(buf[0] = static_cast<uint8_t>(value + '0')), buf + 1)
 																: (static_cast<void>(pow2MemcpyWrapper<2ULL>(buf, charTable2DigitData + value)), buf + 2)
 												  : (static_cast<void>(copy3Digits(buf, value)), buf + 3)
-				  : value < 10000ULL ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
+				: value < 10000ULL ? (static_cast<void>(pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + value)), buf + 4)
 								   : implInternal<5ULL>(buf, value);
 		}
 	};
