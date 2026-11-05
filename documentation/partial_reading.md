@@ -70,7 +70,7 @@ template<> struct jsonifier::core<twitter_partial_message> {
 };
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
     twitter_partial_message result;
 
     parser.parseJson<jsonifier::parse_options{ .partialRead = true }>(result, json);

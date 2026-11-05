@@ -10,10 +10,10 @@ Include the header and you're ready:
 #include <jsonifier>
 ```
 
-Every Jsonifier operation goes through a `jsonifier::jsonifier_core<>` instance:
+Every Jsonifier operation goes through a `jsonifier::jsonifier_core` instance:
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 ```
 
 Create it once, use it for both parsing and serialization. Reusing the same instance across many operations is faster than constructing one per call.
@@ -138,7 +138,7 @@ template<> struct jsonifier::core<catalog> {
 };
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string json = R"({"events":{"42":{"id":42,"name":"Concert","logo":null,"topicIds":[1,2,3]}},"schema-version":"1.0"})";
     catalog data;

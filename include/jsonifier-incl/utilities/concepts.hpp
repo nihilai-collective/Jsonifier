@@ -23,7 +23,7 @@ namespace jsonifier {
 
 	class string_view_base;
 
-	template<uint64_t = 17> class string_base;
+	template<uint64_t = 0> class string_base;
 
 	class raw_json_data;
 

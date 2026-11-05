@@ -7,6 +7,7 @@
 #pragma once
 
 #include <jsonifier-incl/core/defines.hpp>
+#include <jsonifier-incl/utilities/byteswap.hpp>
 
 #include <jsonifier-incl/utilities/string_view.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
@@ -621,7 +622,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -643,7 +644,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -1355,7 +1356,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == trueVal) {
@@ -1378,7 +1379,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			iter += 4;
 			if (comparison == nullVal) [[likely]] {
@@ -1630,7 +1631,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			if (comparison == trueVal) {
 				value = true;
@@ -1653,7 +1654,7 @@ namespace jsonifier::internal {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			if (comparison == nullVal) [[likely]] {
 				++iter;

@@ -43,7 +43,7 @@ namespace float_validation_tests {
 
 	inline void zmijSerializationTests() {
 		std::cout << "Zmij Double Serialization Tests: " << std::endl;
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 
 		auto serialize = [&](double value) {
 			std::string buffer{};

@@ -10,6 +10,7 @@
 #include <jsonifier-incl/utilities/json_iterator.hpp>
 #include <jsonifier-incl/utilities/string_utils.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
+#include <jsonifier-incl/utilities/byteswap.hpp>
 
 namespace jsonifier::generic {
 
@@ -1082,7 +1083,7 @@ namespace jsonifier::generic {
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, valueStart);
 			if constexpr (std::endian::native == std::endian::big) {
-				comparison = std::byteswap(comparison);
+				comparison = internal::byteswap(comparison);
 			}
 			if constexpr (atomSize == 5) {
 				if (comparison != leadingWord || valueStart[4] != 'e') [[unlikely]] {

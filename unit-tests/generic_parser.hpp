@@ -214,7 +214,7 @@ namespace generic_parser_tests {
 
 		using error_code = jsonifier::generic::error_code;
 
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		std::string sample{ R"({ "a" : 1, "b": [1, 2.5, -3, true, false, null, "x\ny", "plain"], "c": {"d": {"e": "deep"}}, "e~/": 7, "big": 18446744073709551615 })" };
 
 		static constexpr rt_ut::string_literal iterateSuccessName{ "generic_iterate_success" };

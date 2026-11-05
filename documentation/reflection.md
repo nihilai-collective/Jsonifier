@@ -25,7 +25,7 @@ template<> struct jsonifier::core<available_tag> {
 That's the entire registration. Now `available_tag` can be parsed and serialized:
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 available_tag tag;
 std::string json = R"({"name":"urgent","moderated":true,"id":42})";
 parser.parseJson(tag, json);

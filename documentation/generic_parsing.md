@@ -11,7 +11,7 @@ Use it when you want to pull a handful of values out of arbitrary JSON without d
 #include <iostream>
 
 int main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string json = R"({"name":"Concert","count":42,"tags":["music","live"]})";
 
@@ -33,7 +33,7 @@ int main() {
 }
 ```
 
-Generic parsing lives on `jsonifier_core<initialBufferSize>` itself, so the same core that parses, serializes and validates also exposes `iterate` and `iterateMany`, and it runs on the same [configured backend](cpu_architecture_selection.md#one-tier-per-build) as every other call: stage 1 uses the single SIMD tier chosen at configure time.
+Generic parsing lives on `jsonifier_core` itself, so the same core that parses, serializes and validates also exposes `iterate` and `iterateMany`, and it runs on the same [configured backend](cpu_architecture_selection.md#one-tier-per-build) as every other call: stage 1 uses the single SIMD tier chosen at configure time.
 
 ## Lifetimes
 
@@ -113,7 +113,7 @@ In-order lookups cost a cursor step and a key compare. Out-of-order lookups rewi
 `iterateMany` reads a buffer holding many documents, such as NDJSON, the counterpart of simdjson's `iterate_many`:
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 std::string input = "{\"id\":1}\n{\"id\":2}\n{\"id\":3}\n";
 
 auto stream = parser.iterateMany(input);

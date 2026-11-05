@@ -113,7 +113,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_empty_struct_round_trips_as_empty_object", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_empty obj{};
 			std::string json{};
 			parser.serializeJson(obj, json);
@@ -151,7 +151,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_wide_binary_keys_round_trip", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_wide_binary_keys obj{};
 			obj.field00 = 100;
 			obj.field07 = 42;
@@ -164,7 +164,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_unknown_key_in_input_is_skipped_gracefully", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_five obj{};
 			std::string json = R"({"alpha":1,"mystery_field":{"nested":[1,2,3]},"bravo":2,"charlie":3,"unexpected":"value","delta":4,"echo":5})";
 			parser.parseJson(obj, json);
@@ -172,7 +172,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_near_miss_key_in_input_does_not_corrupt_real_field", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_pair obj{};
 			std::string json = R"({"ids":999,"id":7,"labels":"wrong","label":"right"})";
 			parser.parseJson(obj, json);
@@ -180,7 +180,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_wide_binary_keys_unknown_pattern_does_not_corrupt_real_fields", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_wide_binary_keys obj{};
 			std::string json = R"({"11111":404,"00000":1,"01110000":404,"10011":19,"0000":404})";
 			parser.parseJson(obj, json);
@@ -188,7 +188,7 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_single_element_parser_still_validates_key_text", true>::assert_eq(true, [] {
-			jsonifier::jsonifier_core<> parser{};
+			jsonifier::jsonifier_core parser{};
 			hm_single correct{};
 			parser.parseJson(correct, std::string{ R"({"only":42})" });
 			hm_single wrong{};

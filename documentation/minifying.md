@@ -5,7 +5,7 @@ Minifying strips all non-essential whitespace from a JSON document, producing th
 ## The Basics
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 
 std::string pretty = R"({
     "name": "Concert",
@@ -78,7 +78,7 @@ The final `minified_output` will be byte-identical to `minified_input` (assuming
 #include <iostream>
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string pretty = R"({
         "events": {

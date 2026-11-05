@@ -12,7 +12,7 @@
 namespace json_test_suite_tests {
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline void jsonTestSuiteYNTestsImpl() {
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		std::unordered_map<std::string, test_base> jsonTests{};
 		processFilesInFolder(jsonTests, "JSONTestSuite/test_parsing");
 		std::cout << "JSONTestSuite Y/N Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;

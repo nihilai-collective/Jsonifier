@@ -34,14 +34,14 @@
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public prixon_core,
-																			  public internal::generic_iterator<jsonifier_core<initialBufferSize>>,
-																			  public internal::json_printer<jsonifier_core<initialBufferSize>>,
-																			  public internal::prettifier<jsonifier_core<initialBufferSize>>,
-																			  public internal::serializer<jsonifier_core<initialBufferSize>>,
-																			  public internal::validator<jsonifier_core<initialBufferSize>>,
-																			  public internal::minifier<jsonifier_core<initialBufferSize>>,
-																			  public internal::parser<jsonifier_core<initialBufferSize>> {
+	class jsonifier_core : public prixon_core,
+						   public internal::generic_iterator<jsonifier_core>,
+						   public internal::json_printer<jsonifier_core>,
+						   public internal::prettifier<jsonifier_core>,
+						   public internal::serializer<jsonifier_core>,
+						   public internal::validator<jsonifier_core>,
+						   public internal::minifier<jsonifier_core>,
+						   public internal::parser<jsonifier_core> {
 	  public:
 		friend struct internal::generic_iterator<jsonifier_core>;
 		friend struct internal::json_printer<jsonifier_core>;
@@ -54,8 +54,8 @@ namespace jsonifier {
 		inline jsonifier_core() noexcept = default;
 
 		inline jsonifier_core(jsonifier_core&& other) noexcept
-			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
-			  errors{ internal::move(other.errors) }, genericData{ internal::move(other.genericData) } {
+			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, genericData{ internal::move(other.genericData) },
+			  errors{ internal::move(other.errors) }, stringBuffer{ internal::move(other.stringBuffer) } {
 		}
 
 		inline jsonifier_core& operator=(jsonifier_core&& other) noexcept {
@@ -63,8 +63,8 @@ namespace jsonifier {
 				podSection	 = internal::move(other.podSection);
 				section		 = internal::move(other.section);
 				stringBuffer = internal::move(other.stringBuffer);
-				errors		 = internal::move(other.errors);
 				genericData	 = internal::move(other.genericData);
+				errors		 = internal::move(other.errors);
 			}
 			return *this;
 		}
@@ -90,11 +90,11 @@ namespace jsonifier {
 	  protected:
 		template<typename, parse_options> friend class generic::document_stream;
 
-		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};
-		internal::simd_string_reader<initialBufferSize> section{};
-		string_base<initialBufferSize> stringBuffer{};
-		std::vector<internal::error> errors{};
+		internal::pod_simd_string_reader podSection{};
+		internal::simd_string_reader section{};
 		generic::generic_storage genericData{};
+		std::vector<internal::error> errors{};
+		string stringBuffer{};
 
 		JSONIFIER_INLINE generic::generic_storage& genericStorage() noexcept {
 			return genericData;

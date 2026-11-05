@@ -13,7 +13,7 @@ namespace raw_json_data_tests {
 	inline void runTests() {
 		std::cout << "raw_json_data Tests" << std::endl;
 
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 
 		static constexpr rt_ut::string_literal typeObjectName{ "raw_json_data_get_type_object" };
 		rt_ut::unit_test<typeObjectName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::object), [&] {

@@ -9,6 +9,7 @@
 #include <jsonifier-incl/simd/simd_x.hpp>
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
+#include <jsonifier-incl/utilities/byteswap.hpp>
 
 namespace jsonifier::internal::simd {
 
@@ -143,8 +144,8 @@ namespace jsonifier::internal::simd {
 		uint64_t rawLo = value.values.xUint64[0];
 		uint64_t rawHi = value.values.xUint64[1];
 		if constexpr (std::endian::native == std::endian::big) {
-			rawLo = std::byteswap(rawLo);
-			rawHi = std::byteswap(rawHi);
+			rawLo = internal::byteswap(rawLo);
+			rawHi = internal::byteswap(rawHi);
 		}
 		uint64_t highBits0 = rawLo & 0x8080808080808080ull;
 		uint64_t highBits1 = rawHi & 0x8080808080808080ull;

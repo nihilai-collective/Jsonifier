@@ -5,7 +5,7 @@
 ## The Basics
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 
 std::string json = R"({"name":"Concert","id":42})";
 bool valid = parser.validateJson(json);
@@ -69,7 +69,7 @@ Both `parseJson` and `validateJson` will catch structurally invalid JSON; `parse
 #include <iostream>
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string good = R"({"name":"Concert","id":42,"topicIds":[1,2,3]})";
     std::string bad  = R"({"name":"Concert","id":42,})";

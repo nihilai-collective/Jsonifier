@@ -4,10 +4,10 @@ This page covers everything you can do with `parseJson` and `serializeJson`. If 
 
 ## The Parser
 
-All operations go through a `jsonifier::jsonifier_core<>` instance:
+All operations go through a `jsonifier::jsonifier_core` instance:
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 ```
 
 Create it once and reuse it across many operations. The instance holds internal scratch buffers and the error list, so reusing it avoids repeated allocation.
@@ -145,10 +145,10 @@ For standalone pretty-printing or minification of existing JSON strings (without
 
 ## Reusing the Parser
 
-`jsonifier_core<>` is designed for reuse. Once created, it holds a scratch buffer and an error list that are reused across every call. The pattern is:
+`jsonifier_core` is designed for reuse. Once created, it holds a scratch buffer and an error list that are reused across every call. The pattern is:
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 
 catalog data1, data2, data3;
 
@@ -200,7 +200,7 @@ template<> struct jsonifier::core<catalog> {
 };
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string input = R"({"events":{"42":{"id":42,"name":"Concert","logo":null,"topicIds":[1,2,3]}},"schema-version":"1.0"})";
     catalog data;

@@ -12,6 +12,7 @@
 #include <jsonifier-incl/utilities/str_to_d.hpp>
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/simd.hpp>
+#include <jsonifier-incl/utilities/byteswap.hpp>
 
 namespace jsonifier::internal {
 
@@ -718,7 +719,7 @@ namespace jsonifier::internal {
 				pow2MemcpyWrapper<8>(&word, string1Start);
 				pow2MemcpyWrapper<8>(string2, &word);
 				if constexpr (std::endian::native == std::endian::big) {
-					word = std::byteswap(word);
+					word = internal::byteswap(word);
 				}
 				const uint64_t flags = flagMask(word);
 				if (!flags) {
@@ -762,7 +763,7 @@ namespace jsonifier::internal {
 				pow2MemcpyWrapper<4>(&hi, string1Start + length - 4);
 				uint64_t word = static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32);
 				if constexpr (std::endian::native == std::endian::big) {
-					word = std::byteswap(word);
+					word = internal::byteswap(word);
 				}
 				if (!flagMask(word)) {
 					pow2MemcpyWrapper<4>(string2, &lo);
@@ -777,7 +778,7 @@ namespace jsonifier::internal {
 				pow2MemcpyWrapper<2>(&hi, string1Start + length - 2);
 				uint64_t word = static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 16) | 0x8080808000000000ULL;
 				if constexpr (std::endian::native == std::endian::big) {
-					word = std::byteswap(word);
+					word = internal::byteswap(word);
 				}
 				if (!flagMask(word)) {
 					pow2MemcpyWrapper<2>(string2, &lo);
@@ -940,7 +941,7 @@ namespace jsonifier::internal {
 			returnValue |= static_cast<convert_length_to_int_t<string.size()>>(stringNew[x]) << x * 8;
 		}
 		if constexpr (std::endian::native == std::endian::big) {
-			returnValue = std::byteswap(returnValue);
+			returnValue = internal::byteswap(returnValue);
 		}
 		return returnValue;
 	}

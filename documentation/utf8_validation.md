@@ -111,7 +111,7 @@ Input that doesn't fill a whole register is copied into a register-sized scratch
 #include <iostream>
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string json_valid = R"({"name":"Concert 🎵","id":42})";
     std::string json_bad_utf8;

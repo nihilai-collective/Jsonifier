@@ -48,9 +48,9 @@ There is no check that the compiler flags enable the selected tier. Linking the 
 
 ### The core
 
-`jsonifier::jsonifier_core<initialBufferSize>` is a single class. It inherits the printer, prettifier, serializer, validator, minifier, parser and generic iterator through CRTP, and it owns everything those bases work on:
+`jsonifier::jsonifier_core` is a single class. It inherits the printer, prettifier, serializer, validator, minifier, parser and generic iterator through CRTP, and it owns everything those bases work on:
 
-- the fused-path structural reader (`pod_simd_string_reader<simdBytesPerStep>`) and the two-stage structural reader (`simd_string_reader<initialBufferSize>`)
+- the fused-path structural reader (`pod_simd_string_reader`) and the two-stage structural reader (`simd_string_reader`)
 - the string buffer and the error list
 - the generic-parsing storage (field index, document state and string arena), held inline; its buffers are allocated on the first `iterate`
 
@@ -59,7 +59,7 @@ Every call is a direct call into code built for the configured backend; nothing 
 ### Limits
 
 - **Target requirements:** a binary requires the tier it was configured for on every machine that runs it. A build configured for AVX-512 stops with `SIGILL` on an AVX2-only CPU. For binaries distributed to mixed hardware, configure for the lowest tier you need to support (see [Choosing the Tier](#choosing-the-tier-jsonifier_simd_tier) and [Overriding the Detected Features](#overriding-the-detected-features)).
-- **Generic parsing:** `iterate` and `iterateMany` run on the same backend as every other call, and they reuse the core's own structural readers. They are members of `jsonifier_core<>` itself. A `document` points into the core's tape and generic-parsing state, so a later `parseJson`, `validateJson` or `iterate` call on the same core, or moving the core, invalidates it.
+- **Generic parsing:** `iterate` and `iterateMany` run on the same backend as every other call, and they reuse the core's own structural readers. They are members of `jsonifier_core` itself. A `document` points into the core's tape and generic-parsing state, so a later `parseJson`, `validateJson` or `iterate` call on the same core, or moving the core, invalidates it.
 
 ## The Feature Bits
 

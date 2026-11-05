@@ -35,7 +35,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE constexpr string_view_base substr(const size_type offsetNew = 0, size_type countNew = npos) const {
 			if (offsetNew > sizeVal) [[unlikely]] {
-				throw std::out_of_range("Substring position is out of range.");
+				JSONIFIER_THROW(std::out_of_range("Substring position is out of range."));
 			}
 
 			countNew = internal::min(countNew, sizeVal - offsetNew);
@@ -64,7 +64,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE constexpr const_reference at(const size_type offsetNew) const noexcept(false) {
 			if (offsetNew >= sizeVal) [[unlikely]] {
-				throw std::out_of_range{ "Sorry, but that index is beyond the end of this string_view instance." };
+				JSONIFIER_THROW(std::out_of_range{ "Sorry, but that index is beyond the end of this string_view instance." });
 			}
 			return dataVal[offsetNew];
 		}

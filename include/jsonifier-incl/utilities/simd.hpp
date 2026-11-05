@@ -222,7 +222,6 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t initialBufferSize>
 	struct simd_string_reader_members : simd::rope_detector<rope_block>, string_block_reader, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, alloc_wrapper<uint32_t> {
 		friend add_tape_values<make_integer_sequence<simdBlocksPerStep>>;
 		using allocator = alloc_wrapper<uint32_t>;
@@ -231,7 +230,9 @@ namespace jsonifier::internal {
 			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {
 				auto newTape = allocator::allocate(neededCapacity);
-				allocator::deallocate(tape, capacity);
+				if (tape) {
+					allocator::deallocate(tape, capacity);
+				}
 				tape	 = newTape;
 				capacity = neededCapacity;
 			}
@@ -273,10 +274,7 @@ namespace jsonifier::internal {
 			return tape;
 		}
 
-		JSONIFIER_INLINE simd_string_reader_members() noexcept {
-			tape	 = allocator::allocate(initialBufferSize);
-			capacity = initialBufferSize;
-		}
+		JSONIFIER_INLINE simd_string_reader_members() noexcept = default;
 
 		JSONIFIER_INLINE ~simd_string_reader_members() noexcept {
 			if (tape) {
@@ -411,7 +409,6 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t initialBufferSize>
 	struct simd_string_reader_locals : string_block_reader_locals, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, alloc_wrapper<uint32_t> {
 		friend add_tape_values<make_integer_sequence<simdBlocksPerStep>>;
 		using allocator = alloc_wrapper<uint32_t>;
@@ -463,7 +460,9 @@ namespace jsonifier::internal {
 			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {
 				auto newTape = allocator::allocate(neededCapacity);
-				allocator::deallocate(tape, capacity);
+				if (tape) {
+					allocator::deallocate(tape, capacity);
+				}
 				tape	 = newTape;
 				capacity = neededCapacity;
 			}
@@ -617,10 +616,7 @@ namespace jsonifier::internal {
 			return tape;
 		}
 
-		JSONIFIER_INLINE simd_string_reader_locals() noexcept {
-			tape	 = allocator::allocate(initialBufferSize);
-			capacity = initialBufferSize;
-		}
+		JSONIFIER_INLINE simd_string_reader_locals() noexcept = default;
 
 		JSONIFIER_INLINE ~simd_string_reader_locals() noexcept {
 			if (tape) {
@@ -647,12 +643,12 @@ namespace jsonifier::internal {
 	};
 
 #if JSONIFIER_COMPILER_CLANG
-	template<uint64_t initialBufferSize> using simd_string_reader = simd_string_reader_members<initialBufferSize>;
+	using simd_string_reader = simd_string_reader_members;
 #else
-	template<uint64_t initialBufferSize> using simd_string_reader = simd_string_reader_locals<initialBufferSize>;
+	using simd_string_reader = simd_string_reader_locals;
 #endif
 
-	template<uint64_t initialBufferSize> struct pod_simd_string_reader_locals : alloc_wrapper<uint32_t> {
+	struct pod_simd_string_reader_locals : alloc_wrapper<uint32_t> {
 		using allocator = alloc_wrapper<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
 		static constexpr uint64_t stepBytes{ podBytesPerStep };
@@ -834,10 +830,7 @@ namespace jsonifier::internal {
 			return *this;
 		}
 
-		JSONIFIER_INLINE pod_simd_string_reader_locals() noexcept {
-			tape	 = allocator::allocate(initialBufferSize);
-			capacity = initialBufferSize;
-		}
+		JSONIFIER_INLINE pod_simd_string_reader_locals() noexcept = default;
 
 		JSONIFIER_INLINE ~pod_simd_string_reader_locals() noexcept {
 			if (tape) {
@@ -869,7 +862,7 @@ namespace jsonifier::internal {
 		uint64_t length{};
 	};
 
-	template<uint64_t initialBufferSize> struct pod_simd_string_reader_members : simd::rope_detector<rope_block>, alloc_wrapper<uint32_t> {
+	struct pod_simd_string_reader_members : simd::rope_detector<rope_block>, alloc_wrapper<uint32_t> {
 		using allocator = alloc_wrapper<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
 		static constexpr uint64_t stepBytes{ podBytesPerStep };
@@ -1041,10 +1034,7 @@ namespace jsonifier::internal {
 			return *this;
 		}
 
-		JSONIFIER_INLINE pod_simd_string_reader_members() noexcept {
-			tape	 = allocator::allocate(initialBufferSize);
-			capacity = initialBufferSize;
-		}
+		JSONIFIER_INLINE pod_simd_string_reader_members() noexcept = default;
 
 		JSONIFIER_INLINE ~pod_simd_string_reader_members() noexcept {
 			if (tape) {
@@ -1078,9 +1068,9 @@ namespace jsonifier::internal {
 	};
 
 #if JSONIFIER_COMPILER_CLANG
-	template<uint64_t initialBufferSize> using pod_simd_string_reader = pod_simd_string_reader_members<initialBufferSize>;
+	using pod_simd_string_reader = pod_simd_string_reader_members;
 #else
-	template<uint64_t initialBufferSize> using pod_simd_string_reader = pod_simd_string_reader_locals<initialBufferSize>;
+	using pod_simd_string_reader = pod_simd_string_reader_locals;
 #endif
 
 }

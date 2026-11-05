@@ -13,7 +13,7 @@ namespace minifier_tests {
 	inline void runTests() {
 		std::cout << "JSON Minifier Buffer Overload Tests" << std::endl;
 
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 
 		auto minifyInto = [&](std::string input, std::string buffer = std::string{}) {
 			bool success = parser.minifyJson(jsonifier::internal::move(input), buffer);

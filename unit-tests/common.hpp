@@ -161,7 +161,7 @@ template<bool nullTerminated> inline constexpr rt_ut::string_literal testTypeNul
 
 template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated>
 struct pass_tests_runner {
-	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core& parser) {
 		value_type_in data{};
 		rt_ut::unit_test<rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) }, true>::assert_eq(pass_values[index], [&]() {
 			parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder }>(data, pass_tests[index]);
@@ -174,7 +174,7 @@ struct pass_tests_runner {
 };
 
 template<typename value_type_in, const auto& fail_tests, bool partial, bool knownOrder, bool nullTerminated> struct fail_tests_runner {
-	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core& parser) {
 		value_type_in data{};
 		rt_ut::unit_test<rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) }, true>::assert_ne(true, [&]() {
 			return parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder }>(data, fail_tests[index]);
@@ -192,7 +192,7 @@ template<typename value_type_out, typename value_type_in, const auto& pass_tests
 	template<typename, typename, const auto&, const auto&, bool, bool, bool> typename functor, uint64_t... indices>
 struct pass_test_runner<value_type_out, value_type_in, pass_tests, pass_values, partial, knownOrder, nullTerminated, functor, jsonifier::internal::integer_sequence<indices...>> {
 	static void impl() {
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		(functor<value_type_out, value_type_in, pass_tests, pass_values, partial, knownOrder, nullTerminated>::template impl<indices>(parser), ...);
 	}
 };
@@ -207,7 +207,7 @@ template<typename value_type_in, const auto& fail_tests, bool partial, bool know
 	uint64_t... indices>
 struct fail_test_runner<value_type_in, fail_tests, partial, knownOrder, nullTerminated, functor, jsonifier::internal::integer_sequence<indices...>> {
 	static void impl() {
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		(functor<value_type_in, fail_tests, partial, knownOrder, nullTerminated>::template impl<indices>(parser), ...);
 	}
 };

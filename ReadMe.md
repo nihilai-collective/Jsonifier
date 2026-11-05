@@ -149,7 +149,7 @@ template<> struct jsonifier::core<catalog> {
 };
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     catalog data;
     std::string json = R"({"events":{"42":{"id":42,"name":"Concert","logo":null,"topicIds":[1,2,3]}},"schema-version":"1.0"})";
@@ -166,7 +166,7 @@ Note the `makeJsonEntity<&value_type::schema_version, "schema-version">()`: Json
 
 Warning: Include only <jsonifier>. Direct inclusion of internal headers may cause unrelated code in the including translation unit to become uncompilable.
 
-The `jsonifier_core<>` type is templated on an initial scratch-buffer size in bytes (default 1MB), e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents. It is compiled for the single SIMD tier configured at build time, so a binary configured for AVX-512 requires AVX-512 on every machine that runs it. See [Backends and the Core](documentation/cpu_architecture_selection.md#backends-and-the-core).
+`jsonifier_core` allocates nothing up front: its tapes and scratch buffer grow to fit the first document it sees and are reused after that. It is compiled for the single SIMD tier configured at build time, so a binary configured for AVX-512 requires AVX-512 on every machine that runs it. See [Backends and the Core](documentation/cpu_architecture_selection.md#backends-and-the-core).
 
 ---
 

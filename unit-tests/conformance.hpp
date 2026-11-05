@@ -12,7 +12,7 @@ namespace conformance_tests {
 
 	template<rt_ut::string_literal testNameNew, bool partial, bool knownOrder, bool nullTerminated, typename test_type,
 		jsonifier::internal::parse_statuses parse_error = jsonifier::internal::parse_statuses{}>
-	inline void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
+	inline void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
 		parser.getErrors().clear();
@@ -31,7 +31,7 @@ namespace conformance_tests {
 	}
 
 	template<bool partial, bool knownOrder, bool nullTerminated> inline void conformanceTestsImpl() {
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		{
 			std::unordered_map<std::string, test_base> jsonTests{};
 			processFilesInFolder(jsonTests, "jsonchecker/fail");

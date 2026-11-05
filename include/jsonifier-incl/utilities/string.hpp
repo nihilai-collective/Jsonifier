@@ -37,24 +37,19 @@ namespace jsonifier {
 			if (static_cast<int64_t>(newSize) > 0) [[likely]] {
 				if (newSize > capacityVal) [[likely]] {
 					pointer newPtr = allocator::allocate(newSize + 1);
-					try {
-						if (dataVal) [[likely]] {
-							if (sizeVal > 0) [[likely]] {
-								std::uninitialized_move(dataVal, dataVal + sizeVal, newPtr);
-							}
-							allocator::deallocate(dataVal, capacityVal + 1);
+					if (dataVal) [[likely]] {
+						if (sizeVal > 0) [[likely]] {
+							std::uninitialized_move(dataVal, dataVal + sizeVal, newPtr);
 						}
-					} catch (...) {
-						allocator::deallocate(newPtr, newSize + 1);
-						throw;
+						allocator::deallocate(dataVal, capacityVal + 1);
 					}
 					capacityVal = newSize;
 					dataVal		= newPtr;
-					std::uninitialized_value_construct(dataVal + sizeVal, dataVal + capacityVal);
+					std::memset(dataVal + sizeVal, 0, (capacityVal - sizeVal) * sizeof(value_type));
 					allocator::construct(newPtr + newSize, value_type{});
 					sizeVal = newSize;
 				} else if (newSize > sizeVal) [[likely]] {
-					std::uninitialized_value_construct(dataVal + sizeVal, dataVal + capacityVal);
+					std::memset(dataVal + sizeVal, 0, (capacityVal - sizeVal) * sizeof(value_type));
 					allocator::construct(dataVal + newSize, value_type{});
 					sizeVal = newSize;
 				} else if (newSize < sizeVal) [[likely]] {
@@ -105,21 +100,16 @@ namespace jsonifier {
 		JSONIFIER_INLINE void reserve(size_type capacityNew) {
 			if (capacityNew > capacityVal) [[likely]] {
 				pointer newPtr = allocator::allocate(capacityNew + 1);
-				try {
-					if (dataVal) [[likely]] {
-						if (sizeVal > 0) [[likely]] {
-							std::uninitialized_move(dataVal, dataVal + sizeVal, newPtr);
-						}
-						allocator::deallocate(dataVal, capacityVal + 1);
+				if (dataVal) [[likely]] {
+					if (sizeVal > 0) [[likely]] {
+						std::uninitialized_move(dataVal, dataVal + sizeVal, newPtr);
 					}
-					capacityVal = capacityNew;
-					dataVal		= newPtr;
-					if (dataVal) {
-						allocator::construct(&dataVal[sizeVal], value_type{});
-					}
-				} catch (...) {
-					allocator::deallocate(newPtr, capacityNew + 1);
-					throw;
+					allocator::deallocate(dataVal, capacityVal + 1);
+				}
+				capacityVal = capacityNew;
+				dataVal		= newPtr;
+				if (dataVal) {
+					allocator::construct(&dataVal[sizeVal], value_type{});
 				}
 			}
 		}
@@ -152,7 +142,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE string_base substr(size_type position, size_type count = std::numeric_limits<size_type>::max()) const {
 			if (static_cast<int64_t>(position) >= static_cast<int64_t>(sizeVal)) [[unlikely]] {
-				throw std::out_of_range("Substring position is out of range.");
+				JSONIFIER_THROW(std::out_of_range("Substring position is out of range."));
 			}
 
 			count = internal::min(count, sizeVal - position);
@@ -296,7 +286,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE const_reference at(size_type index) const {
 			if (index >= sizeVal) [[unlikely]] {
-				throw std::runtime_error{ "Sorry, but that index is beyond the end of this string." };
+				JSONIFIER_THROW(std::runtime_error{ "Sorry, but that index is beyond the end of this string." });
 			}
 			return dataVal[index];
 		}
@@ -348,7 +338,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE reference at(size_type index) {
 			if (index >= sizeVal) [[unlikely]] {
-				throw std::runtime_error{ "Sorry, but that index is beyond the end of this string." };
+				JSONIFIER_THROW(std::runtime_error{ "Sorry, but that index is beyond the end of this string." });
 			}
 			return dataVal[index];
 		}
@@ -359,7 +349,9 @@ namespace jsonifier {
 			return *this;
 		}
 
-		JSONIFIER_INLINE constexpr string_base(const char (&str)[newerSize]) noexcept {
+		template<uint64_t size>
+			requires(size == newerSize && size > 0)
+		JSONIFIER_INLINE constexpr string_base(const char (&str)[size]) noexcept {
 			resize(newerSize);
 			for (uint64_t x = 0; x < length; ++x) {
 				dataVal[x] = str[x];
@@ -542,7 +534,7 @@ namespace jsonifier {
 	};
 
 	template<uint64_t newerSize>
-		requires(newerSize <= 16)
+		requires(newerSize > 0 && newerSize <= 16)
 	class string_base<newerSize> {
 	  public:
 		using value_type			 = char;
@@ -666,7 +658,7 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE constexpr string_base substr(size_type position, size_type count = std::numeric_limits<size_type>::max()) const {
 			if (static_cast<int64_t>(position) >= static_cast<int64_t>(sizeVal)) [[unlikely]] {
-				throw std::out_of_range("Substring position is out of range.");
+				JSONIFIER_THROW(std::out_of_range("Substring position is out of range."));
 			}
 
 			count = internal::min(count, sizeVal - position);
@@ -821,14 +813,14 @@ namespace jsonifier {
 
 		JSONIFIER_INLINE constexpr const_reference at(size_type index) const {
 			if (index >= sizeVal) [[unlikely]] {
-				throw std::runtime_error{ "Sorry, but that index is beyond the end of this string." };
+				JSONIFIER_THROW(std::runtime_error{ "Sorry, but that index is beyond the end of this string." });
 			}
 			return dataVal[index];
 		}
 
 		JSONIFIER_INLINE constexpr reference at(size_type index) {
 			if (index >= sizeVal) [[unlikely]] {
-				throw std::runtime_error{ "Sorry, but that index is beyond the end of this string." };
+				JSONIFIER_THROW(std::runtime_error{ "Sorry, but that index is beyond the end of this string." });
 			}
 			return dataVal[index];
 		}

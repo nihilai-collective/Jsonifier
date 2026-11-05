@@ -7,6 +7,7 @@
 #pragma once
 
 #include <jsonifier-incl/core/defines.hpp>
+#include <jsonifier-incl/utilities/byteswap.hpp>
 
 #include <jsonifier-incl/utilities/json_entity.hpp>
 #include <jsonifier-incl/parsing/validator.hpp>
@@ -206,7 +207,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, valueIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = std::byteswap(comparison);
+					comparison = internal::byteswap(comparison);
 				}
 				if (comparison == trueVal && remaining == 4) {
 					object = true;
@@ -229,7 +230,7 @@ namespace jsonifier::internal {
 				uint32_t comparison;
 				pow2MemcpyWrapper<4>(&comparison, rootIter);
 				if constexpr (std::endian::native == std::endian::big) {
-					comparison = std::byteswap(comparison);
+					comparison = internal::byteswap(comparison);
 				}
 				rootIter += 4;
 				if (comparison == trueVal) {

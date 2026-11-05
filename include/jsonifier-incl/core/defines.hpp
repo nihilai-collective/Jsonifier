@@ -20,6 +20,7 @@
 #include <chrono>
 #include <vector>
 #include <limits>
+#include <cstdlib>
 #include <bit>
 
 #if !defined(JSONIFIER_ARCH_X64)
@@ -120,6 +121,20 @@
 	#else
 		#define JSONIFIER_NOINLINE inline __attribute__((noinline))
 	#endif
+#endif
+
+#if !defined(JSONIFIER_EXCEPTIONS)
+	#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+		#define JSONIFIER_EXCEPTIONS 1
+	#else
+		#define JSONIFIER_EXCEPTIONS 0
+	#endif
+#endif
+
+#if JSONIFIER_EXCEPTIONS
+	#define JSONIFIER_THROW(...) throw __VA_ARGS__
+#else
+	#define JSONIFIER_THROW(...) std::abort()
 #endif
 
 #if !defined(JSONIFIER_NO_SANITIZE_ADDRESS)

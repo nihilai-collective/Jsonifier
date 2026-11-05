@@ -41,7 +41,7 @@ namespace printer_tests {
 	inline void runTests() {
 		std::cout << "JSON Printer Tests" << std::endl;
 
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 
 		rt_ut::unit_test<"printer_print_json_writes_header_line", true>::assert_eq(true, [&] {
 			leaf_struct obj{ "hello", 7 };

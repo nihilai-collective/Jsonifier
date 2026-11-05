@@ -5,7 +5,7 @@ Prettifying reformats a JSON document with indentation and newlines, making it e
 ## The Basics
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 
 std::string minified = R"({"name":"Concert","id":42})";
 
@@ -110,7 +110,7 @@ parser.minifyJson(pretty, minified_again);
 #include <iostream>
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
 
     std::string minified = R"({"events":{"42":{"id":42,"name":"Concert","topicIds":[1,2,3]}},"schema-version":"1.0"})";
 

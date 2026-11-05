@@ -85,7 +85,7 @@ namespace bounds_tests {
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
 		auto dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		rt_ut::unit_test<testNameRtUt, true>::run(
 			[&](std::string s) {
 				test_data_type jsonifierValue;

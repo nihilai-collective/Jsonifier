@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <jsonifier-incl/utilities/byteswap.hpp>
+
 namespace jsonifier::internal {
 
 	struct xoshiro256 {
@@ -76,7 +78,7 @@ namespace jsonifier::internal {
 		std::copy(ptr, ptr + sizeof(value_type), values);
 		value_type result{ std::bit_cast<value_type>(values) };
 		if constexpr (std::endian::native == std::endian::big) {
-			result = std::byteswap(result);
+			result = internal::byteswap(result);
 		}
 		return result;
 	}

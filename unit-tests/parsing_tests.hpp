@@ -25,7 +25,7 @@ namespace parsing_tests {
 		validate,
 	};
 
-	template<test_types test_type, rt_ut::string_literal testNameNew, typename value_type> inline void utilityTests(jsonifier::jsonifier_core<>& parser) {
+	template<test_types test_type, rt_ut::string_literal testNameNew, typename value_type> inline void utilityTests(jsonifier::jsonifier_core& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		value_type jsonifier_value;
@@ -49,7 +49,7 @@ namespace parsing_tests {
 	};
 
 	template<rt_ut::string_literal testNameNew, typename value_type, bool prettified, bool partial, bool knownOrder, bool nullTerminated>
-	inline void parsingTests(jsonifier::jsonifier_core<>& parser) {
+	inline void parsingTests(jsonifier::jsonifier_core& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
@@ -71,7 +71,7 @@ namespace parsing_tests {
 		});
 	};
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline void parsingTestsImpl([[maybe_unused]] jsonifier::jsonifier_core<>& parser) {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void parsingTestsImpl([[maybe_unused]] jsonifier::jsonifier_core& parser) {
 		std::cout << "Parsing Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
 		parsingTests<"Apache Builds Test (Minified)", apache_builds_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Apache Builds Test (Prettified)", apache_builds_message, true, partial, knownOrder, nullTerminated>(parser);
@@ -98,7 +98,7 @@ namespace parsing_tests {
 	}
 
 	inline void runTests() {
-		jsonifier::jsonifier_core<> parser{};
+		jsonifier::jsonifier_core parser{};
 		parsingTestsImpl<false, false, false>(parser);
 		parsingTestsImpl<false, true, false>(parser);
 		parsingTestsImpl<true, false, false>(parser);

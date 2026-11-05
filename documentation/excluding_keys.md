@@ -27,7 +27,7 @@ template<> struct jsonifier::core<my_object> {
 When you serialize this object, the `secret` field is skipped. When you parse into it, incoming `"secret"` fields are read past and their values discarded; the `secret` member keeps whatever it had before the parse.
 
 ```cpp
-jsonifier::jsonifier_core<> parser;
+jsonifier::jsonifier_core parser;
 my_object obj{ "John", 30, "hunter2" };
 
 std::string output;
@@ -122,7 +122,7 @@ template<> struct jsonifier::core<user_profile> {
 };
 
 int32_t main() {
-    jsonifier::jsonifier_core<> parser;
+    jsonifier::jsonifier_core parser;
     user_profile user{ "Jane", "jane@example.com", "$2b$12$....", 1728000000 };
 
     user.jsonifierExcludedKeys = { "password_hash", "email" };
