@@ -234,9 +234,6 @@ namespace jsonifier::internal {
 			return read_buffer_ptr{};
 		}())>())>
 			wsChar{};
-#if JSONIFIER_COMPILER_MSVC
-		uint64_t currentIndex{};
-#endif
 	};
 
 	template<parse_options parseOpts, typename string_buffer_type> struct parse_context<parseOpts, unrestrict_t<write_structural_index_ptr>, string_buffer_type> {
@@ -266,9 +263,6 @@ namespace jsonifier::internal {
 		read_buffer_ptr stringRoot{};
 		read_buffer_ptr stringEnd{};
 		write_structural_index_ptr endIter{};
-#if JSONIFIER_COMPILER_MSVC
-		uint64_t currentIndex{};
-#endif
 	};
 
 #if JSONIFIER_ANY_AVX || (JSONIFIER_NEON && !JSONIFIER_SVE2)

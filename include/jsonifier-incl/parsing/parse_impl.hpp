@@ -295,18 +295,18 @@ namespace jsonifier::internal {
 #if JSONIFIER_COMPILER_MSVC
 	template<template<typename, typename, parse_options> typename parsing_type, typename value_type, typename context_type, parse_options options, uint64_t... indices>
 	struct generate_dispatch_table_new<parsing_type, value_type, context_type, options, integer_sequence<indices...>> {
-		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
 			parse_result result{ parse_result::inactive_member };
 			static_cast<void>(
-				((context.currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true)
+				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true)
 												  : false) ||
 					...));
 			return result;
 		}
 
-		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
 			parse_result result{ parse_result::inactive_member };
-			static_cast<void>(((context.currentIndex == indices
+			static_cast<void>(((currentIndex == indices
 									   ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
 									   : false) ||
 				...));
@@ -338,16 +338,13 @@ namespace jsonifier::internal {
 	};
 #endif
 
-	template<uint64_t memberCount> consteval array<uint64_t, (memberCount > 0 ? memberCount : 1)> generateAntiHashStatesTableNew() {
-		array<uint64_t, (memberCount > 0 ? memberCount : 1)> returnValues{};
-		for (uint64_t x = 0; x < memberCount; ++x) {
-			returnValues[x] = x;
-		}
-		return returnValues;
-	}
+	template<typename integer_sequence> struct anti_hash_states;
 
-	template<uint64_t memberCount, typename value_type>
-	thread_local constinit static array<uint64_t, (memberCount > 0 ? memberCount : 1)> antiHashStatesNew{ generateAntiHashStatesTableNew<memberCount>() };
+	template<uint64_t... indices> struct anti_hash_states<integer_sequence<indices...>> {
+		std::atomic<uint64_t> values[sizeof...(indices)]{ indices... };
+	};
+
+	template<uint64_t memberCount, typename value_type> constinit static anti_hash_states<make_integer_sequence<(memberCount > 0 ? memberCount : 1)>> antiHashStatesNew{};
 
 	template<parse_options options, typename json_entity_type> struct json_entity_parse : public json_entity_type {
 		static constexpr auto memberCount{ coreTupleSize<typename json_entity_type::class_type> };
@@ -404,16 +401,16 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
-							if (const auto result = (context.currentIndex = indexNew, dispatch::impl(value, iter, depth, context)); result != parse_result::inactive_member) {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
 								return result;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = (context.currentIndex = indexNew2, dispatch::impl(value, iter, depth, context));
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2);
 									result2 != parse_result::inactive_member) {
 									if (result2 == parse_result::active_member) {
-										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
+										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return result2;
 								}
@@ -422,7 +419,7 @@ namespace jsonifier::internal {
 					} else {
 						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 							indexNew2 < memberCount) [[likely]] {
-							if (const auto result2 = (context.currentIndex = indexNew2, dispatch::impl(value, iter, depth, context)); result2 != parse_result::inactive_member) {
+							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
 								return result2;
 							}
 						}
@@ -475,20 +472,100 @@ namespace jsonifier::internal {
 					return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
 				}
 				return parse_result::inactive_member;
+			} else if constexpr (!structural_context_types<context_type>) {
+				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKeySize = quotedKey.size();
+				if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[likely]] {
+					iter += quotedKeySize;
+					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
+						return parse_result::failed;
+					}
+					if constexpr (excluded_keys_types<value_type>) {
+						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+						const auto& keys		  = value.jsonifierExcludedKeys;
+						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
+							return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
+						}
+					}
+					return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
+				}
+				return parse_result::inactive_member;
 			} else {
 				return parse_types_impl<value_type, context_type, options>::template processIndex<json_entity_type::index>(value, iter, depth, context);
 			}
 		}
 
 		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static parse_result processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_result processMissOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			using cursor   = cursor_t<options, context_type>;
 			using dispatch = generate_dispatch_table_new<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
+			while (true) {
+				if constexpr (memberCount == 1) {
+					if (const auto result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
+						result != parse_result::inactive_member) [[likely]] {
+						return result;
+					}
+				} else {
+					if constexpr (options.knownOrder) {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
+								return result;
+							}
+							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
+								indexNew2 < memberCount) [[likely]] {
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2);
+									result2 != parse_result::inactive_member) {
+									if (result2 == parse_result::active_member) {
+										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
+									}
+									return result2;
+								}
+							}
+						}
+					} else {
+						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
+							indexNew2 < memberCount) [[likely]] {
+							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
+								return result2;
+							}
+						}
+					}
+				}
+				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
+					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
+					return parse_result::failed;
+				}
+				if (!cursor::skipString(iter, context)) [[unlikely]] {
+					return parse_result::failed;
+				}
+				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
+					return parse_result::failed;
+				}
+				if (!cursor::skipValue(iter, context)) [[unlikely]] {
+					return parse_result::failed;
+				}
+				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
+					case static_cast<uint64_t>(sep_result::cont): {
+						break;
+					}
+					case static_cast<uint64_t>(sep_result::ended): {
+						return parse_result::ended;
+					}
+					default: {
+						return parse_result::failed;
+					}
+				}
+			}
+		}
+
+		template<typename value_type, typename context_type>
+		JSONIFIER_NOINLINE static parse_result processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+			using cursor = cursor_t<options, context_type>;
 			if constexpr (options.minified && options.knownOrder && !structural_context_types<context_type>) {
 				if (cursor::objectMaybeEnd(iter, depth, context)) {
 					return parse_result::ended;
 				}
-				if (const auto result = tryKnownOrderOutline(value, iter, depth, context); result != parse_result::inactive_member) {
+				if (const auto result = tryKnownOrder(value, iter, depth, context); result != parse_result::inactive_member) {
 					return result;
 				}
 				if constexpr (json_entity_type::index > 0) {
@@ -523,88 +600,7 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			while (true) {
-				if constexpr (memberCount == 1) {
-					if (const auto result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
-						result != parse_result::inactive_member) [[likely]] {
-						return result;
-					}
-				} else {
-					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
-							if (const auto result = (context.currentIndex = indexNew, dispatch::impl(value, iter, depth, context)); result != parse_result::inactive_member) {
-								return result;
-							}
-							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
-								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = (context.currentIndex = indexNew2, dispatch::impl(value, iter, depth, context));
-									result2 != parse_result::inactive_member) {
-									if (result2 == parse_result::active_member) {
-										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
-									}
-									return result2;
-								}
-							}
-						}
-					} else {
-						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
-							indexNew2 < memberCount) [[likely]] {
-							if (const auto result2 = (context.currentIndex = indexNew2, dispatch::impl(value, iter, depth, context)); result2 != parse_result::inactive_member) {
-								return result2;
-							}
-						}
-					}
-				}
-				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
-					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
-					return parse_result::failed;
-				}
-				if (!cursor::skipString(iter, context)) [[unlikely]] {
-					return parse_result::failed;
-				}
-				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-					return parse_result::failed;
-				}
-				if (!cursor::skipValue(iter, context)) [[unlikely]] {
-					return parse_result::failed;
-				}
-				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
-						break;
-					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						return parse_result::ended;
-					}
-					default: {
-						return parse_result::failed;
-					}
-				}
-			}
-		}
-
-		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static parse_result tryKnownOrderOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
-			using cursor					 = cursor_t<options, context_type>;
-			static constexpr auto keyLiteral = escapedKeyLiteral<json_entity_type::name>;
-			static constexpr auto ptrNew	 = json_entity_type::memberPtr;
-			if constexpr (options.minified && !structural_context_types<context_type>) {
-				static constexpr auto memberLiteral		= jsonifier::internal::makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
-				static constexpr auto memberLiteralSize = memberLiteral.size();
-				if (((iter + memberLiteralSize) < context.endIter) && string_literal_comparator_impl<decltype(memberLiteral), memberLiteral>::impl(iter)) [[likely]] {
-					iter += memberLiteralSize;
-					if constexpr (excluded_keys_types<value_type>) {
-						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
-						const auto& keys		  = value.jsonifierExcludedKeys;
-						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-							return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
-						}
-					}
-					return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
-				}
-				return parse_result::inactive_member;
-			} else {
-				return parse_types_impl<value_type, context_type, options>::template processIndex<json_entity_type::index>(value, iter, depth, context);
-			}
+			return processMissOutline(value, iter, depth, context);
 		}
 	};
 #else
@@ -659,7 +655,7 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
 							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
 								return step;
 							}
@@ -667,7 +663,7 @@ namespace jsonifier::internal {
 								indexNew2 < memberCount) [[likely]] {
 								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
 									if (step2.result == parse_result::active_member) {
-										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
+										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return step2;
 								}
@@ -787,7 +783,7 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>[json_entity_type::index]; indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
 							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
 								return step;
 							}
@@ -795,7 +791,7 @@ namespace jsonifier::internal {
 								indexNew2 < memberCount) [[likely]] {
 								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
 									if (step2.result == parse_result::active_member) {
-										antiHashStatesNew<memberCount, value_type>[json_entity_type::index] = indexNew2;
+										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return step2;
 								}

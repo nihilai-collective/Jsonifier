@@ -7,6 +7,79 @@
 #pragma once
 
 #include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
+
+#if !defined(JSONIFIER_LZCNT)
+	#if defined(__LZCNT__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX2__))
+		#define JSONIFIER_LZCNT 1
+	#else
+		#define JSONIFIER_LZCNT 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_POPCNT)
+	#if defined(__POPCNT__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX__))
+		#define JSONIFIER_POPCNT 1
+	#else
+		#define JSONIFIER_POPCNT 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_BMI)
+	#if defined(__BMI__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX2__))
+		#define JSONIFIER_BMI 1
+	#else
+		#define JSONIFIER_BMI 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_CLMUL)
+	#if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (defined(_MSC_VER) && !defined(__clang__) && (defined(__AVX2__) || defined(_M_ARM64)))
+		#define JSONIFIER_CLMUL 1
+	#else
+		#define JSONIFIER_CLMUL 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX)
+	#if defined(__AVX__)
+		#define JSONIFIER_AVX 1
+	#else
+		#define JSONIFIER_AVX 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX2)
+	#if defined(__AVX2__)
+		#define JSONIFIER_AVX2 1
+	#else
+		#define JSONIFIER_AVX2 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX512)
+	#if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)
+		#define JSONIFIER_AVX512 1
+	#else
+		#define JSONIFIER_AVX512 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_SVE2)
+	#if defined(__ARM_FEATURE_SVE2)
+		#define JSONIFIER_SVE2 1
+	#else
+		#define JSONIFIER_SVE2 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_NEON)
+	#if (defined(__ARM_NEON) || defined(_M_ARM64)) && !JSONIFIER_SVE2
+		#define JSONIFIER_NEON 1
+	#else
+		#define JSONIFIER_NEON 0
+	#endif
+#endif
+
 #include <source_location>
 #include <unordered_map>
 #include <string_view>
@@ -19,6 +92,7 @@
 #include <cfloat>
 #include <chrono>
 #include <vector>
+#include <atomic>
 #include <limits>
 #include <bit>
 
