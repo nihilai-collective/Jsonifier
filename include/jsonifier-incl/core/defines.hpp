@@ -7,6 +7,21 @@
 #pragma once
 
 #include <jsonifier-incl/simd/jsonifier_cpu_instructions.hpp>
+#include <source_location>
+#include <unordered_map>
+#include <string_view>
+#include <algorithm>
+#include <optional>
+#include <variant>
+#include <cstring>
+#include <utility>
+#include <memory>
+#include <cfloat>
+#include <chrono>
+#include <vector>
+#include <atomic>
+#include <limits>
+#include <bit>
 
 #if !defined(JSONIFIER_LZCNT)
 	#if defined(__LZCNT__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX2__))
@@ -79,22 +94,6 @@
 		#define JSONIFIER_NEON 0
 	#endif
 #endif
-
-#include <source_location>
-#include <unordered_map>
-#include <string_view>
-#include <algorithm>
-#include <optional>
-#include <variant>
-#include <cstring>
-#include <utility>
-#include <memory>
-#include <cfloat>
-#include <chrono>
-#include <vector>
-#include <atomic>
-#include <limits>
-#include <bit>
 
 #if !defined(JSONIFIER_ARCH_X64)
 	#if defined(__x86_64__) || defined(_M_X64)

@@ -297,19 +297,19 @@ namespace jsonifier::internal {
 	struct generate_dispatch_table_new<parsing_type, value_type, context_type, options, integer_sequence<indices...>> {
 		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
 			parse_result result{ parse_result::inactive_member };
-			static_cast<void>(
-				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true)
-												  : false) ||
-					...));
+			static_cast<void>((
+				(currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true) : false) ||
+				...));
 			return result;
 		}
 
-		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
+		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context,
+			uint64_t currentIndex) {
 			parse_result result{ parse_result::inactive_member };
-			static_cast<void>(((currentIndex == indices
-									   ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
-									   : false) ||
-				...));
+			static_cast<void>(
+				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
+										  : false) ||
+					...));
 			return result;
 		}
 	};
@@ -341,6 +341,9 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct anti_hash_states;
 
 	template<uint64_t... indices> struct anti_hash_states<integer_sequence<indices...>> {
+		anti_hash_states& operator=(const anti_hash_states&) = delete;
+		anti_hash_states(const anti_hash_states&)			 = delete;
+		constexpr anti_hash_states()						 = default;
 		std::atomic<uint64_t> values[sizeof...(indices)]{ indices... };
 	};
 
@@ -401,14 +404,14 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
+							indexNew < memberCount) [[likely]] {
 							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
 								return result;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2);
-									result2 != parse_result::inactive_member) {
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
 									if (result2 == parse_result::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
@@ -507,14 +510,14 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
+							indexNew < memberCount) [[likely]] {
 							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
 								return result;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2);
-									result2 != parse_result::inactive_member) {
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
 									if (result2 == parse_result::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
@@ -655,7 +658,8 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
+							indexNew < memberCount) [[likely]] {
 							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
 								return step;
 							}
@@ -783,7 +787,8 @@ namespace jsonifier::internal {
 					}
 				} else {
 					if constexpr (options.knownOrder) {
-						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed); indexNew < memberCount) [[likely]] {
+						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
+							indexNew < memberCount) [[likely]] {
 							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
 								return step;
 							}

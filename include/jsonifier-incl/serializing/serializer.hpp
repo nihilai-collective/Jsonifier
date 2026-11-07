@@ -149,8 +149,6 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
-
 		serializer& operator=(const serializer& other) = delete;
 		serializer& operator=(serializer&& other)	   = delete;
 		serializer(const serializer& other)			   = delete;

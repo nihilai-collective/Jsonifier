@@ -60,6 +60,13 @@ namespace jsonifier::internal {
 
 	  protected:
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
+
+		generic_iterator& operator=(const generic_iterator& other) = delete;
+		generic_iterator& operator=(generic_iterator&& other)	   = delete;
+		generic_iterator(const generic_iterator& other)			   = delete;
+		generic_iterator(generic_iterator&& other)				   = delete;
+		~generic_iterator() noexcept							   = default;
+		generic_iterator() noexcept								   = default;
 	};
 
 }
