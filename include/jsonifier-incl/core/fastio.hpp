@@ -134,14 +134,14 @@ namespace jsonifier::internal {
 
 	template<uint64_t bufferSize = 8192> struct basic_stream {
 		template<typename integer_type>
-		std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
+		inline std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
 			integer_type value) noexcept {
 			ensureSpace(21);
 			bufferLength += writeInteger(streamBuffer + bufferLength, value);
 			return *this;
 		}
 
-		void writeRaw(const char* data, uint64_t size) noexcept {
+		inline void writeRaw(const char* data, uint64_t size) noexcept {
 			if (size >= bufferSize) {
 				doFlush();
 				rawWrite(streamTarget, data, size);
@@ -152,57 +152,57 @@ namespace jsonifier::internal {
 			bufferLength += size;
 		}
 
-		template<typename float_type> std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
+		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
 			ensureSpace(64);
 			bufferLength += writeFloat(streamBuffer + bufferLength, value);
 			return *this;
 		}
 
-		basic_stream& operator<<(std::string_view value) noexcept {
+		inline basic_stream& operator<<(std::string_view value) noexcept {
 			writeRaw(value.data(), value.size());
 			return *this;
 		}
 
-		basic_stream& operator<<(bool value) noexcept {
+		inline basic_stream& operator<<(bool value) noexcept {
 			return (*this) << std::string_view(value ? "true" : "false");
 		}
 
-		basic_stream& operator<<(char value) noexcept {
+		inline basic_stream& operator<<(char value) noexcept {
 			ensureSpace(1);
 			streamBuffer[bufferLength++] = value;
 			return *this;
 		}
 
-		basic_stream& operator<<(const char* value) noexcept {
+		inline basic_stream& operator<<(const char* value) noexcept {
 			return (*this) << std::string_view(value);
 		}
 
-		void doFlush() noexcept {
+		inline void doFlush() noexcept {
 			if (bufferLength > 0) {
 				rawWrite(streamTarget, streamBuffer, bufferLength);
 				bufferLength = 0;
 			}
 		}
 
-		void ensureSpace(uint64_t needed) noexcept {
+		inline void ensureSpace(uint64_t needed) noexcept {
 			if (bufferLength + needed > bufferSize) {
 				doFlush();
 			}
 		}
 
-		explicit basic_stream(stream_target target) noexcept : streamTarget{ target }, bufferLength{ 0 } {
+		inline explicit basic_stream(stream_target target) noexcept : streamTarget{ target }, bufferLength{ 0 } {
 		}
 
-		basic_stream& operator<<(endl_t) noexcept {
+		inline basic_stream& operator<<(endl_t) noexcept {
 			(*this) << '\n';
 			return *this;
 		}
 
-		std::string_view view() const noexcept {
+		inline std::string_view view() const noexcept {
 			return { streamBuffer, bufferLength };
 		}
 
-		basic_stream& operator<<(flush_t) noexcept {
+		inline basic_stream& operator<<(flush_t) noexcept {
 			doFlush();
 			return *this;
 		}
@@ -210,15 +210,15 @@ namespace jsonifier::internal {
 		basic_stream& operator=(const basic_stream&) = delete;
 		basic_stream(const basic_stream&)			 = delete;
 
-		void discard() noexcept {
+		inline void discard() noexcept {
 			bufferLength = 0;
 		}
 
-		~basic_stream() noexcept {
+		inline ~basic_stream() noexcept {
 			doFlush();
 		}
 
-		void flushNow() noexcept {
+		inline void flushNow() noexcept {
 			doFlush();
 		}
 

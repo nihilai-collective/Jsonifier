@@ -176,7 +176,7 @@ namespace jsonifier::generic {
 			return mix64(low ^ hashSeed ^ lengthAndObject, mixMultiplier) ^ mix64(high + mixMultiplier, hashSeed ^ lengthAndObject);
 		}
 
-		template<typename matcher_type, typename state_type, typename key_type>
+		template<bool minified, typename matcher_type, typename state_type, typename key_type>
 		JSONIFIER_INLINE uint32_t find(uint64_t hash, uint32_t objectIndex, state_type&& state, key_type&& key) const noexcept {
 			const int8_t control = static_cast<int8_t>(hash & 0x7F);
 			uint64_t group		 = (hash >> 7) & groupMask;
@@ -185,7 +185,7 @@ namespace jsonifier::generic {
 				for (uint64_t mask = field_index_group::match(groupControls, control); mask != 0;) {
 					const uint64_t lane	   = field_index_group::firstLane(mask);
 					const entry& candidate = entries.data()[group * groupWidth + lane];
-					if (candidate.hash == hash && candidate.object == objectIndex && matcher_type::impl(state, key, candidate.key)) {
+					if (candidate.hash == hash && candidate.object == objectIndex && matcher_type::template impl<minified>(state, key, candidate.key)) {
 						return candidate.key;
 					}
 					mask = field_index_group::clearLane(mask);
@@ -479,7 +479,7 @@ namespace jsonifier::generic {
 						const simd_type_local values = internal::simd::gatherValues<simd_type_local>(std::bit_cast<const simd_type_local* __restrict>(+padded));
 						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(
 							internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
-								internal::simd::opCmpLtRaw(values, controls))));
+									internal::simd::opCmpLtRaw(values, controls))));
 						if (stops == static_cast<integer_type>(0)) {
 							return nullptr;
 						}
@@ -506,7 +506,8 @@ namespace jsonifier::generic {
 			return state.result;
 		}
 	};
-	template<bool minified> struct document_state {
+
+	struct document_state {
 		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyLimit = root + *(iter + 1);
@@ -571,7 +572,7 @@ namespace jsonifier::generic {
 			return skipValue(root, iter, tapeEnd);
 		}
 
-		JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
+		template<bool minified> JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
 			const uint64_t keySize	 = key.size();
 			const uint64_t span		 = static_cast<uint64_t>(*(iter + 1) - *iter);
 			read_buffer_ptr keyStart = root + *iter + 1;
@@ -585,7 +586,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
+		template<bool minified> JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
 			if constexpr (!minified) {
@@ -814,7 +815,7 @@ namespace jsonifier::generic {
 
 	template<bool minified> class basic_value {
 	  public:
-		using document_state = generic::document_state<minified>;
+		using document_state = generic::document_state;
 		using object		 = basic_object<minified>;
 		using array			 = basic_array<minified>;
 		using value			 = basic_value;
@@ -1170,7 +1171,7 @@ namespace jsonifier::generic {
 
 	template<bool minified> class basic_field {
 	  public:
-		using document_state = generic::document_state<minified>;
+		using document_state = generic::document_state;
 
 		JSONIFIER_INLINE string_view key() const noexcept {
 			read_buffer_ptr keyStart = doc->root + *iter + 1;
@@ -1193,11 +1194,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE bool keyEquals(string_view keyNew) const noexcept {
-			return doc->keyMatches(iter, keyNew);
+			return doc->template keyMatches<minified>(iter, keyNew);
 		}
 
 		JSONIFIER_INLINE string_view rawKey() const noexcept {
-			return doc->rawKey(iter);
+			return doc->template rawKey<minified>(iter);
 		}
 
 		JSONIFIER_INLINE error_code error() const noexcept {
@@ -1214,14 +1215,14 @@ namespace jsonifier::generic {
 	};
 
 	struct key_matcher {
-		template<typename state_type, typename key_type> JSONIFIER_INLINE static bool impl(state_type&& state, key_type&& key, uint32_t keyIndex) {
-			return state->keyMatches(state->tape + keyIndex, key);
+		template<bool minified, typename state_type, typename key_type> JSONIFIER_INLINE static bool impl(state_type&& state, key_type&& key, uint32_t keyIndex) noexcept {
+			return state->template keyMatches<minified>(state->tape + keyIndex, key);
 		}
 	};
 
 	template<bool minified> class basic_object {
 	  public:
-		using document_state = generic::document_state<minified>;
+		using document_state = generic::document_state;
 		using field			 = basic_field<minified>;
 		using value			 = basic_value<minified>;
 
@@ -1301,7 +1302,7 @@ namespace jsonifier::generic {
 			return iterator{ state, position, depth };
 		}
 
-		JSONIFIER_INLINE value findField(string_view key) const noexcept {
+		JSONIFIER_INLINE value findField(string_view key) noexcept {
 			value found{ err };
 			if (err == error_code::success) [[likely]] {
 				settle();
@@ -1313,7 +1314,7 @@ namespace jsonifier::generic {
 			return found;
 		}
 
-		JSONIFIER_INLINE value findFieldUnordered(string_view key) const noexcept {
+		JSONIFIER_INLINE value findFieldUnordered(string_view key) noexcept {
 			value found{ err };
 			if (err == error_code::success) [[likely]] {
 				settle();
@@ -1336,7 +1337,7 @@ namespace jsonifier::generic {
 			return value{ doc, open, depth - 1 }.atPointer(pointer);
 		}
 
-		JSONIFIER_INLINE value operator[](string_view key) const noexcept {
+		JSONIFIER_INLINE value operator[](string_view key) noexcept {
 			return findFieldUnordered(key);
 		}
 
@@ -1362,7 +1363,7 @@ namespace jsonifier::generic {
 		static constexpr uint32_t trailCapacity{ 16 };
 
 	  protected:
-		JSONIFIER_INLINE value indexedField(string_view key) const noexcept {
+		JSONIFIER_INLINE value indexedField(string_view key) noexcept {
 			document_state* const state			  = doc;
 			read_structural_index_ptr resumePoint = state->cursor;
 			value found{ error_code::no_such_field };
@@ -1415,7 +1416,7 @@ namespace jsonifier::generic {
 
 			const uint32_t object = objectIndex();
 			const uint64_t hash	  = field_index_map::hashKey(std::bit_cast<read_buffer_ptr>(key.data()), key.size(), object);
-			const uint32_t hit	  = state->fieldIndex->template find<key_matcher>(hash, object, state, key);
+			const uint32_t hit	  = state->fieldIndex->template find<minified, key_matcher>(hash, object, state, key);
 			if (hit != field_index_map::npos) {
 				state->cursor = state->tape + hit + 2;
 				found		  = value{ state, state->cursor, depth };
@@ -1426,7 +1427,7 @@ namespace jsonifier::generic {
 			return found;
 		}
 
-		JSONIFIER_INLINE value scanBeforeResume(string_view key, read_structural_index_ptr resumePoint) const noexcept {
+		JSONIFIER_INLINE value scanBeforeResume(string_view key, read_structural_index_ptr resumePoint) noexcept {
 			doc->cursor = open + 1;
 			value found{ scanFields<false>(key, resumePoint) };
 			indexEarned = ++wrapCount >= wrapThreshold && skippedKeys >= indexThreshold;
@@ -1436,7 +1437,7 @@ namespace jsonifier::generic {
 			return found;
 		}
 
-		JSONIFIER_INLINE value extendTrail(string_view key, read_structural_index_ptr resumePoint, bool resumed) const noexcept {
+		JSONIFIER_INLINE value extendTrail(string_view key, read_structural_index_ptr resumePoint, bool resumed) noexcept {
 			document_state* const state		  = doc;
 			read_structural_index_ptr tapeEnd = state->tapeEnd;
 			read_structural_index_ptr cursor  = trailCount == 0 ? open + 1 : state->skipValue(state->tape + trailEntry(trailCount - 1) + 2);
@@ -1458,7 +1459,7 @@ namespace jsonifier::generic {
 					const uint32_t keyOffset = static_cast<uint32_t>(cursor - state->tape);
 					pow2MemcpyWrapper<sizeof(uint32_t)>(trailBytes + trailCount * sizeof(uint32_t), &keyOffset);
 					++trailCount;
-					if (state->keyMatches(cursor, key)) {
+					if (state->template keyMatches<minified>(cursor, key)) {
 						return trailHit(cursor, resumePoint, resumed);
 					}
 					cursor += 2;
@@ -1487,11 +1488,11 @@ namespace jsonifier::generic {
 			return value{ doc, keyIter + 2, depth };
 		}
 
-		JSONIFIER_INLINE value trailLookup(string_view key, read_structural_index_ptr resumePoint, bool resumed) const noexcept {
+		JSONIFIER_INLINE value trailLookup(string_view key, read_structural_index_ptr resumePoint, bool resumed) noexcept {
 			document_state* const state = doc;
 			for (uint32_t x = 0; x < trailCount; ++x) {
 				read_structural_index_ptr keyIter = state->tape + trailEntry(x);
-				if (state->keyMatches(keyIter, key)) {
+				if (state->template keyMatches<minified>(keyIter, key)) {
 					return trailHit(keyIter, resumePoint, resumed);
 				}
 			}
@@ -1539,7 +1540,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		template<bool escapeAware> JSONIFIER_INLINE value scanFields(string_view key, read_structural_index_ptr stop) const noexcept {
+		template<bool escapeAware> JSONIFIER_INLINE value scanFields(string_view key, read_structural_index_ptr stop) noexcept {
 			document_state* const state		  = doc;
 			read_structural_index_ptr cursor  = state->cursor;
 			read_structural_index_ptr tapeEnd = state->tapeEnd;
@@ -1570,7 +1571,7 @@ namespace jsonifier::generic {
 						escapedKeySeen |= hasEscape;
 						matched = hasEscape && state->unescapedKeyMatches(cursor, key);
 					} else {
-						matched = state->keyMatches(cursor, key);
+						matched = state->template keyMatches<minified>(cursor, key);
 					}
 					if (matched) {
 						state->cursor = valueIter;
@@ -1594,8 +1595,8 @@ namespace jsonifier::generic {
 			if (candidate < state->tapeEnd && state->template charAt<','>(candidate)) {
 				++candidate;
 			}
-			if (candidate + 1 < state->tapeEnd && state->template charAt<'"'>(candidate) && state->template charAt<':'>(candidate + 1) && state->keyMatches(candidate, key))
-				[[likely]] {
+			if (candidate + 1 < state->tapeEnd && state->template charAt<'"'>(candidate) && state->template charAt<':'>(candidate + 1) &&
+				state->template keyMatches<minified>(candidate, key)) [[likely]] {
 				state->cursor = candidate + 2;
 				return value{ state, candidate + 2, depth };
 			}
@@ -1612,7 +1613,7 @@ namespace jsonifier::generic {
 			state->fieldIndex->insert(field_index_map::hashKey(keyStart, static_cast<uint64_t>(keyEnd - keyStart), object), object, static_cast<uint32_t>(keyIter - state->tape));
 		}
 
-		JSONIFIER_INLINE value escapeAwareRetry(string_view key, read_structural_index_ptr restorePoint) const noexcept {
+		JSONIFIER_INLINE value escapeAwareRetry(string_view key, read_structural_index_ptr restorePoint) noexcept {
 			if (escapeFree) {
 				doc->cursor = restorePoint;
 				return value{ error_code::no_such_field };
@@ -1647,25 +1648,25 @@ namespace jsonifier::generic {
 			doc->depth	= depth;
 		}
 
-		mutable uint8_t trailBytes[trailCapacity * sizeof(uint32_t)]{};
+		uint8_t trailBytes[trailCapacity * sizeof(uint32_t)]{};
 		error_code err{ error_code::success };
 		read_structural_index_ptr open{};
-		mutable uint32_t skippedKeys{};
-		mutable uint32_t trailCount{};
-		mutable bool escapedKeySeen{};
-		mutable bool trailComplete{};
-		mutable uint32_t wrapCount{};
-		mutable bool trailOverflow{};
-		mutable bool indexEarned{};
-		mutable bool escapeFree{};
-		mutable bool indexed{};
+		uint32_t skippedKeys{};
 		document_state* doc{};
+		uint32_t trailCount{};
+		bool escapedKeySeen{};
+		bool trailComplete{};
+		uint32_t wrapCount{};
+		bool trailOverflow{};
+		bool indexEarned{};
+		bool escapeFree{};
 		uint64_t depth{};
+		bool indexed{};
 	};
 
 	template<bool minified> class basic_array {
 	  public:
-		using document_state = generic::document_state<minified>;
+		using document_state = generic::document_state;
 		using value			 = basic_value<minified>;
 
 		class iterator {
@@ -1946,41 +1947,33 @@ namespace jsonifier::generic {
 	struct generic_storage {
 		generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
-				fieldIndex			= internal::move(other.fieldIndex);
-				arena				= internal::move(other.arena);
-				state				= document_state<false>{};
-				minifiedState		= document_state<true>{};
-				other.state			= document_state<false>{};
-				other.minifiedState = document_state<true>{};
+				fieldIndex	= internal::move(other.fieldIndex);
+				arena		= internal::move(other.arena);
+				state		= document_state{};
+				other.state = document_state{};
 			}
 			return *this;
 		}
 
 		generic_storage(generic_storage&& other) noexcept : fieldIndex{ internal::move(other.fieldIndex) }, arena{ internal::move(other.arena) } {
-			other.state			= document_state<false>{};
-			other.minifiedState = document_state<true>{};
+			other.state = document_state{};
 		}
 
-		template<bool minified> JSONIFIER_INLINE document_state<minified>& stateFor() noexcept {
-			if constexpr (minified) {
-				return minifiedState;
-			} else {
-				return state;
-			}
+		JSONIFIER_INLINE document_state& stateFor() noexcept {
+			return state;
 		}
 
 		generic_storage& operator=(const generic_storage&) = delete;
 		generic_storage(const generic_storage&)			   = delete;
 		generic_storage() noexcept						   = default;
-		document_state<true> minifiedState{};
 		field_index_map fieldIndex{};
-		document_state<false> state{};
+		document_state state{};
 		string_arena arena{};
 	};
 
 	template<typename parser_type, parse_options options> class document_stream {
 	  public:
-		using document_state = generic::document_state<options.minified>;
+		using document_state = generic::document_state;
 		using document		 = basic_document<options.minified>;
 
 		class iterator {
@@ -2000,20 +1993,20 @@ namespace jsonifier::generic {
 				return stream->currentIndex();
 			}
 
-			JSONIFIER_INLINE iterator& operator++() {
+			JSONIFIER_INLINE iterator& operator++() noexcept {
 				stream->advance();
 				return *this;
 			}
 
-			JSONIFIER_INLINE string_view source() const {
+			JSONIFIER_INLINE string_view source() const noexcept {
 				return stream->source();
 			}
 
-			JSONIFIER_INLINE document operator*() const {
+			JSONIFIER_INLINE document operator*() const noexcept {
 				return stream->current();
 			}
 
-			JSONIFIER_INLINE void operator++(int32_t) {
+			JSONIFIER_INLINE void operator++(int32_t) noexcept {
 				stream->advance();
 			}
 
@@ -2032,7 +2025,7 @@ namespace jsonifier::generic {
 			  batchSize{ std::clamp<uint64_t>(batchSizeNew, minimumBatchSize, maximumBatchSize) } {
 		}
 
-		JSONIFIER_INLINE iterator begin() {
+		JSONIFIER_INLINE iterator begin() noexcept {
 			if (!started) {
 				started = true;
 				if (inputLength == 0) {
@@ -2045,7 +2038,7 @@ namespace jsonifier::generic {
 			return iterator{ this };
 		}
 
-		JSONIFIER_INLINE iterator end() noexcept {
+		JSONIFIER_INLINE iterator end() const noexcept {
 			return iterator{};
 		}
 
@@ -2064,7 +2057,7 @@ namespace jsonifier::generic {
 		static constexpr uint64_t minimumBatchSize{ 64 };
 		static constexpr uint64_t maximumBatchSize{ std::numeric_limits<uint32_t>::max() - 64 };
 
-		JSONIFIER_INLINE void locate(read_structural_index_ptr next) {
+		JSONIFIER_INLINE void locate(read_structural_index_ptr next) noexcept {
 			if constexpr (!options.newLineDelimited) {
 				locateDelimited(next);
 			} else {
@@ -2072,7 +2065,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE void locateWhitespace(read_structural_index_ptr next) {
+		JSONIFIER_INLINE void locateWhitespace(read_structural_index_ptr next) noexcept {
 			while (true) {
 				if (next == completeEnd) {
 					if (finalWindow) {
@@ -2096,7 +2089,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE void locateDelimited(read_structural_index_ptr next) {
+		JSONIFIER_INLINE void locateDelimited(read_structural_index_ptr next) noexcept {
 			while (true) {
 				if (next == windowTapeEnd) {
 					if (finalWindow) {
@@ -2145,8 +2138,8 @@ namespace jsonifier::generic {
 			return !document_state::isOpener(c) && c != ',' && c != ':';
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const {
-			const document_state& state = docState();
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const noexcept {
+			document_state& state = docState();
 			for (read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
 				if (startsDocument(state.charAt(iter)) && endsValue(state.charAt(iter - 1))) {
 					return iter;
@@ -2155,7 +2148,7 @@ namespace jsonifier::generic {
 			return windowTape;
 		}
 
-		JSONIFIER_INLINE void findCompleteEnd() {
+		JSONIFIER_INLINE void findCompleteEnd() noexcept {
 			if (windowTape == windowTapeEnd) {
 				completeEnd = windowTapeEnd;
 				return;
@@ -2175,7 +2168,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() const noexcept {
 			document_state& state = docState();
 			if (state.depth > 0) {
 				state.finishToDepth(0);
@@ -2187,9 +2180,9 @@ namespace jsonifier::generic {
 			return state.skipValue(docBegin);
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) {
-			const document_state& state = docState();
-			const uint8_t first			= state.charAt(start);
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) noexcept {
+			document_state& state = docState();
+			const uint8_t first	  = state.charAt(start);
 			if (document_state::isOpener(first)) {
 				int64_t openCount{ 1 };
 				for (read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
@@ -2210,22 +2203,22 @@ namespace jsonifier::generic {
 			return start + 1;
 		}
 
-		JSONIFIER_INLINE generic_storage& storage() const {
+		JSONIFIER_INLINE generic_storage& storage() const noexcept {
 			return parser->genericStorage();
 		}
 
-		JSONIFIER_INLINE document_state& docState() const {
-			return storage().template stateFor<options.minified>();
+		JSONIFIER_INLINE document_state& docState() const noexcept {
+			return storage().stateFor();
 		}
 
-		JSONIFIER_INLINE void loadWindow(uint64_t start) {
+		JSONIFIER_INLINE void loadWindow(uint64_t start) noexcept {
 			windowStart				   = start;
 			windowLength			   = std::min(batchSize, inputLength - start);
 			finalWindow				   = start + windowLength == inputLength;
 			read_buffer_ptr windowRoot = input + start;
 			parser->template indexGenericWindow<options>(windowRoot, windowLength);
 			generic_storage& data = storage();
-			document_state& state = data.template stateFor<options.minified>();
+			document_state& state = data.stateFor();
 			windowTape			  = state.tape;
 			windowTapeEnd		  = state.tapeEnd;
 			state.root			  = windowRoot;
@@ -2238,7 +2231,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE string_view source() const {
+		JSONIFIER_INLINE string_view source() const noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				return {};
 			}
@@ -2256,7 +2249,7 @@ namespace jsonifier::generic {
 			return string_view{ std::bit_cast<const char*>(base + start), stop - start };
 		}
 
-		JSONIFIER_INLINE void bindDocument(read_structural_index_ptr begin, read_structural_index_ptr end) {
+		JSONIFIER_INLINE void bindDocument(read_structural_index_ptr begin, read_structural_index_ptr end) noexcept {
 			docBegin			  = begin;
 			docEnd				  = end;
 			pendingSeparator	  = false;
@@ -2268,14 +2261,14 @@ namespace jsonifier::generic {
 			storage().fieldIndex.reset();
 		}
 
-		JSONIFIER_INLINE document current() const {
+		JSONIFIER_INLINE document current() const noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				return document{ err };
 			}
 			return document{ &docState(), docBegin, 0 };
 		}
 
-		JSONIFIER_INLINE void advance() {
+		JSONIFIER_INLINE void advance() noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				finished = true;
 				return;
