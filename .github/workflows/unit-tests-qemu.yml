@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# .github/workflows/unit-tests-qemu.yml
+
+name: Cross-Architecture Unit Tests
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: s390x-linux-gnu
+            processor: s390x
+            qemu: s390x
+            name: "s390x (big-endian, 64-bit)"
+          - triple: powerpc64-linux-gnu
+            processor: ppc64
+            qemu: ppc64
+            name: "ppc64 (big-endian, 64-bit)"
+          - triple: powerpc64le-linux-gnu
+            processor: ppc64le
+            qemu: ppc64le
+            name: "ppc64le (little-endian, 64-bit)"
+          - triple: i686-linux-gnu
+            processor: i686
+            qemu: i386
+            name: "i686 (little-endian, 32-bit)"
+          - triple: arm-linux-gnueabihf
+            processor: armv7l
+            qemu: arm
+            name: "armv7 (little-endian, 32-bit)"
+          - triple: riscv64-linux-gnu
+            processor: riscv64
+            qemu: riscv64
+            name: "riscv64 (little-endian, 64-bit)"
+
+    runs-on: ubuntu-24.04
+    name: Test on ${{ matrix.name }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Install the cross compiler and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14-${{ matrix.triple }} qemu-user-static
+
+      - name: Write the toolchain file
+        run: |
+          cat > toolchain.cmake <<EOF
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR ${{ matrix.processor }})
+          set(CMAKE_C_COMPILER ${{ matrix.triple }}-gcc-14)
+          set(CMAKE_CXX_COMPILER ${{ matrix.triple }}-g++-14)
+          set(CMAKE_EXE_LINKER_FLAGS_INIT "-static")
+          set(CMAKE_CROSSCOMPILING_EMULATOR qemu-${{ matrix.qemu }}-static)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          EOF
+          cat toolchain.cmake
+
+      - name: Configure CMake
+        run: cmake -S . -B ./Build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=toolchain.cmake -DJSONIFIER_UNIT_TESTS=TRUE -DJSONIFIER_CPU_INSTRUCTIONS=0
+
+      - name: Build
+        run: cmake --build ./Build --config=Debug -v 2>&1 | tee build.log
+
+      - name: Run the Test under QEMU
+        run: |
+          BIN=$(find ./Build -type f -name jsonifier-unit-tests | head -n 1)
+          [ -n "$BIN" ] || { echo "jsonifier-unit-tests was not built"; exit 1; }
+          file "$BIN"
+          qemu-${{ matrix.qemu }}-static "$BIN"

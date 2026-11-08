@@ -1,0 +1,33 @@
+name: LOC Badge
+
+on:
+  push:
+    branches: [main]
+    paths: ['include/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Count lines in include
+        run: |
+          lines=$(git ls-files include | xargs cat | wc -l)
+          pretty=$(awk -v n="$lines" 'BEGIN { if (n >= 1000) printf "%.1fk", n / 1000; else print n }')
+          mkdir -p out
+          printf '{ "schemaVersion": 1, "label": "Lines of Code", "message": "%s", "color": "blue" }\n' "$pretty" > out/loc.json
+
+      - name: Publish to badges branch
+        run: |
+          cd out
+          git init -q -b badges
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add loc.json
+          git commit -q -m "Update LOC badge"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" badges

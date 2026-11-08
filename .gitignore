@@ -1,0 +1,49 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+.vs/
+out/
+CMake/Build/
+Install/
+Build/
+Graphs/
+Tests/Graphs/
+Json/Windows-MSVC/
+Tests/ReadMe.mdWindows-MSVC.md
+Windows-MSVC.md
+Json/Windows-MSVC/
+CMake/BuildFeatureTester.bat
+CMake/BuildFeatureTester.sh
+cmake/BuildFeatureTester.bat
+build-android/.ninja_deps
+.idea/
+build-android/
