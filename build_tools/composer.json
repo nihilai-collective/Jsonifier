@@ -1,0 +1,13 @@
+{
+  "name": "nihilai-collective/jsonifier-build-tools",
+  "description": "Build tooling for Jsonifier release automation",
+  "type": "project",
+  "require": {
+    "php": ">=8.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Jsonifier\\": "classes/"
+    }
+  }
+}
