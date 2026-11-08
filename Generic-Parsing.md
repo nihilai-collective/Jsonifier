@@ -17,9 +17,9 @@ Jsonifier's two earlier papers were about parsing JSON into known types. If the 
 - zero-copy string extraction;
 - a SIMD field index that is only built for objects that are actually being read out of order.
 
-The benchmark suite reads every document four ways: every field in order, every field with each object's keys in reverse, a sparse subset of fields in order, and that subset in reverse. Each document is read both at full size and as a small (≤5 KiB) copy, and every single-document test runs twice: once filling freshly allocated output objects on every iteration, and once reusing the same cleared output objects, whose buffers keep their capacity. Across five platform/compiler builds, Jsonifier won 1,519 of 1,650 single-document results against simdjson On Demand, tied 36 and lost 95. On reverse-order reads it won 385 of 400. On Windows/MSVC it won 319 of 330 single-document results, tied 4 and lost 7.
+The benchmark suite reads every document four ways: every field in order, every field with each object's keys in reverse, a sparse subset of fields in order, and that subset in reverse. Each document is read both at full size and as a small (≤5 KiB) copy, and every single-document test runs twice: once filling freshly allocated output objects on every iteration, and once reusing the same cleared output objects, whose buffers keep their capacity. Across five platform/compiler builds, Jsonifier won 1,565 of 1,650 single-document results against simdjson On Demand, tied 13 and lost 72. On reverse-order reads it won 390 of 400. On Windows/MSVC it won 325 of 330 single-document results, tied 1 and lost 4.
 
-The same parser also reads streams of many documents, such as NDJSON or comma-separated records, through `iterateMany`, the counterpart of simdjson's `iterate_many` (§8). Across five platform/compiler builds, on 30 streaming tests, Jsonifier won 144 of 150 results, tied 4 and lost 2, and it won 118 of the 120 corpus record-stream results and tied 2.
+The same parser also reads streams of many documents, such as NDJSON or comma-separated records, through `iterateMany`, the counterpart of simdjson's `iterate_many` (§8). Across five platform/compiler builds, on 30 streaming tests, Jsonifier won 148 of 150 results and lost 2, and it won all 120 corpus record-stream results.
 
 ---
 
@@ -193,20 +193,20 @@ The field index only pays for objects with at least *T* skipped keys, so objects
 - **Document sizes:** the full-size tests read the corpus documents as they are (from 11.8 KB for Google Maps up to 2.1 MB for Canada, minified). The *Small* tests read a truncated copy of each document: every array, and every object keyed by numbers, is cut to the same number of elements, and that number is the largest one that keeps the minified document at or under 5 KiB. The prettified small documents are the same values printed with indentation. Small documents put more weight on per-document setup, stage 1's fixed costs and the first lookups into each object, and less on steady-state throughput.
 - **Allocation: fresh and reused.** Every single-document test runs twice for both libraries. In the **fresh** run, each iteration fills a newly constructed output struct, so every string, vector and nested object it holds is allocated again on every parse. In the **reused** run (`(Reused)` in the harness), one output struct lives across iterations and is cleared before each one, so its strings and vectors keep their capacity and the parse writes into buffers that are already allocated. In both runs each library keeps one parser for the whole test, so its tape, string buffer and other internal buffers are reused, as a long-running application would reuse them. The streaming tests (§8) run fresh only.
 - **Readers:** the reverse and sparse readers are hand-written mirrors of the in-order readers. Both libraries fill the same structs through the same field-by-field traversal. The in-order and sparse readers use each library's ordered lookup (`findField`, `find_field`), and the reverse and sparse-reverse readers use its unordered lookup (`findFieldUnordered`, `find_field_unordered`).
-- **Correctness:** on the measured commit, the stage-1 structural tape Jsonifier builds for each of the 25 full-size single-document inputs, including Apache Builds and Github Events, was compared position by position with simdjson's, using a simdjson branch (nihilai-collective/simdjson `7002cd3`) that exposes its tape. All 2,634,960 positions match on each of the 5 builds (`correctness-validation-main`, Jsonifier `3e5ab01`, November 7, 2026).
-- **Convergence:** a result counts only if its retained epoch meets the RSE and mean-shift limits; non-converged results stay in the tallies and are marked (n/c) in the tables. 8 of the 1,650 single-document results and 23 of the 150 streaming results did not converge (see §9). The x86 builds used RSE < 5% and shift < 2.5%. The NEON builds ran on virtualized Apple M2 Pro hosts and used RSE < 10% and shift < 5%.
+- **Correctness:** on the measured commit, the stage-1 structural tape Jsonifier builds for each of the 25 full-size single-document inputs, including Apache Builds and Github Events, was compared position by position with simdjson's, using a simdjson branch (nihilai-collective/simdjson `7002cd3`) that exposes its tape. All 2,634,960 positions match on each of the 5 builds (`correctness-validation-main`), and on the 3 AVX-512 builds as well (`correctness-validation-avx512-main`), all at Jsonifier `c80a6d5` and simdjson `7002cd3`, November 8, 2026.
+- **Convergence:** a result counts only if its retained epoch meets the RSE and mean-shift limits; non-converged results stay in the tallies and are marked (n/c) in the tables. 9 of the 1,650 single-document results and 6 of the 150 streaming results did not converge (see §9). The x86 builds used RSE < 5% and shift < 2.5%. The NEON builds ran on virtualized Apple M2 Pro hosts and used RSE < 10% and shift < 5%.
 - **Integer parsing:** on every build except Windows/MSVC, Jsonifier reads integers with a SWAR parser ported from void-numerics, which consumes digits in 8-, 4-, 2- and 1-byte chunks instead of one at a time. The MSVC build uses an unrolled, bounds-checked digit parser instead.
 - **Builds:**
 
 | Build | Stage-1 kernel | Converged, full size | Converged, small | Converged, total |
 |---|---|---|---|---|
-| Windows 10.0.26200 / MSVC 19.51 | AVX2 | 169 / 170 | 160 / 160 | 329 / 330 |
+| Windows 10.0.26200 / MSVC 19.51 | AVX2 | 167 / 170 | 160 / 160 | 327 / 330 |
 | Linux 7.0.0 / Clang 24.0 | AVX2 | 170 / 170 | 160 / 160 | 330 / 330 |
 | Linux 7.0.0 / GCC 16.2.1 | AVX2 | 170 / 170 | 160 / 160 | 330 / 330 |
-| macOS 25.6 (M2 Pro, virtual) / GCC 16.2.0 | NEON | 167 / 170 | 159 / 160 | 326 / 330 |
-| macOS 25.6 (M2 Pro, virtual) / Clang 23.1.4 | NEON | 168 / 170 | 159 / 160 | 327 / 330 |
+| macOS 25.6 (M2 Pro, virtual) / GCC 16.2.0 | NEON | 164 / 170 | 160 / 160 | 324 / 330 |
+| macOS 25.6 (M2 Pro, virtual) / Clang 23.1.4 | NEON | 170 / 170 | 160 / 160 | 330 / 330 |
 
-Every build ran the same commits of every library: BenchmarkSuite `ed43ce8`, Jsonifier `3e5ab01` and simdjson `dfe02cfe3`. Each build compiles one stage-1 tier, chosen at configure time (§3.5), and the table lists the kernel each build ran. The x86 builds ran on an Intel Core i9-14900KF. Every build ran on November 7, 2026, and the results were published to `generic-parsing-main` the same day.
+Every build ran the same commits of every library: BenchmarkSuite `ed43ce8`, Jsonifier `c80a6d5` and simdjson `f0c2d2ac2`. Each build compiles one stage-1 tier, chosen at configure time (§3.5), and the table lists the kernel each build ran. The x86 builds ran on an Intel Core i9-14900KF. Every build ran on November 9, 2026, and the results were published to `generic-parsing-main` the same day.
 
 ## 7. Results
 
@@ -218,254 +218,254 @@ The percentages below are Jsonifier's throughput relative to simdjson On Demand.
 
 | Build | POD | In order | Reverse | Sparse | Sparse reverse | Small, in order | Small, reverse | Small, sparse | Small, sparse reverse | Total |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Windows / MSVC | 5-0-0 | 17-1-2 | 19-1-0 | 20-0-0 | 20-0-0 | 19-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 160-2-3 |
-| Linux / Clang | 4-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 17-0-3 | 20-0-0 | 18-0-2 | 19-0-1 | 158-0-7 |
-| Linux / GCC | 5-0-0 | 17-0-3 | 18-1-1 | 17-0-3 | 19-0-1 | 14-1-5 | 18-0-2 | 18-2-0 | 20-0-0 | 146-4-15 |
-| macOS / GCC | 4-0-1 | 18-0-2 | 19-1-0 | 19-0-1 | 19-1-0 | 19-0-1 | 19-1-0 | 16-2-2 | 17-3-0 | 150-8-7 |
-| macOS / Clang | 3-0-2 | 17-1-2 | 20-0-0 | 19-0-1 | 20-0-0 | 17-1-2 | 20-0-0 | 15-1-4 | 16-1-3 | 147-4-14 |
-| **All** | **21-0-4** | **89-2-9** | **96-3-1** | **95-0-5** | **98-1-1** | **86-2-12** | **97-1-2** | **87-5-8** | **92-4-4** | **761-18-46** |
+| Windows / MSVC | 5-0-0 | 18-0-2 | 20-0-0 | 20-0-0 | 20-0-0 | 19-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 162-0-3 |
+| Linux / Clang | 4-0-1 | 19-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 18-0-2 | 20-0-0 | 17-0-3 | 20-0-0 | 158-0-7 |
+| Linux / GCC | 5-0-0 | 16-0-4 | 18-0-2 | 17-0-3 | 20-0-0 | 15-0-5 | 18-0-2 | 20-0-0 | 20-0-0 | 149-0-16 |
+| macOS / GCC | 5-0-0 | 18-1-1 | 20-0-0 | 18-0-2 | 20-0-0 | 19-1-0 | 20-0-0 | 20-0-0 | 20-0-0 | 160-2-3 |
+| macOS / Clang | 4-0-1 | 19-0-1 | 20-0-0 | 19-0-1 | 20-0-0 | 17-2-1 | 20-0-0 | 18-1-1 | 19-1-0 | 156-4-5 |
+| **All** | **23-0-2** | **90-1-9** | **98-0-2** | **94-0-6** | **100-0-0** | **88-3-9** | **98-0-2** | **95-1-4** | **99-1-0** | **785-6-34** |
 
 **Reused output objects:**
 
 | Build | POD | In order | Reverse | Sparse | Sparse reverse | Small, in order | Small, reverse | Small, sparse | Small, sparse reverse | Total |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Windows / MSVC | 5-0-0 | 17-1-2 | 19-1-0 | 20-0-0 | 20-0-0 | 19-0-1 | 19-0-1 | 20-0-0 | 20-0-0 | 159-2-4 |
-| Linux / Clang | 4-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 18-0-2 | 20-0-0 | 17-1-2 | 20-0-0 | 159-1-5 |
-| Linux / GCC | 5-0-0 | 16-1-3 | 18-0-2 | 17-0-3 | 18-1-1 | 15-2-3 | 18-0-2 | 20-0-0 | 20-0-0 | 147-4-14 |
-| macOS / GCC | 5-0-0 | 15-2-3 | 20-0-0 | 19-0-1 | 18-1-1 | 19-0-1 | 19-1-0 | 18-0-2 | 16-2-2 | 149-6-10 |
-| macOS / Clang | 4-0-1 | 18-0-2 | 20-0-0 | 19-0-1 | 20-0-0 | 15-1-4 | 19-1-0 | 12-2-6 | 17-1-2 | 144-5-16 |
-| **All** | **23-0-2** | **86-4-10** | **97-1-2** | **95-0-5** | **96-2-2** | **86-3-11** | **95-2-3** | **87-3-10** | **93-3-4** | **758-18-49** |
+| Windows / MSVC | 5-0-0 | 18-1-1 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 20-0-0 | 163-1-1 |
+| Linux / Clang | 4-0-1 | 19-0-1 | 20-0-0 | 20-0-0 | 20-0-0 | 18-0-2 | 20-0-0 | 16-2-2 | 18-0-2 | 155-2-8 |
+| Linux / GCC | 5-0-0 | 16-0-4 | 18-0-2 | 17-0-3 | 19-1-0 | 16-0-4 | 18-0-2 | 20-0-0 | 20-0-0 | 149-1-15 |
+| macOS / GCC | 5-0-0 | 17-1-2 | 20-0-0 | 19-0-1 | 20-0-0 | 18-0-2 | 20-0-0 | 19-1-0 | 19-0-1 | 157-2-6 |
+| macOS / Clang | 4-0-1 | 19-0-1 | 19-0-1 | 19-0-1 | 20-0-0 | 18-1-1 | 19-0-1 | 18-0-2 | 20-0-0 | 156-1-8 |
+| **All** | **23-0-2** | **89-2-9** | **97-0-3** | **95-0-5** | **99-1-0** | **90-1-9** | **97-0-3** | **93-3-4** | **97-0-3** | **780-7-38** |
 
 
 Each cell is wins-ties-losses.
 
-Across all 1,650 single-document results (8 of them did not converge; see §9), Jsonifier won 1,519, tied 36 and lost 95: 761-18-46 with fresh output objects and 758-18-49 with reused ones.
+Across all 1,650 single-document results (9 of them did not converge; see §9), Jsonifier won 1,565, tied 13 and lost 72: 785-6-34 with fresh output objects and 780-7-38 with reused ones.
 
-- **Reverse order is almost all wins at both sizes.** Across fresh and reused runs, Jsonifier won 193 of 200 full-size reverse results (4 ties, 3 losses) and 192 of 200 small reverse results (3 ties, 5 losses). Linux/Clang won all 80, and macOS/Clang lost none. Every loss is on Canada. The 3 full-size losses are all on Linux/GCC: minified Canada (−7.4% fresh, −8.4% reused) and prettified Canada (reused, −1.2%). Of the 5 small losses, 4 are Canada Small on Linux/GCC (both forms and both runs, −5.0% to −10.0%) and 1 is minified Canada Small on MSVC (reused, −1.6%).
-- **Windows/MSVC lost seven of its 330 single-document results,** all on Canada or Marine IK: minified Canada read in order (−1.9% fresh, −2.8% reused), minified Marine IK read in order (−5.4% and −6.4%), minified Marine IK Small read in order (−3.0% and −1.3%) and minified Canada Small read in reverse (reused, −1.6%). It won all 10 POD results and all 160 of its sparse and sparse-reverse results.
-- **Reusing the output objects helps both libraries and changes few verdicts.** Comparing each test's reused run with its fresh run, the median speedup from reuse is 7.7–12.9% for Jsonifier and 6.2–9.5% for simdjson, depending on the build. Jsonifier's margin over simdjson moves by a median +1.4 to +3.9 percentage points on the non-MSVC builds and by +5.0 points on MSVC, where allocation is most expensive: Discord Reverse (min) goes from +202.0% to +236.6%, and Apache Builds (pretty) from +16.2% to +26.1%.
+- **Reverse order is almost all wins at both sizes.** Across fresh and reused runs, Jsonifier won 195 of 200 full-size reverse results and 195 of 200 small reverse results, with no ties and 5 losses at each size. Windows/MSVC, Linux/Clang and macOS/GCC won all 80 each. Nine of the ten losses are Canada: at full size, minified Canada on Linux/GCC (−7.3% fresh, −8.0% reused) and on macOS/Clang (reused, −8.8%) and prettified Canada on Linux/GCC (−4.4% and −5.6%); at small size, Canada Small on Linux/GCC in both forms and both runs (−9.6% to −12.7%). The tenth is prettified Google Maps Small on macOS/Clang (reused, −2.7%).
+- **Windows/MSVC lost four of its 330 single-document results,** all minified in-order reads of Canada or Marine IK: Canada (fresh, −4.2%, n/c), Marine IK (−7.8% fresh, −9.9% reused, n/c) and Marine IK Small (fresh, −1.3%). Its only tie is minified Canada (reused). It won all 10 POD results, all 80 of its reverse results and all 160 of its sparse and sparse-reverse results.
+- **Reusing the output objects helps both libraries and changes few verdicts.** Comparing each test's reused run with its fresh run, the median speedup from reuse is 7.5–13.7% for Jsonifier and 5.4–9.8% for simdjson, depending on the build. Jsonifier's margin over simdjson moves by a median +1.7 to +1.9 percentage points on the Linux builds and macOS/Clang, and by +4.8 points on MSVC and +5.7 on macOS/GCC. On MSVC, Discord Reverse (min) goes from +194.0% to +224.1%, and Apache Builds (pretty) from +17.1% to +25.2%.
 
 ### 7.2 POD tests
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Bool | +262.5% / +282.5% | +88.1% / +93.2% | +139.3% / +146.0% | +43.6% / +46.7% | −4.7% / +4.6% |
-| Double | +182.4% / +206.7% | +84.4% / +90.3% | +93.1% / +93.7% | +98.3% / +94.7% | +59.2% / +72.0% |
-| Int64 | +163.3% / +175.0% | +89.5% / +95.9% | +88.5% / +94.4% | +61.9% / +62.6% | +50.7% / +55.9% |
-| String | +48.8% / +57.4% | −6.5% / −10.8% | +3.9% / +4.8% | −9.1% / +5.5% | −18.2% / −26.4% |
-| Uint64 | +163.5% / +166.8% | +114.1% / +117.9% | +92.2% / +96.8% | +51.0% (n/c) / +74.7% | +42.0% / +43.6% |
+| Bool | +246.6% / +245.8% | +90.2% / +93.5% | +140.9% / +144.8% | +54.3% / +23.8% (n/c) | +1.9% / +6.4% |
+| Double | +198.8% / +216.3% | +85.9% / +93.6% | +95.6% / +98.5% | +68.0% / +138.5% | +70.5% / +68.8% |
+| Int64 | +166.7% / +179.5% | +94.4% / +101.3% | +93.9% / +96.5% | +73.9% (n/c) / +40.7% | +45.3% / +52.7% |
+| String | +39.8% / +63.3% | −5.5% / −10.4% | +5.2% / +5.0% | +12.8% / +15.5% | −8.6% / −18.4% |
+| Uint64 | +167.4% / +166.1% | +109.7% / +117.8% | +88.3% / +91.1% | +118.3% / +50.3% | +50.1% / +42.5% |
 
 ### 7.3 Documents, in order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +8.9% / +25.5% | +21.4% / +27.5% | +21.1% / +34.9% | +40.8% / +62.9% | +25.0% / +32.6% |
-| Apache Builds (pretty) | +16.2% / +26.1% | +20.0% / +26.9% | +22.0% / +33.0% | +52.2% / +60.4% | +6.3% / +30.2% |
-| Canada (min) | −1.9% / −2.8% | +6.0% / +5.6% | −11.5% / −12.9% | +13.2% / +26.3% | −6.8% / +6.3% |
-| Canada (pretty) | +3.2% / +2.5% | +4.4% / +4.5% | −6.1% / −4.1% | +6.3% / tie | +4.6% / −6.2% |
-| CitmCatalog (min) | +14.0% / +13.8% | +9.6% / +10.8% | +10.8% / +12.7% | +24.3% / +15.4% | +10.7% / +11.7% |
-| CitmCatalog (pretty) | +16.1% / +17.4% | +5.7% / +6.5% | +9.8% / +9.5% | +5.6% / −6.0% | +9.5% / +10.5% |
-| Discord (min) | +16.8% / +24.8% | +20.0% / +26.6% | +11.2% / +13.0% | +26.1% / +22.2% | +20.1% / +22.3% |
-| Discord (pretty) | +18.2% / +24.6% | +10.1% / +21.0% | +13.7% / +20.5% | +26.8% / +50.1% | +13.6% / +16.1% |
-| Github Events (min) | +30.6% / +44.4% | +34.8% / +40.0% | +28.7% / +34.0% | +45.3% / +54.5% | +45.4% / +56.1% |
-| Github Events (pretty) | +31.3% / +41.2% | +29.6% / +33.9% | +24.5% / +28.7% | +35.5% / +42.9% | +38.1% / +42.3% |
-| Google Maps (min) | +24.0% / +24.5% | +23.3% / +24.3% | +26.3% / +29.7% | +31.4% / +59.7% | +15.8% / +14.4% |
-| Google Maps (pretty) | +23.4% / +25.6% | +13.0% / +13.0% | +21.8% / +23.0% | +11.6% / +6.9% | +10.2% / +11.4% |
-| Instruments (min) | +37.5% / +41.6% | +8.4% / +9.1% | +5.8% / +5.9% | +0.7% / tie | +7.1% / +8.0% |
-| Instruments (pretty) | +35.0% / +41.9% | +1.7% / +2.5% | +3.4% / +1.9% | +9.1% / +12.0% | −1.9% / −2.5% |
-| Marine IK (min) | −5.4% / −6.4% | +7.5% / +7.2% | −5.3% / −6.9% | −7.2% (n/c) / −0.4% | +5.2% / +5.6% |
-| Marine IK (pretty) | tie / tie | +5.5% / +8.5% | +2.5% / tie | −1.3% / −2.5% | +6.1% / +6.6% |
-| Random (min) | +26.9% / +33.0% | +21.7% / +25.6% | +32.6% / +38.6% | +56.2% / +71.4% | +34.2% / +38.9% |
-| Random (pretty) | +26.3% / +33.1% | +23.5% / +29.2% | +30.2% / +39.6% | +51.4% / +64.6% | +30.1% / +33.5% |
-| Twitter (min) | +24.4% / +30.4% | +11.0% / +20.0% | +8.9% / +22.7% | +43.7% / +53.6% | tie / +10.0% |
-| Twitter (pretty) | +22.0% / +32.7% | +6.4% / +14.4% | +4.8% / +7.7% | +12.2% / +6.5% | +1.9% / +5.8% |
+| Apache Builds (min) | +12.0% / +24.3% | +18.6% / +30.4% | +22.7% / +31.9% | +79.3% / +87.9% | +15.1% / +26.5% |
+| Apache Builds (pretty) | +17.1% / +25.2% | +18.9% / +27.6% | +23.3% / +31.6% | +21.3% / +30.7% | +22.3% / +28.0% |
+| Canada (min) | −4.2% (n/c) / tie | +4.9% / +4.5% | −10.7% / −13.0% | tie / +32.6% (n/c) | +5.7% / +6.6% |
+| Canada (pretty) | +4.1% / +4.4% | +4.3% / +3.2% | −8.8% / −10.4% | −10.1% / −9.2% | +1.4% / +2.7% |
+| CitmCatalog (min) | +15.3% / +14.5% | +7.8% / +9.1% | +9.6% / +10.0% | +11.4% / +25.4% | +9.0% / +10.3% |
+| CitmCatalog (pretty) | +16.8% / +17.8% | +5.1% / +4.5% | +3.5% / +4.4% | +12.7% / +10.1% | +8.9% / +9.4% |
+| Discord (min) | +18.9% / +24.5% | +13.3% / +20.5% | +12.3% / +18.3% | +18.0% / +21.1% | +18.9% / +22.0% |
+| Discord (pretty) | +19.8% / +21.6% | +12.4% / +17.5% | +13.8% / +19.5% | +39.5% / +49.5% | +13.4% / +15.1% |
+| Github Events (min) | +31.3% / +41.4% | +31.8% / +38.7% | +29.4% / +35.1% | +62.4% / +50.6% | +45.4% / +55.1% |
+| Github Events (pretty) | +28.5% / +37.0% | +24.7% / +30.2% | +25.1% / +30.6% | +54.0% / +78.9% | +34.1% / +40.8% |
+| Google Maps (min) | +20.3% / +22.8% | +18.8% / +19.8% | +26.5% / +27.9% | +11.4% / +37.4% | +13.8% / +13.5% |
+| Google Maps (pretty) | +21.6% / +23.0% | +11.4% / +10.6% | +24.8% / +25.0% | +41.1% / +47.4% | +9.9% / +10.1% |
+| Instruments (min) | +31.4% / +37.6% | +3.4% / +4.3% | +7.0% / +7.7% | +15.2% / +14.6% | +8.0% / +7.1% |
+| Instruments (pretty) | +31.5% / +36.6% | −1.3% / −0.8% | +2.4% / +2.3% | +10.4% / +10.0% | −1.2% / −1.4% |
+| Marine IK (min) | −7.8% / −9.9% (n/c) | +2.8% / +6.3% | −5.6% / −6.1% | +4.5% / −5.7% | +5.3% / +39.3% |
+| Marine IK (pretty) | +2.4% / +1.6% | +0.3% / +2.6% | −4.8% / −6.0% | +10.1% / tie | +5.6% / +20.4% |
+| Random (min) | +26.3% / +34.5% | +24.9% / +31.3% | +30.6% / +37.9% | +58.0% / +82.8% | +32.0% / +35.9% |
+| Random (pretty) | +25.1% / +31.2% | +22.5% / +27.5% | +25.4% / +34.1% | +69.9% / +75.0% | +28.3% / +30.8% |
+| Twitter (min) | +24.1% / +31.7% | +21.8% / +16.5% | +10.4% / +23.7% | +22.3% / +27.5% | +12.6% / +12.6% |
+| Twitter (pretty) | +22.4% / +30.8% | +16.7% / +11.1% | +4.5% / +7.6% | +16.7% / +21.9% | +1.6% / +6.0% |
 
 ### 7.4 Documents, keys in reverse order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +39.1% / +65.2% | +57.5% / +82.5% | +61.0% / +74.8% | +101.4% / +96.5% | +29.5% / +88.0% |
-| Apache Builds (pretty) | +43.9% / +61.5% | +51.6% / +67.2% | +57.2% / +74.0% | +67.0% / +90.3% | +24.5% / +77.3% |
-| Canada (min) | tie / tie | +7.5% / +8.2% | −7.4% / −8.4% | +6.2% / +19.9% | +7.8% / +9.7% |
-| Canada (pretty) | +10.4% / +10.4% (n/c) | +9.0% / +8.5% | tie / −1.2% | tie / +6.3% | +7.1% / +8.6% |
-| CitmCatalog (min) | +61.8% / +61.7% | +67.3% / +72.0% | +60.7% / +65.1% | +73.2% / +76.8% | +73.9% / +77.4% |
-| CitmCatalog (pretty) | +59.2% / +60.1% | +57.5% / +61.3% | +54.8% / +59.1% | +96.8% / +65.2% | +68.3% / +72.5% |
-| Discord (min) | +202.0% / +236.6% | +274.9% / +298.0% | +235.8% / +260.9% | +339.8% / +308.5% | +321.1% / +343.3% |
-| Discord (pretty) | +166.2% / +192.3% | +234.2% / +255.2% | +212.2% / +232.5% | +187.7% / +214.1% | +277.3% / +291.5% |
-| Github Events (min) | +142.0% / +184.6% | +147.1% / +170.3% | +118.0% / +136.6% | +106.6% / +127.9% | +165.0% / +195.0% |
-| Github Events (pretty) | +130.3% / +167.3% | +122.4% / +142.6% | +98.7% / +113.4% | +85.8% / +97.5% | +123.8% / +159.2% |
-| Google Maps (min) | +26.0% / +24.0% | +14.1% / +13.9% | +19.0% / +20.5% | +26.9% / +27.1% | +18.1% / +19.5% |
-| Google Maps (pretty) | +23.9% / +25.5% | +8.8% / +9.6% | +14.0% / +14.9% | +22.2% / +23.5% | +12.0% / +11.7% |
-| Instruments (min) | +189.7% / +202.9% | +188.8% / +195.6% | +153.7% / +161.9% | +149.1% / +154.9% | +188.0% / +218.9% |
-| Instruments (pretty) | +162.7% / +174.9% | +161.7% / +168.1% | +136.7% / +138.3% | +121.9% / +125.2% | +166.8% / +191.7% |
-| Marine IK (min) | +24.3% / +26.6% | +51.0% / +54.5% | +40.5% / +44.0% | +51.6% (n/c) / +54.7% | +52.3% / +55.6% (n/c) |
-| Marine IK (pretty) | +33.5% / +32.1% | +54.2% / +47.8% | +45.3% / +45.5% | +50.5% / +54.0% | +55.2% / +54.4% |
-| Random (min) | +70.3% / +82.3% | +97.4% / +111.2% | +93.2% / +105.4% | +93.1% / +110.3% | +115.7% / +127.6% |
-| Random (pretty) | +63.2% / +73.9% | +86.7% / +97.9% | +77.7% / +88.3% | +104.3% / +106.9% | +126.8% / +124.4% |
-| Twitter (min) | +223.5% / +256.9% | +173.0% / +181.0% | +133.5% / +143.0% | +129.5% / +171.9% | +208.5% / +214.6% |
-| Twitter (pretty) | +189.7% / +213.7% | +138.2% / +147.1% | +102.8% / +109.2% | +93.3% / +125.5% | +212.1% / +227.9% |
+| Apache Builds (min) | +41.8% / +60.9% | +62.2% / +80.0% | +58.1% / +75.0% | +79.1% / +103.0% | +68.0% / +86.5% |
+| Apache Builds (pretty) | +37.1% / +54.9% | +58.9% / +73.9% | +58.3% / +73.7% | +70.8% / +90.6% | +58.3% / +73.8% |
+| Canada (min) | +1.9% / +1.4% | +8.3% / +8.6% | −7.3% / −8.0% | +5.1% / +7.5% | +7.1% / −8.8% |
+| Canada (pretty) | +5.6% / +7.5% | +6.0% / +8.4% | −4.4% / −5.6% | +13.2% / +5.5% | +5.5% / +6.2% |
+| CitmCatalog (min) | +58.7% / +61.5% | +62.8% / +68.2% | +58.2% / +62.6% | +95.3% / +124.7% | +71.8% / +76.5% |
+| CitmCatalog (pretty) | +51.9% / +54.0% | +57.7% / +59.0% | +52.4% / +54.5% | +56.4% / +87.7% | +67.6% / +70.5% |
+| Discord (min) | +194.0% / +224.1% | +260.2% / +279.7% | +228.1% / +250.8% | +301.2% / +326.2% | +323.9% / +345.9% |
+| Discord (pretty) | +174.8% / +197.8% | +222.8% / +240.6% | +203.8% / +223.3% | +239.0% / +266.7% | +278.4% / +292.6% |
+| Github Events (min) | +144.4% / +179.7% | +139.9% / +158.9% | +117.2% / +133.3% | +139.2% / +114.4% | +168.2% / +194.7% |
+| Github Events (pretty) | +130.3% / +161.8% | +120.7% / +137.0% | +94.8% / +109.4% | +65.9% / +104.0% | +144.0% / +163.0% |
+| Google Maps (min) | +17.5% / +19.6% | +9.5% / +8.2% | +16.9% / +16.5% | +40.4% / +23.3% | +14.4% / +17.6% |
+| Google Maps (pretty) | +16.1% / +16.4% | +8.2% / +10.1% | +13.4% / +14.6% | +23.8% / +36.5% | +10.5% / +11.8% |
+| Instruments (min) | +189.6% / +201.6% | +174.2% / +181.4% | +161.8% / +168.6% | +137.2% / +160.2% | +215.9% / +222.7% |
+| Instruments (pretty) | +162.7% / +170.6% | +136.0% / +139.9% | +137.5% / +142.2% | +113.1% / +126.7% | +187.7% / +191.8% |
+| Marine IK (min) | +25.1% / +25.4% | +48.1% / +51.3% | +36.8% / +37.4% | +51.1% / +54.5% | +52.7% / +65.8% |
+| Marine IK (pretty) | +38.5% / +29.1% (n/c) | +49.8% / +48.7% | +39.1% / +41.4% | +51.0% / +49.9% (n/c) | +52.8% / +67.8% |
+| Random (min) | +65.6% / +76.1% | +87.1% / +99.0% | +86.8% / +99.8% | +97.5% / +112.4% | +115.3% / +123.7% |
+| Random (pretty) | +59.4% / +70.1% | +80.0% / +89.7% | +80.2% / +89.8% | +80.3% / +82.8% | +97.0% / +104.7% |
+| Twitter (min) | +223.0% / +259.3% | +160.9% / +172.4% | +129.9% / +141.4% | +177.5% / +123.0% (n/c) | +224.7% / +241.3% |
+| Twitter (pretty) | +193.5% / +221.1% | +141.2% / +149.2% | +106.1% / +112.2% | +173.1% / +126.4% | +205.9% / +218.2% |
 
 ### 7.5 Documents, sparse fields in order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +24.6% / +40.1% | +38.9% / +58.2% | +36.8% / +50.8% | +34.0% / +71.5% | +34.2% / +40.6% |
-| Apache Builds (pretty) | +24.8% / +34.1% | +25.1% / +36.2% | +26.8% / +39.9% | +26.6% / +44.5% | +23.7% / +28.2% |
-| Canada (min) | +59.7% / +58.7% | +14.3% / +11.3% | −3.1% / −5.2% | +18.3% / +12.2% | +34.6% (n/c) / +62.3% |
-| Canada (pretty) | +84.0% / +81.0% | +12.0% / +8.8% | +17.0% / +15.8% | +16.4% / +16.7% | +23.5% / +31.3% |
-| CitmCatalog (min) | +29.6% / +31.0% | +5.9% / +5.9% | +6.5% / +6.5% | +7.6% / +14.1% | +6.2% / +6.5% |
-| CitmCatalog (pretty) | +47.3% / +47.5% | +2.5% / +1.3% | +6.3% / +6.3% | +16.2% / +16.0% | +8.2% / +8.8% |
-| Discord (min) | +17.6% / +22.0% | +8.0% / +7.5% | +24.2% / +28.2% | +25.8% / +32.8% | +19.0% / +19.0% |
-| Discord (pretty) | +19.1% / +26.3% | +5.7% / +4.2% | +20.4% / +24.4% | +22.8% / +27.6% | +8.6% / +9.7% |
-| Github Events (min) | +52.5% / +61.5% | +17.3% / +22.3% | +22.4% / +21.3% | +35.0% / +39.4% | +18.5% / +18.7% |
-| Github Events (pretty) | +49.3% / +56.8% | +13.9% / +15.9% | +13.6% / +15.5% | +19.2% / +22.7% | +6.7% / +6.8% |
-| Google Maps (min) | +25.2% / +29.6% | +16.0% / +16.6% | +19.1% / +20.8% | +21.3% / +21.4% | +15.3% / +14.5% |
-| Google Maps (pretty) | +29.3% / +32.8% | +9.8% / +10.7% | +13.7% / +14.7% | +21.1% / +21.2% | +9.1% / +11.8% |
-| Instruments (min) | +33.7% / +40.5% | +12.4% / +9.4% | +9.1% / +12.1% | +10.0% / +20.2% | +11.0% / +10.7% |
-| Instruments (pretty) | +32.8% / +40.6% | +9.1% / +8.3% | +7.9% / +6.9% | +9.2% / +16.9% | −2.1% / −0.7% |
-| Marine IK (min) | +29.7% / +28.8% | +12.4% / +8.3% | −7.4% / −9.1% | −1.5% / −1.4% | +19.8% / +20.2% |
-| Marine IK (pretty) | +59.6% / +61.6% | +7.0% / +4.7% | −8.4% / −8.3% | +8.2% / +8.2% | +17.5% / +23.4% |
-| Random (min) | +31.9% / +33.5% | +24.6% / +29.9% | +23.5% / +25.1% | +30.6% / +34.5% | +21.3% / +61.2% |
-| Random (pretty) | +28.4% / +31.6% | +16.8% / +20.6% | +11.3% / +14.8% | +35.9% / +40.5% | +24.5% / +27.8% |
-| Twitter (min) | +56.7% / +61.1% | +18.2% / +19.3% | +16.1% / +16.4% | +27.0% / +15.6% | +20.7% / +14.1% |
-| Twitter (pretty) | +52.9% / +55.9% | +5.9% / +6.0% | +15.7% / +16.6% | +5.7% / +26.0% | +17.8% / +8.1% |
+| Apache Builds (min) | +23.8% / +34.7% | +34.7% / +44.1% | +42.5% / +52.3% | +58.8% / +108.8% | +35.0% / +40.1% |
+| Apache Builds (pretty) | +23.6% / +31.3% | +26.6% / +35.2% | +32.1% / +39.9% | +29.1% / +152.9% | +22.9% / +25.6% |
+| Canada (min) | +57.9% / +57.8% | +11.9% / +12.2% | −4.6% / −4.6% | +12.3% / +12.6% | +48.2% / +42.9% |
+| Canada (pretty) | +84.6% / +84.9% | +7.3% / +7.5% | +15.9% / +16.4% | +6.2% / +6.2% | +29.2% / +29.8% |
+| CitmCatalog (min) | +30.2% / +30.8% | +5.3% / +4.4% | +5.6% / +5.3% | +7.0% / +4.5% | +5.9% / +6.2% |
+| CitmCatalog (pretty) | +47.4% / +47.3% | +1.1% / +1.5% | +4.5% / +5.2% | +13.7% / +28.4% (n/c) | +8.0% / +7.8% |
+| Discord (min) | +10.3% / +14.4% | +14.0% / +13.0% | +23.2% / +26.7% | +22.1% / +34.0% | +19.4% / +21.0% |
+| Discord (pretty) | +10.2% / +15.8% | +12.6% / +15.1% | +20.3% / +23.7% | +8.8% / +19.6% | +9.3% / +9.5% |
+| Github Events (min) | +46.4% / +55.3% | +18.2% / +20.9% | +23.6% / +24.0% | +28.8% / +75.4% | +15.8% / +17.9% |
+| Github Events (pretty) | +47.0% / +55.5% | +12.1% / +13.6% | +14.4% / +15.4% | +9.3% / +27.9% | +6.2% / +6.4% |
+| Google Maps (min) | +25.1% / +28.9% | +15.5% / +15.7% | +19.2% / +20.5% | +10.1% / +19.2% | +11.7% / +13.9% |
+| Google Maps (pretty) | +25.0% / +27.8% | +1.6% / +1.1% | +10.6% / +12.8% | +44.5% / +53.7% | +7.4% / +9.3% |
+| Instruments (min) | +29.1% / +37.1% | +16.2% / +18.4% | +8.9% / +9.9% | +10.0% / +9.5% | +10.4% / +10.8% |
+| Instruments (pretty) | +33.3% / +35.6% | +8.5% / +8.0% | +5.4% / +5.4% | +14.4% / +35.8% | −0.7% / −0.2% |
+| Marine IK (min) | +29.3% / +29.6% | +7.8% / +7.6% | −7.3% / −8.5% | −9.7% / −6.1% | +17.8% / +17.5% |
+| Marine IK (pretty) | +61.8% / +62.7% | +6.2% / +8.6% | −7.1% / −6.7% | +14.7% / +4.4% | +17.1% / +17.5% |
+| Random (min) | +32.5% / +37.5% | +25.1% / +27.3% | +23.0% / +25.4% | +49.4% / +55.8% | +35.9% / +37.2% |
+| Random (pretty) | +30.3% / +35.6% | +17.7% / +20.7% | +11.6% / +15.3% | +38.3% / +42.9% | +24.1% / +26.0% |
+| Twitter (min) | +59.6% / +65.0% | +16.5% / +16.9% | +17.7% / +19.3% | −5.8% / +5.6% | +15.2% / +18.5% |
+| Twitter (pretty) | +50.5% / +55.3% | +8.4% / +8.4% | +14.0% / +13.9% | +36.7% / +30.0% | +7.2% / +7.6% |
 
 ### 7.6 Documents, sparse fields in reverse order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +19.2% / +27.3% | +16.3% / +18.7% | +18.7% / +22.3% | +41.2% / +53.4% | +25.7% / +29.1% |
-| Apache Builds (pretty) | +19.1% / +24.6% | +7.5% / +8.1% | +14.7% / +17.8% | +31.4% / +39.0% | +18.4% / +20.3% |
-| Canada (min) | +40.6% / +43.3% | +9.5% / +8.0% | −2.6% / −3.4% | tie / +5.3% | +25.2% / +35.7% |
-| Canada (pretty) | +61.9% / +62.3% | +9.7% / +10.4% | +14.3% / +13.3% | +7.4% / −3.0% | +24.7% / +25.4% |
-| CitmCatalog (min) | +19.6% / +18.4% | +8.1% / +10.0% | +6.2% / +3.3% | +17.6% / +12.1% | +5.5% / +5.9% |
-| CitmCatalog (pretty) | +33.7% / +33.6% | +5.7% / +7.9% | +3.5% / +2.8% | +20.8% / +18.1% | +7.0% / +6.9% |
-| Discord (min) | +41.4% / +49.4% | +47.7% / +55.4% | +45.1% / +55.7% | +45.1% / +52.9% | +70.6% / +76.5% |
-| Discord (pretty) | +39.4% / +48.0% | +33.9% / +44.7% | +36.6% / +43.1% | +37.3% / +42.7% | +52.5% / +57.9% |
-| Github Events (min) | +65.0% / +76.9% | +44.6% / +49.1% | +44.3% / +46.6% | +46.7% / +50.9% | +47.2% / +48.6% |
-| Github Events (pretty) | +59.6% / +67.2% | +36.9% / +36.7% | +39.7% / +41.2% | +32.9% / +35.7% | +33.6% / +33.8% |
-| Google Maps (min) | +25.9% / +29.4% | +8.1% / +8.9% | +6.3% / +6.0% | +9.8% / +9.6% | +6.0% / +9.8% |
-| Google Maps (pretty) | +24.9% / +27.9% | +1.7% / +1.9% | +8.0% / +8.2% | +11.4% / +11.8% | +7.2% / +6.4% |
-| Instruments (min) | +43.0% / +47.8% | +28.7% / +27.6% | +22.7% / +22.9% | +26.4% / +26.5% | +36.9% / +37.7% |
-| Instruments (pretty) | +43.6% / +47.8% | +15.9% / +15.7% | +22.1% / +23.0% | +19.6% / +21.5% | +23.6% / +24.3% |
-| Marine IK (min) | +46.5% / +48.0% | +38.0% / +39.8% | +22.5% / +21.8% | +25.7% / +29.7% | +52.3% / +40.0% |
-| Marine IK (pretty) | +69.1% / +68.5% | +34.3% / +27.3% | +11.1% / tie | +27.9% / +27.1% | +33.1% / +32.5% |
-| Random (min) | +40.1% / +44.2% | +31.1% / +32.3% | +27.1% / +28.5% | +53.8% / +58.7% | +85.9% / +78.5% |
-| Random (pretty) | +37.4% / +41.3% | +18.1% / +18.5% | +18.1% / +23.3% | +21.9% / +30.3% | +20.9% / +36.5% |
-| Twitter (min) | +61.8% / +64.2% | +32.4% / +30.1% | +25.0% / +25.0% | +29.8% / +17.4% | +29.4% / +31.2% |
-| Twitter (pretty) | +52.2% / +54.7% | +21.4% / +20.8% | +24.1% / +25.0% | +13.7% / tie | +22.8% / +23.7% |
+| Apache Builds (min) | +17.0% / +24.0% | +18.3% / +22.4% | +16.3% / +17.9% | +13.9% / +80.9% | +25.1% / +28.7% |
+| Apache Builds (pretty) | +15.8% / +19.0% | +13.1% / +14.9% | +14.5% / +17.3% | +43.4% / +37.2% | +18.2% / +19.7% |
+| Canada (min) | +40.6% / +40.1% | +9.3% / +9.4% | +1.9% / tie | +9.3% / +10.0% | +36.2% / +37.3% |
+| Canada (pretty) | +65.5% / +67.0% | +8.0% / +6.4% | +12.1% / +12.5% | +7.1% / +7.8% | +25.3% / +25.2% |
+| CitmCatalog (min) | +18.4% / +16.0% | +2.5% / +2.5% | +4.3% / +4.6% | +15.6% / +4.7% | +5.9% / +5.9% |
+| CitmCatalog (pretty) | +31.1% / +31.4% | +2.5% / +0.8% | +4.1% / +3.0% | +26.1% / +10.1% | +6.6% / +6.0% |
+| Discord (min) | +40.3% / +50.5% | +35.1% / +41.3% | +44.2% / +51.7% | +45.8% / +55.3% | +70.3% / +75.6% |
+| Discord (pretty) | +37.4% / +43.7% | +38.6% / +42.1% | +37.7% / +42.5% | +53.3% / +61.1% | +55.7% / +57.1% |
+| Github Events (min) | +61.0% / +73.7% | +34.9% / +39.5% | +40.3% / +42.0% | +40.6% / +31.0% | +45.9% / +49.0% |
+| Github Events (pretty) | +58.8% / +67.6% | +30.9% / +33.4% | +37.0% / +39.6% | +11.6% / +54.3% | +34.6% / +34.3% |
+| Google Maps (min) | +18.9% / +22.5% | +2.3% / +2.5% | +7.3% / +8.2% | +33.0% / +63.0% | +7.8% / +8.4% |
+| Google Maps (pretty) | +23.7% / +27.9% | +1.3% / +2.5% | +6.9% / +7.7% | +34.6% / +52.0% | +5.4% / +6.2% |
+| Instruments (min) | +44.8% / +50.6% | +22.6% / +26.4% | +19.3% / +20.2% | +26.7% / +19.2% | +35.1% / +38.3% |
+| Instruments (pretty) | +45.2% / +50.5% | +20.4% / +22.2% | +25.4% / +25.8% | +25.9% / +60.6% | +22.7% / +23.6% |
+| Marine IK (min) | +49.3% / +48.0% | +35.7% / +35.7% | +19.9% / +20.3% | +31.0% / +29.0% | +42.7% / +40.7% |
+| Marine IK (pretty) | +70.5% / +66.7% | +26.0% / +27.6% | +11.0% / +12.7% | +28.3% / +33.9% | +32.4% / +32.7% |
+| Random (min) | +39.6% / +44.0% | +26.5% / +29.1% | +24.2% / +26.0% | +55.9% / +63.7% | +47.8% / +51.9% |
+| Random (pretty) | +36.5% / +40.2% | +18.9% / +22.3% | +16.5% / +20.4% | +39.7% / +53.0% | +36.8% / +45.7% |
+| Twitter (min) | +57.8% / +61.2% | +24.3% / +25.3% | +25.8% / +26.3% | +13.8% / +19.3% | +31.6% / +32.2% |
+| Twitter (pretty) | +54.9% / +58.5% | +20.9% / +21.3% | +22.5% / +22.8% | +16.9% / +18.6% | +20.4% / +20.2% |
 
 ### 7.7 Small documents, in order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +12.0% / +18.4% | +17.7% / +22.1% | +24.5% / +31.6% | +16.2% / +50.8% | +33.0% / +36.3% |
-| Apache Builds (pretty) | +11.9% / +20.6% | +16.8% / +19.1% | +23.0% / +33.3% | +21.3% / +38.7% | +28.3% / +32.1% |
-| Canada (min) | +1.5% / +0.4% | +1.5% / +2.3% | −8.7% / −12.4% | +10.5% / −5.8% | +6.4% / −8.5% |
-| Canada (pretty) | +3.4% / +3.7% | +4.1% / +1.2% | −10.0% / −11.0% | +1.3% / +5.2% | +4.4% / −1.5% |
-| CitmCatalog (min) | +6.0% / +15.0% | −1.4% / +1.9% | −1.9% / +0.5% | +12.8% / +7.3% | +18.3% / +19.8% |
-| CitmCatalog (pretty) | +11.6% / +17.4% | −4.7% / −2.0% | tie / tie | −14.3% / +10.3% | +10.7% / +1.7% |
-| Discord (min) | +8.0% / +15.5% | +7.5% / +14.9% | +5.4% / +15.8% | +16.4% / +41.5% | +10.6% / +30.8% |
-| Discord (pretty) | +8.7% / +16.8% | +6.2% / +13.1% | +6.2% / +13.5% | +25.2% / +23.1% | +5.0% / +10.5% |
-| Github Events (min) | +22.9% / +30.5% | +15.9% / +15.2% | +10.6% / +9.4% | +7.0% / +29.7% | +18.1% / +18.7% |
-| Github Events (pretty) | +17.9% / +20.3% | +6.5% / +9.8% | +8.9% / +5.8% | +39.8% / +24.5% | +10.1% / +32.6% |
-| Google Maps (min) | +22.8% / +23.9% | +21.8% / +21.2% | +24.9% / +26.6% | +19.2% / +40.7% | +17.6% / +10.3% |
-| Google Maps (pretty) | +26.1% / +26.1% | +10.3% / +11.7% | +19.0% / +21.8% | +27.7% / +34.1% | −3.3% / +8.6% |
-| Instruments (min) | +36.6% / +42.9% | +1.2% / +1.9% | +2.5% / +1.3% | +11.1% / +10.9% | +25.6% / +2.9% |
-| Instruments (pretty) | +36.6% / +37.0% | −3.7% / −2.6% | −1.3% / tie | +2.2% / +13.7% | −15.5% / −6.7% |
-| Marine IK (min) | −3.0% / −1.3% | +3.3% / +3.8% | −2.3% / −0.9% | +29.3% / +4.7% | +10.9% / tie |
-| Marine IK (pretty) | +3.0% / +5.3% | +4.5% / +2.2% | +3.8% / +1.0% | +8.1% / +28.0% | tie / −4.6% |
-| Random (min) | +25.2% / +30.3% | +16.4% / +17.5% | +23.1% / +31.0% | +56.3% / +64.9% | +17.0% / +54.4% |
-| Random (pretty) | +25.1% / +28.5% | +16.6% / +21.5% | +20.1% / +25.4% | +25.0% / +40.3% | +24.1% / +19.4% |
-| Twitter (min) | +19.6% / +24.7% | +3.1% / +5.7% | +9.0% / +10.3% | +32.8% / +30.7% | +6.2% / +7.6% |
-| Twitter (pretty) | +20.3% / +26.8% | +3.3% / +6.8% | +10.4% / +11.3% | +19.2% / +21.3% | +3.5% / +4.4% |
+| Apache Builds (min) | +12.3% / +15.3% | +15.6% / +20.7% | +26.3% / +30.7% | +32.3% / +48.5% | +11.7% / +46.2% |
+| Apache Builds (pretty) | +10.0% / +14.2% | +16.1% / +22.2% | +21.9% / +31.4% | +28.7% / +39.9% | +9.0% / +4.1% |
+| Canada (min) | +0.8% / +2.2% | +5.4% / +0.5% | −14.4% / −18.2% | +1.6% / +2.1% | +4.1% / +3.5% |
+| Canada (pretty) | +3.1% / +5.4% | +1.1% / +1.5% | −14.4% / −16.6% | tie / +1.5% | −0.5% / +0.7% |
+| CitmCatalog (min) | +6.8% / +9.2% | +1.3% / +3.7% | +1.2% / +2.5% | +11.9% / −4.4% | +5.8% / +8.7% |
+| CitmCatalog (pretty) | +9.4% / +12.3% | −1.9% / −1.4% | +0.5% / +3.1% | +21.5% / +14.2% | +3.7% / −5.6% |
+| Discord (min) | +6.8% / +17.0% | +9.1% / +13.5% | +3.1% / +11.4% | +21.7% / +38.9% | +13.2% / +19.6% |
+| Discord (pretty) | +5.2% / +18.9% | +2.4% / +10.0% | +4.6% / +13.7% | +19.5% / +34.7% | +7.3% / +12.8% |
+| Github Events (min) | +26.5% / +30.1% | +13.1% / +14.6% | +8.7% / +8.3% | +36.1% / +47.5% | +15.9% / +35.2% |
+| Github Events (pretty) | +18.3% / +24.0% | +6.0% / +7.8% | +2.5% / +1.0% | +5.2% / +17.7% | +3.6% / +12.4% |
+| Google Maps (min) | +25.8% / +30.0% | +17.4% / +17.9% | +20.6% / +23.8% | +33.6% / +37.8% | tie / +16.1% |
+| Google Maps (pretty) | +25.7% / +32.6% | +9.8% / +9.0% | +21.7% / +22.6% | +32.1% / +39.8% | +10.9% / +9.7% |
+| Instruments (min) | +27.7% / +30.6% | +0.9% / +1.0% | +1.2% / +0.9% | +13.0% / +13.7% | +7.8% / +9.2% |
+| Instruments (pretty) | +29.6% / +29.5% | −5.2% / −3.3% | −1.3% / −2.5% | +8.8% / −2.7% | tie / tie |
+| Marine IK (min) | −1.3% / +5.6% | +2.7% / +3.6% | −2.6% / +1.7% | +13.9% / +9.0% | +4.7% / +23.1% |
+| Marine IK (pretty) | +3.4% / +4.4% | +0.8% / +3.1% | −6.1% / −3.6% | +11.8% / +7.8% | +3.0% / +17.4% |
+| Random (min) | +24.8% / +27.6% | +15.9% / +18.3% | +21.4% / +28.6% | +47.7% / +60.7% | +80.5% / +30.0% |
+| Random (pretty) | +22.2% / +25.5% | +16.5% / +14.3% | +21.4% / +26.4% | +60.0% / +57.7% | +23.4% / +25.7% |
+| Twitter (min) | +18.8% / +27.6% | +4.3% / +7.6% | +8.0% / +13.6% | +23.5% / +30.5% | +9.7% / +12.4% |
+| Twitter (pretty) | +16.3% / +22.4% | +2.7% / +4.9% | +6.5% / +9.9% | +20.7% / +28.4% | +5.1% / +7.6% |
 
 ### 7.8 Small documents, keys in reverse order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +56.8% / +87.2% | +76.9% / +84.1% | +81.7% / +94.0% | +82.0% / +113.3% | +36.6% / +109.3% |
-| Apache Builds (pretty) | +46.3% / +71.5% | +62.2% / +75.5% | +72.8% / +80.4% | +79.6% / +73.3% | +39.4% / +79.7% |
-| Canada (min) | +1.7% / −1.6% | +6.3% / +6.2% | −6.7% / −10.0% | tie / tie | +8.3% / tie |
-| Canada (pretty) | +6.2% / +5.0% | +4.8% / +5.1% | −5.0% / −6.3% | +4.7% / +4.8% | +9.1% / +16.2% |
-| CitmCatalog (min) | +56.3% / +57.0% | +58.7% / +67.9% | +59.6% / +66.9% | +80.5% / +78.6% | +58.5% / +103.9% |
-| CitmCatalog (pretty) | +54.6% / +49.4% | +48.5% / +55.6% | +54.7% / +60.9% | +57.1% / +62.8% | +81.1% / +66.4% |
-| Discord (min) | +196.3% / +255.0% | +241.3% / +281.3% | +211.2% / +239.2% | +306.1% / +312.4% | +306.3% / +398.6% |
-| Discord (pretty) | +185.1% / +225.5% | +213.5% / +249.2% | +195.1% / +222.1% | +236.7% / +246.6% | +272.1% / +290.2% |
-| Github Events (min) | +44.7% / +56.3% | +48.2% / +54.1% | +33.4% / +38.8% | +45.4% / +70.2% | +64.7% / +62.7% |
-| Github Events (pretty) | +37.9% / +44.1% | +34.0% / +34.7% | +22.3% / +30.3% | +25.2% / +58.2% | +58.4% / +75.2% |
-| Google Maps (min) | +22.4% / +26.8% | +14.6% / +14.3% | +15.9% / +15.5% | +26.9% / +26.5% | +5.9% / +18.9% |
-| Google Maps (pretty) | +21.9% / +27.3% | +6.1% / +6.4% | +10.9% / +11.8% | +22.1% / +10.3% | +18.5% / +13.6% |
-| Instruments (min) | +163.1% / +175.3% | +175.7% / +189.4% | +148.7% / +154.8% | +164.5% / +164.3% | +220.8% / +270.8% |
-| Instruments (pretty) | +142.9% / +152.5% | +165.2% / +163.3% | +133.7% / +135.5% | +100.3% / +123.5% | +174.7% / +169.4% |
-| Marine IK (min) | +28.3% / +30.6% | +45.3% / +46.8% | +37.3% / +41.4% | +24.7% / +62.3% | +50.6% / +55.3% |
-| Marine IK (pretty) | +28.3% / +30.9% | +37.7% / +44.6% | +35.7% / +39.4% | +17.1% / +58.1% | +44.4% / +49.1% |
-| Random (min) | +66.3% / +84.4% | +88.8% / +101.2% | +85.5% / +92.8% | +78.0% / +97.5% | +84.4% / +176.8% |
-| Random (pretty) | +56.9% / +69.6% | +74.1% / +82.0% | +71.9% / +79.0% | +110.5% / +70.0% | +105.3% / +85.4% |
-| Twitter (min) | +166.2% / +185.1% | +173.9% / +176.5% | +132.5% / +141.4% | +140.9% / +119.7% | +224.7% / +241.4% |
-| Twitter (pretty) | +145.1% / +164.3% | +138.8% / +151.4% | +120.6% / +118.9% | +94.4% / +139.8% | +209.5% / +222.0% |
+| Apache Builds (min) | +50.3% / +72.3% | +77.3% / +85.4% | +79.7% / +95.0% | +87.6% / +117.0% | +85.9% / +112.9% |
+| Apache Builds (pretty) | +44.8% / +67.2% | +65.6% / +77.2% | +73.6% / +83.2% | +73.1% / +98.7% | +72.2% / +93.5% |
+| Canada (min) | +2.3% / +2.0% | +8.8% / +10.1% | −9.9% / −12.7% | +4.1% / +3.8% | +6.7% / +7.2% |
+| Canada (pretty) | +3.8% / +4.7% | +3.0% / +4.4% | −9.6% / −9.8% | +3.5% / +3.6% | +3.1% / +3.9% |
+| CitmCatalog (min) | +63.8% / +71.8% | +52.8% / +59.4% | +59.6% / +66.8% | +65.1% / +73.1% | +72.9% / +83.0% |
+| CitmCatalog (pretty) | +60.0% / +67.5% | +46.1% / +50.6% | +52.6% / +60.3% | +54.9% / +61.9% | +62.3% / +73.4% |
+| Discord (min) | +196.8% / +261.1% | +235.7% / +285.2% | +213.9% / +233.0% | +246.0% / +302.0% | +317.8% / +373.1% |
+| Discord (pretty) | +182.7% / +234.2% | +215.5% / +249.9% | +201.8% / +224.9% | +211.9% / +257.7% | +291.2% / +324.2% |
+| Github Events (min) | +42.1% / +50.3% | +41.0% / +46.7% | +28.5% / +34.0% | +44.8% / +54.8% | +58.1% / +73.1% |
+| Github Events (pretty) | +32.6% / +40.2% | +30.4% / +34.2% | +22.3% / +25.5% | +32.0% / +35.2% | +43.4% / +53.7% |
+| Google Maps (min) | +14.2% / +18.1% | +6.2% / +5.4% | +11.4% / +11.3% | +34.6% / +9.5% | +13.9% / +17.1% |
+| Google Maps (pretty) | +16.8% / +19.9% | +7.1% / +7.5% | +9.1% / +10.8% | +19.5% / +21.3% | +8.2% / −2.7% |
+| Instruments (min) | +159.6% / +175.7% | +156.9% / +165.9% | +152.1% / +158.3% | +148.0% / +154.9% | +215.7% / +231.1% |
+| Instruments (pretty) | +147.3% / +151.1% | +133.5% / +132.0% | +134.0% / +140.7% | +96.9% / +127.3% | +187.0% / +198.1% |
+| Marine IK (min) | +29.5% / +30.4% | +40.2% / +44.1% | +37.5% / +40.1% | +51.7% / +52.5% | +50.4% / +63.2% |
+| Marine IK (pretty) | +30.4% / +33.6% | +35.7% / +38.8% | +34.7% / +37.0% | +38.4% / +31.2% | +42.2% / +54.2% |
+| Random (min) | +64.1% / +76.6% | +77.4% / +92.0% | +83.7% / +93.6% | +91.7% / +107.5% | +117.4% / +129.0% |
+| Random (pretty) | +51.8% / +60.3% | +72.3% / +82.7% | +74.0% / +82.7% | +70.2% / +83.0% | +95.7% / +70.9% |
+| Twitter (min) | +167.7% / +174.9% | +170.0% / +174.9% | +134.2% / +138.1% | +140.0% / +146.3% | +218.8% / +237.0% |
+| Twitter (pretty) | +147.7% / +155.4% | +145.2% / +156.0% | +117.2% / +119.5% | +117.4% / +128.2% | +158.1% / +223.9% |
 
 ### 7.9 Small documents, sparse fields in order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +28.0% / +41.9% | +31.7% / +34.2% | +32.5% / +40.3% | +42.1% / +33.4% | +23.3% / +33.8% |
-| Apache Builds (pretty) | +27.4% / +40.4% | +24.5% / +27.8% | +29.0% / +31.3% | +29.3% / +72.7% | +24.2% / +36.1% |
-| Canada (min) | +65.9% / +69.0% | +8.0% / +10.2% | +22.8% / +22.7% | +5.1% (n/c) / −9.1% | +6.2% / +21.0% |
-| Canada (pretty) | +88.5% / +92.1% | +14.3% / +13.2% | +19.3% / +20.7% | +7.4% / +3.4% | −5.2% / +7.1% |
-| CitmCatalog (min) | +28.0% / +33.6% | +7.5% / +6.0% | +7.6% / +8.8% | +7.4% / +22.7% | +24.2% / +32.9% |
-| CitmCatalog (pretty) | +40.6% / +43.6% | −2.1% / tie | +8.9% / +7.7% | +30.1% / +15.8% | +23.8% / −8.5% |
-| Discord (min) | +23.2% / +30.7% | +11.6% / +11.6% | +13.1% / +16.7% | +45.9% / +36.8% | +2.2% / −14.1% |
-| Discord (pretty) | +24.5% / +33.4% | +5.2% / +7.0% | +12.1% / +13.4% | +14.5% / +10.2% | +20.6% / −4.6% |
-| Github Events (min) | +35.3% / +45.1% | +11.0% / +11.5% | +14.8% / +16.6% | tie / +20.3% | tie / +6.8% |
-| Github Events (pretty) | +35.1% / +43.8% | +9.1% / +10.0% | +11.5% / +12.9% | +19.0% / +21.1% | −7.3% / −4.3% |
-| Google Maps (min) | +29.9% / +30.2% | +12.0% / +13.0% | +17.1% / +22.3% | +11.9% / +47.0% | +19.9% / +31.9% |
-| Google Maps (pretty) | +29.1% / +29.3% | +7.5% / +6.7% | +9.4% / +9.0% | +49.8% / +7.6% | +14.6% / +17.7% |
-| Instruments (min) | +24.6% / +34.6% | +5.1% / +6.3% | tie / +4.0% | tie / +11.4% | +11.0% / −18.0% |
-| Instruments (pretty) | +31.8% / +31.6% | +4.0% / +1.5% | tie / +0.8% | −5.6% / −9.3% | +35.9% / tie |
-| Marine IK (min) | +35.2% / +40.0% | −10.5% / −11.2% | +1.8% / +4.1% | +4.1% / +14.2% | +5.9% / +5.0% |
-| Marine IK (pretty) | +59.6% / +61.2% | +4.2% / +4.8% | +8.4% / +8.5% | +14.0% / +10.5% | −27.4% / −15.3% |
-| Random (min) | +23.3% / +28.9% | +23.3% / +27.5% | +20.4% / +19.9% | +22.9% / +48.4% | +27.8% / +13.2% |
-| Random (pretty) | +19.9% / +22.9% | +15.5% / +15.0% | +14.7% / +13.6% | +13.8% / +32.3% | +15.3% / +23.0% |
-| Twitter (min) | +18.2% / +20.2% | +15.2% / +8.7% | +7.8% / +5.9% | +17.7% / +25.2% | −5.2% / +7.7% |
-| Twitter (pretty) | +19.5% / +18.6% | +0.9% / −1.3% | +9.3% / +8.4% | −3.5% / +7.3% | +0.8% / tie |
+| Apache Builds (min) | +25.7% / +50.4% | +32.9% / +31.3% | +36.7% / +44.4% | +30.9% / +60.1% | +27.4% / +30.9% |
+| Apache Builds (pretty) | +19.0% / +37.3% | +22.4% / +20.1% | +27.5% / +36.0% | +32.6% / +127.6% | +17.2% / +17.8% |
+| Canada (min) | +56.6% / +60.4% | +10.1% / +9.7% | +12.0% / +10.3% | +9.2% / +12.3% | +5.7% / +5.1% |
+| Canada (pretty) | +78.6% / +89.2% | +9.3% / +10.9% | +16.4% / +15.9% | +11.5% / +11.4% | +1.8% / +5.5% |
+| CitmCatalog (min) | +30.0% / +35.0% | +2.0% / −1.3% | +9.6% / +7.5% | +17.2% / +16.2% | +38.4% / +10.8% |
+| CitmCatalog (pretty) | +39.6% / +46.9% | −2.9% / tie | +9.2% / +9.3% | +14.7% / +13.2% | +6.8% / +6.5% |
+| Discord (min) | +14.1% / +23.2% | +11.3% / +16.4% | +11.0% / +14.2% | +22.6% / +28.3% | +11.0% / +15.3% |
+| Discord (pretty) | +17.3% / +22.6% | +6.0% / +6.8% | +8.6% / +16.8% | +15.6% / +20.0% | +1.4% / +2.7% |
+| Github Events (min) | +37.2% / +42.8% | +9.2% / +8.9% | +13.7% / +16.7% | +28.5% / +26.9% | +9.0% / +6.1% |
+| Github Events (pretty) | +36.5% / +35.2% | +5.7% / +6.9% | +12.9% / +13.8% | +19.9% / +22.1% | +3.9% / +2.3% |
+| Google Maps (min) | +26.2% / +29.1% | +13.1% / +12.7% | +11.6% / +12.7% | +52.4% / +55.0% | +15.4% / +22.1% |
+| Google Maps (pretty) | +23.7% / +28.6% | −0.4% / tie | +7.7% / +9.1% | +45.5% / +48.5% | +10.2% / +11.3% |
+| Instruments (min) | +21.0% / +26.1% | +8.1% / +12.5% | +3.7% / +5.2% | +7.8% / +8.7% | +10.9% / +10.9% |
+| Instruments (pretty) | +26.9% / +33.1% | +1.1% / +2.6% | +1.6% / +1.0% | +4.2% / +14.5% | −0.9% / −2.3% |
+| Marine IK (min) | +35.3% / +20.2% | −12.5% / −10.1% | +4.7% / +4.3% | +9.9% / +10.0% | +8.9% / +8.3% |
+| Marine IK (pretty) | +46.0% / +51.8% | +6.5% / +4.8% | +9.6% / +9.7% | +9.7% / +10.7% | +2.6% / +2.6% |
+| Random (min) | +14.2% / +21.2% | +17.6% / +21.4% | +19.5% / +16.9% | +37.9% / +75.8% | +25.3% / +30.1% |
+| Random (pretty) | +18.7% / +19.7% | +9.2% / +12.4% | +12.3% / +13.8% | +17.3% / +29.1% | +16.3% / +18.3% |
+| Twitter (min) | +22.5% / +21.9% | +9.4% / +7.7% | +9.1% / +8.4% | +14.2% / +14.3% | +8.3% / +6.7% |
+| Twitter (pretty) | +12.6% / +17.2% | +6.0% / +5.9% | +9.8% / +9.3% | +24.3% / tie | tie / −1.6% |
 
 ### 7.10 Small documents, sparse fields in reverse order
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (min) | +26.7% / +36.2% | +12.7% / +11.5% | +18.7% / +22.0% | +31.3% / +42.1% | +7.5% / +13.0% |
-| Apache Builds (pretty) | +23.1% / +29.6% | +3.0% / +4.4% | +14.4% / +14.2% | +6.8% / +31.9% | tie / tie |
-| Canada (min) | +50.0% / +50.0% | +4.0% / +5.9% | +28.5% / +21.3% | +22.1% / tie | −4.9% (n/c) / −9.5% |
-| Canada (pretty) | +74.5% / +69.4% | +7.0% / +7.5% | +29.2% / +28.4% | tie / +8.3% | +18.4% / +7.9% |
-| CitmCatalog (min) | +24.1% / +23.8% | +10.4% / +10.2% | +5.5% / +7.2% | +26.6% / −9.8% | +19.9% / +22.6% |
-| CitmCatalog (pretty) | +29.4% / +32.1% | +4.8% / +1.8% | +4.7% / +2.3% | tie / −6.3% | −5.2% / +29.3% |
-| Discord (min) | +43.6% / +55.9% | +49.5% / +52.5% | +43.4% / +50.2% | +41.4% / +44.0% | +80.1% / +61.2% |
-| Discord (pretty) | +44.7% / +50.2% | +36.6% / +38.6% | +36.6% / +40.8% | +50.3% / +37.5% | +28.5% / +60.9% |
-| Github Events (min) | +44.7% / +63.4% | +23.8% / +29.5% | +33.2% / +28.9% | +28.6% / +38.7% | +16.2% / +46.9% |
-| Github Events (pretty) | +41.8% / +47.9% | +19.9% / +25.8% | +25.1% / +27.7% | +17.5% / +20.4% | +13.4% / +23.2% |
-| Google Maps (min) | +24.7% / +25.2% | +7.0% / +6.9% | +6.2% / +6.3% | tie / +17.2% | +23.7% / +6.0% |
-| Google Maps (pretty) | +22.1% / +23.8% | −1.3% / +0.3% | +0.7% / +2.9% | +8.7% / tie | −2.6% / −0.6% |
-| Instruments (min) | +34.5% / +40.9% | +23.4% / +32.0% | +25.2% / +21.2% | +8.6% / +18.8% | +31.5% / +51.1% |
-| Instruments (pretty) | +36.3% / +45.6% | +20.5% / +21.5% | +22.7% / +26.6% | +42.0% / +13.9% | +27.0% / +37.8% |
-| Marine IK (min) | +38.0% / +38.8% | +30.3% / +31.6% | +51.0% / +47.6% | +36.7% / +42.9% | +49.8% / +23.3% |
-| Marine IK (pretty) | +47.3% / +52.0% | +20.8% / +22.9% | +38.0% / +40.8% | +54.0% / +39.1% | +24.6% / +4.3% |
-| Random (min) | +36.3% / +41.3% | +37.6% / +32.5% | +24.4% / +25.4% | +32.6% / +37.2% | +36.3% / +46.3% |
-| Random (pretty) | +30.1% / +36.8% | +22.4% / +19.3% | +23.2% / +21.2% | +31.4% / +23.2% | +32.0% / +34.6% |
-| Twitter (min) | +29.5% / +30.3% | +20.9% / +19.1% | +15.5% / +11.4% | +14.9% / +14.9% | +21.8% / +20.7% |
-| Twitter (pretty) | +22.1% / +20.0% | +11.4% / +9.0% | +14.8% / +15.1% | +11.1% / +8.8% | +11.6% / +11.0% |
+| Apache Builds (min) | +21.3% / +32.6% | +15.9% / +17.3% | +23.8% / +21.7% | +36.8% / +45.6% | +21.2% / +25.6% |
+| Apache Builds (pretty) | +17.9% / +21.3% | +11.3% / +11.9% | +13.8% / +19.1% | +22.2% / +29.8% | tie / +7.8% |
+| Canada (min) | +39.3% / +46.3% | +2.8% / +7.8% | +35.1% / +33.0% | +9.8% / +9.6% | +4.8% / +3.7% |
+| Canada (pretty) | +71.1% / +73.5% | +6.4% / +7.7% | +33.7% / +31.9% | +8.2% / +8.9% | +1.7% / +1.1% |
+| CitmCatalog (min) | +22.5% / +23.8% | +0.3% / −2.1% | +2.4% / +3.4% | +13.2% / −4.6% | +10.5% / +9.7% |
+| CitmCatalog (pretty) | +27.4% / +33.2% | +1.8% / −1.0% | +1.9% / +6.5% | +6.5% / +10.6% | +6.9% / +19.9% |
+| Discord (min) | +38.7% / +46.4% | +41.1% / +53.8% | +46.8% / +49.5% | +48.1% / +59.2% | +67.9% / +71.2% |
+| Discord (pretty) | +37.7% / +44.3% | +42.1% / +43.7% | +38.2% / +40.1% | +32.9% / +38.7% | +48.1% / +50.6% |
+| Github Events (min) | +44.3% / +45.7% | +20.9% / +26.3% | +29.2% / +30.6% | +25.4% / +57.0% | +30.6% / +31.1% |
+| Github Events (pretty) | +42.7% / +47.2% | +17.3% / +17.1% | +28.1% / +30.1% | +16.7% / +29.7% | +21.1% / +24.0% |
+| Google Maps (min) | +15.2% / +15.9% | +2.0% / +5.4% | +10.5% / +9.1% | +41.6% / +44.5% | +7.3% / +8.1% |
+| Google Maps (pretty) | +16.8% / +21.3% | +1.4% / +1.6% | +4.7% / +3.9% | +59.7% / +54.0% | +8.7% / +5.3% |
+| Instruments (min) | +36.3% / +40.5% | +25.8% / +27.2% | +23.4% / +23.7% | +26.2% / +41.1% | +37.8% / +39.8% |
+| Instruments (pretty) | +33.5% / +41.9% | +16.5% / +18.1% | +23.1% / +26.7% | +16.8% / +44.1% | +23.0% / +23.1% |
+| Marine IK (min) | +47.6% / +51.2% | +51.1% / +49.1% | +42.8% / +44.5% | +41.0% / +30.4% | +34.5% / +34.7% |
+| Marine IK (pretty) | +52.2% / +54.1% | +40.8% / +40.6% | +37.6% / +38.8% | +5.5% / +16.4% | +20.7% / +20.8% |
+| Random (min) | +28.6% / +34.2% | +29.4% / +28.2% | +27.9% / +25.0% | +45.3% / +52.6% | +41.4% / +76.3% |
+| Random (pretty) | +33.0% / +28.7% | +22.9% / +21.0% | +19.7% / +18.8% | +48.8% / +56.7% | +30.1% / +26.9% |
+| Twitter (min) | +30.3% / +30.2% | +5.7% / +12.3% | +16.7% / +16.1% | +15.3% / +18.4% | +22.0% / +21.7% |
+| Twitter (pretty) | +24.9% / +26.4% | +13.5% / +14.4% | +15.8% / +14.6% | +36.7% / +13.7% | +12.6% / +11.2% |
 
 ### 7.11 What the results show
 
-- **Reverse order is where the design pays off.** On documents whose objects have many fields (Discord, Twitter, Instruments), simdjson has to rescan for every out-of-order key, and Jsonifier is 1.9x to 4.4x faster at full size: +93.3% (Twitter pretty, macOS/GCC, fresh) up to +343.3% (Discord min, macOS/Clang, reused). The small documents show the same pattern, from +94.4% to +398.6%, because a 5 KiB Discord or Instruments document still holds objects with dozens of keys. On documents made of small objects (Canada, Google Maps) there is little to rescan, and the full-size margin runs from −8.4% (minified Canada on Linux/GCC, reused) to +27.1%. That matches the cost model in §5: the map only pays off when there are many skipped keys to index.
-- **Github Events rarely loses.** It accounts for 2 of the 95 single-document losses, both prettified sparse reads of Github Events Small on macOS/Clang (−7.3% fresh, −4.3% reused). Read in reverse at full size it wins on every build (+85.8% to +195.0%), and on MSVC it wins all 32 of its results.
-- **Sparse reverse reads are a strength.** Jsonifier won 194 of 200 full-size sparse-reverse results across both allocation modes (3 ties, 3 losses), and 185 of 200 small ones (7 ties, 8 losses). MSVC won all 80. Every loss is on Canada, CitmCatalog or Google Maps. The full-size losses are minified Canada on Linux/GCC (−2.6% fresh, −3.4% reused) and prettified Canada on macOS/GCC (reused, −3.0%). Of the 8 small losses, 5 are on macOS/Clang (−0.6% to −9.5%), 2 on macOS/GCC (CitmCatalog Small, reused, −9.8% and −6.3%) and 1 on Linux/Clang (prettified Google Maps Small, fresh, −1.3%).
-- **MSVC shows the largest gaps.** On MSVC, simdjson's rescans are slower than on the other builds: Discord Reverse (pretty, fresh) runs at 237.2 MB/s on MSVC against 271.5 MB/s on Linux/Clang, on the same CPU. Jsonifier reads the same test at 631.5 and 907.5 MB/s. Every MSVC full-size sparse result is a win, by +17.6% to +84.0%, and every full-size sparse-reverse result by +18.4% to +76.9%.
-- **Sparse reads in order are mostly wins.** Across both allocation modes, Jsonifier won 190 of 200 full-size sparse results (no ties, 10 losses) and 174 of 200 small ones (8 ties, 18 losses). MSVC won all 40 of its full-size results and all 40 small. The full-size losses are on Linux/GCC (6: minified Canada, −3.1% and −5.2%, and Marine IK, −7.4% to −9.1%), macOS/Clang (2: prettified Instruments, −2.1% fresh, −0.7% reused) and macOS/GCC (2: minified Marine IK, −1.5% and −1.4%). macOS/Clang holds 10 of the 18 small losses, Linux/Clang 4 and macOS/GCC 4.
-- **In-order full reads are mostly wins at full size.** Across 200 full-size in-order results, Jsonifier won 175, tied 6 and lost 19. Linux/Clang went 40-0-0, macOS/Clang 35-1-4, MSVC 34-2-4, Linux/GCC 33-1-6 and macOS/GCC 33-2-5 across the two modes.
-- **Small documents read in order take the most losses of any category.** Across 200 results, Jsonifier won 172, tied 5 and lost 23. MSVC went 38-0-2, macOS/GCC 38-0-2, Linux/Clang 35-0-5, macOS/Clang 32-2-6 and Linux/GCC 29-3-8. These documents are at most 5 KiB, so a parse is short, and the fixed per-parse costs of Jsonifier's stage 1 and document setup count for more. Most losses are modest: Linux/Clang's run from −1.4% to −4.7%, led by CitmCatalog and Instruments, and Linux/GCC's from −0.9% to −12.4%, led by Canada. The largest is prettified Instruments Small on macOS/Clang (fresh, −15.5%).
-- **In-order losses at full size fall on a few documents per build.** Linux/GCC lost Canada in both forms and both runs (−4.1% to −12.9%) and minified Marine IK in both runs (−5.3% and −6.9%). MSVC lost minified Canada (−1.9% and −2.8%) and minified Marine IK (−5.4% and −6.4%) in both runs. macOS/GCC lost Marine IK four times (−0.4% to −7.2%, one n/c) and prettified CitmCatalog (reused, −6.0%). macOS/Clang lost Canada twice (minified fresh, −6.8%; prettified reused, −6.2%) and prettified Instruments in both runs (−1.9% and −2.5%). Linux/Clang lost none. Canada and Marine IK, which hold 16 of the 19, are dominated by float arrays, where the time goes into number parsing and stage 1, not into the generic layer's field lookup.
-- **The POD tests mostly win.** Jsonifier went 44-0-6 on them. Double, Int64 and Uint64 won all 10 results each (+59.2% to +206.7%, +50.7% to +175.0% and +42.0% to +166.8%), and Bool won 9 (+4.6% to +282.5%), losing only on macOS/Clang (fresh, −4.7%). String is the exception: 5 wins and 5 losses, on Linux/Clang (−6.5% and −10.8%) and macOS/Clang (−18.2% and −26.4%) in both runs, and on macOS/GCC (fresh, −9.1%).
+- **Reverse order is where the design pays off.** On documents whose objects have many fields (Discord, Twitter, Instruments), simdjson has to rescan for every out-of-order key, and Jsonifier is 2.1x to 4.5x faster at full size: +106.1% (Twitter pretty, Linux/GCC, fresh) up to +345.9% (Discord min, macOS/Clang, reused). The small documents show the same pattern, from +96.9% to +373.1%, because a 5 KiB Discord or Instruments document still holds objects with dozens of keys. On documents made of small objects (Canada, Google Maps) there is little to rescan, and the full-size margin runs from −8.8% (minified Canada on macOS/Clang, reused) to +40.4%. That matches the cost model in §5: the map only pays off when there are many skipped keys to index.
+- **Github Events never loses.** None of the 72 single-document losses or 13 ties is a Github Events read: it wins all 100 of its results. Read in reverse at full size it wins on every build (+65.9% to +194.7%), and on MSVC it wins all 32 of its results.
+- **Sparse reverse reads are a strength.** Jsonifier won 196 of 200 full-size sparse-reverse results across both allocation modes (no ties, 4 losses), and 192 of 200 small ones (1 tie, 7 losses). MSVC, Linux/GCC and macOS/GCC won all 80 each. The full-size losses are prettified CitmCatalog on Linux/Clang (−3.8% fresh, −2.9% reused) and minified Canada on Linux/GCC (−3.7% and −3.2%). Of the 7 small losses, 5 are on macOS/Clang (−1.9% to −4.9%, on Canada, CitmCatalog, Google Maps and Twitter) and 2 on Linux/Clang (prettified CitmCatalog Small, −1.9% and −1.4%).
+- **MSVC shows the largest gaps.** On MSVC, simdjson's rescans are slower than on the other builds: Discord Reverse (pretty, fresh) runs at 233.4 MB/s on MSVC against 281.8 MB/s on Linux/Clang, on the same CPU. Jsonifier reads the same test at 641.4 and 909.7 MB/s. Every MSVC full-size sparse result is a win, by +10.2% to +84.9%, and every full-size sparse-reverse result by +15.8% to +73.7%.
+- **Sparse reads in order are mostly wins.** Across both allocation modes, Jsonifier won 190 of 200 full-size sparse results (1 tie, 9 losses) and 188 of 200 small ones (3 ties, 9 losses). MSVC won all 40 of its full-size results and all 40 small. The full-size losses are on Linux/GCC (6: minified Canada, −1.5% and −3.3%, and Marine IK, −6.0% to −9.1%), macOS/GCC (2: minified Marine IK, −3.1% and −3.2%) and macOS/Clang (1: prettified Instruments, fresh, −0.7%). macOS/Clang holds 6 of the 9 small losses, including the largest (prettified Instruments Small, reused, −22.3%), Linux/GCC 2 and Linux/Clang 1.
+- **In-order full reads are mostly wins at full size.** Across 200 full-size in-order results, Jsonifier won 179, tied 3 and lost 18. Linux/Clang and macOS/Clang went 38-0-2, MSVC 36-1-3, macOS/GCC 35-2-3 and Linux/GCC 32-0-8 across the two modes.
+- **Small documents read in order tie full-size in-order reads for the most losses of any category.** Across 200 results, Jsonifier won 178, tied 4 and lost 18. MSVC went 39-0-1, macOS/GCC 37-1-2, Linux/Clang 36-0-4, macOS/Clang 35-3-2 and Linux/GCC 31-0-9. These documents are at most 5 KiB, so a parse is short, and the fixed per-parse costs of Jsonifier's stage 1 and document setup count for more. Most losses are modest: Linux/Clang's run from −1.4% to −5.2%, on CitmCatalog and Instruments, and Linux/GCC's from −1.3% to −18.2%, led by Canada. The largest is minified Canada Small on Linux/GCC (reused, −18.2%).
+- **In-order losses at full size fall on a few documents per build.** Linux/GCC lost Canada in both forms and both runs (−6.1% to −11.7%) and Marine IK in both forms and both runs (−1.3% to −5.6%). MSVC lost minified Marine IK in both runs (−7.2% and −6.9%) and minified Canada (reused, −2.2%). macOS/Clang lost prettified Instruments in both runs (−1.7% and −1.8%) and prettified Twitter (reused, −2.1%). macOS/GCC lost prettified Canada (reused, −7.7%). Linux/Clang lost none. Canada and Marine IK, which hold 12 of the 15, are dominated by float arrays, where the time goes into number parsing and stage 1, not into the generic layer's field lookup.
+- **The POD tests mostly win.** Jsonifier went 46-0-4 on them. Bool, Double, Int64 and Uint64 won all 10 results each (+1.9% to +246.6%, +68.0% to +216.3%, +40.7% to +179.5% and +42.5% to +167.4%). String is the exception: 6 wins (+5.0% to +63.3%) and 4 losses, on Linux/Clang (−5.5% and −10.4%) and macOS/Clang (−8.6% and −18.4%) in both runs.
 
 ## 8. Streams: many documents in one buffer
 
@@ -496,7 +496,7 @@ The whitespace-delimited mode finds boundaries without that pass:
 - **One short backward scan per window.** Scanning backward from the end of the window's tape, the first position that satisfies the rule is the start of the window's last document. Everything before it is complete. That last document is deferred to the next window unless this is the final window; only when a window holds a single document, or for the final document of the final window, is a depth walk used to decide completeness. The scan usually stops within a few structurals of the window's end.
 - **The reader tells the stream where the document ended.** When the caller advances, the parser's state already records how far the reads went. If the cursor is still inside the document, the stream finishes the open containers from the cursor. For an in-order reader, whose cursor rests just before the closing brace, that is about one step. If the cursor is past a closed root value, it is the end. Only a document the caller never touched is skipped from its start.
 
-Comma mode cannot use the local rule, because a top-level comma looks exactly like a comma inside a container. It keeps the up-front depth walk, and that difference is visible in the results: on the in-order corpus streams on the three x86 builds, Jsonifier's comma-separated throughput is 3.6% to 14.8% below its own NDJSON throughput on the same records in 17 of the 18 build and stream pairs; the exception is CitmCatalog on MSVC, where comma mode is 3.6% faster.
+Comma mode cannot use the local rule, because a top-level comma looks exactly like a comma inside a container. It keeps the up-front depth walk, and that difference is visible in the results: on the in-order corpus streams on the three x86 builds, Jsonifier's comma-separated throughput is 3.9% to 12.5% below its own NDJSON throughput on the same records in all 18 build and stream pairs.
 
 ### 8.3 Method
 
@@ -507,11 +507,11 @@ The streaming benchmarks run in the same Json-Performance suite and the same run
 
 | Build | Stage-1 kernel | Converged |
 |---|---|---|
-| Windows 10.0.26200 / MSVC 19.51 | AVX2 | 20 / 30 |
+| Windows 10.0.26200 / MSVC 19.51 | AVX2 | 30 / 30 |
 | Linux 7.0.0 / Clang 24.0 | AVX2 | 30 / 30 |
 | Linux 7.0.0 / GCC 16.2.1 | AVX2 | 30 / 30 |
-| macOS 25.6 (M2 Pro, virtual) / GCC 16.2.0 | NEON | 20 / 30 |
-| macOS 25.6 (M2 Pro, virtual) / Clang 23.1.4 | NEON | 27 / 30 |
+| macOS 25.6 (M2 Pro, virtual) / GCC 16.2.0 | NEON | 26 / 30 |
+| macOS 25.6 (M2 Pro, virtual) / Clang 23.1.4 | NEON | 28 / 30 |
 
 The commits, hosts and convergence limits are the same as in §6. Unlike the single-document tests, the streaming tests have no reused variant: each document is read into a freshly constructed record.
 
@@ -522,73 +522,73 @@ As in §7, the percentages are Jsonifier's throughput relative to simdjson On De
 | Build | simdjson's benchmarks W-T-L | Corpus, in order W-T-L | Corpus, reverse W-T-L | Total W-T-L |
 |---|---|---|---|---|
 | Windows / MSVC | 6-0-0 | 12-0-0 | 12-0-0 | 30-0-0 |
-| Linux / Clang | 5-1-0 | 12-0-0 | 12-0-0 | 29-1-0 |
+| Linux / Clang | 6-0-0 | 12-0-0 | 12-0-0 | 30-0-0 |
 | Linux / GCC | 6-0-0 | 12-0-0 | 12-0-0 | 30-0-0 |
-| macOS / GCC | 5-0-1 | 10-2-0 | 12-0-0 | 27-2-1 |
-| macOS / Clang | 4-1-1 | 12-0-0 | 12-0-0 | 28-1-1 |
-| **All** | **26-2-2** | **58-2-0** | **60-0-0** | **144-4-2** |
+| macOS / GCC | 6-0-0 | 12-0-0 | 12-0-0 | 30-0-0 |
+| macOS / Clang | 4-0-2 | 11-0-1 | 12-0-0 | 27-0-3 |
+| **All** | **28-0-2** | **59-0-1** | **60-0-0** | **147-0-3** |
 
 **Amazon Cellphones and Stream Formats:**
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Amazon Cellphones (NDJSON) | +32.7% | +16.4% | +14.3% | +26.4% | +20.5% |
-| Large Amazon Cellphones (NDJSON) | +15.3% | +11.8% | +3.5% | +7.1% | +16.2% (n/c) |
-| Stream Formats Small (NDJSON) | +38.7% | +16.1% | +28.9% | −9.3% (n/c) | +9.5% |
-| Stream Formats Small (comma) | +77.6% | +113.3% | +95.9% | +86.9% (n/c) | +61.7% |
-| Stream Formats Large (NDJSON) | +87.9% | tie | +24.9% | +13.3% | tie |
-| Stream Formats Large (comma) | +97.8% | +5.9% | +38.1% | +32.7% | −3.4% |
+| Amazon Cellphones (NDJSON) | +32.5% | +18.9% | +23.3% | +29.9% | +17.9% |
+| Large Amazon Cellphones (NDJSON) | +16.1% | +10.0% | +3.3% | +12.9% | +14.6% |
+| Stream Formats Small (NDJSON) | +42.5% | +1.6% | +23.4% | +4.2% | +9.0% |
+| Stream Formats Small (comma) | +78.9% | +89.5% | +110.0% | +82.2% | +59.1% |
+| Stream Formats Large (NDJSON) | +91.5% | +1.4% | +26.1% | +11.0% | −7.9% |
+| Stream Formats Large (comma) | +94.5% | +19.9% | +35.1% | +15.5% | −4.0% |
 
 **Corpus record streams, in order:**
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (NDJSON) | +22.7% | +30.4% | +26.4% | +40.2% | +31.1% |
-| Apache Builds (comma) | +33.2% (n/c) | +45.3% | +42.2% | +60.1% (n/c) | +40.7% |
-| CitmCatalog (NDJSON) | +10.2% (n/c) | +6.6% | +12.2% | tie | +15.7% |
-| CitmCatalog (comma) | +27.7% (n/c) | +32.2% | +36.0% | +29.2% | +29.7% |
-| Google Maps (NDJSON) | +27.5% | +28.6% | +27.8% | +29.2% (n/c) | +8.0% |
-| Google Maps (comma) | +37.9% | +48.6% | +46.1% | +32.1% | +19.2% |
-| Instruments (NDJSON) | +47.3% (n/c) | +14.1% | +16.5% | tie | +9.3% |
-| Instruments (comma) | +51.7% (n/c) | +45.5% | +48.2% | +41.8% | +50.2% |
-| Random (NDJSON) | +29.5% | +30.7% | +29.4% | +61.9% | +47.6% |
-| Random (comma) | +34.1% | +47.9% | +47.0% | +86.2% (n/c) | +55.8% (n/c) |
-| Twitter (NDJSON) | +17.2% | +17.5% | +2.3% | +20.4% (n/c) | +12.8% |
-| Twitter (comma) | +30.9% | +31.8% | +19.5% | +13.9% (n/c) | +21.8% |
+| Apache Builds (NDJSON) | +22.9% | +31.3% | +26.8% | +54.7% | +30.7% |
+| Apache Builds (comma) | +28.6% | +45.0% | +40.3% | +64.2% (n/c) | +39.1% |
+| CitmCatalog (NDJSON) | +12.4% | +8.3% | +5.5% | +13.2% | +10.8% |
+| CitmCatalog (comma) | +23.5% | +28.0% | +30.3% | +32.7% | +32.1% |
+| Google Maps (NDJSON) | +26.6% | +28.5% | +26.5% | +25.3% | +9.1% |
+| Google Maps (comma) | +35.2% | +42.2% | +43.1% | +40.6% | +37.5% |
+| Instruments (NDJSON) | +47.9% | +8.6% | +12.4% | +16.1% | −11.1% |
+| Instruments (comma) | +59.3% | +35.1% | +43.0% | +45.9% | +23.5% |
+| Random (NDJSON) | +28.3% | +27.0% | +24.2% | +58.3% | +47.8% |
+| Random (comma) | +34.5% | +36.2% | +39.5% | +72.2% (n/c) | +69.9% |
+| Twitter (NDJSON) | +26.2% | +13.2% | +2.5% | +17.6% | +15.4% |
+| Twitter (comma) | +31.3% | +24.3% | +20.3% | +29.4% | +19.8% |
 
 **Corpus record streams, keys in reverse order:**
 
 | Test | MSVC | Linux Clang | Linux GCC | macOS GCC | macOS Clang |
 |---|---|---|---|---|---|
-| Apache Builds (NDJSON) | +26.0% (n/c) | +16.9% | +12.8% | +47.0% | +25.0% |
-| Apache Builds (comma) | +43.0% | +36.1% | +32.9% | +54.6% | +37.8% |
-| CitmCatalog (NDJSON) | +31.7% | +32.3% | +31.2% | +35.0% | +41.3% |
-| CitmCatalog (comma) | +49.1% | +57.6% | +50.8% | +64.2% | +61.0% |
-| Google Maps (NDJSON) | +23.2% | +11.6% | +8.8% | +17.6% | +10.6% |
-| Google Maps (comma) | +28.6% (n/c) | +26.3% | +21.3% | +30.2% | +22.0% |
-| Instruments (NDJSON) | +63.3% (n/c) | +51.9% | +17.9% | +29.2% | +43.3% |
-| Instruments (comma) | +64.4% | +77.3% | +41.8% | +50.6% | +53.3% (n/c) |
-| Random (NDJSON) | +65.0% | +90.0% | +79.6% | +96.5% (n/c) | +109.9% |
-| Random (comma) | +73.3% | +109.6% | +91.6% | +94.2% | +122.9% |
-| Twitter (NDJSON) | +235.5% (n/c) | +166.1% | +146.4% | +133.9% (n/c) | +242.5% |
-| Twitter (comma) | +242.4% (n/c) | +192.9% | +157.0% | +140.3% (n/c) | +237.7% |
+| Apache Builds (NDJSON) | +18.8% | +24.5% | +12.7% | +37.8% | +25.2% |
+| Apache Builds (comma) | +30.8% | +41.5% | +30.0% | +56.6% | +37.4% |
+| CitmCatalog (NDJSON) | +31.8% | +33.5% | +26.4% | +34.3% | +50.4% |
+| CitmCatalog (comma) | +43.2% | +53.6% | +46.9% | +62.2% | +53.2% |
+| Google Maps (NDJSON) | +18.4% | +12.9% | +7.6% | +17.2% | +33.2% |
+| Google Maps (comma) | +22.8% | +22.6% | +20.3% | +23.2% | +21.6% (n/c) |
+| Instruments (NDJSON) | +51.0% | +32.9% | +20.8% | +28.5% | +40.3% |
+| Instruments (comma) | +65.5% | +58.2% | +44.1% | +51.4% (n/c) | +81.6% |
+| Random (NDJSON) | +60.4% | +83.7% | +70.9% | +78.3% | +105.8% |
+| Random (comma) | +68.6% | +98.5% | +97.2% | +94.5% | +115.4% |
+| Twitter (NDJSON) | +229.1% | +185.2% | +144.0% | +134.1% (n/c) | +250.6% |
+| Twitter (comma) | +247.8% | +192.8% | +154.3% | +147.9% | +276.6% (n/c) |
 
 ### 8.5 What the results show
 
-- **Amazon Cellphones and Stream Formats.** Jsonifier took 26 of the 30 results in that group, tied 2 and lost 2. It won Stream Formats Small (comma) (+61.7% to +113.3%), Amazon Cellphones (+14.3% to +32.7%) and Large Amazon Cellphones (+3.5% to +16.2%) on all five builds, and Stream Formats Small (NDJSON) on four (+9.5% to +38.7%), losing on macOS/GCC (−9.3%). Stream Formats Large (comma) won on four builds and lost on macOS/Clang (−3.4%); Stream Formats Large (NDJSON) won on three and tied on Linux/Clang (+0.0%) and macOS/Clang (−1.1%).
-- **Windows/MSVC and Linux/GCC won every streaming test,** 30-0-0 each. Linux/Clang went 29-1-0, macOS/Clang 28-1-1 and macOS/GCC 27-2-1. Both streaming losses are Stream Formats reads on the macOS builds.
-- **In-order corpus streams never lose.** Of the 60 in-order corpus results, Jsonifier won 58 and tied 2, CitmCatalog (NDJSON, +2.7%) and Instruments (NDJSON, +1.2%), both on macOS/GCC.
-- **Reverse order carries over from single documents to streams.** Jsonifier won all 60 reverse stream results. The margins follow object size, as in §7.11: Twitter statuses, which have many fields, give +133.9% to +242.5%, while Google Maps rows, which have few, give +8.8% to +30.2%. Instruments, whose reverse streams have the most room to lose, wins on every build (+17.9% to +77.3%).
-- **MSVC again shows the largest gaps.** On the same CPU, simdjson reads Random Reverse (comma) at 327.6 MB/s under MSVC and 414.4 MB/s under Linux/Clang, while Jsonifier reads it at 567.6 and 868.5 MB/s.
+- **Amazon Cellphones and Stream Formats.** Jsonifier took 28 of the 30 results in that group and lost 2. It won Stream Formats Small (comma) (+59.1% to +110.0%), Amazon Cellphones (+17.9% to +32.5%), Large Amazon Cellphones (+3.3% to +16.1%) and Stream Formats Small (NDJSON) (+1.6% to +42.5%) on all five builds. Stream Formats Large won on four builds in both forms and lost on macOS/Clang (comma −4.0%, NDJSON −7.9%).
+- **Four builds won every streaming test,** 30-0-0 each: Windows/MSVC, Linux/Clang, Linux/GCC and macOS/GCC. macOS/Clang went 27-0-3: its two Stream Formats Large reads and Instruments (NDJSON) read in order (−11.1%).
+- **In-order corpus streams never lose.** Jsonifier won all 60 in-order corpus results.
+- **Reverse order carries over from single documents to streams.** Jsonifier won all 60 reverse stream results. The margins follow object size, as in §7.11: Twitter statuses, which have many fields, give +134.1% to +276.6%, while Google Maps rows, which have few, give +7.6% to +33.2%. Instruments, whose reverse streams have the most room to lose, wins on every build (+20.8% to +81.6%).
+- **MSVC again shows the largest gaps.** On the same CPU, simdjson reads Random Reverse (comma) at 291.7 MB/s under MSVC and 451.2 MB/s under Linux/Clang, while Jsonifier reads it at 574.9 and 812.6 MB/s.
 
 ## 9. Limitations
 
-- **macOS/Clang and Linux/GCC hold the most single-document losses:** 30 and 29 of the 95, against 17 on macOS/GCC, 12 on Linux/Clang and 7 on MSVC. 21 of macOS/Clang's are small documents, led by 10 small sparse, and 12 of Linux/GCC's, led by 8 small in-order. Both macOS builds ran on virtualized hosts, so part of their results likely reflects host noise. The largest single losses are macOS/Clang's prettified Marine IK Small sparse read (fresh, −27.4%) and String POD test (reused, −26.4%). The largest x86 loss is Linux/GCC's minified Canada read in order (reused, −12.9%).
-- **Canada, Google Maps and CitmCatalog hold most of the losses.** Together they account for 47 of the 95: Canada 32 (19 on Linux/GCC, 7 on macOS/Clang, 3 on macOS/GCC, 3 on MSVC), CitmCatalog 11 (4 on Linux/Clang, 4 on macOS/GCC, 2 on macOS/Clang) and Google Maps 4 (3 on macOS/Clang). Marine IK, the other float-dense document, adds 23. Their objects are small, so the field index and the key trail have little to save, and Canada is dominated by float parsing.
-- **Linux/GCC loses mostly on Canada.** 19 of its 29 losses are Canada, at both sizes, where much of the cost is number parsing rather than field lookup.
-- **Small documents carry most of the losses.** 54 of the 95 losses are small documents (21 on macOS/Clang, 12 on Linux/GCC, 10 on Linux/Clang, 8 on macOS/GCC, 3 on MSVC). At 5 KiB per document, Jsonifier's fixed per-parse cost dominates (§7.11), and it is the next target.
-- **Stream Formats reads hold both streaming losses:** Stream Formats Small (NDJSON) on macOS/GCC (−9.3%) and Stream Formats Large (comma-separated) on macOS/Clang (−3.4%). No corpus record stream loses.
-- **Some results did not converge.** 8 of the 1,650 single-document results did not converge: 4 on macOS/GCC, 3 on macOS/Clang and 1 on Windows/MSVC. 23 of the 150 streaming results did not converge: 10 on Windows/MSVC, 10 on macOS/GCC and 3 on macOS/Clang. Linux/Clang and Linux/GCC converged on every result.
+- **Linux/GCC holds the most single-document losses:** 31 of the 72, against 15 on Linux/Clang, 13 on macOS/Clang, 9 on macOS/GCC and 4 on MSVC. 34 of the 72 are small documents, led by 13 on Linux/GCC and 11 on Linux/Clang. Both macOS builds ran on virtualized hosts, so part of their results likely reflects host noise. The largest single losses are macOS/Clang's String POD test (reused, −18.4%) and Linux/GCC's minified Canada Small read in order (reused, −18.2%), which is also the largest x86 loss.
+- **Canada, Google Maps and CitmCatalog hold many of the losses.** Together they account for 34 of the 72: Canada 23 (18 on Linux/GCC, 2 on macOS/Clang, 2 on macOS/GCC, 1 on MSVC), CitmCatalog 9 (6 on Linux/Clang, 2 on macOS/GCC, 1 on macOS/Clang) and Google Maps 2 (1 on Linux/Clang, 1 on macOS/Clang). Marine IK, the other float-dense document, adds 19. Their objects are small, so the field index and the key trail have little to save, and Canada is dominated by float parsing.
+- **Linux/GCC loses mostly on Canada.** 18 of its 31 losses are Canada, at both sizes, where much of the cost is number parsing rather than field lookup.
+- **Small documents carry almost half the losses.** 34 of the 72 losses are small documents (13 on Linux/GCC, 11 on Linux/Clang, 6 on macOS/Clang, 3 on macOS/GCC, 1 on MSVC). At 5 KiB per document, Jsonifier's fixed per-parse cost dominates (§7.11), and it is the next target.
+- **macOS/Clang holds all three streaming losses:** Stream Formats Large as NDJSON (−7.9%) and comma-separated (−4.0%), and Instruments (NDJSON) read in order (−11.1%).
+- **Some results did not converge.** 9 of the 1,650 single-document results did not converge: 6 on macOS/GCC and 3 on Windows/MSVC. 6 of the 150 streaming results did not converge: 4 on macOS/GCC and 2 on macOS/Clang. Linux/Clang and Linux/GCC converged on every result.
 - **The thresholds were tuned on this suite.** *T* was selected by sweeping {2, 4, 8, 16} on the full-size benchmarks, before the wrap gate, the key trail and the small documents were added, and MSVC was not swept. The wrap count of 2, the trail capacity of 16 and the direction score's limits (engage at 4, saturate at 8) were not swept.
 - **Comma-separated streams still walk each document up front.** The local boundary rule in §8.2 only holds for whitespace-delimited streams, so comma mode finds each document's end with a depth walk before handing it out, and the caller then walks the same structurals again. (§8.2 gives the cost). The rule also assumes the input is valid: inside a malformed container, two adjacent values with no separator would be split into separate documents, and the reader would then report the errors. Reverse reads still pay a walk from the first key to the end of the object when the stream advances, the same walk an up-front boundary pass would pay when handing the document out.
 - **Streams were compared unthreaded and fresh only.** simdjson can run stage 1 for the next window on a second thread; Jsonifier has no threaded mode, so §8 compares both single-threaded. The streaming tests also have no reused-output variant.
@@ -603,9 +603,9 @@ A schema-free, tape-driven parser can match simdjson On Demand on its home groun
 - zero-copy strings with a fixed-slot arena;
 - a SIMD field index that is only built once an object has shown it needs one.
 
-Across 1,650 single-document results on five builds, covering full-size and small documents, each read into both freshly allocated and reused output objects, Jsonifier won 1,519, tied 36 and lost 95. On reverse reads it won 385 of 400 at both sizes, and on Windows/MSVC it lost 7 of its 330 single-document results. Reusing the output objects speeds up both libraries and leaves the verdicts largely unchanged (761-18-46 fresh, 758-18-49 reused). The main remaining targets are the small-object and float-heavy documents (Canada, Google Maps, CitmCatalog and Marine IK, with 70 of the 95 losses), small documents in general, and the macOS/Clang and Linux/GCC builds.
+Across 1,650 single-document results on five builds, covering full-size and small documents, each read into both freshly allocated and reused output objects, Jsonifier won 1,565, tied 13 and lost 72. On reverse reads it won 390 of 400 at both sizes, and on Windows/MSVC it lost 4 of its 330 single-document results. Reusing the output objects speeds up both libraries and leaves the verdicts largely unchanged (785-6-34 fresh, 780-7-38 reused). The main remaining targets are the small-object and float-heavy documents (Canada, Google Maps, CitmCatalog and Marine IK, with 53 of the 72 losses), small documents in general, and the Linux/GCC build.
 
-The design also carries over to streams. Because each streamed document is an ordinary `generic::document` bound to the parser's shared cursor, `iterateMany` needed no new reading machinery, only windowing and document boundaries. Letting the reader's own cursor report where each document ended removes the up-front boundary pass for whitespace-delimited streams. Across 150 streaming results, Jsonifier won 144, tied 4 and lost 2, and on the 120 corpus record-stream results it went 118-2-0. The Stream Formats reads on the macOS builds, which hold both losses, are the main remaining streaming target.
+The design also carries over to streams. Because each streamed document is an ordinary `generic::document` bound to the parser's shared cursor, `iterateMany` needed no new reading machinery, only windowing and document boundaries. Letting the reader's own cursor report where each document ended removes the up-front boundary pass for whitespace-delimited streams. Across 150 streaming results, Jsonifier won 148 and lost 2, and it won all 120 corpus record-stream results. The Stream Formats Large reads on macOS/Clang, which hold both losses, are the main remaining streaming target.
 
 The main engineering lesson is in §5: an index over the whole document made the target workload 2.3x *slower*. Make the in-order read cost nothing, and only pay for an index on objects whose access pattern shows it is needed.
 

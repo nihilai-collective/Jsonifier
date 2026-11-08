@@ -258,7 +258,6 @@ namespace jsonifier::internal {
 			return simd::gatherValue<simd_type>(static_cast<char>(0x0Fu));
 		}
 
-
 		JSONIFIER_INLINE void checkRegister(simd_type input) noexcept {
 			if (simd::isAscii(input)) {
 				error			   = simd::opOr(error, incompleteRegister);
@@ -333,20 +332,16 @@ namespace jsonifier::internal {
 			touched			   = false;
 		}
 
-
 		JSONIFIER_INLINE bool errors() noexcept {
 			return state.error || !simd::opTest(simd::opOr(error, incompleteRegister));
 		}
-
 
 		JSONIFIER_INLINE bool hardErrors() noexcept {
 			return state.error || !simd::opTest(error);
 		}
 
 		utf8_register_validator& operator=(const utf8_register_validator&) = delete;
-
-
-		utf8_register_validator(const utf8_register_validator&) = delete;
+		utf8_register_validator(const utf8_register_validator&)			   = delete;
 
 		utf8_validation_state& state;
 		simd_type incompleteRegister;

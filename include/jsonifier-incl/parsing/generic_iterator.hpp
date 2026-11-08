@@ -16,9 +16,9 @@ namespace jsonifier::internal {
 		static constexpr uint64_t smallDocumentBytes{ jsonifier::simdBytesPerStep };
 
 		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::basic_document<options.minified> iterate(const buffer_type& in) {
-			using document		 = jsonifier::generic::basic_document<options.minified>;
-			using document_state = jsonifier::generic::document_state;
 			using jsonifier::generic::error_code;
+			using document			 = jsonifier::generic::basic_document<options.minified>;
+			using document_state	 = jsonifier::generic::document_state;
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			const uint64_t length	 = in.size();
 			if (!rootIter || length == 0) [[unlikely]] {
