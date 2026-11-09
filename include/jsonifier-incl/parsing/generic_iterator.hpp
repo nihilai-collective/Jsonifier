@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <jsonifier-incl/parsing/generic_document.hpp>
+#include <jsonifier-incl/parsing/document_stream.hpp>
 
 namespace jsonifier::internal {
 
@@ -15,9 +15,9 @@ namespace jsonifier::internal {
 
 		static constexpr uint64_t smallDocumentBytes{ jsonifier::simdBytesPerStep };
 
-		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::basic_document<options.minified> iterate(const buffer_type& in) {
+		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::generic_document<options.minified> iterate(const buffer_type& in) {
 			using jsonifier::generic::error_code;
-			using document			 = jsonifier::generic::basic_document<options.minified>;
+			using document			 = jsonifier::generic::generic_document<options.minified>;
 			using document_state	 = jsonifier::generic::document_state;
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			const uint64_t length	 = in.size();

@@ -118,8 +118,8 @@ namespace jsonifier::internal {
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	template<typename basic_iterator01, typename basic_iterator02>
 	JSONIFIER_INLINE bool handleUnicodeCodePoint(basic_iterator01& srcPtr, basic_iterator02& dstPtr, basic_iterator01 srcEnd) noexcept {
-		static constexpr uint8_t bs{ '\\' };
-		static constexpr uint8_t u{ 'u' };
+		static constexpr uint8_t bs{ uint_c_v<'\\'> };
+		static constexpr uint8_t u{ uint_c_v<'u'> };
 
 		if ((srcPtr + 6) > srcEnd) [[unlikely]] {
 			return false;
@@ -178,14 +178,14 @@ namespace jsonifier::internal {
 
 	consteval array<char, 256ULL> genEscapeMap() {
 		array<char, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('"')]  = '\"';
-		returnValues[static_cast<uint64_t>('\\')] = '\\';
-		returnValues[static_cast<uint64_t>('/')]  = '/';
-		returnValues[static_cast<uint64_t>('b')]  = '\b';
-		returnValues[static_cast<uint64_t>('f')]  = '\f';
-		returnValues[static_cast<uint64_t>('n')]  = '\n';
-		returnValues[static_cast<uint64_t>('r')]  = '\r';
-		returnValues[static_cast<uint64_t>('t')]  = '\t';
+		returnValues[uint_c_v<'"'>]  = '\"';
+		returnValues[uint_c_v<'\\'>] = '\\';
+		returnValues[uint_c_v<'/'>]  = '/';
+		returnValues[uint_c_v<'b'>]  = '\b';
+		returnValues[uint_c_v<'f'>]  = '\f';
+		returnValues[uint_c_v<'n'>]  = '\n';
+		returnValues[uint_c_v<'r'>]  = '\r';
+		returnValues[uint_c_v<'t'>]  = '\t';
 		return returnValues;
 	}
 
@@ -264,7 +264,7 @@ namespace jsonifier::internal {
 		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static bool handleEscape(basic_iterator01& srcPtr, const basic_iterator01 srcEnd, basic_iterator02& dstPtr) noexcept {
 			const uint8_t escapeChar = static_cast<uint8_t>(srcPtr[1]);
-			if (escapeChar == 'u') {
+			if (escapeChar == uint_c_v<'u'>) {
 				return jsonifier::internal::handleUnicodeCodePoint(srcPtr, dstPtr, srcEnd);
 			}
 			const uint8_t decoded = static_cast<uint8_t>(escapeMap[escapeChar]);
@@ -320,7 +320,7 @@ namespace jsonifier::internal {
 						scanState.complete	= true;
 						return nullptr;
 					}
-					if (foundChar == '"') {
+					if (foundChar == uint_c_v<'"'>) {
 						scanState.rawLength = static_cast<uint64_t>(string1Start - stringStart);
 						scanState.outLength = static_cast<uint64_t>(string2 - outStart);
 						scanState.complete	= true;
@@ -346,7 +346,7 @@ namespace jsonifier::internal {
 					while (string1Start < string1End) {
 						const uint8_t currentChar = static_cast<uint8_t>(*string1Start);
 
-						if (currentChar == '"') {
+						if (currentChar == uint_c_v<'"'>) {
 							validator.checkPartial(validateFrom, static_cast<uint64_t>(string1Start - validateFrom));
 							if (validator.errors()) [[unlikely]] {
 								break;
@@ -358,7 +358,7 @@ namespace jsonifier::internal {
 							return nullptr;
 						}
 
-						if (currentChar == '\\') {
+						if (currentChar == uint_c_v<'\\'>) {
 							validator.checkPartial(validateFrom, static_cast<uint64_t>(string1Start - validateFrom));
 							if (validator.errors()) [[unlikely]] {
 								break;
@@ -468,12 +468,12 @@ namespace jsonifier::internal {
 					scanState.complete = true;
 					while (string1Start < string1End) {
 						const uint8_t currentChar = static_cast<uint8_t>(*string1Start);
-						if (currentChar == '"') {
+						if (currentChar == uint_c_v<'"'>) {
 							scanState.result.length = static_cast<uint64_t>(string1Start - stringStart);
 							scanState.result.found	= true;
 							return nullptr;
 						}
-						if (currentChar == '\\') {
+						if (currentChar == uint_c_v<'\\'>) {
 							scanState.result.escaped = true;
 							string1Start += 2;
 							continue;
@@ -959,7 +959,7 @@ namespace jsonifier::internal {
 		const auto remaining = end - context;
 		if (remaining >= 4 && jsonifier::internal::compareStringAsInt<"true">(context)) {
 			return true;
-		} else if (remaining >= 5 && jsonifier::internal::compareStringAsInt<"fals">(context) && context[4] == 'e') {
+		} else if (remaining >= 5 && jsonifier::internal::compareStringAsInt<"fals">(context) && context[4] == uint_c_v<'e'>) {
 			return true;
 		}
 		return false;

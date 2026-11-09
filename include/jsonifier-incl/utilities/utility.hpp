@@ -11,14 +11,20 @@
 
 namespace jsonifier::internal {
 
+	template<char valueNew> struct uint_c {
+		static constexpr uint8_t value{ static_cast<uint8_t>(valueNew) };
+	};
+
+	template<char valueNew> inline constexpr uint8_t uint_c_v{ uint_c<valueNew>::value };
+
 	template<typename value_type> using base_t = remove_cvref_t<value_type>;
 
 	consteval array<bool, 256ULL> genWhitespaceTable() {
 		array<bool, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('\t')] = true;
-		returnValues[static_cast<uint64_t>(' ')]  = true;
-		returnValues[static_cast<uint64_t>('\n')] = true;
-		returnValues[static_cast<uint64_t>('\r')] = true;
+		returnValues[uint_c_v<'\t'>] = true;
+		returnValues[uint_c_v<' '>]	 = true;
+		returnValues[uint_c_v<'\n'>] = true;
+		returnValues[uint_c_v<'\r'>] = true;
 		return returnValues;
 	}
 
@@ -28,10 +34,10 @@ namespace jsonifier::internal {
 
 	consteval array<int8_t, 256ULL> genNestingDeltaTable() {
 		array<int8_t, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('{')] = 1;
-		returnValues[static_cast<uint64_t>('[')] = 1;
-		returnValues[static_cast<uint64_t>('}')] = -1;
-		returnValues[static_cast<uint64_t>(']')] = -1;
+		returnValues[uint_c_v<'{'>] = 1;
+		returnValues[uint_c_v<'['>] = 1;
+		returnValues[uint_c_v<'}'>] = -1;
+		returnValues[uint_c_v<']'>] = -1;
 		return returnValues;
 	}
 
@@ -41,8 +47,8 @@ namespace jsonifier::internal {
 
 	consteval array<bool, 256ULL> genNewlineTable() {
 		array<bool, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('\n')] = true;
-		returnValues[static_cast<uint64_t>('\r')] = true;
+		returnValues[uint_c_v<'\n'>] = true;
+		returnValues[uint_c_v<'\r'>] = true;
 		return returnValues;
 	}
 
@@ -52,17 +58,17 @@ namespace jsonifier::internal {
 
 	consteval array<bool, 256ULL> genNumberTable() {
 		array<bool, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('-')] = true;
-		returnValues[static_cast<uint64_t>('0')] = true;
-		returnValues[static_cast<uint64_t>('1')] = true;
-		returnValues[static_cast<uint64_t>('2')] = true;
-		returnValues[static_cast<uint64_t>('3')] = true;
-		returnValues[static_cast<uint64_t>('4')] = true;
-		returnValues[static_cast<uint64_t>('5')] = true;
-		returnValues[static_cast<uint64_t>('6')] = true;
-		returnValues[static_cast<uint64_t>('7')] = true;
-		returnValues[static_cast<uint64_t>('8')] = true;
-		returnValues[static_cast<uint64_t>('9')] = true;
+		returnValues[uint_c_v<'-'>] = true;
+		returnValues[uint_c_v<'0'>] = true;
+		returnValues[uint_c_v<'1'>] = true;
+		returnValues[uint_c_v<'2'>] = true;
+		returnValues[uint_c_v<'3'>] = true;
+		returnValues[uint_c_v<'4'>] = true;
+		returnValues[uint_c_v<'5'>] = true;
+		returnValues[uint_c_v<'6'>] = true;
+		returnValues[uint_c_v<'7'>] = true;
+		returnValues[uint_c_v<'8'>] = true;
+		returnValues[uint_c_v<'9'>] = true;
 		return returnValues;
 	}
 
@@ -464,15 +470,15 @@ namespace jsonifier::internal::simd {
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

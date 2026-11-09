@@ -14,27 +14,27 @@ namespace jsonifier::internal {
 	consteval array<json_structural_type, 256ULL> genJsonTypes() {
 		array<json_structural_type, 256ULL> returnValues{};
 		using enum json_structural_type;
-		returnValues[static_cast<uint64_t>('"')] = string;
-		returnValues[static_cast<uint64_t>(',')] = comma;
-		returnValues[static_cast<uint64_t>('0')] = number;
-		returnValues[static_cast<uint64_t>('1')] = number;
-		returnValues[static_cast<uint64_t>('2')] = number;
-		returnValues[static_cast<uint64_t>('3')] = number;
-		returnValues[static_cast<uint64_t>('4')] = number;
-		returnValues[static_cast<uint64_t>('5')] = number;
-		returnValues[static_cast<uint64_t>('6')] = number;
-		returnValues[static_cast<uint64_t>('7')] = number;
-		returnValues[static_cast<uint64_t>('8')] = number;
-		returnValues[static_cast<uint64_t>('9')] = number;
-		returnValues[static_cast<uint64_t>('-')] = number;
-		returnValues[static_cast<uint64_t>(':')] = colon;
-		returnValues[static_cast<uint64_t>('[')] = array_start;
-		returnValues[static_cast<uint64_t>(']')] = array_end;
-		returnValues[static_cast<uint64_t>('n')] = null;
-		returnValues[static_cast<uint64_t>('t')] = boolean;
-		returnValues[static_cast<uint64_t>('f')] = boolean;
-		returnValues[static_cast<uint64_t>('{')] = object_start;
-		returnValues[static_cast<uint64_t>('}')] = object_end;
+		returnValues[uint_c_v<'"'>] = string;
+		returnValues[uint_c_v<','>] = comma;
+		returnValues[uint_c_v<'0'>] = number;
+		returnValues[uint_c_v<'1'>] = number;
+		returnValues[uint_c_v<'2'>] = number;
+		returnValues[uint_c_v<'3'>] = number;
+		returnValues[uint_c_v<'4'>] = number;
+		returnValues[uint_c_v<'5'>] = number;
+		returnValues[uint_c_v<'6'>] = number;
+		returnValues[uint_c_v<'7'>] = number;
+		returnValues[uint_c_v<'8'>] = number;
+		returnValues[uint_c_v<'9'>] = number;
+		returnValues[uint_c_v<'-'>] = number;
+		returnValues[uint_c_v<':'>] = colon;
+		returnValues[uint_c_v<'['>] = array_start;
+		returnValues[uint_c_v<']'>] = array_end;
+		returnValues[uint_c_v<'n'>] = null;
+		returnValues[uint_c_v<'t'>] = boolean;
+		returnValues[uint_c_v<'f'>] = boolean;
+		returnValues[uint_c_v<'{'>] = object_start;
+		returnValues[uint_c_v<'}'>] = object_end;
 		return returnValues;
 	}
 
@@ -170,7 +170,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(boolean): {
-						if (*previousPtr == 'f') {
+						if (*previousPtr == uint_c_v<'f'>) {
 							static constexpr uint32_t falsV{ pack_values<string_literal{ "fals" }>::value };
 							pow2MemcpyWrapper<4>(&outBuffer[index], &falsV);
 							outBuffer[index + 4] = 'e';

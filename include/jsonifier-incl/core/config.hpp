@@ -38,6 +38,7 @@ namespace jsonifier {
 	};
 
 	struct parse_options {
+		uint64_t defaultBatchSize{ 1024 * 1024 };
 		bool nullTerminated{ true };
 		uint64_t maxDepth{ 1024 };
 		bool newLineDelimited{};

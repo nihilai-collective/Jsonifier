@@ -469,12 +469,12 @@ Across all 1,650 single-document results (9 of them did not converge; see §9), 
 
 ## 8. Streams: many documents in one buffer
 
-Many real inputs are not one document but a sequence of them: NDJSON logs, JSON Lines exports, or documents joined by commas. simdjson handles these with `iterate_many`, which runs stage 1 over a window of the input and hands out one On Demand document at a time. `jsonifier::generic` does the same through `parser::iterateMany`, and every document it hands out is an ordinary `generic::document`, with re-readable values and the per-object field index from §5.
+Many real inputs are not one document but a sequence of them: NDJSON logs, JSON Lines exports, or documents joined by commas. simdjson handles these with `iterate_many`, which runs stage 1 over a window of the input and hands out one On Demand document at a time. `jsonifier::generic` does the same through `parser::iterateMany`, and every document it hands out is an ordinary `generic::generic_document<false>`, with re-readable values and the per-object field index from §5.
 
 ### 8.1 Design
 
 ```cpp
-for (jsonifier::generic::document doc : parser.iterateMany(buffer)) { ... }
+for (jsonifier::generic::generic_document<false> doc : parser.iterateMany(buffer)) { ... }
 auto stream = parser.iterateMany<parse_options{ .newLineDelimited = false }>(buffer, batchSize);
 ```
 
@@ -605,7 +605,7 @@ A schema-free, tape-driven parser can match simdjson On Demand on its home groun
 
 Across 1,650 single-document results on five builds, covering full-size and small documents, each read into both freshly allocated and reused output objects, Jsonifier won 1,565, tied 13 and lost 72. On reverse reads it won 390 of 400 at both sizes, and on Windows/MSVC it lost 4 of its 330 single-document results. Reusing the output objects speeds up both libraries and leaves the verdicts largely unchanged (785-6-34 fresh, 780-7-38 reused). The main remaining targets are the small-object and float-heavy documents (Canada, Google Maps, CitmCatalog and Marine IK, with 53 of the 72 losses), small documents in general, and the Linux/GCC build.
 
-The design also carries over to streams. Because each streamed document is an ordinary `generic::document` bound to the parser's shared cursor, `iterateMany` needed no new reading machinery, only windowing and document boundaries. Letting the reader's own cursor report where each document ended removes the up-front boundary pass for whitespace-delimited streams. Across 150 streaming results, Jsonifier won 148 and lost 2, and it won all 120 corpus record-stream results. The Stream Formats Large reads on macOS/Clang, which hold both losses, are the main remaining streaming target.
+The design also carries over to streams. Because each streamed document is an ordinary `generic::generic_document<false>` bound to the parser's shared cursor, `iterateMany` needed no new reading machinery, only windowing and document boundaries. Letting the reader's own cursor report where each document ended removes the up-front boundary pass for whitespace-delimited streams. Across 150 streaming results, Jsonifier won 148 and lost 2, and it won all 120 corpus record-stream results. The Stream Formats Large reads on macOS/Clang, which hold both losses, are the main remaining streaming target.
 
 The main engineering lesson is in §5: an index over the whole document made the target workload 2.3x *slower*. Make the in-order read cost nothing, and only pay for an index on objects whose access pattern shows it is needed.
 

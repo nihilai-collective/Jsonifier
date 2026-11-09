@@ -68,14 +68,14 @@ namespace jsonifier::internal {
 			uint64_t maxDepth{};
 			for (auto* structural = iter; structural != endStructural; ++structural) {
 				switch (dataPtr[*structural]) {
-					case '[':
-					case '{': {
+					case uint_c_v<'['>:
+					case uint_c_v<'{'>: {
 						++depth;
 						maxDepth = depth > maxDepth ? depth : maxDepth;
 						break;
 					}
-					case ']':
-					case '}': {
+					case uint_c_v<']'>:
+					case uint_c_v<'}'>: {
 						depth -= depth > 0;
 						break;
 					}
@@ -156,7 +156,7 @@ namespace jsonifier::internal {
 						++iter;
 						++status.arrayDepth;
 						status.indent += options.indentSize;
-						if (stringRootIter[*iter] != ']') [[likely]] {
+						if (stringRootIter[*iter] != uint_c_v<']'>) [[likely]] {
 							write_buffer_ptr outPtr = outBuffer + status.index;
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 							status.index = static_cast<uint64_t>(outPtr - outBuffer);
@@ -199,7 +199,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					case static_cast<uint64_t>(boolean): {
-						if (stringRootIter[*iter] == 'f') {
+						if (stringRootIter[*iter] == uint_c_v<'f'>) {
 							static constexpr uint64_t falseV{ pack_values<string_literal{ "false" }>::value };
 							pow2MemcpyWrapper<8>(&outBuffer[status.index], &falseV);
 							status.index += 5;
@@ -218,7 +218,7 @@ namespace jsonifier::internal {
 						++status.index;
 						++iter;
 						status.indent += options.indentSize;
-						if (stringRootIter[*iter] != '}') {
+						if (stringRootIter[*iter] != uint_c_v<'}'>) {
 							write_buffer_ptr outPtr = outBuffer + status.index;
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
 							status.index = static_cast<uint64_t>(outPtr - outBuffer);

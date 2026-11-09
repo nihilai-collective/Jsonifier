@@ -76,17 +76,17 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			const auto c = *cursor::valuePtr(iter, context);
-			if (c == '{') {
+			if (c == uint_c_v<'{'>) {
 				return validateObject(iter, depth, context);
-			} else if (c == '[') {
+			} else if (c == uint_c_v<'['>) {
 				return validateArray(iter, depth, context);
-			} else if (c == '"') {
+			} else if (c == uint_c_v<'"'>) {
 				return validateString(iter, context);
 			} else if (numberTable[static_cast<uint64_t>(c)]) {
 				return validateNumber(iter, context);
 			} else if (boolTable[static_cast<uint64_t>(c)]) {
 				return validateBool(iter, context);
-			} else if (c == 'n') {
+			} else if (c == uint_c_v<'n'>) {
 				return validateNull(iter, context);
 			} else {
 				return nullptr;
@@ -160,7 +160,7 @@ namespace jsonifier::internal {
 				return true;
 			}
 			for (; ptr < bound; ++ptr) {
-				if (*ptr != ' ' && *ptr != '\t' && *ptr != '\n' && *ptr != '\r') {
+				if (*ptr != uint_c_v<' '> && *ptr != uint_c_v<'\t'> && *ptr != uint_c_v<'\n'> && *ptr != uint_c_v<'\r'>) {
 					return false;
 				}
 			}
@@ -195,14 +195,14 @@ namespace jsonifier::internal {
 				}
 			}
 			if (!found) {
-				while (ptr < bound && *ptr != '"' && *ptr != '\\' && *ptr >= 0x20) {
+				while (ptr < bound && *ptr != uint_c_v<'"'> && *ptr != uint_c_v<'\\'> && *ptr >= 0x20) {
 					++ptr;
 				}
 				if (ptr >= bound) [[unlikely]] {
 					return nullptr;
 				}
 			}
-			if (*ptr == '"') [[likely]] {
+			if (*ptr == uint_c_v<'"'>) [[likely]] {
 				return onlyWhitespace(ptr + 1, bound) ? iter : nullptr;
 			}
 			if (*ptr < 0x20) [[unlikely]] {
@@ -227,20 +227,20 @@ namespace jsonifier::internal {
 			++iter;
 			const auto bound   = scalarBound(iter, context);
 			const auto readEnd = context.stringEnd;
-			consumeChar('-', newPtr, bound);
-			if (consumeChar('0', newPtr, bound)) {
+			consumeChar(uint_c_v<'-'>, newPtr, bound);
+			if (consumeChar(uint_c_v<'0'>, newPtr, bound)) {
 				if (newPtr < bound && isDigit(static_cast<uint8_t>(*newPtr))) [[unlikely]] {
 					return nullptr;
 				}
 			} else if (!consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
 				return nullptr;
 			}
-			if (consumeChar('.', newPtr, bound) && !consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
+			if (consumeChar(uint_c_v<'.'>, newPtr, bound) && !consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
 				return nullptr;
 			}
-			if (consumeChar('e', newPtr, bound) || consumeChar('E', newPtr, bound)) {
-				if (!consumeChar('-', newPtr, bound)) {
-					consumeChar('+', newPtr, bound);
+			if (consumeChar(uint_c_v<'e'>, newPtr, bound) || consumeChar(uint_c_v<'E'>, newPtr, bound)) {
+				if (!consumeChar(uint_c_v<'-'>, newPtr, bound)) {
+					consumeChar(uint_c_v<'+'>, newPtr, bound);
 				}
 				if (!consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
 					return nullptr;
@@ -274,7 +274,7 @@ namespace jsonifier::internal {
 			return newerPtr != start;
 		}
 
-		JSONIFIER_INLINE static bool consumeChar(char expected, read_buffer_ptr& newerPtr, read_buffer_ptr bound) noexcept {
+		JSONIFIER_INLINE static bool consumeChar(uint8_t expected, read_buffer_ptr& newerPtr, read_buffer_ptr bound) noexcept {
 			if (newerPtr < bound && *newerPtr == expected) {
 				++newerPtr;
 				return true;
@@ -289,7 +289,7 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			++iter;
-			return onlyWhitespace(newPtr + (*newPtr == 't' ? 4 : 5), scalarBound(iter, context)) ? iter : nullptr;
+			return onlyWhitespace(newPtr + (*newPtr == uint_c_v<'t'> ? 4 : 5), scalarBound(iter, context)) ? iter : nullptr;
 		}
 
 		template<typename context_type>

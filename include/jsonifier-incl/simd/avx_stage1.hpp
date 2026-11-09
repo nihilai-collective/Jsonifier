@@ -292,7 +292,7 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArray() {
-		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, '\t', '\n', 0x70u, 0x64u, '\r', 0x64u, 0x64u };
+		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, uint_c_v<'\t'>, uint_c_v<'\n'>, 0x70u, 0x64u, uint_c_v<'\r'>, 0x64u, 0x64u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
@@ -303,7 +303,7 @@ namespace jsonifier::internal::simd {
 	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
 
 	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArray() {
-		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, ':', '{', ',', '}', 0x00u, 0x00u };
+		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, uint_c_v<':'>, uint_c_v<'{'>, uint_c_v<','>, uint_c_v<'}'>, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];

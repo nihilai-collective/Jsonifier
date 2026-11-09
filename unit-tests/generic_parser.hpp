@@ -10,12 +10,12 @@
 
 namespace generic_parser_tests {
 
-	template<typename value_type, bool minified> inline value_type extracted(const jsonifier::generic::basic_value<minified>& target) {
+	template<typename value_type, bool minified> inline value_type extracted(const jsonifier::generic::generic_value<minified>& target) {
 		value_type out{};
 		return target.get(out) == jsonifier::generic::error_code::success ? out : value_type{};
 	}
 
-	template<typename value_type, bool minified> inline jsonifier::generic::error_code extractionError(const jsonifier::generic::basic_value<minified>& target) {
+	template<typename value_type, bool minified> inline jsonifier::generic::error_code extractionError(const jsonifier::generic::generic_value<minified>& target) {
 		value_type out{};
 		return target.get(out);
 	}
@@ -35,11 +35,11 @@ namespace generic_parser_tests {
 	};
 
 	template<jsonifier::parse_options options = newLines, typename parser_type>
-	inline stream_summary summarizeStream(parser_type& parser, const std::string& input, uint64_t batchSize = jsonifier::generic::defaultBatchSize) {
+	inline stream_summary summarizeStream(parser_type& parser, const std::string& input, uint64_t batchSize = options.defaultBatchSize) {
 		stream_summary summary{};
 		auto stream = parser.template iterateMany<options>(input, batchSize);
 		for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
-			jsonifier::generic::document doc{ *iter };
+			jsonifier::generic::generic_document<false> doc{ *iter };
 			if (doc.error() != jsonifier::generic::error_code::success) {
 				summary.lastError = doc.error();
 				continue;
@@ -85,7 +85,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<streamValuesName, true>::assert_eq(true, [&] {
 			std::string input{ "{\"a\":[1,2,3],\"b\":\"x\"} {\"b\":\"y\",\"a\":[4]}" };
 			std::string out{};
-			for (jsonifier::generic::document doc: parser.iterateMany(input)) {
+			for (jsonifier::generic::generic_document<false> doc: parser.iterateMany(input)) {
 				out += extracted<std::string_view>(doc.getObject().findFieldUnordered("b"));
 				out += std::to_string(extracted<int64_t>(doc["a"][0]));
 			}
@@ -94,7 +94,7 @@ namespace generic_parser_tests {
 
 		static constexpr rt_ut::string_literal streamCommaName{ "generic_stream_comma_separated" };
 		rt_ut::unit_test<streamCommaName, true>::assert_eq(true, [&] {
-			const auto summary = summarizeStream<comma>(parser, std::string{ "{\"id\":1} , {\"id\":2},[3],4 ,\"five\"" }, jsonifier::generic::defaultBatchSize);
+			const auto summary = summarizeStream<comma>(parser, std::string{ "{\"id\":1} , {\"id\":2},[3],4 ,\"five\"" }, jsonifier::parse_options{}.defaultBatchSize);
 			return summary.sources == std::vector<std::string>{ "{\"id\":1}", "{\"id\":2}", "[3]", "4", "\"five\"" } && summary.idSum == 3 &&
 				summary.lastError == error_code::success;
 		});
@@ -107,13 +107,13 @@ namespace generic_parser_tests {
 
 		static constexpr rt_ut::string_literal streamCommaTrailingName{ "generic_stream_comma_trailing" };
 		rt_ut::unit_test<streamCommaTrailingName, true>::assert_eq(true, [&] {
-			const auto summary = summarizeStream<comma>(parser, std::string{ "1,2, " }, jsonifier::generic::defaultBatchSize);
+			const auto summary = summarizeStream<comma>(parser, std::string{ "1,2, " }, jsonifier::parse_options{}.defaultBatchSize);
 			return summary.sources.size() == 2 && summary.lastError == error_code::trailing_content;
 		});
 
 		static constexpr rt_ut::string_literal streamCommaDoubleName{ "generic_stream_comma_double" };
 		rt_ut::unit_test<streamCommaDoubleName, true>::assert_eq(true, [&] {
-			const auto summary = summarizeStream<comma>(parser, std::string{ "1,,2" }, jsonifier::generic::defaultBatchSize);
+			const auto summary = summarizeStream<comma>(parser, std::string{ "1,,2" }, jsonifier::parse_options{}.defaultBatchSize);
 			return summary.sources.size() == 1 && summary.lastError == error_code::tape_error;
 		});
 
@@ -132,7 +132,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<streamBatchedCommaName, true>::assert_eq(true, [&] {
 			std::string input = makeNdjson(300, ",\n");
 			input.resize(input.size() - 2);
-			const auto whole = summarizeStream<comma>(parser, input, jsonifier::generic::defaultBatchSize);
+			const auto whole = summarizeStream<comma>(parser, input, jsonifier::parse_options{}.defaultBatchSize);
 			bool allMatch	 = whole.sources.size() == 300 && whole.idSum == 44850 && whole.lastError == error_code::success;
 			for (uint64_t batch: { 128ull, 151ull, 512ull }) {
 				allMatch = allMatch && summarizeStream<comma>(parser, input, batch) == whole;
@@ -187,11 +187,11 @@ namespace generic_parser_tests {
 				input += x % 2 == 0 ? "[" + std::to_string(x) + ",[2,3],{\"a\":1}]\n" : "\"str\" 7\n";
 			}
 			bool allMatch{ true };
-			for (uint64_t batch: std::initializer_list<uint64_t>{ 128ull, 201ull, 4096ull, jsonifier::generic::defaultBatchSize }) {
+			for (uint64_t batch: std::initializer_list<uint64_t>{ 128ull, 201ull, 4096ull, jsonifier::parse_options{}.defaultBatchSize }) {
 				uint64_t idSum{};
 				uint64_t deepSum{};
 				uint64_t documents{};
-				for (jsonifier::generic::document doc: parser.iterateMany(input, batch)) {
+				for (jsonifier::generic::generic_document<false> doc: parser.iterateMany(input, batch)) {
 					++documents;
 					if (doc.type() == jsonifier::json_type::object) {
 						auto object = doc.getObject();
@@ -248,7 +248,7 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal arrayIterationTypesName{ "generic_array_iteration_types" };
 		rt_ut::unit_test<arrayIterationTypesName, true>::assert_eq(true, [&] {
 			std::string types{};
-			for (jsonifier::generic::value element: parser.iterate(sample)["b"].getArray()) {
+			for (jsonifier::generic::generic_value<false> element: parser.iterate(sample)["b"].getArray()) {
 				types += static_cast<char>('0' + static_cast<uint8_t>(element.type()));
 			}
 			return types == "33344522";
@@ -570,7 +570,7 @@ namespace generic_parser_tests {
 			static_cast<void>(object.findFieldUnordered("b").error());
 			const bool miss	 = object.findFieldUnordered("zz").error() == error_code::no_such_field;
 			const bool later = extracted<int64_t>(object.findFieldUnordered("d")) == 4;
-			const jsonifier::generic::value earlier{ object.findFieldUnordered("a") };
+			const jsonifier::generic::generic_value<false> earlier{ object.findFieldUnordered("a") };
 			const bool nested = extracted<int64_t>(earlier["n"]) == 1;
 			return hit && miss && later && nested;
 		});
@@ -626,7 +626,7 @@ namespace generic_parser_tests {
 			const bool secondMiss = object.findFieldUnordered("r").error() == error_code::no_such_field;
 			const bool c		  = extracted<int64_t>(object.findFieldUnordered("c")) == 3;
 			const bool a		  = extracted<int64_t>(object.findFieldUnordered("a")) == 1;
-			const jsonifier::generic::value nested{ object.findFieldUnordered("b") };
+			const jsonifier::generic::generic_value<false> nested{ object.findFieldUnordered("b") };
 			return firstMiss && secondMiss && c && a && extracted<int64_t>(nested["n"][2]) == 3;
 		});
 

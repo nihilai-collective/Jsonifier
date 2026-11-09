@@ -127,7 +127,7 @@ namespace jsonifier::internal {
 				}
 				const write_structural_index_ptr tapeIter = indexStructurals<parseOpts.minified>(rootIter, endIter);
 				auto* __restrict valueIter				  = rootIter + *tapeIter;
-				if (tapeIter == derivedRef.podSection.end() || *valueIter != '"') [[unlikely]] {
+				if (tapeIter == derivedRef.podSection.end() || *valueIter != uint_c_v<'"'>) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, valueIter, endIter));
 					return false;
 				}
@@ -152,7 +152,7 @@ namespace jsonifier::internal {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::no_input>(rootIter, rootIter, endIter));
 					return false;
 				}
-				if (*rootIter != '"') [[unlikely]] {
+				if (*rootIter != uint_c_v<'"'>) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, rootIter, endIter));
 					return false;
 				}
@@ -211,7 +211,7 @@ namespace jsonifier::internal {
 				if (comparison == trueVal && remaining == 4) {
 					object = true;
 					return true;
-				} else if (comparison == falseVal && remaining == 5 && valueIter[4] == 'e') [[likely]] {
+				} else if (comparison == falseVal && remaining == 5 && valueIter[4] == uint_c_v<'e'>) [[likely]] {
 					object = false;
 					return true;
 				}
@@ -237,7 +237,7 @@ namespace jsonifier::internal {
 				} else if (rootIter == endIter) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
 					return false;
-				} else if (comparison == falseVal && (*rootIter == 'e')) [[likely]] {
+				} else if (comparison == falseVal && (*rootIter == uint_c_v<'e'>)) [[likely]] {
 					object = false;
 					++rootIter;
 				} else {

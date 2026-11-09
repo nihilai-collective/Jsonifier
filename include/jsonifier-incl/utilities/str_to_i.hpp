@@ -26,16 +26,16 @@ namespace jsonifier::internal {
 	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() {
 		constexpr auto maxValue{ static_cast<std::make_unsigned_t<v_type>>(std::numeric_limits<remove_cvref_t<v_type>>::max()) + compValAddition<negative> };
 		array<std::make_unsigned_t<v_type>, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('0')] = (maxValue - 0) / 10;
-		returnValues[static_cast<uint64_t>('1')] = (maxValue - 1) / 10;
-		returnValues[static_cast<uint64_t>('2')] = (maxValue - 2) / 10;
-		returnValues[static_cast<uint64_t>('3')] = (maxValue - 3) / 10;
-		returnValues[static_cast<uint64_t>('4')] = (maxValue - 4) / 10;
-		returnValues[static_cast<uint64_t>('5')] = (maxValue - 5) / 10;
-		returnValues[static_cast<uint64_t>('6')] = (maxValue - 6) / 10;
-		returnValues[static_cast<uint64_t>('7')] = (maxValue - 7) / 10;
-		returnValues[static_cast<uint64_t>('8')] = (maxValue - 8) / 10;
-		returnValues[static_cast<uint64_t>('9')] = (maxValue - 9) / 10;
+		returnValues[uint_c_v<'0'>] = (maxValue - 0) / 10;
+		returnValues[uint_c_v<'1'>] = (maxValue - 1) / 10;
+		returnValues[uint_c_v<'2'>] = (maxValue - 2) / 10;
+		returnValues[uint_c_v<'3'>] = (maxValue - 3) / 10;
+		returnValues[uint_c_v<'4'>] = (maxValue - 4) / 10;
+		returnValues[uint_c_v<'5'>] = (maxValue - 5) / 10;
+		returnValues[uint_c_v<'6'>] = (maxValue - 6) / 10;
+		returnValues[uint_c_v<'7'>] = (maxValue - 7) / 10;
+		returnValues[uint_c_v<'8'>] = (maxValue - 8) / 10;
+		returnValues[uint_c_v<'9'>] = (maxValue - 9) / 10;
 		return returnValues;
 	}
 
@@ -177,12 +177,12 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static const uint8_t* parseFraction(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
-				value_type fracValue{ static_cast<value_type>(peekByte(iter, end) - '0') };
+				value_type fracValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
 				typename get_int_type<value_type>::type fracDigits{ 1 };
 				++iter;
 				while (isDigit(peekByte(iter, end))) {
 					if (fracDigits < (uint_types<value_type> ? maxUnsignedFractionDigits : maxFractionDigits)) {
-						fracValue = fracValue * 10 + static_cast<value_type>(peekByte(iter, end) - '0');
+						fracValue = fracValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>);
 						++fracDigits;
 					}
 					++iter;
@@ -190,10 +190,10 @@ namespace jsonifier::internal {
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
 					int8_t expSign = 1;
-					if (peekByte(iter, end) == '-') {
+					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
-					} else if (peekByte(iter, end) == '+') {
+					} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 						++iter;
 					}
 					return parseExponentPostFrac(value, iter, expSign, fracValue, fracDigits, end);
@@ -210,10 +210,10 @@ namespace jsonifier::internal {
 			typename get_int_type<value_type>::type fracDigits, const uint8_t* end) noexcept {
 			using exp_type = conditional_t<uint_types<value_type>, int64_t, value_type>;
 			if (isDigit(peekByte(iter, end))) [[likely]] {
-				exp_type expValue{ static_cast<exp_type>(peekByte(iter, end) - '0') };
+				exp_type expValue{ static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) };
 				++iter;
 				while (isDigit(peekByte(iter, end))) {
-					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<exp_type>(peekByte(iter, end) - '0') : expValue;
+					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
 					++iter;
 				}
 				if (expValue < static_cast<exp_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
@@ -247,10 +247,10 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static const uint8_t* parseExponent(value_type& value, const uint8_t* iter, int8_t expSign, const uint8_t* end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
-				value_type expValue{ static_cast<value_type>(peekByte(iter, end) - '0') };
+				value_type expValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
 				++iter;
 				while (isDigit(peekByte(iter, end))) {
-					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<value_type>(peekByte(iter, end) - '0') : expValue;
+					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
 					++iter;
 				}
 				if (expValue < static_cast<value_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
@@ -269,16 +269,16 @@ namespace jsonifier::internal {
 		}
 
 		static const uint8_t* finishParse(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
-			if (peekByte(iter, end) == '.') [[unlikely]] {
+			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
 				int8_t expSign = 1;
-				if (peekByte(iter, end) == '-') {
+				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
-				} else if (peekByte(iter, end) == '+') {
+				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 					++iter;
 				}
 				return parseExponent(value, iter, expSign, end);
@@ -294,7 +294,7 @@ namespace jsonifier::internal {
 			using v_type_local = std::make_unsigned_t<value_type>;
 			uint8_t numTmp{ loadByte<checked>(iter, end) };
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(numTmp - '0');
+				value = static_cast<value_type>(numTmp - uint_c_v<'0'>);
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -302,7 +302,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -319,12 +319,12 @@ namespace jsonifier::internal {
 				}
 			}
 
-			if (iter[-2] == '0') [[unlikely]] {
+			if (iter[-2] == uint_c_v<'0'>) [[unlikely]] {
 				return nullptr;
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -342,7 +342,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -360,7 +360,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -378,7 +378,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -396,7 +396,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -414,7 +414,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -432,7 +432,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -450,7 +450,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -468,7 +468,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -486,7 +486,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -504,7 +504,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -522,7 +522,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -540,7 +540,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -558,7 +558,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -576,7 +576,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -594,7 +594,7 @@ namespace jsonifier::internal {
 			}
 
 			if (isDigit(numTmp)) [[likely]] {
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -613,7 +613,7 @@ namespace jsonifier::internal {
 
 			if constexpr (uint_types<value_type>) {
 				if (isDigit(numTmp)) [[likely]] {
-					value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+					value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 					++iter;
 					numTmp = loadByte<checked>(iter, end);
 				} else [[unlikely]] {
@@ -635,7 +635,7 @@ namespace jsonifier::internal {
 				if (static_cast<uint64_t>(value) > static_cast<uint64_t>(compVals<value_type, negative>[numTmp])) [[unlikely]] {
 					return nullptr;
 				}
-				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - '0'));
+				value = static_cast<value_type>(static_cast<v_type_local>(value) * 10 + (numTmp - uint_c_v<'0'>));
 				++iter;
 				numTmp = loadByte<checked>(iter, end);
 			} else [[unlikely]] {
@@ -671,7 +671,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if constexpr (int_types<value_type>) {
 				if (iter < end) [[likely]] {
-					if (*iter == '-') {
+					if (*iter == uint_c_v<'-'>) {
 						++iter;
 						const uint8_t* resultPtr = (end - iter) >= uncheckedIntegerSpan ? parseInteger<true, false>(value, iter, end) : parseInteger<true, true>(value, iter, end);
 						if (resultPtr) [[likely]] {
@@ -727,16 +727,16 @@ namespace jsonifier::internal {
 	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() {
 		constexpr auto maxValue{ static_cast<std::make_unsigned_t<v_type>>(std::numeric_limits<remove_cvref_t<v_type>>::max()) + compValAddition<negative> };
 		array<std::make_unsigned_t<v_type>, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('0')] = (maxValue - 0) / 10;
-		returnValues[static_cast<uint64_t>('1')] = (maxValue - 1) / 10;
-		returnValues[static_cast<uint64_t>('2')] = (maxValue - 2) / 10;
-		returnValues[static_cast<uint64_t>('3')] = (maxValue - 3) / 10;
-		returnValues[static_cast<uint64_t>('4')] = (maxValue - 4) / 10;
-		returnValues[static_cast<uint64_t>('5')] = (maxValue - 5) / 10;
-		returnValues[static_cast<uint64_t>('6')] = (maxValue - 6) / 10;
-		returnValues[static_cast<uint64_t>('7')] = (maxValue - 7) / 10;
-		returnValues[static_cast<uint64_t>('8')] = (maxValue - 8) / 10;
-		returnValues[static_cast<uint64_t>('9')] = (maxValue - 9) / 10;
+		returnValues[uint_c_v<'0'>] = (maxValue - 0) / 10;
+		returnValues[uint_c_v<'1'>] = (maxValue - 1) / 10;
+		returnValues[uint_c_v<'2'>] = (maxValue - 2) / 10;
+		returnValues[uint_c_v<'3'>] = (maxValue - 3) / 10;
+		returnValues[uint_c_v<'4'>] = (maxValue - 4) / 10;
+		returnValues[uint_c_v<'5'>] = (maxValue - 5) / 10;
+		returnValues[uint_c_v<'6'>] = (maxValue - 6) / 10;
+		returnValues[uint_c_v<'7'>] = (maxValue - 7) / 10;
+		returnValues[uint_c_v<'8'>] = (maxValue - 8) / 10;
+		returnValues[uint_c_v<'9'>] = (maxValue - 9) / 10;
 		return returnValues;
 	}
 
@@ -1279,7 +1279,7 @@ namespace jsonifier::internal {
 		if (iter >= end || !isDigit(*iter)) [[unlikely]] {
 			return nullptr;
 		}
-		if (*iter == static_cast<uint8_t>('0') && iter + 1 < end && isDigit(iter[1])) [[unlikely]] {
+		if (*iter == uint_c_v<'0'> && iter + 1 < end && isDigit(iter[1])) [[unlikely]] {
 			return nullptr;
 		}
 
@@ -1295,7 +1295,7 @@ namespace jsonifier::internal {
 					if (static_cast<uint64_t>(res.value) > static_cast<uint64_t>(compVals<value_type, negative>[last])) [[unlikely]] {
 						return nullptr;
 					}
-					res.value  = static_cast<value_type>(static_cast<v_type_local>(res.value) * 10 + static_cast<v_type_local>(last - static_cast<uint8_t>('0')));
+					res.value  = static_cast<value_type>(static_cast<v_type_local>(res.value) * 10 + static_cast<v_type_local>(last - uint_c_v<'0'>));
 					res.digits = length;
 				}
 			}
@@ -1349,7 +1349,7 @@ namespace jsonifier::internal {
 		expValue = 0;
 		while (isDigit(peekByte(iter, end))) {
 			if (expValue < 1000) {
-				expValue = expValue * 10 + (*iter - static_cast<uint8_t>('0'));
+				expValue = expValue * 10 + (*iter - uint_c_v<'0'>);
 			}
 			++iter;
 		}
@@ -1431,7 +1431,7 @@ namespace jsonifier::internal {
 				int64_t fracDigits{};
 				while (isDigit(peekByte(iter, end))) {
 					if (fracDigits < 18) {
-						fracValue = fracValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
+						fracValue = fracValue * 10 + static_cast<value_type>(*iter - uint_c_v<'0'>);
 						++fracDigits;
 					}
 					++iter;
@@ -1439,10 +1439,10 @@ namespace jsonifier::internal {
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
 					int8_t expSign = 1;
-					if (peekByte(iter, end) == '-') {
+					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
-					} else if (peekByte(iter, end) == '+') {
+					} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 						++iter;
 					}
 					return parseExponentPostFrac(value, iter, end, expSign, fracValue, fracDigits);
@@ -1457,7 +1457,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
-				if (*iter == '-') {
+				if (*iter == uint_c_v<'-'>) {
 					++iter;
 					read_buffer_ptr resultPtr = parseInteger<true>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
 					if (resultPtr) [[likely]] {
@@ -1532,16 +1532,16 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (peekByte(iter, end) == '.') [[unlikely]] {
+			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
 				int8_t expSign = 1;
-				if (peekByte(iter, end) == '-') {
+				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
-				} else if (peekByte(iter, end) == '+') {
+				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 					++iter;
 				}
 				return parseExponent(value, iter, end, expSign);
@@ -1623,7 +1623,7 @@ namespace jsonifier::internal {
 				int64_t fracDigits{};
 				while (isDigit(peekByte(iter, end))) {
 					if (fracDigits < 19) {
-						fracValue = fracValue * 10 + static_cast<value_type>(*iter - static_cast<uint8_t>('0'));
+						fracValue = fracValue * 10 + static_cast<value_type>(*iter - uint_c_v<'0'>);
 						++fracDigits;
 					}
 					++iter;
@@ -1631,10 +1631,10 @@ namespace jsonifier::internal {
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
 					int8_t expSign = 1;
-					if (peekByte(iter, end) == '-') {
+					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
-					} else if (peekByte(iter, end) == '+') {
+					} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 						++iter;
 					}
 					return parseExponentPostFrac(value, iter, end, expSign, fracValue, fracDigits);
@@ -1696,16 +1696,16 @@ namespace jsonifier::internal {
 		}
 
 		static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (peekByte(iter, end) == '.') [[unlikely]] {
+			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
 				int8_t expSign = 1;
-				if (peekByte(iter, end) == '-') {
+				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
-				} else if (peekByte(iter, end) == '+') {
+				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
 					++iter;
 				}
 				return parseExponent(value, iter, end, expSign);

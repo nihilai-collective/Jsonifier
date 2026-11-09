@@ -1629,44 +1629,44 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
-				case '{': {
+				case uint_c_v<'{'>: {
 					return iterateVariantTypes<json_type::object>(value, iter, depth, context);
 				}
-				case '[': {
+				case uint_c_v<'['>: {
 					return iterateVariantTypes<json_type::array>(value, iter, depth, context);
 				}
-				case '"': {
+				case uint_c_v<'"'>: {
 					return iterateVariantTypes<json_type::string>(value, iter, depth, context);
 				}
-				case 't':
+				case uint_c_v<'t'>:
 					[[fallthrough]];
-				case 'f': {
+				case uint_c_v<'f'>: {
 					return iterateVariantTypes<json_type::boolean>(value, iter, depth, context);
 				}
-				case '-':
+				case uint_c_v<'-'>:
 					[[fallthrough]];
-				case '0':
+				case uint_c_v<'0'>:
 					[[fallthrough]];
-				case '1':
+				case uint_c_v<'1'>:
 					[[fallthrough]];
-				case '2':
+				case uint_c_v<'2'>:
 					[[fallthrough]];
-				case '3':
+				case uint_c_v<'3'>:
 					[[fallthrough]];
-				case '4':
+				case uint_c_v<'4'>:
 					[[fallthrough]];
-				case '5':
+				case uint_c_v<'5'>:
 					[[fallthrough]];
-				case '6':
+				case uint_c_v<'6'>:
 					[[fallthrough]];
-				case '7':
+				case uint_c_v<'7'>:
 					[[fallthrough]];
-				case '8':
+				case uint_c_v<'8'>:
 					[[fallthrough]];
-				case '9': {
+				case uint_c_v<'9'>: {
 					return iterateVariantTypes<json_type::number>(value, iter, depth, context);
 				}
-				case 'n': {
+				case uint_c_v<'n'>: {
 					return iterateVariantTypes<json_type::null>(value, iter, depth, context);
 				}
 				default: {
@@ -1708,44 +1708,44 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
-				case '{': {
+				case uint_c_v<'{'>: {
 					return iterateVariantTypesOutline<json_type::object>(value, iter, depth, context);
 				}
-				case '[': {
+				case uint_c_v<'['>: {
 					return iterateVariantTypesOutline<json_type::array>(value, iter, depth, context);
 				}
-				case '"': {
+				case uint_c_v<'"'>: {
 					return iterateVariantTypesOutline<json_type::string>(value, iter, depth, context);
 				}
-				case 't':
+				case uint_c_v<'t'>:
 					[[fallthrough]];
-				case 'f': {
+				case uint_c_v<'f'>: {
 					return iterateVariantTypesOutline<json_type::boolean>(value, iter, depth, context);
 				}
-				case '-':
+				case uint_c_v<'-'>:
 					[[fallthrough]];
-				case '0':
+				case uint_c_v<'0'>:
 					[[fallthrough]];
-				case '1':
+				case uint_c_v<'1'>:
 					[[fallthrough]];
-				case '2':
+				case uint_c_v<'2'>:
 					[[fallthrough]];
-				case '3':
+				case uint_c_v<'3'>:
 					[[fallthrough]];
-				case '4':
+				case uint_c_v<'4'>:
 					[[fallthrough]];
-				case '5':
+				case uint_c_v<'5'>:
 					[[fallthrough]];
-				case '6':
+				case uint_c_v<'6'>:
 					[[fallthrough]];
-				case '7':
+				case uint_c_v<'7'>:
 					[[fallthrough]];
-				case '8':
+				case uint_c_v<'8'>:
 					[[fallthrough]];
-				case '9': {
+				case uint_c_v<'9'>: {
 					return iterateVariantTypesOutline<json_type::number>(value, iter, depth, context);
 				}
-				case 'n': {
+				case uint_c_v<'n'>: {
 					return iterateVariantTypesOutline<json_type::null>(value, iter, depth, context);
 				}
 				default: {
@@ -1760,7 +1760,7 @@ namespace jsonifier::internal {
 		if constexpr (!options.minified && !structural_context_types<context_type>) {
 			cursor::skipWhitespaceScalar(iter, context);
 		}
-		return !cursor::notAtEnd(iter, context) || *cursor::valuePtr(iter, context) == 'n';
+		return !cursor::notAtEnd(iter, context) || *cursor::valuePtr(iter, context) == uint_c_v<'n'>;
 	}
 
 	template<optional_types value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
@@ -1884,23 +1884,23 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
 			auto iter	   = token.data();
 			const auto end = iter + token.size();
-			if (iter < end && *iter == '-') {
+			if (iter < end && *iter == uint_c_v<'-'>) {
 				++iter;
 			}
-			if (iter < end && *iter == '0') {
+			if (iter < end && *iter == uint_c_v<'0'>) {
 				++iter;
 			} else if (!digit_run_scanner::impl(iter, end)) {
 				return false;
 			}
-			if (iter < end && *iter == '.') {
+			if (iter < end && *iter == uint_c_v<'.'>) {
 				++iter;
 				if (!digit_run_scanner::impl(iter, end)) {
 					return false;
 				}
 			}
-			if (iter < end && (*iter == 'e' || *iter == 'E')) {
+			if (iter < end && (*iter == uint_c_v<'e'> || *iter == uint_c_v<'E'>)) {
 				++iter;
-				if (iter < end && (*iter == '+' || *iter == '-')) {
+				if (iter < end && (*iter == uint_c_v<'+'> || *iter == uint_c_v<'-'>)) {
 					++iter;
 				}
 				if (!digit_run_scanner::impl(iter, end)) {
@@ -1919,11 +1919,11 @@ namespace jsonifier::internal {
 			}
 			const read_buffer_ptr newPtr = cursor::valuePtr(iter, context);
 			switch (*newPtr) {
-				case '{':
+				case uint_c_v<'{'>:
 					return parse<options>::impl(value.value.template emplace<typename value_type::object_type>(), iter, depth, context);
-				case '[':
+				case uint_c_v<'['>:
 					return parse<options>::impl(value.value.template emplace<typename value_type::array_type>(), iter, depth, context);
-				case '"':
+				case uint_c_v<'"'>:
 					return parse<options>::impl(value.value.template emplace<typename value_type::string_type>(), iter, depth, context);
 				default:
 					break;

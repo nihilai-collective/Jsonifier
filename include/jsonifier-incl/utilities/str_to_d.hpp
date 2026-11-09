@@ -13,8 +13,8 @@ namespace jsonifier::internal {
 
 	consteval array<bool, 256> generateExpTable() {
 		array<bool, 256> table{};
-		table['E'] = true;
-		table['e'] = true;
+		table[uint_c_v<'E'>] = true;
+		table[uint_c_v<'e'>] = true;
 		return table;
 	}
 
@@ -24,9 +24,9 @@ namespace jsonifier::internal {
 
 	consteval array<bool, 256> generateExpFracTable() {
 		array<bool, 256> table{};
-		table['.'] = true;
-		table['E'] = true;
-		table['e'] = true;
+		table[uint_c_v<'.'>] = true;
+		table[uint_c_v<'E'>] = true;
+		table[uint_c_v<'e'>] = true;
 		return table;
 	}
 
@@ -47,7 +47,7 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE parsed_number parseNumberString(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
 		parsed_number answer{};
-		answer.negative = (*iter == '-');
+		answer.negative = (*iter == uint_c_v<'-'>);
 		if (answer.negative) {
 			++iter;
 			if (iter == end || !isDigit(*iter)) [[unlikely]] {
@@ -58,22 +58,22 @@ namespace jsonifier::internal {
 
 		uint64_t mantissa{};
 		if ((iter != end) && isDigit(*iter)) {
-			mantissa = static_cast<uint64_t>(*iter - '0');
+			mantissa = static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 			++iter;
 			if ((iter != end) && isDigit(*iter)) {
-				mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+				mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 				++iter;
 				if ((iter != end) && isDigit(*iter)) {
-					mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+					mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 					++iter;
 					if ((iter != end) && isDigit(*iter)) {
-						mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+						mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 						++iter;
 						if ((iter != end) && isDigit(*iter)) {
-							mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+							mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 							++iter;
 							while ((iter != end) && isDigit(*iter)) {
-								mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+								mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 								++iter;
 							}
 						}
@@ -86,18 +86,18 @@ namespace jsonifier::internal {
 		if (storeSpans) {
 			answer.integer = span<uint8_t>{ startDigits, endOfIntegerPart };
 		}
-		if (digitCount == 0 || (startDigits[0] == '0' && digitCount > 1)) [[unlikely]] {
+		if (digitCount == 0 || (startDigits[0] == uint_c_v<'0'> && digitCount > 1)) [[unlikely]] {
 			return answer;
 		}
 
 		int64_t exponent{};
-		bool const hasDecimalPoint = (iter != end) && (*iter == '.');
+		bool const hasDecimalPoint = (iter != end) && (*iter == uint_c_v<'.'>);
 		if (hasDecimalPoint) {
 			++iter;
 			read_buffer_ptr const before = iter;
 			loopParseIfEightDigits(iter, end, mantissa);
 			while ((iter != end) && isDigit(*iter)) {
-				uint8_t digit = static_cast<uint8_t>(*iter - '0');
+				uint8_t digit = static_cast<uint8_t>(*iter - uint_c_v<'0'>);
 				++iter;
 				mantissa = mantissa * 10 + digit;
 			}
@@ -112,20 +112,20 @@ namespace jsonifier::internal {
 		}
 
 		int64_t expNumber{};
-		if ((iter != end) && ((*iter == 'e') || (*iter == 'E'))) {
+		if ((iter != end) && ((*iter == uint_c_v<'e'>) || (*iter == uint_c_v<'E'>))) {
 			++iter;
 			bool negExp = false;
-			if ((iter != end) && (*iter == '-')) {
+			if ((iter != end) && (*iter == uint_c_v<'-'>)) {
 				negExp = true;
 				++iter;
-			} else if ((iter != end) && (*iter == '+')) {
+			} else if ((iter != end) && (*iter == uint_c_v<'+'>)) {
 				++iter;
 			}
 			if ((iter == end) || !isDigit(*iter)) [[unlikely]] {
 				return answer;
 			}
 			while ((iter != end) && isDigit(*iter)) {
-				uint8_t digit = static_cast<uint8_t>(*iter - '0');
+				uint8_t digit = static_cast<uint8_t>(*iter - uint_c_v<'0'>);
 				if (expNumber < 0x10000000) {
 					expNumber = 10 * expNumber + digit;
 				}
@@ -141,8 +141,8 @@ namespace jsonifier::internal {
 
 		if (digitCount > 19) [[unlikely]] {
 			read_buffer_ptr start = startDigits;
-			while ((start != end) && (*start == '0' || *start == '.')) {
-				if (*start == '0') {
+			while ((start != end) && (*start == uint_c_v<'0'> || *start == uint_c_v<'.'>)) {
+				if (*start == uint_c_v<'0'>) {
 					--digitCount;
 				}
 				++start;
@@ -154,7 +154,7 @@ namespace jsonifier::internal {
 					mantissa = 0;
 					iter	 = answer.integer.ptr;
 					while ((mantissa < minNineteenDigitInteger) && (iter != answer.integer.end)) {
-						mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - '0');
+						mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 						++iter;
 					}
 					if (mantissa >= minNineteenDigitInteger) {
@@ -162,7 +162,7 @@ namespace jsonifier::internal {
 					} else {
 						iter = answer.fraction.ptr;
 						while ((mantissa < minNineteenDigitInteger) && (iter != answer.fraction.end)) {
-							mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - '0');
+							mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 							++iter;
 						}
 						exponent = answer.fraction.ptr - iter + expNumber;

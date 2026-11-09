@@ -58,10 +58,10 @@ namespace jsonifier::internal::simd {
 			const uint8x16_t d01	  = in01.template get<1>();
 			const uint8x16_t d02	  = in01.template get<2>();
 			const uint8x16_t d03	  = in01.template get<3>();
-			const uint8x16_t matchWs0 = vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(' ')), whitespaceTableLocal, d00);
-			const uint8x16_t matchWs1 = vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(' ')), whitespaceTableLocal, d01);
-			const uint8x16_t matchWs2 = vqtbx1q_u8(vceqq_u8(d02, vdupq_n_u8(' ')), whitespaceTableLocal, d02);
-			const uint8x16_t matchWs3 = vqtbx1q_u8(vceqq_u8(d03, vdupq_n_u8(' ')), whitespaceTableLocal, d03);
+			const uint8x16_t matchWs0 = vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d00);
+			const uint8x16_t matchWs1 = vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d01);
+			const uint8x16_t matchWs2 = vqtbx1q_u8(vceqq_u8(d02, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d02);
+			const uint8x16_t matchWs3 = vqtbx1q_u8(vceqq_u8(d03, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d03);
 			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 			uint8x16_t wsSum0 = vpaddq_u8(vandq_u8(matchWs0, bitMask), vandq_u8(matchWs1, bitMask));
 			uint8x16_t wsSum1 = vpaddq_u8(vandq_u8(matchWs2, bitMask), vandq_u8(matchWs3, bitMask));
@@ -121,10 +121,10 @@ namespace jsonifier::internal::simd {
 			const uint8x16_t d01	  = in01.template get<1>();
 			const uint8x16_t d02	  = in01.template get<2>();
 			const uint8x16_t d03	  = in01.template get<3>();
-			const uint8x16_t matchWs0 = vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(' ')), whitespaceTableLocal, d00);
-			const uint8x16_t matchWs1 = vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(' ')), whitespaceTableLocal, d01);
-			const uint8x16_t matchWs2 = vqtbx1q_u8(vceqq_u8(d02, vdupq_n_u8(' ')), whitespaceTableLocal, d02);
-			const uint8x16_t matchWs3 = vqtbx1q_u8(vceqq_u8(d03, vdupq_n_u8(' ')), whitespaceTableLocal, d03);
+			const uint8x16_t matchWs0 = vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d00);
+			const uint8x16_t matchWs1 = vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d01);
+			const uint8x16_t matchWs2 = vqtbx1q_u8(vceqq_u8(d02, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d02);
+			const uint8x16_t matchWs3 = vqtbx1q_u8(vceqq_u8(d03, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d03);
 			const uint8x16_t matchOp0 = vceqq_u8(vqtbl1q_u8(opTable, vshrq_n_u8(vaddq_u8(d00, vdupq_n_u8(3)), 4)), d00);
 			const uint8x16_t matchOp1 = vceqq_u8(vqtbl1q_u8(opTable, vshrq_n_u8(vaddq_u8(d01, vdupq_n_u8(3)), 4)), d01);
 			const uint8x16_t matchOp2 = vceqq_u8(vqtbl1q_u8(opTable, vshrq_n_u8(vaddq_u8(d02, vdupq_n_u8(3)), 4)), d02);
@@ -183,10 +183,10 @@ namespace jsonifier::internal::simd {
 			} else {
 				simd_array_type matches;
 				const uint8x16_t d00 = in01.template get<0>();
-				matches.template set<0>(vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(' ')), whitespaceTableLocal, d00));
+				matches.template set<0>(vqtbx1q_u8(vceqq_u8(d00, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d00));
 				if constexpr (registerCount > 1) {
 					const uint8x16_t d01 = in01.template get<1>();
-					matches.template set<1>(vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(' ')), whitespaceTableLocal, d01));
+					matches.template set<1>(vqtbx1q_u8(vceqq_u8(d01, vdupq_n_u8(uint_c_v<' '>)), whitespaceTableLocal, d01));
 				}
 				return scalar_bitmask_collector<registerCount>::impl(matches);
 			}
@@ -316,10 +316,10 @@ namespace jsonifier::internal::simd {
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
 
 	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArrayNeon() {
-		constexpr const uint8_t values[]{ 0xFFu, 0x00u, ',', ':', 0x00u, '[', ']', '{', '}', 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
+		constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
@@ -327,7 +327,7 @@ namespace jsonifier::internal::simd {
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) static constexpr internal::array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
 
 #endif
 

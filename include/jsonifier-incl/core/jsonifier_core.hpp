@@ -73,7 +73,7 @@ namespace jsonifier {
 		jsonifier_core(const jsonifier_core& other)			   = delete;
 
 		template<parse_options options = parse_options{ .newLineDelimited = true }, typename buffer_type>
-		inline generic::document_stream<jsonifier_core, options> iterateMany(const buffer_type& in, uint64_t batchSize = generic::defaultBatchSize) noexcept {
+		inline generic::document_stream<jsonifier_core, options> iterateMany(const buffer_type& in, uint64_t batchSize = options.defaultBatchSize) noexcept {
 			return generic::document_stream<jsonifier_core, options>{ *this, std::bit_cast<read_buffer_ptr>(in.data()), in.size(), batchSize };
 		}
 

@@ -15,7 +15,7 @@ int main() {
 
     std::string json = R"({"name":"Concert","count":42,"tags":["music","live"]})";
 
-    jsonifier::generic::document doc = parser.iterate(json);
+    jsonifier::generic::generic_document<false> doc = parser.iterate(json);
 
     std::string_view name{};
     uint64_t count{};
@@ -118,7 +118,7 @@ std::string input = "{\"id\":1}\n{\"id\":2}\n{\"id\":3}\n";
 
 auto stream = parser.iterateMany(input);
 for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
-    jsonifier::generic::document doc = *iter;
+    jsonifier::generic::generic_document<false> doc = *iter;
     int64_t id{};
     if (doc["id"].get(id) == jsonifier::generic::error_code::success) {
         std::cout << iter.currentIndex() << ": " << iter.source() << " -> " << id << std::endl;
@@ -127,7 +127,7 @@ for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
 ```
 
 - By default documents are separated by whitespace (`parse_options{ .newLineDelimited = true }`). Pass `iterateMany<jsonifier::parse_options{}>(input)` to accept comma-separated documents instead.
-- Documents are indexed in windows of `batchSize` bytes (default `jsonifier::generic::defaultBatchSize`, 1 MiB), so the batch size must be at least as large as the largest single document.
+- Documents are indexed in windows of `batchSize` bytes (default `parse_options::defaultBatchSize`, 1 MiB), so the batch size must be at least as large as the largest single document.
 - `iter.currentIndex()` is the byte offset of the current document and `iter.source()` its source text.
 - `stream.truncatedBytes()` reports trailing bytes that did not form a complete document, and `stream.error()` the stream-level error.
 - Each document is invalidated when the iterator advances.
