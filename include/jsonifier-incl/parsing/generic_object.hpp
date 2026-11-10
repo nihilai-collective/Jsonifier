@@ -396,8 +396,11 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE void recordField(read_structural_index_ptr keyIter) const noexcept {
 			document_state* const state = doc;
 			read_buffer_ptr keyStart	= state->root + *keyIter + 1;
-			read_buffer_ptr keyEnd		= state->root + *(keyIter + 1);
-			while (keyEnd > keyStart && *--keyEnd != internal::uint_c_v<'"'>) {
+			read_buffer_ptr keyEnd		= state->root + *(keyIter + 1) - 1;
+			if constexpr (!minified) {
+				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
+					--keyEnd;
+				}
 			}
 			const uint32_t object = objectIndex();
 			state->fieldIndex->insert(field_index_map::hashKey(keyStart, static_cast<uint64_t>(keyEnd - keyStart), object), object, static_cast<uint32_t>(keyIter - state->tape));

@@ -115,8 +115,8 @@ namespace jsonifier::generic {
 			  groupMask{ std::exchange(other.groupMask, uint64_t{}) }, count{ std::exchange(other.count, uint64_t{}) } {
 		}
 
-		field_index_map& operator=(const field_index_map&) = delete;
 		JSONIFIER_INLINE field_index_map() noexcept		   = default;
+		field_index_map& operator=(const field_index_map&) = delete;
 		field_index_map(const field_index_map&)			   = delete;
 
 	  protected:

@@ -16,8 +16,11 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE string_view key() const noexcept {
 			read_buffer_ptr keyStart = doc->root + *iter + 1;
-			read_buffer_ptr keyEnd	 = doc->root + *(iter + 1);
-			while (keyEnd > keyStart && *--keyEnd != internal::uint_c_v<'"'>) {
+			read_buffer_ptr keyEnd	 = doc->root + *(iter + 1) - 1;
+			if constexpr (!minified) {
+				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
+					--keyEnd;
+				}
 			}
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
