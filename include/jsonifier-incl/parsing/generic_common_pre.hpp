@@ -35,6 +35,12 @@ namespace jsonifier::generic {
 	  public:
 		using allocator = internal::alloc_wrapper<value_type>;
 
+		JSONIFIER_INLINE alloc_buffer() noexcept	 = default;
+
+		JSONIFIER_INLINE explicit alloc_buffer(uint64_t capacityNew) noexcept {
+			reserve(capacityNew);
+		}
+
 		JSONIFIER_INLINE alloc_buffer& operator=(alloc_buffer&& other) noexcept {
 			if (this != &other) [[likely]] {
 				release();
@@ -42,6 +48,20 @@ namespace jsonifier::generic {
 				capacity = std::exchange(other.capacity, uint64_t{});
 			}
 			return *this;
+		}
+
+		JSONIFIER_INLINE alloc_buffer(alloc_buffer&& other) noexcept : capacity{ std::exchange(other.capacity, uint64_t{}) }, ptr{ std::exchange(other.ptr, nullptr) } {
+		}
+
+		alloc_buffer& operator=(const alloc_buffer&) = delete;
+		alloc_buffer(const alloc_buffer&)			 = delete;
+
+		JSONIFIER_INLINE value_type* data() const noexcept {
+			return ptr;
+		}
+
+		JSONIFIER_INLINE uint64_t size() const noexcept {
+			return capacity;
 		}
 
 		void reserve(uint64_t capacityNew) noexcept {
@@ -52,28 +72,9 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE alloc_buffer(alloc_buffer&& other) noexcept : capacity{ std::exchange(other.capacity, uint64_t{}) }, ptr{ std::exchange(other.ptr, nullptr) } {
-		}
-
-		JSONIFIER_INLINE explicit alloc_buffer(uint64_t capacityNew) noexcept {
-			reserve(capacityNew);
-		}
-
-		JSONIFIER_INLINE uint64_t size() const noexcept {
-			return capacity;
-		}
-
-		JSONIFIER_INLINE value_type* data() const noexcept {
-			return ptr;
-		}
-
 		JSONIFIER_INLINE ~alloc_buffer() noexcept {
 			release();
 		}
-
-		alloc_buffer& operator=(const alloc_buffer&) = delete;
-		JSONIFIER_INLINE alloc_buffer() noexcept	 = default;
-		alloc_buffer(const alloc_buffer&)			 = delete;
 
 	  protected:
 		JSONIFIER_INLINE void release() noexcept {
@@ -89,19 +90,7 @@ namespace jsonifier::generic {
 	};
 
 	struct string_arena {
-		JSONIFIER_INLINE void reset(uint64_t documentLength) noexcept {
-			buffer.reserve(documentLength * 2 + 128);
-			slots	   = buffer.data();
-			scratchPtr = buffer.data() + documentLength + 64;
-		}
-
-		JSONIFIER_INLINE char* slot(uint64_t offset) const noexcept {
-			return slots + offset;
-		}
-
-		JSONIFIER_INLINE char* scratch() const noexcept {
-			return scratchPtr;
-		}
+		string_arena() noexcept						 = default;
 
 		JSONIFIER_INLINE string_arena& operator=(string_arena&& other) noexcept {
 			if (this != &other) [[likely]] {
@@ -118,7 +107,20 @@ namespace jsonifier::generic {
 
 		string_arena& operator=(const string_arena&) = delete;
 		string_arena(const string_arena&)			 = delete;
-		string_arena() noexcept						 = default;
+
+		JSONIFIER_INLINE void reset(uint64_t documentLength) noexcept {
+			buffer.reserve(documentLength * 2 + 128);
+			slots	   = buffer.data();
+			scratchPtr = buffer.data() + documentLength + 64;
+		}
+
+		JSONIFIER_INLINE char* slot(uint64_t offset) const noexcept {
+			return slots + offset;
+		}
+
+		JSONIFIER_INLINE char* scratch() const noexcept {
+			return scratchPtr;
+		}
 
 	  protected:
 		alloc_buffer<char> buffer{};
@@ -162,19 +164,20 @@ namespace jsonifier::generic {
 	class field_index_map;
 
 	struct plain_string_copy_context {
-		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t length) const noexcept {
-			jsonifier::internal::jsonifierMemcpy(ptrNew, source, length);
-			return length;
-		}
+		plain_string_copy_context() noexcept											= delete;
 
 		JSONIFIER_INLINE plain_string_copy_context(read_buffer_ptr sourceNew) noexcept : source{ sourceNew } {
 		}
 
-		plain_string_copy_context& operator=(const plain_string_copy_context&) noexcept = delete;
 		plain_string_copy_context& operator=(plain_string_copy_context&&) noexcept		= delete;
-		plain_string_copy_context(const plain_string_copy_context&) noexcept			= delete;
 		plain_string_copy_context(plain_string_copy_context&&) noexcept					= delete;
-		plain_string_copy_context() noexcept											= delete;
+		plain_string_copy_context& operator=(const plain_string_copy_context&) noexcept = delete;
+		plain_string_copy_context(const plain_string_copy_context&) noexcept			= delete;
+
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t length) const noexcept {
+			jsonifier::internal::jsonifierMemcpy(ptrNew, source, length);
+			return length;
+		}
 
 		read_buffer_ptr source{};
 	};

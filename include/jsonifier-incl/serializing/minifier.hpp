@@ -43,21 +43,22 @@ namespace jsonifier::internal {
 	inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
 
 	template<typename minifier_type> struct minify_context_ro {
+		minify_context_ro() noexcept									= delete;
+
 		JSONIFIER_INLINE minify_context_ro(minifier_type& minifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
 			read_buffer_ptr endIterNew) noexcept
 			: endStructural{ endStructuralNew }, iter{ iterNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, minifier{ minifierNew } {
 		}
 
+		minify_context_ro& operator=(minify_context_ro&&) noexcept		= delete;
+		minify_context_ro(minify_context_ro&&) noexcept					= delete;
+		minify_context_ro& operator=(const minify_context_ro&) noexcept = delete;
+		minify_context_ro(const minify_context_ro&) noexcept			= delete;
+
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
 			const auto index = minifier.impl(iter, endStructural, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
-
-		minify_context_ro& operator=(const minify_context_ro&) noexcept = delete;
-		minify_context_ro& operator=(minify_context_ro&&) noexcept		= delete;
-		minify_context_ro(const minify_context_ro&) noexcept			= delete;
-		minify_context_ro(minify_context_ro&&) noexcept					= delete;
-		minify_context_ro() noexcept									= delete;
 
 		write_structural_index_ptr endStructural{};
 		write_structural_index_ptr iter{};
@@ -96,14 +97,11 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
-
-		minifier& operator=(const minifier& other) = delete;
-		minifier& operator=(minifier&& other)	   = delete;
-		minifier(const minifier& other)			   = delete;
-		minifier(minifier&& other)				   = delete;
-		inline ~minifier() noexcept				   = default;
 		inline minifier() noexcept				   = default;
+		minifier& operator=(minifier&& other)	   = delete;
+		minifier(minifier&& other)				   = delete;
+		minifier& operator=(const minifier& other) = delete;
+		minifier(const minifier& other)			   = delete;
 
 		template<prettify_buffer_types string_type, typename iterator, typename iterator_end>
 		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
@@ -233,6 +231,10 @@ namespace jsonifier::internal {
 			while (whitespaceTable[static_cast<uint64_t>(previousPtr[--currentDistance])]) {
 			}
 		}
+
+		inline ~minifier() noexcept				   = default;
+
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};
 
 }

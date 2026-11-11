@@ -268,24 +268,24 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator>(const tuple<other_types...>&) const noexcept {
-			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
-			return false;
-		}
-
 		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator>=(const tuple<other_types...>&) const noexcept {
 			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
 			return true;
 		}
 
-		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator<(const tuple<other_types...>&) const noexcept {
+		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator<=(const tuple<other_types...>&) const noexcept {
+			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
+			return true;
+		}
+
+		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator>(const tuple<other_types...>&) const noexcept {
 			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
 			return false;
 		}
 
-		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator<=(const tuple<other_types...>&) const noexcept {
+		template<typename... other_types> JSONIFIER_INLINE constexpr bool operator<(const tuple<other_types...>&) const noexcept {
 			static_assert(sizeof...(other_types) == size, "Sorry, but these tuples must be equal in size to be compared!");
-			return true;
+			return false;
 		}
 	};
 
@@ -308,15 +308,15 @@ namespace jsonifier::internal {
 			return notDone;
 		}
 
-		bool notDone{ true };
 		uint64_t index{};
+		bool notDone{ true };
 	};
 
 	template<uint64_t indexNew, typename target_type, typename tuple_type> struct index_tag {
 		using element_type				 = type_list_element_t<indexNew, tuple_type>;
 		static constexpr bool isNotMatch = !std::is_same_v<remove_cvref_t<target_type>, remove_cvref_t<element_type>>;
 		static constexpr uint64_t index{ isNotMatch ? std::numeric_limits<uint64_t>::max() : indexNew };
-		static constexpr completion_signal value{ isNotMatch, index };
+		static constexpr completion_signal value{ index, isNotMatch };
 	};
 
 	template<typename target_type, typename tuple_type, typename integer_sequence> struct index_finder;
@@ -327,7 +327,9 @@ namespace jsonifier::internal {
 			((result = index_tag<indices, target_type, tuple_type>::value) && ...);
 			return result.index;
 		}
+
 		static constexpr uint64_t index{ getIndex() };
+
 		static_assert(index != std::numeric_limits<uint64_t>::max(), "Sorry, but that type does not appear to exist in this tuple!");
 	};
 
@@ -386,6 +388,10 @@ namespace jsonifier::internal {
 			}
 		}
 
+		template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) impl(tuple_list_types&... listVals) noexcept {
+			return tuple_cat_impl_internal<make_integer_sequence<total>>::impl(lists_tuple_type{ { { &listVals } }... });
+		}
+
 		static consteval tuple_cat_index_map getMapValues() {
 			tuple_cat_index_map m{};
 			if constexpr (total > 0) {
@@ -399,10 +405,6 @@ namespace jsonifier::internal {
 				}
 			}
 			return m;
-		}
-
-		template<typename... tuple_list_types> JSONIFIER_INLINE static constexpr decltype(auto) impl(tuple_list_types&... listVals) noexcept {
-			return tuple_cat_impl_internal<make_integer_sequence<total>>::impl(lists_tuple_type{ { { &listVals } }... });
 		}
 
 		static constexpr auto map{ getMapValues() };

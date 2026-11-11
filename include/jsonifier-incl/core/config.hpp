@@ -31,16 +31,16 @@ namespace jsonifier {
 
 	struct serialize_options {
 		uint64_t indentSize{ 3 };
+		uint64_t indent{};
 		char indentChar{ ' ' };
 		bool prescanStrings{};
-		uint64_t indent{};
 		bool prettify{};
 	};
 
 	struct parse_options {
 		uint64_t defaultBatchSize{ 1024 * 1024 };
-		bool nullTerminated{ true };
 		uint64_t maxDepth{ 1024 };
+		bool nullTerminated{ true };
 		bool newLineDelimited{};
 		bool partialRead{};
 		bool knownOrder{};

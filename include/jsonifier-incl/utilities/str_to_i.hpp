@@ -175,121 +175,6 @@ namespace jsonifier::internal {
 	template<integer_types value_type> struct integer_parser<value_type> {
 		constexpr integer_parser() noexcept = default;
 
-		JSONIFIER_INLINE static const uint8_t* parseFraction(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
-			if (isDigit(peekByte(iter, end))) [[likely]] {
-				value_type fracValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
-				typename get_int_type<value_type>::type fracDigits{ 1 };
-				++iter;
-				while (isDigit(peekByte(iter, end))) {
-					if (fracDigits < (uint_types<value_type> ? maxUnsignedFractionDigits : maxFractionDigits)) {
-						fracValue = fracValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>);
-						++fracDigits;
-					}
-					++iter;
-				}
-				if (expTable[peekByte(iter, end)]) {
-					++iter;
-					int8_t expSign = 1;
-					if (peekByte(iter, end) == uint_c_v<'-'>) {
-						expSign = -1;
-						++iter;
-					} else if (peekByte(iter, end) == uint_c_v<'+'>) {
-						++iter;
-					}
-					return parseExponentPostFrac(value, iter, expSign, fracValue, fracDigits, end);
-				}
-			}
-			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
-				return iter;
-			} else {
-				return nullptr;
-			}
-		}
-
-		JSONIFIER_INLINE static const uint8_t* parseExponentPostFrac(value_type& value, const uint8_t* iter, int8_t expSign, value_type fracValue,
-			typename get_int_type<value_type>::type fracDigits, const uint8_t* end) noexcept {
-			using exp_type = conditional_t<uint_types<value_type>, int64_t, value_type>;
-			if (isDigit(peekByte(iter, end))) [[likely]] {
-				exp_type expValue{ static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) };
-				++iter;
-				while (isDigit(peekByte(iter, end))) {
-					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
-					++iter;
-				}
-				if (expValue < static_cast<exp_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
-					const value_type powerExp = powers_of_ten<value_type>::value[expValue];
-
-					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-
-					if (fracDigits + expValue >= 0) {
-						expValue *= expSign;
-						const auto fractionalCorrection = expValue > fracDigits
-							? fracValue * powers_of_ten<value_type>::value[expValue - fracDigits]
-							: (fracDigits - expValue < static_cast<decltype(fracDigits - expValue)>(powers_of_ten<value_type>::valueRaw.size())
-									  ? fracValue / powers_of_ten<value_type>::value[fracDigits - expValue]
-									  : value_type{});
-						return (expSign > 0) ? ((value <= (doubleMax / powerExp))
-													   ? (multiply(value, powerExp), (fractionalCorrection <= doubleMax - value) ? (value += fractionalCorrection, iter) : nullptr)
-													   : nullptr)
-											 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), value += fractionalCorrection, iter) : nullptr);
-					} else {
-						return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
-											 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
-					}
-				} else [[unlikely]] {
-					return nullptr;
-				}
-			} else [[unlikely]] {
-				return nullptr;
-			}
-		}
-
-		JSONIFIER_INLINE static const uint8_t* parseExponent(value_type& value, const uint8_t* iter, int8_t expSign, const uint8_t* end) noexcept {
-			if (isDigit(peekByte(iter, end))) [[likely]] {
-				value_type expValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
-				++iter;
-				while (isDigit(peekByte(iter, end))) {
-					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
-					++iter;
-				}
-				if (expValue < static_cast<value_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
-					const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
-					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-					expValue *= static_cast<value_type>(expSign);
-					return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
-										 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
-				} else [[unlikely]] {
-					return nullptr;
-				}
-			} else [[unlikely]] {
-				return nullptr;
-			}
-		}
-
-		static const uint8_t* finishParse(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
-			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
-				++iter;
-				return parseFraction(value, iter, end);
-			} else if (expTable[peekByte(iter, end)]) {
-				++iter;
-				int8_t expSign = 1;
-				if (peekByte(iter, end) == uint_c_v<'-'>) {
-					expSign = -1;
-					++iter;
-				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
-					++iter;
-				}
-				return parseExponent(value, iter, expSign, end);
-			}
-			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
-				return nullptr;
-			} else {
-				return nullptr;
-			}
-		}
-
 		template<bool negative, bool checked> JSONIFIER_INLINE static const uint8_t* parseInteger(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
 			using v_type_local = std::make_unsigned_t<value_type>;
 			uint8_t numTmp{ loadByte<checked>(iter, end) };
@@ -707,6 +592,121 @@ namespace jsonifier::internal {
 					value = 0;
 					return nullptr;
 				}
+			}
+		}
+
+		JSONIFIER_INLINE static const uint8_t* parseExponent(value_type& value, const uint8_t* iter, int8_t expSign, const uint8_t* end) noexcept {
+			if (isDigit(peekByte(iter, end))) [[likely]] {
+				value_type expValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
+				++iter;
+				while (isDigit(peekByte(iter, end))) {
+					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
+					++iter;
+				}
+				if (expValue < static_cast<value_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
+					const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
+					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+					expValue *= static_cast<value_type>(expSign);
+					return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
+										 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
+				} else [[unlikely]] {
+					return nullptr;
+				}
+			} else [[unlikely]] {
+				return nullptr;
+			}
+		}
+
+		JSONIFIER_INLINE static const uint8_t* parseExponentPostFrac(value_type& value, const uint8_t* iter, int8_t expSign, value_type fracValue,
+			typename get_int_type<value_type>::type fracDigits, const uint8_t* end) noexcept {
+			using exp_type = conditional_t<uint_types<value_type>, int64_t, value_type>;
+			if (isDigit(peekByte(iter, end))) [[likely]] {
+				exp_type expValue{ static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) };
+				++iter;
+				while (isDigit(peekByte(iter, end))) {
+					expValue = expValue < maxExponentValue ? expValue * 10 + static_cast<exp_type>(peekByte(iter, end) - uint_c_v<'0'>) : expValue;
+					++iter;
+				}
+				if (expValue < static_cast<exp_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
+					const value_type powerExp = powers_of_ten<value_type>::value[expValue];
+
+					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
+					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+
+					if (fracDigits + expValue >= 0) {
+						expValue *= expSign;
+						const auto fractionalCorrection = expValue > fracDigits
+							? fracValue * powers_of_ten<value_type>::value[expValue - fracDigits]
+							: (fracDigits - expValue < static_cast<decltype(fracDigits - expValue)>(powers_of_ten<value_type>::valueRaw.size())
+									  ? fracValue / powers_of_ten<value_type>::value[fracDigits - expValue]
+									  : value_type{});
+						return (expSign > 0) ? ((value <= (doubleMax / powerExp))
+													   ? (multiply(value, powerExp), (fractionalCorrection <= doubleMax - value) ? (value += fractionalCorrection, iter) : nullptr)
+													   : nullptr)
+											 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), value += fractionalCorrection, iter) : nullptr);
+					} else {
+						return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
+											 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
+					}
+				} else [[unlikely]] {
+					return nullptr;
+				}
+			} else [[unlikely]] {
+				return nullptr;
+			}
+		}
+
+		JSONIFIER_INLINE static const uint8_t* parseFraction(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
+			if (isDigit(peekByte(iter, end))) [[likely]] {
+				value_type fracValue{ static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>) };
+				typename get_int_type<value_type>::type fracDigits{ 1 };
+				++iter;
+				while (isDigit(peekByte(iter, end))) {
+					if (fracDigits < (uint_types<value_type> ? maxUnsignedFractionDigits : maxFractionDigits)) {
+						fracValue = fracValue * 10 + static_cast<value_type>(peekByte(iter, end) - uint_c_v<'0'>);
+						++fracDigits;
+					}
+					++iter;
+				}
+				if (expTable[peekByte(iter, end)]) {
+					++iter;
+					int8_t expSign = 1;
+					if (peekByte(iter, end) == uint_c_v<'-'>) {
+						expSign = -1;
+						++iter;
+					} else if (peekByte(iter, end) == uint_c_v<'+'>) {
+						++iter;
+					}
+					return parseExponentPostFrac(value, iter, expSign, fracValue, fracDigits, end);
+				}
+			}
+			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
+				return iter;
+			} else {
+				return nullptr;
+			}
+		}
+
+		static const uint8_t* finishParse(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
+			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
+				++iter;
+				return parseFraction(value, iter, end);
+			} else if (expTable[peekByte(iter, end)]) {
+				++iter;
+				int8_t expSign = 1;
+				if (peekByte(iter, end) == uint_c_v<'-'>) {
+					expSign = -1;
+					++iter;
+				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
+					++iter;
+				}
+				return parseExponent(value, iter, expSign, end);
+			}
+			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
+				return nullptr;
+			} else {
+				return nullptr;
 			}
 		}
 	};
@@ -1374,6 +1374,22 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
+			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
+				return nullptr;
+			}
+			int64_t expValue;
+			iter = parseExponentDigits(expValue, iter, end);
+			if (expValue >= 19) [[unlikely]] {
+				return nullptr;
+			}
+			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
+			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
+								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
+		}
+
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign,
 			value_type fracValue, int64_t fracDigits) noexcept {
 			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
@@ -1409,22 +1425,6 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
-			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
-				return nullptr;
-			}
-			int64_t expValue;
-			iter = parseExponentDigits(expValue, iter, end);
-			if (expValue >= 19) [[unlikely]] {
-				return nullptr;
-			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
-								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
-		}
-
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
 				value_type fracValue{};
@@ -1450,6 +1450,28 @@ namespace jsonifier::internal {
 			}
 			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
 				return iter;
+			} else {
+				return nullptr;
+			}
+		}
+
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
+				++iter;
+				return parseFraction(value, iter, end);
+			} else if (expTable[peekByte(iter, end)]) {
+				++iter;
+				int8_t expSign = 1;
+				if (peekByte(iter, end) == uint_c_v<'-'>) {
+					expSign = -1;
+					++iter;
+				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
+					++iter;
+				}
+				return parseExponent(value, iter, end, expSign);
+			}
+			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
+				return nullptr;
 			} else {
 				return nullptr;
 			}
@@ -1498,23 +1520,6 @@ namespace jsonifier::internal {
 			return lo;
 		}
 
-		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
-	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __int128_t dividend = static_cast<__int128_t>(value);
-			value					  = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
-			return (dividend % static_cast<__int128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _div128(0, value, expValue, &values);
-			return values == 0;
-	#else
-			value_type values;
-			values = value % expValue;
-			value  = value / expValue;
-			return values == 0;
-	#endif
-		}
-
 		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 			const __int128_t res = static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue);
@@ -1531,39 +1536,39 @@ namespace jsonifier::internal {
 	#endif
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
-				++iter;
-				return parseFraction(value, iter, end);
-			} else if (expTable[peekByte(iter, end)]) {
-				++iter;
-				int8_t expSign = 1;
-				if (peekByte(iter, end) == uint_c_v<'-'>) {
-					expSign = -1;
-					++iter;
-				} else if (peekByte(iter, end) == uint_c_v<'+'>) {
-					++iter;
-				}
-				return parseExponent(value, iter, end, expSign);
-			}
-			if (!expFracTable[peekByte(iter, end)]) [[likely]] {
-				return nullptr;
-			} else {
-				return nullptr;
-			}
+		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
+	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+			const __int128_t dividend = static_cast<__int128_t>(value);
+			value					  = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
+			return (dividend % static_cast<__int128_t>(expValue)) == 0;
+	#elif JSONIFIER_COMPILER_MSVC
+			value_type values;
+			value = _div128(0, value, expValue, &values);
+			return values == 0;
+	#else
+			value_type values;
+			values = value % expValue;
+			value  = value / expValue;
+			return values == 0;
+	#endif
 		}
 	};
 
 	template<uint_types value_type> struct integer_parser<value_type> {
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			iter = parseSwarDigits<value_type, false>(value, iter, end);
-			if (!iter) [[unlikely]] {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
+			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
 				return nullptr;
 			}
-			if (iter < end && expFracTable[*iter]) [[unlikely]] {
-				return finishParse(value, iter, end);
+			int64_t expValue;
+			iter = parseExponentDigits(expValue, iter, end);
+			if (expValue > 19) [[unlikely]] {
+				return nullptr;
 			}
-			return iter;
+			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
+			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
+								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponentPostFrac(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign,
@@ -1601,22 +1606,6 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseExponent(value_type& value, read_buffer_ptr iter, read_buffer_ptr end, int8_t expSign) noexcept {
-			if (!isDigit(peekByte(iter, end))) [[unlikely]] {
-				return nullptr;
-			}
-			int64_t expValue;
-			iter = parseExponentDigits(expValue, iter, end);
-			if (expValue > 19) [[unlikely]] {
-				return nullptr;
-			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
-								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
-		}
-
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFraction(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (isDigit(peekByte(iter, end))) [[likely]] {
 				value_type fracValue{};
@@ -1647,52 +1636,31 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-			value_type aHigh = ab >> 32;
-			value_type aLow	 = ab & 0xFFFFFFFF;
-			value_type bHigh = cd >> 32;
-			value_type bLow	 = cd & 0xFFFFFFFF;
-			value_type loLo	 = aLow * bLow;
-			value_type loHi	 = aLow * bHigh;
-			value_type hiLo	 = aHigh * bLow;
-			value_type hiHi	 = aHigh * bHigh;
-			value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
-			value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
-			hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
-			return lo;
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInteger(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			iter = parseSwarDigits<value_type, false>(value, iter, end);
+			if (!iter) [[unlikely]] {
+				return nullptr;
+			}
+			if (iter < end && expFracTable[*iter]) [[unlikely]] {
+				return finishParse(value, iter, end);
+			}
+			return iter;
 		}
 
-		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
-	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __uint128_t dividend = static_cast<__uint128_t>(value);
-			value					   = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
-			return (dividend % static_cast<__uint128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _udiv128(0, value, expValue, &values);
-			return values == 0;
-	#else
-			value_type values;
-			values = value % expValue;
-			value  = value / expValue;
-			return values == 0;
-	#endif
-		}
-
-		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
-	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
-			value				  = static_cast<value_type>(res);
-			return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _umul128(value, expValue, &values);
-			return values == 0;
-	#else
-			value_type values;
-			value = umul128Generic(value, expValue, &values);
-			return values == 0;
-	#endif
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			if (iter < end) [[likely]] {
+				read_buffer_ptr resultPtr = parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
+				if (resultPtr) [[likely]] {
+					iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
+					return iter;
+				} else {
+					value = 0;
+					return nullptr;
+				}
+			} else {
+				value = 0;
+				return nullptr;
+			}
 		}
 
 		static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
@@ -1717,20 +1685,52 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (iter < end) [[likely]] {
-				read_buffer_ptr resultPtr = parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
-				if (resultPtr) [[likely]] {
-					iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
-					return iter;
-				} else {
-					value = 0;
-					return nullptr;
-				}
-			} else {
-				value = 0;
-				return nullptr;
-			}
+		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
+			value_type aHigh = ab >> 32;
+			value_type aLow	 = ab & 0xFFFFFFFF;
+			value_type bHigh = cd >> 32;
+			value_type bLow	 = cd & 0xFFFFFFFF;
+			value_type loLo	 = aLow * bLow;
+			value_type loHi	 = aLow * bHigh;
+			value_type hiLo	 = aHigh * bLow;
+			value_type hiHi	 = aHigh * bHigh;
+			value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
+			value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
+			hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
+			return lo;
+		}
+
+		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
+	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+			const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
+			value				  = static_cast<value_type>(res);
+			return res <= std::numeric_limits<value_type>::max();
+	#elif JSONIFIER_COMPILER_MSVC
+			value_type values;
+			value = _umul128(value, expValue, &values);
+			return values == 0;
+	#else
+			value_type values;
+			value = umul128Generic(value, expValue, &values);
+			return values == 0;
+	#endif
+		}
+
+		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
+	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+			const __uint128_t dividend = static_cast<__uint128_t>(value);
+			value					   = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
+			return (dividend % static_cast<__uint128_t>(expValue)) == 0;
+	#elif JSONIFIER_COMPILER_MSVC
+			value_type values;
+			value = _udiv128(0, value, expValue, &values);
+			return values == 0;
+	#else
+			value_type values;
+			values = value % expValue;
+			value  = value / expValue;
+			return values == 0;
+	#endif
 		}
 	};
 }

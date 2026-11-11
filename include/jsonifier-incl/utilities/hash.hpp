@@ -9,6 +9,27 @@
 namespace jsonifier::internal {
 
 	struct xoshiro256 {
+		constexpr xoshiro256() noexcept {
+			static constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
+			static constexpr auto x01 = x ^ x << 25ull;
+			static constexpr auto x02 = x01 ^ x01 >> 27ull;
+			uint64_t s		   = x02 * 0x2545F4914F6CDD1Dull;
+			for (uint64_t y = 0; y < 4; ++y) {
+				state[y] = splitmix64(s);
+			}
+		}
+
+		constexpr uint64_t rotl(const uint64_t x, const uint64_t k) const noexcept {
+			return (x << k) | (x >> (64ull - k));
+		}
+
+		constexpr uint64_t splitmix64(uint64_t& seed64) const noexcept {
+			uint64_t result = seed64 += 0x9E3779B97F4A7C15ull;
+			result			= (result ^ (result >> 30ull)) * 0xBF58476D1CE4E5B9ull;
+			result			= (result ^ (result >> 27ull)) * 0x94D049BB133111EBull;
+			return result ^ (result >> 31ull);
+		}
+
 		constexpr uint64_t operator()() noexcept {
 			const uint64_t result = rotl(state[1ull] * 5ull, 7ull) * 9ull;
 			const uint64_t t	  = state[1ull] << 17ull;
@@ -23,27 +44,6 @@ namespace jsonifier::internal {
 			state[3ull] = rotl(state[3ull], 45ull);
 
 			return result;
-		}
-
-		constexpr xoshiro256() noexcept {
-			static constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
-			static constexpr auto x01 = x ^ x << 25ull;
-			static constexpr auto x02 = x01 ^ x01 >> 27ull;
-			uint64_t s		   = x02 * 0x2545F4914F6CDD1Dull;
-			for (uint64_t y = 0; y < 4; ++y) {
-				state[y] = splitmix64(s);
-			}
-		}
-
-		constexpr uint64_t splitmix64(uint64_t& seed64) const noexcept {
-			uint64_t result = seed64 += 0x9E3779B97F4A7C15ull;
-			result			= (result ^ (result >> 30ull)) * 0xBF58476D1CE4E5B9ull;
-			result			= (result ^ (result >> 27ull)) * 0x94D049BB133111EBull;
-			return result ^ (result >> 31ull);
-		}
-
-		constexpr uint64_t rotl(const uint64_t x, const uint64_t k) const noexcept {
-			return (x << k) | (x >> (64ull - k));
 		}
 
 		uint64_t state[4]{};
@@ -82,6 +82,14 @@ namespace jsonifier::internal {
 	}
 
 	struct ct_key_hasher {
+		constexpr ct_key_hasher(uint64_t seedNew = 0) noexcept {
+			if (seedNew != 0) {
+				seed = seedNew;
+			} else {
+				updateSeed();
+			}
+		}
+
 		consteval uint64_t hashKeyCt(const char* value, uint64_t length) const {
 			uint64_t seed64{ seed };
 
@@ -121,14 +129,6 @@ namespace jsonifier::internal {
 		constexpr void updateSeed() noexcept {
 			seed = prns[index % prns.size()];
 			++index;
-		}
-
-		constexpr ct_key_hasher(uint64_t seedNew = 0) noexcept {
-			if (seedNew != 0) {
-				seed = seedNew;
-			} else {
-				updateSeed();
-			}
 		}
 
 		uint64_t index{};

@@ -44,20 +44,36 @@ namespace jsonifier::internal {
 
 	template<trivially_constructible_copyable_destructible_types value_type_new> struct alloc_wrapper {
 		using value_type					= value_type_new;
-		using pointer						= value_type*;
-		using const_pointer					= const value_type*;
 		using size_type						= uint64_t;
 		using difference_type				= ptrdiff_t;
+		using pointer						= value_type*;
+		using const_pointer					= const value_type*;
 		static constexpr uint64_t alignment = (alignof(value_type_new) > simdBytesPerRegister) ? alignof(value_type_new) : simdBytesPerRegister;
 
 		struct allocation_header {
-			allocated_memory_types type{};
 			size_type totalBytes{};
+			allocated_memory_types type{};
 		};
 
 		static constexpr uint64_t headerSize		= roundUpToMultiple<alignment>(sizeof(allocation_header));
 		static constexpr uint64_t hugePageSize		= 2 * 1024 * 1024ULL;
 		static constexpr uint64_t hugePageThreshold = hugePageSize * 2;
+
+		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
+
+		template<typename other_type> JSONIFIER_INLINE alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
+		}
+
+		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
+			allocation_header* header = static_cast<allocation_header*>(base);
+			header->totalBytes		  = totalBytes;
+			header->type			  = type;
+			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE static void construct(pointer p, arg_types&&... args) noexcept {
+			new (p) value_type(internal::forward<arg_types>(args)...);
+		}
 
 		JSONIFIER_INLINE static pointer allocate(size_type count) noexcept {
 			if (count == 0) [[unlikely]] {
@@ -109,6 +125,14 @@ namespace jsonifier::internal {
 			return finalize(p, allocated_memory_types::standard, alignedBytes);
 		}
 
+		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
+			return (static_cast<size_type>(-1) - headerSize - (alignment - 1)) / sizeof(value_type);
+		}
+
+		JSONIFIER_INLINE constexpr bool operator!=(const alloc_wrapper& other) const noexcept {
+			return !(*this == other);
+		}
+
 		JSONIFIER_INLINE static void deallocate(pointer p, size_type) noexcept {
 			if (p) [[likely]] {
 				void* base							  = std::bit_cast<std::byte*>(p) - headerSize;
@@ -154,36 +178,12 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
-			allocation_header* header = static_cast<allocation_header*>(base);
-			header->totalBytes		  = totalBytes;
-			header->type			  = type;
-			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
-		}
-
-		template<typename... arg_types> JSONIFIER_INLINE static void construct(pointer p, arg_types&&... args) noexcept {
-			new (p) value_type(internal::forward<arg_types>(args)...);
-		}
-
-		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
-			return (static_cast<size_type>(-1) - headerSize - (alignment - 1)) / sizeof(value_type);
-		}
-
-		JSONIFIER_INLINE constexpr bool operator!=(const alloc_wrapper& other) const noexcept {
-			return !(*this == other);
-		}
-
 		JSONIFIER_INLINE constexpr bool operator==(const alloc_wrapper&) const noexcept {
 			return true;
 		}
 
-		template<typename other_type> JSONIFIER_INLINE alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
-		}
-
 		JSONIFIER_INLINE static void destroy(pointer) noexcept {
 		}
-
-		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
 
 		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
 

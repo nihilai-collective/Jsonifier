@@ -38,6 +38,27 @@ namespace jsonifier::generic {
 	  public:
 		static constexpr uint32_t npos{ std::numeric_limits<uint32_t>::max() };
 
+		JSONIFIER_INLINE field_index_map() noexcept		   = default;
+
+		JSONIFIER_INLINE field_index_map& operator=(field_index_map&& other) noexcept {
+			if (this != &other) [[likely]] {
+				controls  = internal::move(other.controls);
+				entries	  = internal::move(other.entries);
+				slotCount = std::exchange(other.slotCount, uint32_t{});
+				groupMask = std::exchange(other.groupMask, uint64_t{});
+				count	  = std::exchange(other.count, uint64_t{});
+			}
+			return *this;
+		}
+
+		JSONIFIER_INLINE field_index_map(field_index_map&& other) noexcept
+			: controls{ internal::move(other.controls) }, entries{ internal::move(other.entries) }, groupMask{ std::exchange(other.groupMask, uint64_t{}) },
+			  count{ std::exchange(other.count, uint64_t{}) }, slotCount{ std::exchange(other.slotCount, uint32_t{}) } {
+		}
+
+		field_index_map& operator=(const field_index_map&) = delete;
+		field_index_map(const field_index_map&)			   = delete;
+
 		JSONIFIER_INLINE static uint64_t hashKey(read_buffer_ptr keyData, uint64_t keyLength, uint32_t objectIndex) noexcept {
 			uint64_t low{};
 			uint64_t high{};
@@ -99,26 +120,6 @@ namespace jsonifier::generic {
 			return count;
 		}
 
-		JSONIFIER_INLINE field_index_map& operator=(field_index_map&& other) noexcept {
-			if (this != &other) [[likely]] {
-				controls  = internal::move(other.controls);
-				entries	  = internal::move(other.entries);
-				slotCount = std::exchange(other.slotCount, uint32_t{});
-				groupMask = std::exchange(other.groupMask, uint64_t{});
-				count	  = std::exchange(other.count, uint64_t{});
-			}
-			return *this;
-		}
-
-		JSONIFIER_INLINE field_index_map(field_index_map&& other) noexcept
-			: controls{ internal::move(other.controls) }, entries{ internal::move(other.entries) }, slotCount{ std::exchange(other.slotCount, uint32_t{}) },
-			  groupMask{ std::exchange(other.groupMask, uint64_t{}) }, count{ std::exchange(other.count, uint64_t{}) } {
-		}
-
-		JSONIFIER_INLINE field_index_map() noexcept		   = default;
-		field_index_map& operator=(const field_index_map&) = delete;
-		field_index_map(const field_index_map&)			   = delete;
-
 	  protected:
 		struct entry {
 			uint64_t hash;
@@ -131,6 +132,26 @@ namespace jsonifier::generic {
 		static constexpr int8_t emptyControl{ static_cast<int8_t>(-128) };
 		static constexpr uint64_t hashSeed{ 14695981039346656037ull };
 		static constexpr uint64_t mixMultiplier{ 0x9DDFEA08EB382D69ull };
+
+		JSONIFIER_INLINE void place(const entry& newEntry) noexcept {
+			uint64_t group = (newEntry.hash >> 7) & groupMask;
+			while (true) {
+				int8_t* groupControls = controls.data() + group * groupWidth;
+				if (const uint64_t empties = field_index_group::match(groupControls, emptyControl); empties != 0) [[likely]] {
+					const uint64_t lane						  = field_index_group::firstLane(empties);
+					groupControls[lane]						  = static_cast<int8_t>(newEntry.hash & 0x7F);
+					entries.data()[group * groupWidth + lane] = newEntry;
+					return;
+				}
+				group = (group + 1) & groupMask;
+			}
+		}
+
+		template<typename word_type> JSONIFIER_INLINE static uint64_t loadWord(read_buffer_ptr source) noexcept {
+			word_type word;
+			pow2MemcpyWrapper<sizeof(word_type)>(&word, source);
+			return static_cast<uint64_t>(word);
+		}
 
 		JSONIFIER_INLINE static uint64_t longKeyHash(read_buffer_ptr keyData, uint64_t keyLength) noexcept {
 			static constexpr uint64_t c1{ 0x87c37b91114253d5ull };
@@ -179,6 +200,20 @@ namespace jsonifier::generic {
 			return h1 + h2;
 		}
 
+		JSONIFIER_INLINE static uint64_t mix64(uint64_t value, uint64_t multiplier) noexcept {
+#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+			const __uint128_t product = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(multiplier);
+			return static_cast<uint64_t>(product) ^ static_cast<uint64_t>(product >> 64);
+#elif JSONIFIER_COMPILER_MSVC
+			uint64_t highPart;
+			const uint64_t lowPart = _umul128(value, multiplier, &highPart);
+			return lowPart ^ highPart;
+#else
+			const uint64_t lowPart = value * multiplier;
+			return lowPart ^ ((value >> 32) * (multiplier >> 32));
+#endif
+		}
+
 		void grow() noexcept {
 			const uint64_t newSlotCount = slotCount == 0 ? initialSlots : uint64_t{ slotCount } * 2;
 			alloc_buffer<int8_t> oldControls{ internal::move(controls) };
@@ -196,32 +231,8 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE static uint64_t mix64(uint64_t value, uint64_t multiplier) noexcept {
-#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __uint128_t product = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(multiplier);
-			return static_cast<uint64_t>(product) ^ static_cast<uint64_t>(product >> 64);
-#elif JSONIFIER_COMPILER_MSVC
-			uint64_t highPart;
-			const uint64_t lowPart = _umul128(value, multiplier, &highPart);
-			return lowPart ^ highPart;
-#else
-			const uint64_t lowPart = value * multiplier;
-			return lowPart ^ ((value >> 32) * (multiplier >> 32));
-#endif
-		}
-
-		JSONIFIER_INLINE void place(const entry& newEntry) noexcept {
-			uint64_t group = (newEntry.hash >> 7) & groupMask;
-			while (true) {
-				int8_t* groupControls = controls.data() + group * groupWidth;
-				if (const uint64_t empties = field_index_group::match(groupControls, emptyControl); empties != 0) [[likely]] {
-					const uint64_t lane						  = field_index_group::firstLane(empties);
-					groupControls[lane]						  = static_cast<int8_t>(newEntry.hash & 0x7F);
-					entries.data()[group * groupWidth + lane] = newEntry;
-					return;
-				}
-				group = (group + 1) & groupMask;
-			}
+		JSONIFIER_INLINE static uint64_t rotl64(uint64_t value, int32_t shift) noexcept {
+			return (value << shift) | (value >> (64 - shift));
 		}
 
 		JSONIFIER_INLINE static uint64_t fmix64(uint64_t value) noexcept {
@@ -233,21 +244,11 @@ namespace jsonifier::generic {
 			return value;
 		}
 
-		template<typename word_type> JSONIFIER_INLINE static uint64_t loadWord(read_buffer_ptr source) noexcept {
-			word_type word;
-			pow2MemcpyWrapper<sizeof(word_type)>(&word, source);
-			return static_cast<uint64_t>(word);
-		}
-
-		JSONIFIER_INLINE static uint64_t rotl64(uint64_t value, int32_t shift) noexcept {
-			return (value << shift) | (value >> (64 - shift));
-		}
-
 		alloc_buffer<int8_t> controls{};
 		alloc_buffer<entry> entries{};
-		uint32_t slotCount{};
 		uint64_t groupMask{};
 		uint64_t count{};
+		uint32_t slotCount{};
 	};
 
 }

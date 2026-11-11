@@ -107,7 +107,7 @@ namespace jsonifier::internal {
 		}
 
 		template<uint64_t index>
-		JSONIFIER_INLINE static parse_result parseMatchedMember(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_result parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
@@ -160,7 +160,7 @@ namespace jsonifier::internal {
 		}
 
 		template<uint64_t index>
-		JSONIFIER_NOINLINE static parse_result parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE static parse_result parseMatchedMember(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
@@ -180,6 +180,22 @@ namespace jsonifier::internal {
 		using cursor					  = cursor_t<options, context_type>;
 		using step_type					  = parse_step<iterator_type>;
 		static constexpr auto memberCount = coreTupleSize<value_type>;
+
+		template<uint64_t index> JSONIFIER_INLINE_EXCEPT_MAC_GCC static step_type parseMatchedMember(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
+			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
+			static constexpr auto ptrNew	 = tupleElem.memberPtr;
+			if constexpr (excluded_keys_types<value_type>) {
+				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+				auto& keys				  = value.jsonifierExcludedKeys;
+				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
+					const bool skipped = cursor::skipValue(iter, context);
+					return { iter, skipped ? parse_result::active_member : parse_result::failed };
+				}
+			}
+			const iterator_type iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
+			return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
+		}
 
 		template<uint64_t index> JSONIFIER_INLINE_EXCEPT_MAC_GCC static step_type processIndex(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
@@ -218,7 +234,7 @@ namespace jsonifier::internal {
 			return { iter, parse_result::inactive_member };
 		}
 
-		template<uint64_t index> JSONIFIER_INLINE_EXCEPT_MAC_GCC static step_type parseMatchedMember(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		template<uint64_t index> JSONIFIER_NOINLINE static step_type parseMatchedMemberOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
@@ -269,22 +285,6 @@ namespace jsonifier::internal {
 				}
 			}
 			return { iter, parse_result::inactive_member };
-		}
-
-		template<uint64_t index> JSONIFIER_NOINLINE static step_type parseMatchedMemberOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
-			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
-			static constexpr auto ptrNew	 = tupleElem.memberPtr;
-			if constexpr (excluded_keys_types<value_type>) {
-				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
-				auto& keys				  = value.jsonifierExcludedKeys;
-				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-					const bool skipped = cursor::skipValue(iter, context);
-					return { iter, skipped ? parse_result::active_member : parse_result::failed };
-				}
-			}
-			const iterator_type iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
-			return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
 		}
 	};
 #endif
@@ -341,9 +341,10 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct anti_hash_states;
 
 	template<uint64_t... indices> struct anti_hash_states<integer_sequence<indices...>> {
+		constexpr anti_hash_states()						 = default;
 		anti_hash_states& operator=(const anti_hash_states&) = delete;
 		anti_hash_states(const anti_hash_states&)			 = delete;
-		constexpr anti_hash_states()						 = default;
+
 		std::atomic<uint64_t> values[sizeof...(indices)]{ indices... };
 	};
 
@@ -869,17 +870,17 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	template<typename... bases> struct parse_map : public bases... {
-		template<typename value_type, typename context_type> JSONIFIER_INLINE static parse_result iterateValues([[maybe_unused]] value_type& __restrict value,
-			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& __restrict context) {
-			parse_result result{ parse_result::active_member };
-			static_cast<void>(((result = bases::processIndex(value, iter, depth, context), result == parse_result::active_member) && ...));
-			return result;
-		}
-
 		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static parse_result iterateValuesOutline([[maybe_unused]] value_type& __restrict value,
 			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& __restrict context) {
 			parse_result result{ parse_result::active_member };
 			static_cast<void>(((result = bases::processIndexOutline(value, iter, depth, context), result == parse_result::active_member) && ...));
+			return result;
+		}
+
+		template<typename value_type, typename context_type> JSONIFIER_INLINE static parse_result iterateValues([[maybe_unused]] value_type& __restrict value,
+			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& __restrict context) {
+			parse_result result{ parse_result::active_member };
+			static_cast<void>(((result = bases::processIndex(value, iter, depth, context), result == parse_result::active_member) && ...));
 			return result;
 		}
 	};
@@ -1340,7 +1341,7 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!cursor::arrayStart(iter, depth, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -1378,7 +1379,7 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!cursor::arrayStart(iter, depth, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -1422,12 +1423,10 @@ namespace jsonifier::internal {
 		using cursor					  = cursor_t<options, context_type>;
 		static constexpr auto memberCount = tupleSizeOf<value_type>;
 
-		template<uint64_t index> JSONIFIER_INLINE static bool parseMember(value_type& value, iterator_type& iter, uint64_t depth, context_type& context) {
-			if (!cursor::template incrementIfEquals<','>(iter, context)) [[unlikely]] {
-				return false;
-			}
-			iter = parse<options>::impl(get<index>(value), iter, depth, context);
-			return iter != nullptr;
+		template<uint64_t... indices>
+		JSONIFIER_NOINLINE static iterator_type parseRestOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context, integer_sequence<indices...>) {
+			static_cast<void>((parseMemberOutline<indices + 1>(value, iter, depth, context) && ...));
+			return iter;
 		}
 
 		template<uint64_t... indices>
@@ -1436,7 +1435,19 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		template<uint64_t index> JSONIFIER_NOINLINE static bool parseMemberOutline(value_type& value, iterator_type& iter, uint64_t depth, context_type& context) {
+			return parseMember<index>(value, iter, depth, context);
+		}
+
+		template<uint64_t index> JSONIFIER_INLINE static bool parseMember(value_type& value, iterator_type& iter, uint64_t depth, context_type& context) {
+			if (!cursor::template incrementIfEquals<','>(iter, context)) [[unlikely]] {
+				return false;
+			}
+			iter = parse<options>::impl(get<index>(value), iter, depth, context);
+			return iter != nullptr;
+		}
+
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!cursor::arrayStart(iter, depth, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -1450,7 +1461,7 @@ namespace jsonifier::internal {
 					return nullptr;
 				}
 				if constexpr (memberCount > 1) {
-					iter = parseRest(value, iter, innerDepth, context, make_integer_sequence<memberCount - 1>{});
+					iter = parseRestOutline(value, iter, innerDepth, context, make_integer_sequence<memberCount - 1>{});
 					if (!iter) [[unlikely]] {
 						return nullptr;
 					}
@@ -1471,17 +1482,7 @@ namespace jsonifier::internal {
 			return iter;
 		}
 
-		template<uint64_t index> JSONIFIER_NOINLINE static bool parseMemberOutline(value_type& value, iterator_type& iter, uint64_t depth, context_type& context) {
-			return parseMember<index>(value, iter, depth, context);
-		}
-
-		template<uint64_t... indices>
-		JSONIFIER_NOINLINE static iterator_type parseRestOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context, integer_sequence<indices...>) {
-			static_cast<void>((parseMemberOutline<indices + 1>(value, iter, depth, context) && ...));
-			return iter;
-		}
-
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!cursor::arrayStart(iter, depth, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -1495,7 +1496,7 @@ namespace jsonifier::internal {
 					return nullptr;
 				}
 				if constexpr (memberCount > 1) {
-					iter = parseRestOutline(value, iter, innerDepth, context, make_integer_sequence<memberCount - 1>{});
+					iter = parseRest(value, iter, innerDepth, context, make_integer_sequence<memberCount - 1>{});
 					if (!iter) [[unlikely]] {
 						return nullptr;
 					}
@@ -1597,85 +1598,6 @@ namespace jsonifier::internal {
 		using cursor		= cursor_t<options, context_type>;
 
 		template<json_type type, typename variant_type, uint64_t currentIndex = 0>
-		JSONIFIER_INLINE static iterator_type iterateVariantTypes(variant_type&& variant, iterator_type iter, uint64_t depth, context_type& context) {
-			if constexpr (currentIndex < std::variant_size_v<remove_cvref_t<variant_type>>) {
-				using element_type = remove_cvref_t<decltype(std::get<currentIndex>(std::declval<remove_cvref_t<variant_type>>()))>;
-				if constexpr (jsonifier_object_types<element_type> && type == json_type::object) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && type == json_type::array) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && type == json_type::string) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (bool_types<element_type> && type == json_type::boolean) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && type == json_type::number) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (always_null_types<element_type> && type == json_type::null) {
-					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else {
-					return iterateVariantTypes<type, variant_type, currentIndex + 1>(variant, iter, depth, context);
-				}
-			} else {
-				static_cast<void>(cursor::template reject<parse_statuses::unexpected_token>(iter, context));
-				return nullptr;
-			}
-		}
-
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if constexpr (!options.minified && !structural_context_types<context_type>) {
-				cursor::skipWhitespaceScalar(iter, context);
-			}
-			if (!cursor::hasMoreInput(iter, context)) [[unlikely]] {
-				return nullptr;
-			}
-			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
-				case uint_c_v<'{'>: {
-					return iterateVariantTypes<json_type::object>(value, iter, depth, context);
-				}
-				case uint_c_v<'['>: {
-					return iterateVariantTypes<json_type::array>(value, iter, depth, context);
-				}
-				case uint_c_v<'"'>: {
-					return iterateVariantTypes<json_type::string>(value, iter, depth, context);
-				}
-				case uint_c_v<'t'>:
-					[[fallthrough]];
-				case uint_c_v<'f'>: {
-					return iterateVariantTypes<json_type::boolean>(value, iter, depth, context);
-				}
-				case uint_c_v<'-'>:
-					[[fallthrough]];
-				case uint_c_v<'0'>:
-					[[fallthrough]];
-				case uint_c_v<'1'>:
-					[[fallthrough]];
-				case uint_c_v<'2'>:
-					[[fallthrough]];
-				case uint_c_v<'3'>:
-					[[fallthrough]];
-				case uint_c_v<'4'>:
-					[[fallthrough]];
-				case uint_c_v<'5'>:
-					[[fallthrough]];
-				case uint_c_v<'6'>:
-					[[fallthrough]];
-				case uint_c_v<'7'>:
-					[[fallthrough]];
-				case uint_c_v<'8'>:
-					[[fallthrough]];
-				case uint_c_v<'9'>: {
-					return iterateVariantTypes<json_type::number>(value, iter, depth, context);
-				}
-				case uint_c_v<'n'>: {
-					return iterateVariantTypes<json_type::null>(value, iter, depth, context);
-				}
-				default: {
-					return iter;
-				}
-			}
-		}
-
-		template<json_type type, typename variant_type, uint64_t currentIndex = 0>
 		JSONIFIER_NOINLINE static iterator_type iterateVariantTypesOutline(variant_type&& variant, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (currentIndex < std::variant_size_v<remove_cvref_t<variant_type>>) {
 				using element_type = remove_cvref_t<decltype(std::get<currentIndex>(std::declval<remove_cvref_t<variant_type>>()))>;
@@ -1693,6 +1615,31 @@ namespace jsonifier::internal {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
 				} else {
 					return iterateVariantTypesOutline<type, variant_type, currentIndex + 1>(variant, iter, depth, context);
+				}
+			} else {
+				static_cast<void>(cursor::template reject<parse_statuses::unexpected_token>(iter, context));
+				return nullptr;
+			}
+		}
+
+		template<json_type type, typename variant_type, uint64_t currentIndex = 0>
+		JSONIFIER_INLINE static iterator_type iterateVariantTypes(variant_type&& variant, iterator_type iter, uint64_t depth, context_type& context) {
+			if constexpr (currentIndex < std::variant_size_v<remove_cvref_t<variant_type>>) {
+				using element_type = remove_cvref_t<decltype(std::get<currentIndex>(std::declval<remove_cvref_t<variant_type>>()))>;
+				if constexpr (jsonifier_object_types<element_type> && type == json_type::object) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && type == json_type::array) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && type == json_type::string) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else if constexpr (bool_types<element_type> && type == json_type::boolean) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && type == json_type::number) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else if constexpr (always_null_types<element_type> && type == json_type::null) {
+					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
+				} else {
+					return iterateVariantTypes<type, variant_type, currentIndex + 1>(variant, iter, depth, context);
 				}
 			} else {
 				static_cast<void>(cursor::template reject<parse_statuses::unexpected_token>(iter, context));
@@ -1753,6 +1700,60 @@ namespace jsonifier::internal {
 				}
 			}
 		}
+
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+			if constexpr (!options.minified && !structural_context_types<context_type>) {
+				cursor::skipWhitespaceScalar(iter, context);
+			}
+			if (!cursor::hasMoreInput(iter, context)) [[unlikely]] {
+				return nullptr;
+			}
+			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
+				case uint_c_v<'{'>: {
+					return iterateVariantTypes<json_type::object>(value, iter, depth, context);
+				}
+				case uint_c_v<'['>: {
+					return iterateVariantTypes<json_type::array>(value, iter, depth, context);
+				}
+				case uint_c_v<'"'>: {
+					return iterateVariantTypes<json_type::string>(value, iter, depth, context);
+				}
+				case uint_c_v<'t'>:
+					[[fallthrough]];
+				case uint_c_v<'f'>: {
+					return iterateVariantTypes<json_type::boolean>(value, iter, depth, context);
+				}
+				case uint_c_v<'-'>:
+					[[fallthrough]];
+				case uint_c_v<'0'>:
+					[[fallthrough]];
+				case uint_c_v<'1'>:
+					[[fallthrough]];
+				case uint_c_v<'2'>:
+					[[fallthrough]];
+				case uint_c_v<'3'>:
+					[[fallthrough]];
+				case uint_c_v<'4'>:
+					[[fallthrough]];
+				case uint_c_v<'5'>:
+					[[fallthrough]];
+				case uint_c_v<'6'>:
+					[[fallthrough]];
+				case uint_c_v<'7'>:
+					[[fallthrough]];
+				case uint_c_v<'8'>:
+					[[fallthrough]];
+				case uint_c_v<'9'>: {
+					return iterateVariantTypes<json_type::number>(value, iter, depth, context);
+				}
+				case uint_c_v<'n'>: {
+					return iterateVariantTypes<json_type::null>(value, iter, depth, context);
+				}
+				default: {
+					return iter;
+				}
+			}
+		}
 	};
 
 	template<parse_options options, typename iterator_type, typename context_type> JSONIFIER_INLINE bool isNullValue(iterator_type& iter, context_type& context) noexcept {
@@ -1767,7 +1768,7 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				return parse<options>::impl(value.emplace(), iter, depth, context);
 			}
@@ -1775,7 +1776,7 @@ namespace jsonifier::internal {
 			return cursor::iterateNull(iter, context) ? iter : nullptr;
 		}
 
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				return parse<options>::impl(value.emplace(), iter, depth, context);
 			}
@@ -1788,7 +1789,7 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
@@ -1800,7 +1801,7 @@ namespace jsonifier::internal {
 			return cursor::iterateNull(iter, context) ? iter : nullptr;
 		}
 
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
@@ -1817,7 +1818,7 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
@@ -1829,7 +1830,7 @@ namespace jsonifier::internal {
 			return cursor::iterateNull(iter, context) ? iter : nullptr;
 		}
 
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
@@ -1846,7 +1847,7 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				if (!value) [[unlikely]] {
 					value = new jsonifier::internal::remove_pointer_t<value_type>{};
@@ -1856,7 +1857,7 @@ namespace jsonifier::internal {
 			return cursor::iterateNull(iter, context) ? iter : nullptr;
 		}
 
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
 				if (!value) [[unlikely]] {
 					value = new jsonifier::internal::remove_pointer_t<value_type>{};
@@ -1880,35 +1881,6 @@ namespace jsonifier::internal {
 	template<raw_json_types value_type, typename context_type, parse_options options> struct parse_impl<value_type, context_type, options> {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
-
-		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
-			auto iter	   = token.data();
-			const auto end = iter + token.size();
-			if (iter < end && *iter == uint_c_v<'-'>) {
-				++iter;
-			}
-			if (iter < end && *iter == uint_c_v<'0'>) {
-				++iter;
-			} else if (!digit_run_scanner::impl(iter, end)) {
-				return false;
-			}
-			if (iter < end && *iter == uint_c_v<'.'>) {
-				++iter;
-				if (!digit_run_scanner::impl(iter, end)) {
-					return false;
-				}
-			}
-			if (iter < end && ( *iter == uint_c_v<'e'> || *iter == uint_c_v<'E'> )) {
-				++iter;
-				if (iter < end && ( *iter == uint_c_v<'+'> || *iter == uint_c_v<'-'> )) {
-					++iter;
-				}
-				if (!digit_run_scanner::impl(iter, end)) {
-					return false;
-				}
-			}
-			return iter == end;
-		}
 
 		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (!options.minified && !structural_context_types<context_type>) {
@@ -1952,6 +1924,35 @@ namespace jsonifier::internal {
 				return cursor::template reject<parse_statuses::unexpected_token>(tokenIter, context) ? iter : nullptr;
 			}
 			return iter;
+		}
+
+		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
+			auto iter	   = token.data();
+			const auto end = iter + token.size();
+			if (iter < end && *iter == uint_c_v<'-'>) {
+				++iter;
+			}
+			if (iter < end && *iter == uint_c_v<'0'>) {
+				++iter;
+			} else if (!digit_run_scanner::impl(iter, end)) {
+				return false;
+			}
+			if (iter < end && *iter == uint_c_v<'.'>) {
+				++iter;
+				if (!digit_run_scanner::impl(iter, end)) {
+					return false;
+				}
+			}
+			if (iter < end && ( *iter == uint_c_v<'e'> || *iter == uint_c_v<'E'> )) {
+				++iter;
+				if (iter < end && ( *iter == uint_c_v<'+'> || *iter == uint_c_v<'-'> )) {
+					++iter;
+				}
+				if (!digit_run_scanner::impl(iter, end)) {
+					return false;
+				}
+			}
+			return iter == end;
 		}
 	};
 

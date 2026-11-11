@@ -243,6 +243,17 @@ namespace jsonifier::internal {
 	template<tuple_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
 		static constexpr auto memberCount = tupleSizeOf<value_type>;
 
+		template<auto... values> struct tuple_member_sizer {
+			template<uint64_t index, typename value_type_new> static void impl(value_type_new& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
+				if constexpr (options.prettify) {
+					requiredSize += 2 + indent;
+				} else {
+					++requiredSize;
+				}
+				requiredSize += get_size<options>::impl(get<index>(value), indent);
+			}
+		};
+
 		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
 			uint64_t requiredSize{};
 			if constexpr (memberCount > 0) {
@@ -266,17 +277,6 @@ namespace jsonifier::internal {
 			}
 			return requiredSize;
 		}
-
-		template<auto... values> struct tuple_member_sizer {
-			template<uint64_t index, typename value_type_new> static void impl(value_type_new& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
-				if constexpr (options.prettify) {
-					requiredSize += 2 + indent;
-				} else {
-					++requiredSize;
-				}
-				requiredSize += get_size<options>::impl(get<index>(value), indent);
-			}
-		};
 	};
 
 	template<number_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
@@ -414,6 +414,18 @@ namespace jsonifier::internal {
 		static constexpr uint64_t totalLen{ prefix.size() + maxIndentBytes };
 		static constexpr uint64_t paddedLen{ (totalLen + 7) & ~uint64_t{ 7 } };
 
+		static constexpr array<uint64_t, (paddedLen / sizeof(uint64_t))> data{ []() -> array<uint64_t, (paddedLen / sizeof(uint64_t))> {
+			array<uint64_t, (paddedLen / sizeof(uint64_t))> arr{};
+			for (uint64_t i = 0; i < prefix.size(); ++i) {
+				arr[i / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(prefix.values[i])) << ((i % sizeof(uint64_t)) * 8);
+			}
+			for (uint64_t i = 0; i < maxIndentBytes; ++i) {
+				const uint64_t idx = prefix.size() + i;
+				arr[idx / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(indentChar)) << ((idx % sizeof(uint64_t)) * 8);
+			}
+			return arr;
+		}() };
+
 		JSONIFIER_INLINE static void blitWithOverflow(write_buffer_ptr& bufferPtr, uint64_t totalIndent) noexcept {
 			const uint64_t capped  = totalIndent < maxIndentBytes ? totalIndent : maxIndentBytes;
 			const uint64_t advance = prefix.size() + capped;
@@ -426,18 +438,6 @@ namespace jsonifier::internal {
 				bufferPtr += remaining;
 			}
 		}
-
-		static constexpr array<uint64_t, (paddedLen / sizeof(uint64_t))> data{ []() -> array<uint64_t, (paddedLen / sizeof(uint64_t))> {
-			array<uint64_t, (paddedLen / sizeof(uint64_t))> arr{};
-			for (uint64_t i = 0; i < prefix.size(); ++i) {
-				arr[i / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(prefix.values[i])) << ((i % sizeof(uint64_t)) * 8);
-			}
-			for (uint64_t i = 0; i < maxIndentBytes; ++i) {
-				const uint64_t idx = prefix.size() + i;
-				arr[idx / sizeof(uint64_t)] |= static_cast<uint64_t>(static_cast<uint8_t>(indentChar)) << ((idx % sizeof(uint64_t)) * 8);
-			}
-			return arr;
-		}() };
 	};
 
 	template<uint64_t size> consteval uint64_t roundToChunk() {
@@ -806,6 +806,7 @@ namespace jsonifier::internal {
 
 	template<string_types value_type, serialize_options options> struct serialize_impl<value_type, options> {
 		static constexpr char_blitter<"\"\""> emptyString{};
+
 		template<typename value_type_new>
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t) noexcept {
 			const auto newSize = value.size();

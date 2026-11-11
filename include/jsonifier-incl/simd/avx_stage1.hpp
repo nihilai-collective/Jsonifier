@@ -86,8 +86,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	struct bracket_masks {
-		uint64_t opens;
 		uint64_t closes;
+		uint64_t opens;
 	};
 
 	struct bracket_collector {
@@ -102,11 +102,22 @@ namespace jsonifier::internal::simd {
 					folded.set<3>(simd::opOr(in01.get<3>(), spaceMask));
 				}
 			}
-			return { cmp_eq_op::impl(folded, openRegister), cmp_eq_op::impl(folded, closeRegister) };
+			return { cmp_eq_op::impl(folded, closeRegister), cmp_eq_op::impl(folded, openRegister) };
 		}
 	};
 
 	template<typename rope_block> struct rope_detector : rope_block {
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
+			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;
+
+		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
+			const uint64_t escaped = nextEscapeAndTerminalCode(simd::cmp_eq_op::impl(in01, bsRegister));
+			const uint64_t quotes  = (simd::cmp_eq_op::impl(in01, quoteRegister) & ~escaped);
+			rope_block::escaped	   = escaped;
+			rope_block::quotes	   = quotes;
+			return quotes ? finishNext() : finishNextNoInString();
+		}
+
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
 			if (!backslashLocal) {
 				const uint64_t escaped = nextIsEscaped;
@@ -119,14 +130,6 @@ namespace jsonifier::internal::simd {
 			return escaped;
 		}
 
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
-			const uint64_t escaped = nextEscapeAndTerminalCode(simd::cmp_eq_op::impl(in01, bsRegister));
-			const uint64_t quotes  = (simd::cmp_eq_op::impl(in01, quoteRegister) & ~escaped);
-			rope_block::escaped	   = escaped;
-			rope_block::quotes	   = quotes;
-			return quotes ? finishNext() : finishNextNoInString();
-		}
-
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCodeImpl(const uint64_t potentialEscape) noexcept {
 			static constexpr uint64_t oddBits{ 0xAAAAAAAAAAAAAAAAULL };
 			const uint64_t maybeEscaped				 = potentialEscape << 1;
@@ -135,19 +138,16 @@ namespace jsonifier::internal::simd {
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
-			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;
+		JSONIFIER_INLINE uint64_t followsNonquoteScalar(const uint64_t nonquoteScalar) noexcept {
+			const uint64_t shifted = (nonquoteScalar << 1) | prevScalar;
+			prevScalar			   = nonquoteScalar >> 63;
+			return shifted;
+		}
 
 		JSONIFIER_INLINE void finishNext() noexcept {
 			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
-		}
-
-		JSONIFIER_INLINE uint64_t followsNonquoteScalar(const uint64_t nonquoteScalar) noexcept {
-			const uint64_t shifted = (nonquoteScalar << 1) | prevScalar;
-			prevScalar			   = nonquoteScalar >> 63;
-			return shifted;
 		}
 
 		JSONIFIER_INLINE void finishNextNoInString() noexcept {

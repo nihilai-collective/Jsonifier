@@ -25,6 +25,7 @@ namespace jsonifier::internal {
 
 	template<char valueNewer, typename char_type> struct char_comparison {
 		static constexpr char value{ valueNewer };
+
 		JSONIFIER_INLINE static const char_type* memchar(const char_type* data, uint64_t lengthNew) noexcept {
 #if JSONIFIER_AVX512
 			if (lengthNew >= 64) {
@@ -317,11 +318,13 @@ namespace jsonifier::internal {
 			}
 			return returnValues;
 		}
+
 		static constexpr auto value{ gen() };
 	};
 
 	template<gt_8_types auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, intLength<string.size()>>;
+
 		static consteval array_type gen() {
 			array_type outLocal{};
 			for (uint64_t i = 0; i < string.size(); ++i) {
@@ -329,6 +332,7 @@ namespace jsonifier::internal {
 			}
 			return outLocal;
 		}
+
 		alignas(simdBytesPerRegister) static constexpr auto value{ gen() };
 	};
 

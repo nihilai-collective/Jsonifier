@@ -355,15 +355,6 @@ namespace jsonifier::internal {
 	};
 
 	template<int_types v_type> struct to_chars<v_type> {
-		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			using unsigned_type					= std::make_unsigned_t<v_type>;
-			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
-			return (value < 0) ? implNegative(buf, value)
-							   : to_chars<unsigned_type>::impl(buf,
-									 static_cast<unsigned_type>((static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) -
-										 static_cast<unsigned_type>(value >> shiftAmount)));
-		}
-
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> implNegative(write_buffer_ptr buf, const v_type value) noexcept {
 			using unsigned_type					= std::make_unsigned_t<v_type>;
 			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
@@ -371,6 +362,15 @@ namespace jsonifier::internal {
 			return to_chars<unsigned_type>::impl(buf + 1,
 				static_cast<unsigned_type>(
 					(static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) - static_cast<unsigned_type>(value >> shiftAmount)));
+		}
+
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+			using unsigned_type					= std::make_unsigned_t<v_type>;
+			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
+			return (value < 0) ? implNegative(buf, value)
+							   : to_chars<unsigned_type>::impl(buf,
+									 static_cast<unsigned_type>((static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) -
+										 static_cast<unsigned_type>(value >> shiftAmount)));
 		}
 	};
 

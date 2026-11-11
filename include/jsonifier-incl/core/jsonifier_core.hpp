@@ -53,11 +53,6 @@ namespace jsonifier {
 
 		inline jsonifier_core() noexcept = default;
 
-		inline jsonifier_core(jsonifier_core&& other) noexcept
-			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
-			  errors{ internal::move(other.errors) }, genericData{ internal::move(other.genericData) } {
-		}
-
 		inline jsonifier_core& operator=(jsonifier_core&& other) noexcept {
 			if (this != &other) [[likely]] {
 				podSection	 = internal::move(other.podSection);
@@ -67,6 +62,11 @@ namespace jsonifier {
 				genericData	 = internal::move(other.genericData);
 			}
 			return *this;
+		}
+
+		inline jsonifier_core(jsonifier_core&& other) noexcept
+			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
+			  genericData{ internal::move(other.genericData) }, errors{ internal::move(other.errors) } {
 		}
 
 		jsonifier_core& operator=(const jsonifier_core& other) = delete;
@@ -90,15 +90,15 @@ namespace jsonifier {
 	  protected:
 		template<typename, parse_options> friend class generic::document_stream;
 
-		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};
-		internal::simd_string_reader<initialBufferSize> section{};
-		string_base<initialBufferSize> stringBuffer{};
-		std::vector<internal::error> errors{};
-		generic::generic_storage genericData{};
-
 		JSONIFIER_INLINE generic::generic_storage& genericStorage() noexcept {
 			return genericData;
 		}
+
+		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};
+		internal::simd_string_reader<initialBufferSize> section{};
+		string_base<initialBufferSize> stringBuffer{};
+		generic::generic_storage genericData{};
+		std::vector<internal::error> errors{};
 	};
 
 }

@@ -180,8 +180,8 @@ namespace jsonifier::internal {
 
 	consteval array<bool, 256ULL> genBoolTable() {
 		array<bool, 256ULL> returnValues{};
-		returnValues[static_cast<uint64_t>('t')] = true;
-		returnValues[static_cast<uint64_t>('f')] = true;
+		returnValues[uint_c_v<'t'>] = true;
+		returnValues[uint_c_v<'f'>] = true;
 		return returnValues;
 	}
 
@@ -190,6 +190,29 @@ namespace jsonifier::internal {
 	inline constexpr const bool* __restrict boolTable{ boolTableRaw.data() };
 
 	struct error {
+		error() noexcept = default;
+
+		template<typename error_class> error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
+			read_buffer_ptr endIterNew, error_class typeNew) noexcept
+			: sourceLocation{ sourceLocationNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew }, errorType{ static_cast<uint64_t>(typeNew) },
+			  errorClass{ errorClassNew } {
+			formatReport();
+		}
+
+		template<status_classes errorClassNew, typename error_class> static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
+			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
+			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
+		}
+
+		template<status_classes errorClassNew, auto typeNew> static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
+			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
+			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
+		}
+
+		bool operator==(const error& rhs) const noexcept {
+			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
+		}
+
 		void formatReport() noexcept {
 			line	   = 0;
 			localIndex = 0;
@@ -244,23 +267,6 @@ namespace jsonifier::internal {
 			reportString = stream;
 		}
 
-		template<typename error_class> error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
-			read_buffer_ptr endIterNew, error_class typeNew) noexcept
-			: sourceLocation{ sourceLocationNew }, errorClass{ errorClassNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
-			  errorType{ static_cast<uint64_t>(typeNew) } {
-			formatReport();
-		}
-
-		template<status_classes errorClassNew, typename error_class> static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
-			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
-		}
-
-		template<status_classes errorClassNew, auto typeNew> static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
-			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
-		}
-
 		static void collectValues(string& stream, const string& inputValues) noexcept {
 			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
 				stream += "'";
@@ -268,10 +274,6 @@ namespace jsonifier::internal {
 				stream += "' ";
 			}
 			return;
-		}
-
-		bool operator==(const error& rhs) const noexcept {
-			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
 		}
 
 		template<typename error_class> operator error_class() const noexcept {
@@ -283,18 +285,15 @@ namespace jsonifier::internal {
 		}
 
 		std::source_location sourceLocation{};
-
-		error() noexcept = default;
-
-		status_classes errorClass{};
+		string reportString{};
 		read_buffer_ptr rootIter{};
 		read_buffer_ptr errorPos{};
 		read_buffer_ptr endIter{};
 		uint64_t localIndex{};
-		string reportString{};
 		uint64_t errorIndex{};
 		uint64_t errorType{};
 		uint64_t line{};
+		status_classes errorClass{};
 	};
 
 	template<uint64_t bufferSize> basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const error& errorNew) noexcept {

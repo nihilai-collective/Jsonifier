@@ -77,8 +77,8 @@ namespace jsonifier::internal {
 	inline constexpr const bool* __restrict numberTable{ numberTableRaw.data() };
 
 	struct alignas(8) char_escape_entry {
-		char values[8]{};
 		uint64_t size{};
+		char values[8]{};
 	};
 
 	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
@@ -140,6 +140,13 @@ namespace jsonifier::internal {
 	}
 
 	struct swap_fn {
+		template<typename value_type, std::size_t size> JSONIFIER_INLINE constexpr void operator()(value_type (&lhs)[size], value_type (&rhs)[size]) const
+			noexcept(noexcept((*this)(lhs[0], rhs[0]))) {
+			for (std::size_t index = 0; index < size; ++index) {
+				(*this)(lhs[index], rhs[index]);
+			}
+		}
+
 		template<typename value_type>
 			requires(std::is_move_constructible_v<value_type> && std::is_move_assignable_v<value_type>)
 		JSONIFIER_INLINE constexpr void operator()(value_type& lhs, value_type& rhs) const
@@ -147,13 +154,6 @@ namespace jsonifier::internal {
 			value_type temp{ jsonifier::internal::move(lhs) };
 			lhs = jsonifier::internal::move(rhs);
 			rhs = jsonifier::internal::move(temp);
-		}
-
-		template<typename value_type, std::size_t size> JSONIFIER_INLINE constexpr void operator()(value_type (&lhs)[size], value_type (&rhs)[size]) const
-			noexcept(noexcept((*this)(lhs[0], rhs[0]))) {
-			for (std::size_t index = 0; index < size; ++index) {
-				(*this)(lhs[index], rhs[index]);
-			}
 		}
 	};
 
@@ -401,6 +401,7 @@ namespace jsonifier::internal {
 		static_assert(std::has_single_bit(bucketSize), "Sorry, but buckets must be a power-of-2 size.");
 		static constexpr uint64_t chunkSize{ bucketSize < registerWidth ? bucketSize : registerWidth };
 		static constexpr uint64_t chunkCount{ bucketSize / chunkSize };
+
 		JSONIFIER_INLINE static void impl(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byteCount) noexcept {
 			std::byte* __restrict dstTail		= dst + byteCount - bucketSize;
 			const std::byte* __restrict srcTail = src + byteCount - bucketSize;

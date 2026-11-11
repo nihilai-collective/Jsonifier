@@ -11,6 +11,8 @@
 namespace jsonifier::generic {
 
 	struct generic_storage {
+		JSONIFIER_INLINE generic_storage() noexcept		   = default;
+
 		JSONIFIER_INLINE generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
 				fieldIndex	= internal::move(other.fieldIndex);
@@ -25,13 +27,13 @@ namespace jsonifier::generic {
 			other.state = document_state{};
 		}
 
+		generic_storage& operator=(const generic_storage&) = delete;
+		generic_storage(const generic_storage&)			   = delete;
+
 		JSONIFIER_INLINE document_state& stateFor() noexcept {
 			return state;
 		}
 
-		generic_storage& operator=(const generic_storage&) = delete;
-		generic_storage(const generic_storage&)			   = delete;
-		JSONIFIER_INLINE generic_storage() noexcept		   = default;
 		field_index_map fieldIndex{};
 		document_state state{};
 		string_arena arena{};

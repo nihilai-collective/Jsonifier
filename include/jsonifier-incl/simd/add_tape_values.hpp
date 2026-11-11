@@ -22,6 +22,15 @@ namespace jsonifier::internal {
 		using size_type = uint64_t;
 		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
 
+		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
+			write_structural_index_ptr tape, size_type strIdx) noexcept {
+			uint64_t offset = 0;
+			const __m512i compressionMask{ _mm512_set_epi32(0x3f3e3d3c, 0x3b3a3938, 0x37363534, 0x33323130, 0x2f2e2d2c, 0x2b2a2928, 0x27262524, 0x23222120, 0x1f1e1d1c, 0x1b1a1918,
+				0x17161514, 0x13121110, 0x0f0e0d0c, 0x0b0a0908, 0x07060504, 0x03020100) };
+			const __m512i strIdxVec{ _mm512_set1_epi32(static_cast<int32_t>(strIdx)) };
+			(((drainLane<indices>(compressionMask, strIdxVec, bitsArr, cnts, tape + offset)), offset += cnts[tag<indices>{}]), ...);
+		}
+
 		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const __m512i compressionMask, const __m512i strIdxVec,
 			const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr tape) noexcept {
 			uint64_t bits = bitsArr[tag<index>{}];
@@ -47,15 +56,6 @@ namespace jsonifier::internal {
 				}
 			}
 		}
-
-		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
-			write_structural_index_ptr tape, size_type strIdx) noexcept {
-			uint64_t offset = 0;
-			const __m512i compressionMask{ _mm512_set_epi32(0x3f3e3d3c, 0x3b3a3938, 0x37363534, 0x33323130, 0x2f2e2d2c, 0x2b2a2928, 0x27262524, 0x23222120, 0x1f1e1d1c, 0x1b1a1918,
-				0x17161514, 0x13121110, 0x0f0e0d0c, 0x0b0a0908, 0x07060504, 0x03020100) };
-			const __m512i strIdxVec{ _mm512_set1_epi32(static_cast<int32_t>(strIdx)) };
-			(((drainLane<indices>(compressionMask, strIdxVec, bitsArr, cnts, tape + offset)), offset += cnts[tag<indices>{}]), ...);
-		}
 	};
 
 #else
@@ -73,6 +73,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t step> struct write_indices_stepped_functor {
 		using size_type = uint64_t;
+
 		template<uint64_t index> JSONIFIER_INLINE static bool impl(size_type base, size_type& __restrict bits, write_structural_index_ptr tape, uint64_t cnt) noexcept {
 			if constexpr (index > 0) {
 				if ((index < cnt)) [[unlikely]] {
@@ -94,6 +95,12 @@ namespace jsonifier::internal {
 		using size_type = uint64_t;
 		static constexpr uint64_t blocksPerStep{ sizeof...(indices) };
 
+		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
+			write_structural_index_ptr tape, size_type strIdx) noexcept {
+			uint64_t offset = 0;
+			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
+		}
+
 		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
 			const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr tape, size_type strIdx) noexcept {
 			uint64_t bits	   = bitsArr[tag<index>{}];
@@ -101,12 +108,6 @@ namespace jsonifier::internal {
 			static constexpr size_type bitTotal{ tag<index>{} * 64ull };
 			const size_type base = bitTotal + strIdx;
 			functor_runner<write_indices_stepped_functor, make_stepped_range_sequence<0, 64, simdTapeStep>, simdTapeStep>::implAnd(base, bits, tape, cnt);
-		}
-
-		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
-			write_structural_index_ptr tape, size_type strIdx) noexcept {
-			uint64_t offset = 0;
-			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
 		}
 	};
 

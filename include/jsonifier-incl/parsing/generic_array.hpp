@@ -21,15 +21,7 @@ namespace jsonifier::generic {
 			using value_type		= value;
 			using difference_type	= ptrdiff_t;
 
-			JSONIFIER_INLINE iterator& operator++() noexcept {
-				if (err != error_code::success) [[unlikely]] {
-					iter = nullptr;
-					return *this;
-				}
-				err = doc->advanceChild(iter, depth, internal::uint_c_v<']'>, iter);
-				validateElementStart();
-				return *this;
-			}
+			JSONIFIER_INLINE iterator() noexcept = default;
 
 			JSONIFIER_INLINE iterator(document_state* docNew, read_structural_index_ptr iterNew, uint64_t depthNew) noexcept : iter{ iterNew }, doc{ docNew }, depth{ depthNew } {
 				validateElementStart();
@@ -43,7 +35,15 @@ namespace jsonifier::generic {
 				return iter == other.iter;
 			}
 
-			JSONIFIER_INLINE iterator() noexcept = default;
+			JSONIFIER_INLINE iterator& operator++() noexcept {
+				if (err != error_code::success) [[unlikely]] {
+					iter = nullptr;
+					return *this;
+				}
+				err = doc->advanceChild(iter, depth, internal::uint_c_v<']'>, iter);
+				validateElementStart();
+				return *this;
+			}
 
 		  protected:
 			JSONIFIER_INLINE void validateElementStart() noexcept {
@@ -52,11 +52,33 @@ namespace jsonifier::generic {
 				}
 			}
 
-			error_code err{ error_code::success };
 			read_structural_index_ptr iter{};
 			document_state* doc{};
 			uint64_t depth{};
+			error_code err{ error_code::success };
 		};
+
+		JSONIFIER_INLINE generic_array() noexcept = default;
+
+		JSONIFIER_INLINE generic_array(document_state* docNew, read_structural_index_ptr openNew, uint64_t depthNew) noexcept : open{ openNew }, doc{ docNew }, depth{ depthNew } {
+		}
+
+		JSONIFIER_INLINE generic_array(error_code errNew) noexcept : err{ errNew } {
+		}
+
+		[[nodiscard]] JSONIFIER_INLINE error_code countElements(uint64_t& out) const noexcept {
+			if (err != error_code::success) [[unlikely]] {
+				return err;
+			}
+			out = 0;
+			for (auto iter = begin(); iter != end(); ++iter) {
+				if (const error_code childError = (*iter).error(); childError != error_code::success) [[unlikely]] {
+					return childError;
+				}
+				++out;
+			}
+			return error_code::success;
+		}
 
 		JSONIFIER_INLINE iterator begin() const noexcept {
 			if (err != error_code::success) [[unlikely]] {
@@ -77,18 +99,16 @@ namespace jsonifier::generic {
 			return iterator{ state, position, depth };
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_code countElements(uint64_t& out) const noexcept {
-			if (err != error_code::success) [[unlikely]] {
-				return err;
-			}
-			out = 0;
-			for (auto iter = begin(); iter != end(); ++iter) {
-				if (const error_code childError = (*iter).error(); childError != error_code::success) [[unlikely]] {
-					return childError;
-				}
-				++out;
-			}
-			return error_code::success;
+		[[nodiscard]] JSONIFIER_INLINE error_code rawJson(string_view& out) const noexcept {
+			return value{ doc, open, depth - 1 }.rawJson(out);
+		}
+
+		JSONIFIER_INLINE value atPointer(string_view pointer) const noexcept {
+			return value{ doc, open, depth - 1 }.atPointer(pointer);
+		}
+
+		JSONIFIER_INLINE value operator[](uint64_t index) const noexcept {
+			return at(index);
 		}
 
 		JSONIFIER_INLINE value at(uint64_t index) const noexcept {
@@ -103,39 +123,19 @@ namespace jsonifier::generic {
 			return value{ error_code::index_out_of_bounds };
 		}
 
-		JSONIFIER_INLINE generic_array(document_state* docNew, read_structural_index_ptr openNew, uint64_t depthNew) noexcept : open{ openNew }, doc{ docNew }, depth{ depthNew } {
-		}
-
-		[[nodiscard]] JSONIFIER_INLINE error_code rawJson(string_view& out) const noexcept {
-			return value{ doc, open, depth - 1 }.rawJson(out);
-		}
-
-		JSONIFIER_INLINE value atPointer(string_view pointer) const noexcept {
-			return value{ doc, open, depth - 1 }.atPointer(pointer);
-		}
-
-		JSONIFIER_INLINE value operator[](uint64_t index) const noexcept {
-			return at(index);
+		JSONIFIER_INLINE error_code error() const noexcept {
+			return err;
 		}
 
 		JSONIFIER_INLINE iterator end() const noexcept {
 			return iterator{};
 		}
 
-		JSONIFIER_INLINE generic_array(error_code errNew) noexcept : err{ errNew } {
-		}
-
-		JSONIFIER_INLINE error_code error() const noexcept {
-			return err;
-		}
-
-		JSONIFIER_INLINE generic_array() noexcept = default;
-
 	  protected:
-		error_code err{ error_code::success };
 		read_structural_index_ptr open{};
 		document_state* doc{};
 		uint64_t depth{};
+		error_code err{ error_code::success };
 	};
 
 }

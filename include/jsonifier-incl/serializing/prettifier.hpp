@@ -22,21 +22,22 @@ namespace jsonifier::internal {
 	};
 
 	template<prettify_options options, typename prettifier_type> struct prettify_context_ro {
+		prettify_context_ro() noexcept										= delete;
+
 		JSONIFIER_INLINE prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew,
 			read_buffer_ptr dataPtrNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
 			: endStructural{ endStructuralNew }, iter{ iterNew }, prettifier{ prettifierNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
 		}
 
+		prettify_context_ro& operator=(prettify_context_ro&&) noexcept		= delete;
+		prettify_context_ro(prettify_context_ro&&) noexcept					= delete;
+		prettify_context_ro& operator=(const prettify_context_ro&) noexcept = delete;
+		prettify_context_ro(const prettify_context_ro&) noexcept			= delete;
+
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
 			const auto index = prettifier.template impl<options>(iter, endStructural, dataPtr, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
-
-		prettify_context_ro& operator=(const prettify_context_ro&) noexcept = delete;
-		prettify_context_ro& operator=(prettify_context_ro&&) noexcept		= delete;
-		prettify_context_ro(const prettify_context_ro&) noexcept			= delete;
-		prettify_context_ro(prettify_context_ro&&) noexcept					= delete;
-		prettify_context_ro() noexcept										= delete;
 
 		write_structural_index_ptr endStructural{};
 		write_structural_index_ptr iter{};
@@ -100,14 +101,11 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
-
-		prettifier& operator=(const prettifier& other) = delete;
-		prettifier& operator=(prettifier&& other)	   = delete;
-		prettifier(const prettifier& other)			   = delete;
-		prettifier(prettifier&& other)				   = delete;
-		inline ~prettifier() noexcept				   = default;
 		inline prettifier() noexcept				   = default;
+		prettifier& operator=(prettifier&& other)	   = delete;
+		prettifier(prettifier&& other)				   = delete;
+		prettifier& operator=(const prettifier& other) = delete;
+		prettifier(const prettifier& other)			   = delete;
 
 		template<prettify_options options, prettify_buffer_types string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
 			iterator_end* __restrict endStructural, read_buffer_ptr stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
@@ -271,6 +269,10 @@ namespace jsonifier::internal {
 			}
 			return status.index;
 		}
+
+		inline ~prettifier() noexcept				   = default;
+
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};
 
 }

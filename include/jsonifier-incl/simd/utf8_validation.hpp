@@ -101,6 +101,45 @@ namespace jsonifier::internal {
 		using step_checker_type = step_checker<utf8_checker, make_integer_sequence<simdBlocksPerStep>>;
 		template<typename integer_sequence> struct chunk_processor;
 
+		template<uint64_t... indices> struct chunk_processor<integer_sequence<indices...>> {
+			template<uint64_t index> JSONIFIER_INLINE static void impl(utf8_checker& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
+				c.checkChunk(chunks.template get<index>(), prev), prev = chunks.template get<index>();
+			}
+
+			JSONIFIER_INLINE static void impl(utf8_checker& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
+				(impl<indices>(c, chunks, prev), ...);
+			}
+		};
+
+		JSONIFIER_INLINE utf8_checker() noexcept	 = default;
+		utf8_checker& operator=(utf8_checker&&)		 = delete;
+		utf8_checker(utf8_checker&&)				 = delete;
+		utf8_checker& operator=(const utf8_checker&) = delete;
+		utf8_checker(const utf8_checker&)			 = delete;
+
+		JSONIFIER_INLINE jsonifier_simd_int_t checkMultibyteLengths(jsonifier_simd_int_t input, jsonifier_simd_int_t prev, jsonifier_simd_int_t sc) noexcept {
+			return opXor(opAnd(mustBe23Continuation(opPrev<14>(input, prev), opPrev<13>(input, prev)), gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x80u))), sc);
+		}
+
+		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) noexcept {
+			const jsonifier_simd_int_t loNibbleMask = gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu));
+			return opAnd(opAnd(opShuffle(lookupH, opAnd(opSrLi<4>(p1), loNibbleMask)), opShuffle(lookupL, opAnd(p1, loNibbleMask))),
+				opShuffle(lookup2, opAnd(opSrLi<4>(input), loNibbleMask)));
+		}
+
+		JSONIFIER_INLINE jsonifier_simd_int_t mustBe23Continuation(jsonifier_simd_int_t p2, jsonifier_simd_int_t p3) noexcept {
+			return opOr(opSubs(p2, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xE0u - 0x80u))),
+				opSubs(p3, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xF0u - 0x80u))));
+		}
+
+		JSONIFIER_INLINE void checkChunk(jsonifier_simd_int_t input, jsonifier_simd_int_t prev) noexcept {
+			error = opOr(error, checkMultibyteLengths(input, prev, checkSpecialCases(input, opPrev<15>(input, prev))));
+		}
+
+		JSONIFIER_INLINE jsonifier_simd_int_t checkIncomplete(jsonifier_simd_int_t input) noexcept {
+			return opSubs(input, gatherValues<jsonifier_simd_int_t>(isIncompleteMax + (64 - simdBytesPerRegister)));
+		}
+
 		JSONIFIER_INLINE void checkStepImpl(read_buffer_ptr src) noexcept {
 			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
 
@@ -117,27 +156,12 @@ namespace jsonifier::internal {
 			prevIncomplete = checkIncomplete(chunks.template get<simdRegistersPerBlock - 1>());
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) noexcept {
-			const jsonifier_simd_int_t loNibbleMask = gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu));
-			return opAnd(opAnd(opShuffle(lookupH, opAnd(opSrLi<4>(p1), loNibbleMask)), opShuffle(lookupL, opAnd(p1, loNibbleMask))),
-				opShuffle(lookup2, opAnd(opSrLi<4>(input), loNibbleMask)));
+		JSONIFIER_INLINE void checkStep(read_buffer_ptr srcNew) noexcept {
+			step_checker_type::impl(srcNew);
 		}
 
-		JSONIFIER_INLINE jsonifier_simd_int_t checkMultibyteLengths(jsonifier_simd_int_t input, jsonifier_simd_int_t prev, jsonifier_simd_int_t sc) noexcept {
-			return opXor(opAnd(mustBe23Continuation(opPrev<14>(input, prev), opPrev<13>(input, prev)), gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x80u))), sc);
-		}
-
-		JSONIFIER_INLINE jsonifier_simd_int_t mustBe23Continuation(jsonifier_simd_int_t p2, jsonifier_simd_int_t p3) noexcept {
-			return opOr(opSubs(p2, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xE0u - 0x80u))),
-				opSubs(p3, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xF0u - 0x80u))));
-		}
-
-		JSONIFIER_INLINE void checkChunk(jsonifier_simd_int_t input, jsonifier_simd_int_t prev) noexcept {
-			error = opOr(error, checkMultibyteLengths(input, prev, checkSpecialCases(input, opPrev<15>(input, prev))));
-		}
-
-		JSONIFIER_INLINE jsonifier_simd_int_t checkIncomplete(jsonifier_simd_int_t input) noexcept {
-			return opSubs(input, gatherValues<jsonifier_simd_int_t>(isIncompleteMax + (64 - simdBytesPerRegister)));
+		JSONIFIER_INLINE bool errors() noexcept {
+			return !opTest(opOr(error, prevIncomplete));
 		}
 
 		JSONIFIER_INLINE void reset() noexcept {
@@ -149,34 +173,9 @@ namespace jsonifier::internal {
 		const jsonifier_simd_int_t lookupH{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1HighTable)) };
 		const jsonifier_simd_int_t lookup2{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte2HighTable)) };
 		const jsonifier_simd_int_t lookupL{ gatherValues<jsonifier_simd_int_t>(std::bit_cast<const jsonifier_simd_int_t* __restrict>(byte1LowTable)) };
-
-		JSONIFIER_INLINE void checkStep(read_buffer_ptr srcNew) noexcept {
-			step_checker_type::impl(srcNew);
-		}
-
-		JSONIFIER_INLINE bool errors() noexcept {
-			return !opTest(opOr(error, prevIncomplete));
-		}
-
-		utf8_checker& operator=(const utf8_checker&) = delete;
-		utf8_checker& operator=(utf8_checker&&)		 = delete;
-		utf8_checker(const utf8_checker&)			 = delete;
-		utf8_checker(utf8_checker&&)				 = delete;
-		JSONIFIER_INLINE utf8_checker() noexcept	 = default;
-
 		jsonifier_simd_int_t prevIncomplete;
 		jsonifier_simd_int_t prevInput;
 		jsonifier_simd_int_t error;
-
-		template<uint64_t... indices> struct chunk_processor<integer_sequence<indices...>> {
-			template<uint64_t index> JSONIFIER_INLINE static void impl(utf8_checker& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
-				c.checkChunk(chunks.template get<index>(), prev), prev = chunks.template get<index>();
-			}
-
-			JSONIFIER_INLINE static void impl(utf8_checker& __restrict c, simd_array_t chunks, jsonifier_simd_int_t& __restrict prev) noexcept {
-				(impl<indices>(c, chunks, prev), ...);
-			}
-		};
 	};
 
 	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
@@ -204,16 +203,16 @@ namespace jsonifier::internal {
 	}
 
 	struct utf8_validation_state {
+		JSONIFIER_INLINE utf8_validation_state() noexcept {
+			reset();
+		}
+
 		JSONIFIER_INLINE void reset() noexcept {
 			prevIncomplete = false;
 			error		   = false;
 			prevBytes[0]   = 0;
 			prevBytes[1]   = 0;
 			prevBytes[2]   = 0;
-		}
-
-		JSONIFIER_INLINE utf8_validation_state() noexcept {
-			reset();
 		}
 
 		uint8_t prevBytes[3];
@@ -225,52 +224,6 @@ namespace jsonifier::internal {
 		static constexpr uint64_t bytesProcessed = sizeof(typename simd_type_new::type);
 		using simd_type							 = typename simd_type_new::type;
 		using simd_type_alias					 = simd_type;
-
-		JSONIFIER_INLINE static simd_type lookupH() noexcept {
-			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1HighTable));
-		}
-
-		JSONIFIER_INLINE static simd_type lookup2() noexcept {
-			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte2HighTable));
-		}
-
-		JSONIFIER_INLINE static simd_type lookupL() noexcept {
-			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1LowTable));
-		}
-
-		JSONIFIER_INLINE static simd_type incompleteMax() noexcept {
-			return simd::gatherValues<simd_type>(isIncompleteMax + (64 - bytesProcessed));
-		}
-
-		JSONIFIER_INLINE static simd_type continuationMask01() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0xE0u - 0x80u));
-		}
-
-		JSONIFIER_INLINE static simd_type continuationMask02() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0xF0u - 0x80u));
-		}
-
-		JSONIFIER_INLINE static simd_type maskNibble01() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0x80u));
-		}
-
-		JSONIFIER_INLINE static simd_type loNibbleMask() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0x0Fu));
-		}
-
-		JSONIFIER_INLINE void checkRegister(simd_type input) noexcept {
-			if (simd::isAscii(input)) {
-				error			   = simd::opOr(error, incompleteRegister);
-				prevInput		   = input;
-				incompleteRegister = simd_type{};
-				return;
-			}
-			touched			   = true;
-			const simd_type sc = checkSpecialCases(input, simd::opPrev<15>(input, prevInput));
-			error = simd::opOr(error, simd::opXor(simd::opAnd(mustBe23Continuation(simd::opPrev<14>(input, prevInput), simd::opPrev<13>(input, prevInput)), maskNibble01()), sc));
-			prevInput		   = input;
-			incompleteRegister = simd::opSubs(input, incompleteMax());
-		}
 
 		JSONIFIER_INLINE utf8_register_validator(utf8_validation_state& stateNew) noexcept : state{ stateNew } {
 			error = simd_type{};
@@ -289,6 +242,29 @@ namespace jsonifier::internal {
 			touched					= true;
 		}
 
+		utf8_register_validator& operator=(const utf8_register_validator&) = delete;
+		utf8_register_validator(const utf8_register_validator&)			   = delete;
+
+		JSONIFIER_INLINE void checkRegister(simd_type input) noexcept {
+			if (simd::isAscii(input)) {
+				error			   = simd::opOr(error, incompleteRegister);
+				prevInput		   = input;
+				incompleteRegister = simd_type{};
+				return;
+			}
+			touched			   = true;
+			const simd_type sc = checkSpecialCases(input, simd::opPrev<15>(input, prevInput));
+			error = simd::opOr(error, simd::opXor(simd::opAnd(mustBe23Continuation(simd::opPrev<14>(input, prevInput), simd::opPrev<13>(input, prevInput)), maskNibble01()), sc));
+			prevInput		   = input;
+			incompleteRegister = simd::opSubs(input, incompleteMax());
+		}
+
+		JSONIFIER_INLINE simd_type checkSpecialCases(simd_type input, simd_type p1) noexcept {
+			return simd::opAnd(
+				simd::opAnd(simd::opShuffle(lookupH(), simd::opAnd(simd::opSrLi<4>(p1), loNibbleMask())), simd::opShuffle(lookupL(), simd::opAnd(p1, loNibbleMask()))),
+				simd::opShuffle(lookup2(), simd::opAnd(simd::opSrLi<4>(input), loNibbleMask())));
+		}
+
 		JSONIFIER_INLINE void flush() noexcept {
 			if (!touched) {
 				return;
@@ -304,6 +280,22 @@ namespace jsonifier::internal {
 			}
 		}
 
+		JSONIFIER_INLINE simd_type mustBe23Continuation(simd_type p2, simd_type p3) noexcept {
+			return simd::opOr(simd::opSubs(p2, continuationMask01()), simd::opSubs(p3, continuationMask02()));
+		}
+
+		JSONIFIER_INLINE static simd_type lookupH() noexcept {
+			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1HighTable));
+		}
+
+		JSONIFIER_INLINE static simd_type lookup2() noexcept {
+			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte2HighTable));
+		}
+
+		JSONIFIER_INLINE static simd_type lookupL() noexcept {
+			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(byte1LowTable));
+		}
+
 		JSONIFIER_INLINE void checkPartial(const void* __restrict src, uint64_t count) noexcept {
 			if (count == 0) {
 				return;
@@ -314,14 +306,32 @@ namespace jsonifier::internal {
 			checkRegister(simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp)));
 		}
 
-		JSONIFIER_INLINE simd_type checkSpecialCases(simd_type input, simd_type p1) noexcept {
-			return simd::opAnd(
-				simd::opAnd(simd::opShuffle(lookupH(), simd::opAnd(simd::opSrLi<4>(p1), loNibbleMask())), simd::opShuffle(lookupL(), simd::opAnd(p1, loNibbleMask()))),
-				simd::opShuffle(lookup2(), simd::opAnd(simd::opSrLi<4>(input), loNibbleMask())));
+		JSONIFIER_INLINE static simd_type incompleteMax() noexcept {
+			return simd::gatherValues<simd_type>(isIncompleteMax + (64 - bytesProcessed));
 		}
 
-		JSONIFIER_INLINE simd_type mustBe23Continuation(simd_type p2, simd_type p3) noexcept {
-			return simd::opOr(simd::opSubs(p2, continuationMask01()), simd::opSubs(p3, continuationMask02()));
+		JSONIFIER_INLINE bool errors() noexcept {
+			return state.error || !simd::opTest(simd::opOr(error, incompleteRegister));
+		}
+
+		JSONIFIER_INLINE static simd_type continuationMask01() noexcept {
+			return simd::gatherValue<simd_type>(static_cast<char>(0xE0u - 0x80u));
+		}
+
+		JSONIFIER_INLINE static simd_type continuationMask02() noexcept {
+			return simd::gatherValue<simd_type>(static_cast<char>(0xF0u - 0x80u));
+		}
+
+		JSONIFIER_INLINE static simd_type maskNibble01() noexcept {
+			return simd::gatherValue<simd_type>(static_cast<char>(0x80u));
+		}
+
+		JSONIFIER_INLINE static simd_type loNibbleMask() noexcept {
+			return simd::gatherValue<simd_type>(static_cast<char>(0x0Fu));
+		}
+
+		JSONIFIER_INLINE bool hardErrors() noexcept {
+			return state.error || !simd::opTest(error);
 		}
 
 		JSONIFIER_INLINE void reset() noexcept {
@@ -332,21 +342,10 @@ namespace jsonifier::internal {
 			touched			   = false;
 		}
 
-		JSONIFIER_INLINE bool errors() noexcept {
-			return state.error || !simd::opTest(simd::opOr(error, incompleteRegister));
-		}
-
-		JSONIFIER_INLINE bool hardErrors() noexcept {
-			return state.error || !simd::opTest(error);
-		}
-
-		utf8_register_validator& operator=(const utf8_register_validator&) = delete;
-		utf8_register_validator(const utf8_register_validator&)			   = delete;
-
-		utf8_validation_state& state;
 		simd_type incompleteRegister;
 		simd_type prevInput;
 		simd_type error;
+		utf8_validation_state& state;
 		bool touched;
 	};
 

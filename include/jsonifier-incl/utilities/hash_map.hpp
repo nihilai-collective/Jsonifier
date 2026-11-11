@@ -133,107 +133,122 @@ namespace jsonifier::internal {
 	template<uint64_t storageSizeNew> struct hash_map_construction_data {
 		static constexpr uint64_t storageSize{ storageSizeNew };
 
-		array<uint16_t, storageSizeNew / jsonifier::internal::setSimdWidth(storageSizeNew)> bucketSizes{};
-		alignas(simdBytesPerRegister) array<uint8_t, storageSizeNew + 1ULL> controlBytes{};
-
 		constexpr hash_map_construction_data() noexcept = default;
 
+		alignas(simdBytesPerRegister) array<uint8_t, storageSizeNew + 1ULL> controlBytes{};
 		uint64_t bucketSize{ jsonifier::internal::setSimdWidth(storageSizeNew) };
 		uint64_t numGroups{ storageSizeNew / bucketSize };
-		array<uint16_t, storageSizeNew + 1ULL> indices{};
-		array<uint8_t, 256ULL> uniqueIndices{};
 		ct_key_hasher hasher{};
 		uint64_t uniqueIndex{};
+		array<uint16_t, storageSizeNew / jsonifier::internal::setSimdWidth(storageSizeNew)> bucketSizes{};
+		array<uint16_t, storageSizeNew + 1ULL> indices{};
 		hash_map_types type{};
+		array<uint8_t, 256ULL> uniqueIndices{};
 		char firstChar{};
 	};
 
 	struct empty_data {
 		static constexpr uint64_t storageSize{ 0 };
+
 		template<uint64_t storageSizeNew> constexpr empty_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept : type{ newData.type } {
 		}
+
 		hash_map_types type{};
 	};
 
 	struct single_element_data {
 		static constexpr uint64_t storageSize{ 1 };
+
 		template<uint64_t storageSizeNew> constexpr single_element_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept : type{ newData.type } {
 		}
+
 		hash_map_types type{};
 	};
 
 	struct double_element_data {
 		static constexpr uint64_t storageSize{ 2 };
+
 		template<uint64_t storageSizeNew> constexpr double_element_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
 			: uniqueIndex{ newData.uniqueIndex }, type{ newData.type } {
 		}
+
 		uint64_t uniqueIndex{};
 		hash_map_types type{};
 	};
 
 	struct triple_element_data {
 		static constexpr uint64_t storageSize{ 3 };
+
 		template<uint64_t storageSizeNew> constexpr triple_element_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: uniqueIndex{ newData.uniqueIndex }, type{ newData.type }, firstChar{ newData.firstChar }, seed{ newData.hasher.seed } {
+			: uniqueIndex{ newData.uniqueIndex }, seed{ newData.hasher.seed }, type{ newData.type }, firstChar{ newData.firstChar } {
 		}
+
 		uint64_t uniqueIndex{};
+		uint64_t seed{};
 		hash_map_types type{};
 		char firstChar{};
-		uint64_t seed{};
 	};
 
 	struct single_byte_data {
 		static constexpr uint64_t storageSize{ 256 };
+
 		template<uint64_t storageSizeNew> constexpr single_byte_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: uniqueIndices{ newData.uniqueIndices }, uniqueIndex{ newData.uniqueIndex }, type{ newData.type } {
+			: uniqueIndex{ newData.uniqueIndex }, type{ newData.type }, uniqueIndices{ newData.uniqueIndices } {
 		}
-		array<uint8_t, 256ULL> uniqueIndices{};
+
 		uint64_t uniqueIndex{};
 		hash_map_types type{};
+		array<uint8_t, 256ULL> uniqueIndices{};
 	};
 
 	struct first_byte_and_unique_index_data {
 		static constexpr uint64_t storageSize{ 256 };
+
 		template<uint64_t storageSizeNew> constexpr first_byte_and_unique_index_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept : type{ newData.type } {
 		}
+
 		hash_map_types type{};
 	};
 
 	template<uint64_t storageSizeNew> struct unique_byte_and_length_data {
 		static constexpr uint64_t storageSize{ storageSizeNew };
+
 		constexpr unique_byte_and_length_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: indices{ newData.indices }, uniqueIndex{ newData.uniqueIndex }, type{ newData.type } {
+			: uniqueIndex{ newData.uniqueIndex }, indices{ newData.indices }, type{ newData.type } {
 		}
-		array<uint16_t, storageSizeNew + 1ULL> indices{};
+
 		uint64_t uniqueIndex{};
+		array<uint16_t, storageSizeNew + 1ULL> indices{};
 		hash_map_types type{};
 	};
 
 	struct unique_per_length_data {
 		static constexpr uint64_t storageSize{ 256 };
+
 		template<uint64_t storageSizeNew> constexpr unique_per_length_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: uniqueIndices{ newData.uniqueIndices }, type{ newData.type } {
+			: type{ newData.type }, uniqueIndices{ newData.uniqueIndices } {
 		}
-		array<uint8_t, 256ULL> uniqueIndices{};
+
 		hash_map_types type{};
+		array<uint8_t, 256ULL> uniqueIndices{};
 	};
 
 	template<uint64_t storageSizeNew> struct simd_full_length_data {
 		static constexpr uint64_t storageSize{ storageSizeNew };
 
 		constexpr simd_full_length_data(const hash_map_construction_data<storageSizeNew>& newData) noexcept
-			: controlBytes{ newData.controlBytes }, bucketSize{ newData.bucketSize }, numGroups{ newData.numGroups }, indices{ newData.indices },
-			  uniqueIndex{ newData.uniqueIndex }, type{ newData.type }, seed{ newData.hasher.seed } {
+			: controlBytes{ newData.controlBytes }, bucketSize{ newData.bucketSize }, numGroups{ newData.numGroups }, uniqueIndex{ newData.uniqueIndex },
+			  seed{ newData.hasher.seed }, indices{ newData.indices }, type{ newData.type } {
 		}
 
-		char padding01[simdBytesPerRegister - ((storageSizeNew + 1) % 8)]{};
 		alignas(simdBytesPerRegister) array<uint8_t, storageSizeNew + 1ULL> controlBytes{};
 		uint64_t bucketSize{ jsonifier::internal::setSimdWidth(storageSizeNew) };
 		uint64_t numGroups{ storageSizeNew / bucketSize };
-		array<uint16_t, storageSizeNew + 1ULL> indices{};
 		uint64_t uniqueIndex{};
-		hash_map_types type{};
 		uint64_t seed{};
+		array<uint16_t, storageSizeNew + 1ULL> indices{};
+		hash_map_types type{};
+		char padding01[simdBytesPerRegister - ((storageSizeNew + 1) % 8)]{};
 	};
 
 	struct string_lengths : public tuple_references {
@@ -615,15 +630,15 @@ namespace jsonifier::internal {
 	}
 
 	struct hash_map_type_tracker {
+		JSONIFIER_INLINE void addType(const std::string& typeName, hash_map_types hashMapType) {
+			types[typeName] = hashMapType;
+		}
+
 		~hash_map_type_tracker() {
 			for (auto& [key, value]: types) {
 				auto name = getName(value);
 				cout << "Type: " << key << ", Hash Map Type: " << std::string_view{ name.data(), name.size() } << endl;
 			}
-		}
-
-		JSONIFIER_INLINE void addType(const std::string& typeName, hash_map_types hashMapType) {
-			types[typeName] = hashMapType;
 		}
 
 		std::unordered_map<std::string, hash_map_types> types{};
@@ -733,6 +748,11 @@ namespace jsonifier::internal {
 			}
 		}
 
+		template<typename iterator_type01, typename iterator_type02>
+		JSONIFIER_INLINE static bool checkForEnd(const iterator_type01& iterNew, const iterator_type02& endNew, const uint64_t distance) noexcept {
+			return (iterNew + distance) < endNew;
+		}
+
 		template<typename char_type> JSONIFIER_INLINE static const char_type* boundedQuoteScan(char_type* iter, iterator_newer end) noexcept {
 			const int64_t remaining = (end - iter) - static_cast<int64_t>(subAmount01);
 			if (remaining <= 0) [[unlikely]] {
@@ -740,11 +760,6 @@ namespace jsonifier::internal {
 			}
 			const uint64_t scanLen = (static_cast<uint64_t>(remaining) < subAmount02) ? static_cast<uint64_t>(remaining) : subAmount02;
 			return char_comparison<'"', base_t<decltype(*iter)>>::memchar(iter + subAmount01, scanLen);
-		}
-
-		template<typename iterator_type01, typename iterator_type02>
-		JSONIFIER_INLINE static bool checkForEnd(const iterator_type01& iterNew, const iterator_type02& endNew, const uint64_t distance) noexcept {
-			return (iterNew + distance) < endNew;
 		}
 	};
 }

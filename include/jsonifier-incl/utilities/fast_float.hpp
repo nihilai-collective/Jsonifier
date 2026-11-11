@@ -114,13 +114,13 @@ namespace jsonifier::internal {
 #endif
 
 	template<typename value_type> struct span {
+		JSONIFIER_INLINE constexpr span() noexcept : ptr{ nullptr }, end{ nullptr } {
+		}
+
 		JSONIFIER_INLINE constexpr span(const value_type* _ptr, const value_type* _end) noexcept : ptr{ _ptr }, end{ _end } {
 		}
 
 		JSONIFIER_INLINE constexpr span(const value_type* _ptr) noexcept : ptr{ _ptr }, end{ nullptr } {
-		}
-
-		JSONIFIER_INLINE constexpr span() noexcept : ptr{ nullptr }, end{ nullptr } {
 		}
 
 		const value_type* ptr;
@@ -128,10 +128,10 @@ namespace jsonifier::internal {
 	};
 
 	struct value_128 {
-		JSONIFIER_INLINE constexpr value_128(uint64_t _low, uint64_t _high) noexcept : high{ _high }, low{ _low } {
+		JSONIFIER_INLINE constexpr value_128() noexcept : high{ 0 }, low{ 0 } {
 		}
 
-		JSONIFIER_INLINE constexpr value_128() noexcept : high{ 0 }, low{ 0 } {
+		JSONIFIER_INLINE constexpr value_128(uint64_t _low, uint64_t _high) noexcept : high{ _high }, low{ _low } {
 		}
 
 		uint64_t high;
@@ -171,6 +171,8 @@ namespace jsonifier::internal {
 	}
 
 	struct adjusted_mantissa {
+		JSONIFIER_INLINE adjusted_mantissa() noexcept = default;
+
 		JSONIFIER_INLINE constexpr bool operator==(const adjusted_mantissa& o) const noexcept {
 			return mantissa == o.mantissa && power2 == o.power2;
 		}
@@ -178,8 +180,6 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE constexpr bool operator!=(const adjusted_mantissa& o) const noexcept {
 			return mantissa != o.mantissa || power2 != o.power2;
 		}
-
-		JSONIFIER_INLINE adjusted_mantissa() noexcept = default;
 
 		uint64_t mantissa;
 		int32_t power2;
@@ -629,6 +629,17 @@ namespace jsonifier::internal {
 	template<uint16_t sizeNew> struct stackvec {
 		static constexpr uint16_t size{ sizeNew };
 
+		JSONIFIER_INLINE stackvec()			  = default;
+
+		JSONIFIER_INLINE constexpr stackvec(limb_span s) noexcept {
+			tryExtend(s);
+		}
+
+		stackvec& operator=(stackvec&& other) = delete;
+		stackvec(stackvec&&)				  = delete;
+		stackvec& operator=(const stackvec&)  = delete;
+		stackvec(const stackvec&)			  = delete;
+
 		JSONIFIER_INLINE constexpr void resizeUnchecked(uint64_t newLen, limb value) noexcept {
 			if (newLen > length) {
 				uint64_t count = newLen - length;
@@ -641,21 +652,6 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE constexpr bool tryExtend(limb_span s) noexcept {
-			if (length + static_cast<uint64_t>(s.end - s.ptr) <= capacity()) {
-				extendUnchecked(s);
-				return true;
-			} else {
-				return false;
-			}
-		}
-
-		JSONIFIER_INLINE constexpr void extendUnchecked(limb_span s) noexcept {
-			limb* ptr = data + length;
-			std::copy_n(s.ptr, s.end - s.ptr, ptr);
-			setLen(length + static_cast<uint64_t>(s.end - s.ptr));
-		}
-
 		JSONIFIER_INLINE constexpr bool tryResize(uint64_t newLen, limb value) noexcept {
 			if (newLen > capacity()) {
 				return false;
@@ -663,6 +659,11 @@ namespace jsonifier::internal {
 				resizeUnchecked(newLen, value);
 				return true;
 			}
+		}
+
+		JSONIFIER_INLINE constexpr const limb& rindex(uint64_t index) const noexcept {
+			uint64_t rindex = length - index - 1;
+			return data[rindex];
 		}
 
 		JSONIFIER_INLINE constexpr bool nonzero(uint64_t index) const noexcept {
@@ -675,6 +676,34 @@ namespace jsonifier::internal {
 			return false;
 		}
 
+		JSONIFIER_INLINE constexpr void extendUnchecked(limb_span s) noexcept {
+			limb* ptr = data + length;
+			std::copy_n(s.ptr, s.end - s.ptr, ptr);
+			setLen(length + static_cast<uint64_t>(s.end - s.ptr));
+		}
+
+		JSONIFIER_INLINE constexpr void pushUnchecked(limb value) noexcept {
+			data[length] = value;
+			length++;
+		}
+
+		JSONIFIER_INLINE constexpr bool tryExtend(limb_span s) noexcept {
+			if (length + static_cast<uint64_t>(s.end - s.ptr) <= capacity()) {
+				extendUnchecked(s);
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		JSONIFIER_INLINE constexpr void setLen(uint64_t len) noexcept {
+			length = uint16_t(len);
+		}
+
+		JSONIFIER_INLINE constexpr uint64_t capacity() const noexcept {
+			return size;
+		}
+
 		JSONIFIER_INLINE constexpr bool tryPush(limb value) noexcept {
 			if (length < capacity()) {
 				pushUnchecked(value);
@@ -684,9 +713,8 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE constexpr const limb& rindex(uint64_t index) const noexcept {
-			uint64_t rindex = length - index - 1;
-			return data[rindex];
+		JSONIFIER_INLINE constexpr bool isEmpty() const noexcept {
+			return length == 0;
 		}
 
 		JSONIFIER_INLINE constexpr void normalize() noexcept {
@@ -694,33 +722,6 @@ namespace jsonifier::internal {
 				length--;
 			}
 		}
-
-		JSONIFIER_INLINE constexpr void pushUnchecked(limb value) noexcept {
-			data[length] = value;
-			length++;
-		}
-
-		JSONIFIER_INLINE constexpr void setLen(uint64_t len) noexcept {
-			length = uint16_t(len);
-		}
-
-		JSONIFIER_INLINE constexpr bool isEmpty() const noexcept {
-			return length == 0;
-		}
-
-		JSONIFIER_INLINE constexpr uint64_t capacity() const noexcept {
-			return size;
-		}
-
-		JSONIFIER_INLINE constexpr stackvec(limb_span s) noexcept {
-			tryExtend(s);
-		}
-
-		stackvec& operator=(const stackvec&)  = delete;
-		stackvec& operator=(stackvec&& other) = delete;
-		stackvec(const stackvec&)			  = delete;
-		stackvec(stackvec&&)				  = delete;
-		JSONIFIER_INLINE stackvec()			  = default;
 
 		limb data[size]{};
 		uint16_t length{};
@@ -919,6 +920,19 @@ namespace jsonifier::internal {
 	};
 
 	struct bigint : pow5_tables<> {
+		JSONIFIER_INLINE bigint(uint64_t value) noexcept : vec() {
+			vec.pushUnchecked(value);
+			vec.normalize();
+		}
+
+		JSONIFIER_INLINE constexpr bigint() noexcept : vec() {
+		}
+
+		bigint& operator=(bigint&& other) = delete;
+		bigint(bigint&&)				  = delete;
+		bigint& operator=(const bigint&)  = delete;
+		bigint(const bigint&)			  = delete;
+
 		JSONIFIER_INLINE constexpr bool pow5(uint32_t exp) noexcept {
 			static constexpr uint64_t largeLength = sizeof(largePowerOf5) / sizeof(limb);
 			static constexpr limb_span large	   = limb_span(largePowerOf5, largePowerOf5 + largeLength);
@@ -945,21 +959,11 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		JSONIFIER_INLINE bool shlLimbs(uint64_t num) noexcept {
-			if (num + vec.length > vec.capacity()) {
-				return false;
-			} else if (!vec.isEmpty()) {
-				limb* dst		= vec.data + num;
-				const limb* src = vec.data;
-				std::copy_backward(src, src + vec.length, dst + vec.length);
-
-				limb* first = vec.data;
-				limb* last	= first + num;
-				::std::fill(first, last, static_cast<limb>(0));
-				vec.setLen(num + vec.length);
-				return true;
+		JSONIFIER_INLINE constexpr int32_t ctlz() const noexcept {
+			if (vec.isEmpty()) {
+				return 0;
 			} else {
-				return true;
+				return static_cast<int32_t>(jsonifier::internal::simd::countlZero(vec.rindex(0)));
 			}
 		}
 
@@ -982,6 +986,18 @@ namespace jsonifier::internal {
 			}
 		}
 
+		JSONIFIER_INLINE constexpr uint64_t hi64(bool& truncated) const noexcept {
+			if (vec.length == 0) {
+				return emptyHi64(truncated);
+			} else if (vec.length == 1) {
+				return uint64Hi64(vec.rindex(0), truncated);
+			} else {
+				uint64_t result = uint64Hi64(vec.rindex(0), vec.rindex(1), truncated);
+				truncated |= vec.nonzero(2);
+				return result;
+			}
+		}
+
 		JSONIFIER_INLINE constexpr bool shlBits(uint64_t num) noexcept {
 			uint64_t shl = num;
 			uint64_t shr = limbBits - shl;
@@ -999,15 +1015,37 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		JSONIFIER_INLINE constexpr uint64_t hi64(bool& truncated) const noexcept {
-			if (vec.length == 0) {
-				return emptyHi64(truncated);
-			} else if (vec.length == 1) {
-				return uint64Hi64(vec.rindex(0), truncated);
+		JSONIFIER_INLINE constexpr int32_t bitLength() const noexcept {
+			int32_t lz = ctlz();
+			return int32_t(limbBits * vec.length) - lz;
+		}
+
+		JSONIFIER_INLINE constexpr bool pow10(uint32_t exp) noexcept {
+			if (!(pow5(exp))) {
+				return false;
+			}
+			return pow2(exp);
+		}
+
+		JSONIFIER_INLINE constexpr bool pow2(uint32_t exp) noexcept {
+			return shl(exp);
+		}
+
+		JSONIFIER_INLINE bool shlLimbs(uint64_t num) noexcept {
+			if (num + vec.length > vec.capacity()) {
+				return false;
+			} else if (!vec.isEmpty()) {
+				limb* dst		= vec.data + num;
+				const limb* src = vec.data;
+				std::copy_backward(src, src + vec.length, dst + vec.length);
+
+				limb* first = vec.data;
+				limb* last	= first + num;
+				::std::fill(first, last, static_cast<limb>(0));
+				vec.setLen(num + vec.length);
+				return true;
 			} else {
-				uint64_t result = uint64Hi64(vec.rindex(0), vec.rindex(1), truncated);
-				truncated |= vec.nonzero(2);
-				return result;
+				return true;
 			}
 		}
 
@@ -1027,31 +1065,6 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		JSONIFIER_INLINE constexpr int32_t ctlz() const noexcept {
-			if (vec.isEmpty()) {
-				return 0;
-			} else {
-				return static_cast<int32_t>(jsonifier::internal::simd::countlZero(vec.rindex(0)));
-			}
-		}
-
-		JSONIFIER_INLINE constexpr int32_t bitLength() const noexcept {
-			int32_t lz = ctlz();
-			return int32_t(limbBits * vec.length) - lz;
-		}
-
-		JSONIFIER_INLINE constexpr bool pow10(uint32_t exp) noexcept {
-			if (!(pow5(exp))) {
-				return false;
-			}
-			return pow2(exp);
-		}
-
-		JSONIFIER_INLINE bigint(uint64_t value) noexcept : vec() {
-			vec.pushUnchecked(value);
-			vec.normalize();
-		}
-
 		JSONIFIER_INLINE constexpr bool mul(limb y) noexcept {
 			return smallMul(vec, y);
 		}
@@ -1059,18 +1072,6 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE constexpr bool add(limb y) noexcept {
 			return smallAdd(vec, y);
 		}
-
-		JSONIFIER_INLINE constexpr bool pow2(uint32_t exp) noexcept {
-			return shl(exp);
-		}
-
-		JSONIFIER_INLINE constexpr bigint() noexcept : vec() {
-		}
-
-		bigint& operator=(const bigint&)  = delete;
-		bigint& operator=(bigint&& other) = delete;
-		bigint(const bigint&)			  = delete;
-		bigint(bigint&&)				  = delete;
 
 		stackvec<bigintLimbs> vec;
 	};

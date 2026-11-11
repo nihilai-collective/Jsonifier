@@ -53,6 +53,12 @@ namespace jsonifier::internal {
 			array<string_view, n> names{};
 		};
 
+		static consteval uint64_t countValid() {
+			uint64_t total{};
+			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
+			return total;
+		}
+
 		template<uint64_t n> static consteval entries<n> buildEntries() {
 			entries<n> result{};
 			uint64_t pos{};
@@ -68,12 +74,6 @@ namespace jsonifier::internal {
 				}(),
 				...);
 			return result;
-		}
-
-		static consteval uint64_t countValid() {
-			uint64_t total{};
-			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
-			return total;
 		}
 	};
 

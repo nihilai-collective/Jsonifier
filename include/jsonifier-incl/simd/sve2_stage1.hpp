@@ -127,6 +127,16 @@ namespace jsonifier::internal::simd {
 			return quotes ? finishNext() : finishNextNoInString();
 		}
 
+		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t masked0, const jsonifier_simd_int_t masked1, const jsonifier_simd_int_t masked2,
+			const jsonifier_simd_int_t masked3) noexcept {
+			return sve2CollapseMasked(masked0, masked1, masked2, masked3);
+		}
+
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
+			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept {
+			next(in01, bsRegister, quoteRegister);
+		}
+
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
 			if (!backslashLocal) {
 				const uint64_t escaped = nextIsEscaped;
@@ -147,14 +157,10 @@ namespace jsonifier::internal::simd {
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
-			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept {
-			next(in01, bsRegister, quoteRegister);
-		}
-
-		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t masked0, const jsonifier_simd_int_t masked1, const jsonifier_simd_int_t masked2,
-			const jsonifier_simd_int_t masked3) noexcept {
-			return sve2CollapseMasked(masked0, masked1, masked2, masked3);
+		JSONIFIER_INLINE uint64_t followsNonquoteScalar(const uint64_t nonquoteScalar) noexcept {
+			const uint64_t shifted = (nonquoteScalar << 1) | prevScalar;
+			prevScalar			   = nonquoteScalar >> 63;
+			return shifted;
 		}
 
 		JSONIFIER_INLINE void finishNext() noexcept {
@@ -163,20 +169,14 @@ namespace jsonifier::internal::simd {
 			rope_block::inString	= inString;
 		}
 
-		JSONIFIER_INLINE uint64_t followsNonquoteScalar(const uint64_t nonquoteScalar) noexcept {
-			const uint64_t shifted = (nonquoteScalar << 1) | prevScalar;
-			prevScalar			   = nonquoteScalar >> 63;
-			return shifted;
+		JSONIFIER_INLINE void finishNextNoInString() noexcept {
+			rope_block::inString = prevInString;
 		}
 
 		JSONIFIER_INLINE void reset() noexcept {
 			nextIsEscaped = 0;
 			prevInString  = 0;
 			prevScalar	  = 0;
-		}
-
-		JSONIFIER_INLINE void finishNextNoInString() noexcept {
-			rope_block::inString = prevInString;
 		}
 
 		uint64_t nextIsEscaped{};

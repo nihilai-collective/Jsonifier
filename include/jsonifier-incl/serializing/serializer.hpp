@@ -32,35 +32,35 @@ namespace jsonifier::internal {
 	};
 
 	template<serialize_options options, typename value_type> struct serialize_writer_ro {
+		JSONIFIER_INLINE serialize_writer_ro(value_type& __restrict objectNew) noexcept : object{ objectNew } {
+		}
+
+		serialize_writer_ro& operator=(serialize_writer_ro&&) noexcept		= delete;
+		serialize_writer_ro(serialize_writer_ro&&) noexcept					= delete;
+		serialize_writer_ro& operator=(const serialize_writer_ro&) noexcept = delete;
+		serialize_writer_ro(const serialize_writer_ro&) noexcept			= delete;
+
 		JSONIFIER_INLINE uint64_t operator()(char* ptrNew, uint64_t) noexcept {
 			const write_buffer_ptr start = std::bit_cast<write_buffer_ptr>(ptrNew);
 			return static_cast<uint64_t>(serialize<options>::impl(object, start, 0) - start);
 		}
 
-		JSONIFIER_INLINE serialize_writer_ro(value_type& __restrict objectNew) noexcept : object{ objectNew } {
-		}
-
-		serialize_writer_ro& operator=(const serialize_writer_ro&) noexcept = delete;
-		serialize_writer_ro& operator=(serialize_writer_ro&&) noexcept		= delete;
-		serialize_writer_ro(const serialize_writer_ro&) noexcept			= delete;
-		serialize_writer_ro(serialize_writer_ro&&) noexcept					= delete;
-
 		value_type& __restrict object;
 	};
 
 	template<uint64_t maxBytes> struct serialize_copier_ro {
+		JSONIFIER_INLINE serialize_copier_ro(const uint8_t* sourceNew, uint64_t lengthNew) noexcept : source{ sourceNew }, length{ lengthNew } {
+		}
+
+		serialize_copier_ro& operator=(serialize_copier_ro&&) noexcept		= delete;
+		serialize_copier_ro(serialize_copier_ro&&) noexcept					= delete;
+		serialize_copier_ro& operator=(const serialize_copier_ro&) noexcept = delete;
+		serialize_copier_ro(const serialize_copier_ro&) noexcept			= delete;
+
 		JSONIFIER_INLINE uint64_t operator()(char* ptrNew, uint64_t) noexcept {
 			jsonifierMemcpyUpTo<maxBytes>(ptrNew, source, length);
 			return length;
 		}
-
-		JSONIFIER_INLINE serialize_copier_ro(const uint8_t* sourceNew, uint64_t lengthNew) noexcept : source{ sourceNew }, length{ lengthNew } {
-		}
-
-		serialize_copier_ro& operator=(const serialize_copier_ro&) noexcept = delete;
-		serialize_copier_ro& operator=(serialize_copier_ro&&) noexcept		= delete;
-		serialize_copier_ro(const serialize_copier_ro&) noexcept			= delete;
-		serialize_copier_ro(serialize_copier_ro&&) noexcept					= delete;
 
 		const uint8_t* source;
 		uint64_t length;
@@ -68,23 +68,6 @@ namespace jsonifier::internal {
 
 	template<typename derived_type_new> struct serializer {
 		using derived_type = derived_type_new;
-
-		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like_types buffer_type>
-		inline bool serializeJson(value_type&& object, buffer_type&& buffer) {
-			static constexpr serialize_options options{ optionsNew };
-			uint64_t sizeIndent{};
-			const uint64_t newSize = get_size<options>::impl(object, sizeIndent) + 64ull;
-			if constexpr (resize_and_overwriteable_types<remove_cvref_t<buffer_type>>) {
-				buffer.resize_and_overwrite(newSize, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });
-			} else {
-				if (buffer.size() < newSize) {
-					buffer.resize(newSize);
-				}
-				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
-				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
-			}
-			return true;
-		}
 
 		template<serialize_options optionsNew = serialize_options{}, number_types value_type, buffer_like_types buffer_type>
 		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) {
@@ -148,13 +131,30 @@ namespace jsonifier::internal {
 			return true;
 		}
 
+		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like_types buffer_type>
+		inline bool serializeJson(value_type&& object, buffer_type&& buffer) {
+			static constexpr serialize_options options{ optionsNew };
+			uint64_t sizeIndent{};
+			const uint64_t newSize = get_size<options>::impl(object, sizeIndent) + 64ull;
+			if constexpr (resize_and_overwriteable_types<remove_cvref_t<buffer_type>>) {
+				buffer.resize_and_overwrite(newSize, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });
+			} else {
+				if (buffer.size() < newSize) {
+					buffer.resize(newSize);
+				}
+				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
+				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
+			}
+			return true;
+		}
+
 	  protected:
-		serializer& operator=(const serializer& other) = delete;
-		serializer& operator=(serializer&& other)	   = delete;
-		serializer(const serializer& other)			   = delete;
-		serializer(serializer&& other)				   = delete;
-		inline ~serializer() noexcept				   = default;
 		inline serializer() noexcept				   = default;
+		serializer& operator=(serializer&& other)	   = delete;
+		serializer(serializer&& other)				   = delete;
+		serializer& operator=(const serializer& other) = delete;
+		serializer(const serializer& other)			   = delete;
+		inline ~serializer() noexcept				   = default;
 	};
 
 }

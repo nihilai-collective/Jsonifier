@@ -12,19 +12,6 @@
 namespace jsonifier::generic {
 
 	struct document_state {
-		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			read_buffer_ptr keyLimit = root + *(iter + 1);
-			return keyLimit > keyStart && internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
-		}
-
-		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			char* unescaped			 = arena->scratch();
-			const auto scanned		 = string_parser::impl(keyStart, end, unescaped);
-			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
-		}
-
 		JSONIFIER_INLINE error_code advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer, read_structural_index_ptr& next) noexcept {
 			const read_buffer_ptr base		   = root;
 			read_structural_index_ptr limit	   = tapeEnd;
@@ -55,52 +42,6 @@ namespace jsonifier::generic {
 			return result;
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter,
-			read_structural_index_ptr limit) noexcept {
-			if (!isOpener(base[*iter])) [[likely]] {
-				return iter + 1;
-			}
-			int64_t openCount{ 1 };
-			++iter;
-			while (iter < limit) {
-				openCount += depthDeltaTable[base[*iter]];
-				++iter;
-				if (openCount == 0) {
-					return iter;
-				}
-			}
-			return limit;
-		}
-
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
-			return skipValue(root, iter, tapeEnd);
-		}
-
-		template<bool minified> JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
-			const uint64_t keySize	 = key.size();
-			const uint64_t span		 = static_cast<uint64_t>(*(iter + 1) - *iter);
-			read_buffer_ptr keyStart = root + *iter + 1;
-			if (span == keySize + 2) [[likely]] {
-				return internal::comparison::compare(keyStart, key.data(), keySize);
-			}
-			if constexpr (minified) {
-				return false;
-			} else {
-				return span > keySize + 2 && keyStart[keySize] == internal::uint_c_v<'"'> && internal::comparison::compare(keyStart, key.data(), keySize);
-			}
-		}
-
-		template<bool minified> JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
-			if constexpr (!minified) {
-				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
-					--keyEnd;
-				}
-			}
-			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
-		}
-
 		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position,
 			read_structural_index_ptr limit, uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			int64_t localDepth{ static_cast<int64_t>(currentDepth) };
@@ -125,10 +66,63 @@ namespace jsonifier::generic {
 			return position;
 		}
 
-		JSONIFIER_INLINE void finishToDepth(uint64_t targetDepth) noexcept {
-			uint64_t currentDepth{ depth };
-			cursor = finishToDepth(root, cursor, tapeEnd, currentDepth, targetDepth);
-			depth  = currentDepth;
+		template<bool minified> JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
+			const uint64_t keySize	 = key.size();
+			const uint64_t span		 = static_cast<uint64_t>(*(iter + 1) - *iter);
+			read_buffer_ptr keyStart = root + *iter + 1;
+			if (span == keySize + 2) [[likely]] {
+				return internal::comparison::compare(keyStart, key.data(), keySize);
+			}
+			if constexpr (minified) {
+				return false;
+			} else {
+				return span > keySize + 2 && keyStart[keySize] == internal::uint_c_v<'"'> && internal::comparison::compare(keyStart, key.data(), keySize);
+			}
+		}
+
+		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter,
+			read_structural_index_ptr limit) noexcept {
+			if (!isOpener(base[*iter])) [[likely]] {
+				return iter + 1;
+			}
+			int64_t openCount{ 1 };
+			++iter;
+			while (iter < limit) {
+				openCount += depthDeltaTable[base[*iter]];
+				++iter;
+				if (openCount == 0) {
+					return iter;
+				}
+			}
+			return limit;
+		}
+
+		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
+			read_buffer_ptr keyStart = root + *iter + 1;
+			read_buffer_ptr keyLimit = root + *(iter + 1);
+			return keyLimit > keyStart && internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
+		}
+
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
+			return skipValue(root, iter, tapeEnd);
+		}
+
+		template<bool minified> JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
+			read_buffer_ptr keyStart = root + *iter + 1;
+			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
+			if constexpr (!minified) {
+				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
+					--keyEnd;
+				}
+			}
+			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
+		}
+
+		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
+			read_buffer_ptr keyStart = root + *iter + 1;
+			char* unescaped			 = arena->scratch();
+			const auto scanned		 = string_parser::impl(keyStart, end, unescaped);
+			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
 		}
 
 		template<typename word_type> JSONIFIER_INLINE static word_type loadWord(read_buffer_ptr source) noexcept {
@@ -145,6 +139,16 @@ namespace jsonifier::generic {
 			return root[*iter];
 		}
 
+		JSONIFIER_INLINE void finishToDepth(uint64_t targetDepth) noexcept {
+			uint64_t currentDepth{ depth };
+			cursor = finishToDepth(root, cursor, tapeEnd, currentDepth, targetDepth);
+			depth  = currentDepth;
+		}
+
+		JSONIFIER_INLINE void noteBackwardHit() noexcept {
+			reverseScore += static_cast<uint8_t>(reverseScore < reverseMaxScore);
+		}
+
 		JSONIFIER_INLINE static bool isOpener(uint8_t c) noexcept {
 			return (c | 0x20) == internal::uint_c_v<'{'>;
 		}
@@ -153,30 +157,26 @@ namespace jsonifier::generic {
 			return (c | 0x20) == internal::uint_c_v<'}'>;
 		}
 
-		JSONIFIER_INLINE bool reverseMode() const noexcept {
-			return reverseScore >= reverseEngageScore;
-		}
-
-		JSONIFIER_INLINE void noteBackwardHit() noexcept {
-			reverseScore += static_cast<uint8_t>(reverseScore < reverseMaxScore);
-		}
-
 		JSONIFIER_INLINE void noteForwardHit() noexcept {
 			reverseScore -= static_cast<uint8_t>(reverseScore > 0);
 		}
 
-		static constexpr uint8_t reverseEngageScore{ 4 };
-		static constexpr uint8_t reverseMaxScore{ 8 };
+		JSONIFIER_INLINE bool reverseMode() const noexcept {
+			return reverseScore >= reverseEngageScore;
+		}
 
 		read_structural_index_ptr tapeEnd{};
 		read_structural_index_ptr cursor{};
 		read_structural_index_ptr tape{};
 		field_index_map* fieldIndex{};
-		uint8_t reverseScore{};
 		read_buffer_ptr root{};
 		read_buffer_ptr end{};
 		string_arena* arena{};
 		uint64_t depth{};
+		uint8_t reverseScore{};
+
+		static constexpr uint8_t reverseEngageScore{ 4 };
+		static constexpr uint8_t reverseMaxScore{ 8 };
 	};
 
 }

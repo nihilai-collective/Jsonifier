@@ -33,12 +33,12 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		json_printer& operator=(const json_printer& other) = delete;
-		json_printer& operator=(json_printer&& other)	   = delete;
-		json_printer(const json_printer& other)			   = delete;
-		json_printer(json_printer&& other)				   = delete;
-		~json_printer() noexcept						   = default;
 		json_printer() noexcept							   = default;
+		json_printer& operator=(json_printer&& other)	   = delete;
+		json_printer(json_printer&& other)				   = delete;
+		json_printer& operator=(const json_printer& other) = delete;
+		json_printer(const json_printer& other)			   = delete;
+		~json_printer() noexcept						   = default;
 	};
 
 	inline void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
@@ -104,15 +104,6 @@ namespace jsonifier::internal {
 	};
 
 	template<tuple_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
-			static constexpr auto size = std::tuple_size_v<remove_cvref_t<value_type>>;
-			printIndent(os, depth);
-			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
-			printElements<0, size>(value, os, depth + 1);
-			printIndent(os, depth);
-			os << "}" << endl;
-		}
-
 		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new> static void printElements(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
 			if constexpr (currentIndex < newSize) {
 				auto& sub = get<currentIndex>(value);
@@ -121,6 +112,15 @@ namespace jsonifier::internal {
 				print::impl(sub, os, depth + 1);
 				printElements<currentIndex + 1, newSize>(value, os, depth);
 			}
+		}
+
+		template<typename value_type_new> static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+			static constexpr auto size = std::tuple_size_v<remove_cvref_t<value_type>>;
+			printIndent(os, depth);
+			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
+			printElements<0, size>(value, os, depth + 1);
+			printIndent(os, depth);
+			os << "}" << endl;
 		}
 	};
 

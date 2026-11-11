@@ -22,20 +22,17 @@ namespace jsonifier::generic {
 			using value_type		= document;
 			using difference_type	= std::ptrdiff_t;
 
-			JSONIFIER_INLINE bool operator==(const iterator& other) const noexcept {
-				return exhausted() == other.exhausted();
-			}
+			JSONIFIER_INLINE iterator() noexcept = default;
 
 			JSONIFIER_INLINE explicit iterator(document_stream* streamNew) noexcept : stream{ streamNew } {
 			}
 
-			JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
-				return stream->currentIndex();
+			JSONIFIER_INLINE bool operator==(const iterator& other) const noexcept {
+				return exhausted() == other.exhausted();
 			}
 
-			JSONIFIER_INLINE iterator& operator++() noexcept {
-				stream->advance();
-				return *this;
+			JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
+				return stream->currentIndex();
 			}
 
 			JSONIFIER_INLINE string_view source() const noexcept {
@@ -50,7 +47,10 @@ namespace jsonifier::generic {
 				stream->advance();
 			}
 
-			JSONIFIER_INLINE iterator() noexcept = default;
+			JSONIFIER_INLINE iterator& operator++() noexcept {
+				stream->advance();
+				return *this;
+			}
 
 		  protected:
 			JSONIFIER_INLINE bool exhausted() const noexcept {
@@ -63,6 +63,21 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE document_stream(parser_type& parserNew, read_buffer_ptr inputNew, uint64_t inputLengthNew, uint64_t batchSizeNew) noexcept
 			: input{ inputNew }, inputLength{ inputNew ? inputLengthNew : 0 }, parser{ &parserNew },
 			  batchSize{ std::clamp<uint64_t>(batchSizeNew, minimumBatchSize, maximumBatchSize) } {
+		}
+
+		document_stream& operator=(const document_stream&) = delete;
+		document_stream(const document_stream&)			   = delete;
+
+		JSONIFIER_INLINE uint64_t truncatedBytes() const noexcept {
+			return truncated;
+		}
+
+		JSONIFIER_INLINE error_code error() const noexcept {
+			return err;
+		}
+
+		JSONIFIER_INLINE iterator end() const noexcept {
+			return iterator{};
 		}
 
 		JSONIFIER_INLINE iterator begin() noexcept {
@@ -78,55 +93,61 @@ namespace jsonifier::generic {
 			return iterator{ this };
 		}
 
-		JSONIFIER_INLINE iterator end() const noexcept {
-			return iterator{};
-		}
-
-		JSONIFIER_INLINE uint64_t truncatedBytes() const noexcept {
-			return truncated;
-		}
-
-		JSONIFIER_INLINE error_code error() const noexcept {
-			return err;
-		}
-
-		document_stream& operator=(const document_stream&) = delete;
-		document_stream(const document_stream&)			   = delete;
-
 	  protected:
 		static constexpr uint64_t minimumBatchSize{ 64 };
 		static constexpr uint64_t maximumBatchSize{ std::numeric_limits<uint32_t>::max() - 64 };
 
-		JSONIFIER_INLINE void locate(read_structural_index_ptr next) noexcept {
-			if constexpr (!options.newLineDelimited) {
-				locateDelimited(next);
-			} else {
-				locateWhitespace(next);
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) noexcept {
+			document_state& state = docState();
+			const uint8_t first	  = state.charAt(start);
+			if (document_state::isOpener(first)) {
+				int64_t openCount{ 1 };
+				for (read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
+					openCount += depthDeltaTable[state.charAt(iter)];
+					if (openCount == 0) {
+						return iter + 1;
+					}
+				}
+				return nullptr;
 			}
+			if (document_state::isCloser(first) || first == jsonifier::internal::uint_c_v<','> || first == jsonifier::internal::uint_c_v<':'>) [[unlikely]] {
+				err = error_code::tape_error;
+				return nullptr;
+			}
+			if (start + 1 == windowTapeEnd && !finalWindow) {
+				return nullptr;
+			}
+			return start + 1;
 		}
 
-		JSONIFIER_INLINE void locateWhitespace(read_structural_index_ptr next) noexcept {
-			while (true) {
-				if (next == completeEnd) {
-					if (finalWindow) {
-						finished = true;
-						return;
-					}
-					if (completeEnd == windowTape) [[unlikely]] {
-						err = error_code::capacity;
-						return;
-					}
-					loadWindow(windowStart + (completeEnd == windowTapeEnd ? windowLength : *completeEnd));
-					next = windowTape;
-					continue;
+		JSONIFIER_INLINE void bindDocument(read_structural_index_ptr begin, read_structural_index_ptr end) noexcept {
+			docBegin			  = begin;
+			docEnd				  = end;
+			pendingSeparator	  = false;
+			document_state& state = docState();
+			state.tape			  = begin;
+			state.tapeEnd		  = end;
+			state.cursor		  = begin;
+			state.depth			  = 0;
+			storage().fieldIndex.reset();
+		}
+
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const noexcept {
+			document_state& state = docState();
+			for (read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
+				if (startsDocument(state.charAt(iter)) && endsValue(state.charAt(iter - 1))) {
+					return iter;
 				}
-				if (!startsDocument(docState().charAt(next))) [[unlikely]] {
-					err = error_code::tape_error;
-					return;
-				}
-				bindDocument(next, completeEnd);
-				return;
 			}
+			return windowTape;
+		}
+
+		JSONIFIER_INLINE static bool startsDocument(uint8_t c) noexcept {
+			return !document_state::isCloser(c) && c != internal::uint_c_v<','> && c != internal::uint_c_v<':'>;
+		}
+
+		JSONIFIER_INLINE static bool endsValue(uint8_t c) noexcept {
+			return !document_state::isOpener(c) && c != internal::uint_c_v<','> && c != internal::uint_c_v<':'>;
 		}
 
 		JSONIFIER_INLINE void locateDelimited(read_structural_index_ptr next) noexcept {
@@ -170,22 +191,40 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE static bool startsDocument(uint8_t c) noexcept {
-			return !document_state::isCloser(c) && c != internal::uint_c_v<','> && c != internal::uint_c_v<':'>;
-		}
-
-		JSONIFIER_INLINE static bool endsValue(uint8_t c) noexcept {
-			return !document_state::isOpener(c) && c != internal::uint_c_v<','> && c != internal::uint_c_v<':'>;
-		}
-
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const noexcept {
+		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() const noexcept {
 			document_state& state = docState();
-			for (read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
-				if (startsDocument(state.charAt(iter)) && endsValue(state.charAt(iter - 1))) {
-					return iter;
-				}
+			if (state.depth > 0) {
+				state.finishToDepth(0);
+				return state.cursor;
 			}
-			return windowTape;
+			if (state.cursor > docBegin) {
+				return state.cursor;
+			}
+			return state.skipValue(docBegin);
+		}
+
+		JSONIFIER_INLINE void locateWhitespace(read_structural_index_ptr next) noexcept {
+			while (true) {
+				if (next == completeEnd) {
+					if (finalWindow) {
+						finished = true;
+						return;
+					}
+					if (completeEnd == windowTape) [[unlikely]] {
+						err = error_code::capacity;
+						return;
+					}
+					loadWindow(windowStart + (completeEnd == windowTapeEnd ? windowLength : *completeEnd));
+					next = windowTape;
+					continue;
+				}
+				if (!startsDocument(docState().charAt(next))) [[unlikely]] {
+					err = error_code::tape_error;
+					return;
+				}
+				bindDocument(next, completeEnd);
+				return;
+			}
 		}
 
 		JSONIFIER_INLINE void findCompleteEnd() noexcept {
@@ -208,47 +247,34 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() const noexcept {
-			document_state& state = docState();
-			if (state.depth > 0) {
-				state.finishToDepth(0);
-				return state.cursor;
+		JSONIFIER_INLINE string_view source() const noexcept {
+			if (err != error_code::success) [[unlikely]] {
+				return {};
 			}
-			if (state.cursor > docBegin) {
-				return state.cursor;
+			read_buffer_ptr base = input + windowStart;
+			const uint64_t start = *docBegin;
+			uint64_t stop{};
+			if constexpr (!options.newLineDelimited) {
+				stop = *docEnd;
+			} else {
+				stop = *docState().skipValue(docBegin);
 			}
-			return state.skipValue(docBegin);
+			while (stop > start && isSeparatorByte(base[stop - 1])) {
+				--stop;
+			}
+			return string_view{ std::bit_cast<const char*>(base + start), stop - start };
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) noexcept {
-			document_state& state = docState();
-			const uint8_t first	  = state.charAt(start);
-			if (document_state::isOpener(first)) {
-				int64_t openCount{ 1 };
-				for (read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
-					openCount += depthDeltaTable[state.charAt(iter)];
-					if (openCount == 0) {
-						return iter + 1;
-					}
-				}
-				return nullptr;
-			}
-			if (document_state::isCloser(first) || first == jsonifier::internal::uint_c_v<','> || first == jsonifier::internal::uint_c_v<':'>) [[unlikely]] {
-				err = error_code::tape_error;
-				return nullptr;
-			}
-			if (start + 1 == windowTapeEnd && !finalWindow) {
-				return nullptr;
-			}
-			return start + 1;
+		JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
+			return err == error_code::success ? windowStart + *docBegin : windowStart;
 		}
 
-		JSONIFIER_INLINE generic_storage& storage() const noexcept {
-			return parser->genericStorage();
-		}
-
-		JSONIFIER_INLINE document_state& docState() const noexcept {
-			return storage().stateFor();
+		JSONIFIER_INLINE void locate(read_structural_index_ptr next) noexcept {
+			if constexpr (!options.newLineDelimited) {
+				locateDelimited(next);
+			} else {
+				locateWhitespace(next);
+			}
 		}
 
 		JSONIFIER_INLINE void loadWindow(uint64_t start) noexcept {
@@ -271,34 +297,16 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE string_view source() const noexcept {
-			if (err != error_code::success) [[unlikely]] {
-				return {};
-			}
-			read_buffer_ptr base = input + windowStart;
-			const uint64_t start = *docBegin;
-			uint64_t stop{};
-			if constexpr (!options.newLineDelimited) {
-				stop = *docEnd;
-			} else {
-				stop = *docState().skipValue(docBegin);
-			}
-			while (stop > start && isSeparatorByte(base[stop - 1])) {
-				--stop;
-			}
-			return string_view{ std::bit_cast<const char*>(base + start), stop - start };
+		JSONIFIER_INLINE static bool isSeparatorByte(uint8_t c) noexcept {
+			return seperatorByteTable[c];
 		}
 
-		JSONIFIER_INLINE void bindDocument(read_structural_index_ptr begin, read_structural_index_ptr end) noexcept {
-			docBegin			  = begin;
-			docEnd				  = end;
-			pendingSeparator	  = false;
-			document_state& state = docState();
-			state.tape			  = begin;
-			state.tapeEnd		  = end;
-			state.cursor		  = begin;
-			state.depth			  = 0;
-			storage().fieldIndex.reset();
+		JSONIFIER_INLINE generic_storage& storage() const noexcept {
+			return parser->genericStorage();
+		}
+
+		JSONIFIER_INLINE document_state& docState() const noexcept {
+			return storage().stateFor();
 		}
 
 		JSONIFIER_INLINE document current() const noexcept {
@@ -320,28 +328,20 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
-			return err == error_code::success ? windowStart + *docBegin : windowStart;
-		}
-
-		JSONIFIER_INLINE static bool isSeparatorByte(uint8_t c) noexcept {
-			return seperatorByteTable[c];
-		}
-
 		read_structural_index_ptr windowTapeEnd{};
 		read_structural_index_ptr completeEnd{};
 		read_structural_index_ptr windowTape{};
-		error_code err{ error_code::success };
 		read_structural_index_ptr docBegin{};
 		read_structural_index_ptr docEnd{};
 		read_buffer_ptr input{};
 		uint64_t windowLength{};
-		bool pendingSeparator{};
 		uint64_t inputLength{};
 		uint64_t windowStart{};
 		parser_type* parser{};
 		uint64_t batchSize{};
 		uint64_t truncated{};
+		error_code err{ error_code::success };
+		bool pendingSeparator{};
 		bool finalWindow{};
 		bool finished{};
 		bool started{};

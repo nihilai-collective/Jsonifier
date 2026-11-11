@@ -117,7 +117,6 @@ namespace jsonifier {
 
 	template<uint64_t registerCount, uint64_t registerBytes = simdBytesPerRegister> struct simd_register_array {
 		using simd_type = simd_register_t<registerBytes>;
-		alignas(registerBytes) simd_type values[registerCount];
 
 		template<uint64_t indexNew> JSONIFIER_INLINE void set(const simd_type value) noexcept {
 			static_assert(indexNew < registerCount, "simd_register_array::set index out of range.");
@@ -128,6 +127,8 @@ namespace jsonifier {
 			static_assert(indexNew < registerCount, "simd_register_array::get index out of range.");
 			return values[indexNew];
 		}
+
+		alignas(registerBytes) simd_type values[registerCount];
 	};
 
 	template<uint64_t registerCount> using simd_array = simd_register_array<registerCount>;

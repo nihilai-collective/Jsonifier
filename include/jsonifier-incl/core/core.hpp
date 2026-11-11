@@ -14,8 +14,8 @@
 namespace jsonifier::internal {
 
 	struct tuple_reference {
-		uint8_t oldIndex{};
 		string_view key{};
+		uint8_t oldIndex{};
 	};
 
 	struct tuple_references {

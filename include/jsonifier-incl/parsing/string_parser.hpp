@@ -19,29 +19,6 @@ namespace jsonifier::generic {
 			scan_result result{};
 		};
 
-		template<typename basic_iterator01, typename basic_iterator02>
-		JSONIFIER_INLINE static bool parseEscape(basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out) noexcept {
-			if (end - current < 2) [[unlikely]] {
-				return false;
-			}
-			if (current[1] == 'u') {
-				do {
-					if (!internal::handleUnicodeCodePoint(current, out, end)) [[unlikely]] {
-						return false;
-					}
-				} while (end - current >= 2 && current[0] == '\\' && current[1] == 'u');
-				return true;
-			}
-			const uint8_t decoded = static_cast<uint8_t>(internal::escapeMap[static_cast<uint8_t>(current[1])]);
-			if (decoded == 0u) [[unlikely]] {
-				return false;
-			}
-			*out = static_cast<internal::remove_cvref_t<decltype(*out)>>(decoded);
-			++out;
-			current += 2;
-			return true;
-		}
-
 		template<typename validator_type, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static bool resolveStop(validator_type& validator, uint64_t offset,
 			basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart,
 			parse_state& state) noexcept {
@@ -63,6 +40,39 @@ namespace jsonifier::generic {
 				return false;
 			}
 			validator.reset();
+			return true;
+		}
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static scan_result impl(basic_iterator01 current, const basic_iterator01 end, basic_iterator02 out) noexcept {
+			const auto stringStart = current;
+			const auto outStart	   = out;
+			parse_state state{};
+			internal::string_parse_executor<parse_step, internal::make_ascending_range<internal::startIndex, internal::listSize>>::impl(current, end, out, stringStart, outStart,
+				state);
+			return state.result;
+		}
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static bool parseEscape(basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out) noexcept {
+			if (end - current < 2) [[unlikely]] {
+				return false;
+			}
+			if (current[1] == 'u') {
+				do {
+					if (!internal::handleUnicodeCodePoint(current, out, end)) [[unlikely]] {
+						return false;
+					}
+				} while (end - current >= 2 && current[0] == '\\' && current[1] == 'u');
+				return true;
+			}
+			const uint8_t decoded = static_cast<uint8_t>(internal::escapeMap[static_cast<uint8_t>(current[1])]);
+			if (decoded == 0u) [[unlikely]] {
+				return false;
+			}
+			*out = static_cast<internal::remove_cvref_t<decltype(*out)>>(decoded);
+			++out;
+			current += 2;
 			return true;
 		}
 
@@ -120,33 +130,24 @@ namespace jsonifier::generic {
 				}
 			}
 		};
-
-		template<typename basic_iterator01, typename basic_iterator02>
-		JSONIFIER_INLINE static scan_result impl(basic_iterator01 current, const basic_iterator01 end, basic_iterator02 out) noexcept {
-			const auto stringStart = current;
-			const auto outStart	   = out;
-			parse_state state{};
-			internal::string_parse_executor<parse_step, internal::make_ascending_range<internal::startIndex, internal::listSize>>::impl(current, end, out, stringStart, outStart,
-				state);
-			return state.result;
-		}
 	};
 
 	struct string_parse_context {
-		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) const noexcept {
-			outLength = string_parser::impl(source, sourceEnd, static_cast<char*>(ptrNew)).outLength;
-			return outLength == std::numeric_limits<uint64_t>::max() ? uint64_t{} : outLength;
-		}
+		string_parse_context() noexcept										  = delete;
 
 		JSONIFIER_INLINE string_parse_context(read_buffer_ptr sourceNew, read_buffer_ptr sourceEndNew, uint64_t& outLengthNew) noexcept
 			: sourceEnd{ sourceEndNew }, source{ sourceNew }, outLength{ outLengthNew } {
 		}
 
-		string_parse_context& operator=(const string_parse_context&) noexcept = delete;
 		string_parse_context& operator=(string_parse_context&&) noexcept	  = delete;
-		string_parse_context(const string_parse_context&) noexcept			  = delete;
 		string_parse_context(string_parse_context&&) noexcept				  = delete;
-		string_parse_context() noexcept										  = delete;
+		string_parse_context& operator=(const string_parse_context&) noexcept = delete;
+		string_parse_context(const string_parse_context&) noexcept			  = delete;
+
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) const noexcept {
+			outLength = string_parser::impl(source, sourceEnd, static_cast<char*>(ptrNew)).outLength;
+			return outLength == std::numeric_limits<uint64_t>::max() ? uint64_t{} : outLength;
+		}
 
 		read_buffer_ptr sourceEnd{};
 		read_buffer_ptr source{};

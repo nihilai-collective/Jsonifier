@@ -35,12 +35,12 @@ namespace jsonifier::internal {
 	inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
 
 	struct parsed_number {
-		read_buffer_ptr lastMatch{};
 		span<uint8_t> fraction{};
 		span<uint8_t> integer{};
-		bool tooManyDigits{};
+		read_buffer_ptr lastMatch{};
 		uint64_t mantissa{};
 		int64_t exponent{};
+		bool tooManyDigits{};
 		bool negative{};
 		bool valid{};
 	};
@@ -176,6 +176,52 @@ namespace jsonifier::internal {
 	}
 
 	template<float_types value_type> struct float_parser {
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
+			if (iter >= end) [[unlikely]] {
+				return nullptr;
+			}
+			parsed_number pns = parseNumberString(iter, end, false);
+			if (!pns.valid) [[unlikely]] {
+				return nullptr;
+			}
+			if (pns.tooManyDigits) [[unlikely]] {
+				return parseFloatSlow(value, iter, end);
+			}
+			if (clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
+				return pns.lastMatch;
+			}
+			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
+			if (am.power2 < 0) [[unlikely]] {
+				return parseFloatSlow(value, iter, end);
+			}
+			if (am.power2 == binary_format<value_type>::infinitePower) [[unlikely]] {
+				return nullptr;
+			}
+			toFloat(pns.negative, am, value);
+			return pns.lastMatch;
+		}
+
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			parsed_number pns = parseNumberString(iter, end, true);
+			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
+				return pns.lastMatch;
+			}
+			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
+			if (pns.tooManyDigits && am.power2 >= 0) {
+				if (am != computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa + 1)) {
+					am = computeError<binary_format<value_type>>(pns.exponent, pns.mantissa);
+				}
+			}
+			if (am.power2 < 0) {
+				am = digitComp<value_type>(pns.integer, pns.fraction, pns.mantissa, pns.exponent, am);
+			}
+			if (am.power2 == binary_format<value_type>::infinitePower) {
+				return nullptr;
+			}
+			toFloat(pns.negative, am, value);
+			return pns.lastMatch;
+		}
+
 		JSONIFIER_INLINE static bool clingerFastPath(uint64_t mantissa, int64_t exponent, bool negative, value_type& value) noexcept {
 			if (binary_format<value_type>::minExponentFastPath <= exponent && exponent <= binary_format<value_type>::maxExponentFastPath &&
 				mantissa <= binary_format<value_type>::maxMantissaFastPathValue) {
@@ -205,52 +251,6 @@ namespace jsonifier::internal {
 				}
 			}
 			return false;
-		}
-
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			parsed_number pns = parseNumberString(iter, end, true);
-			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
-				return pns.lastMatch;
-			}
-			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
-			if (pns.tooManyDigits && am.power2 >= 0) {
-				if (am != computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa + 1)) {
-					am = computeError<binary_format<value_type>>(pns.exponent, pns.mantissa);
-				}
-			}
-			if (am.power2 < 0) {
-				am = digitComp<value_type>(pns.integer, pns.fraction, pns.mantissa, pns.exponent, am);
-			}
-			if (am.power2 == binary_format<value_type>::infinitePower) {
-				return nullptr;
-			}
-			toFloat(pns.negative, am, value);
-			return pns.lastMatch;
-		}
-
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
-			if (iter >= end) [[unlikely]] {
-				return nullptr;
-			}
-			parsed_number pns = parseNumberString(iter, end, false);
-			if (!pns.valid) [[unlikely]] {
-				return nullptr;
-			}
-			if (pns.tooManyDigits) [[unlikely]] {
-				return parseFloatSlow(value, iter, end);
-			}
-			if (clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
-				return pns.lastMatch;
-			}
-			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
-			if (am.power2 < 0) [[unlikely]] {
-				return parseFloatSlow(value, iter, end);
-			}
-			if (am.power2 == binary_format<value_type>::infinitePower) [[unlikely]] {
-				return nullptr;
-			}
-			toFloat(pns.negative, am, value);
-			return pns.lastMatch;
 		}
 	};
 
