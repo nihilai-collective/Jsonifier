@@ -70,7 +70,7 @@ namespace jsonifier::internal {
 		using derived_type = derived_type_new;
 
 		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like_types buffer_type>
-		bool serializeJson(value_type&& object, buffer_type&& buffer) {
+		inline bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			uint64_t sizeIndent{};
 			const uint64_t newSize = get_size<options>::impl(object, sizeIndent) + 64ull;
@@ -153,8 +153,8 @@ namespace jsonifier::internal {
 		serializer& operator=(serializer&& other)	   = delete;
 		serializer(const serializer& other)			   = delete;
 		serializer(serializer&& other)				   = delete;
-		~serializer() noexcept						   = default;
-		serializer() noexcept						   = default;
+		inline ~serializer() noexcept				   = default;
+		inline serializer() noexcept				   = default;
 	};
 
 }

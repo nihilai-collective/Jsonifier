@@ -13,11 +13,6 @@ namespace array_tests {
 	inline void runTests() {
 		std::cout << "Array Tests" << std::endl;
 
-		rt_ut::unit_test<"array_size_max_size_empty", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 4> arr{};
-			return arr.size() == 4 && arr.maxSize() == 4 && !arr.empty();
-		});
-
 		rt_ut::unit_test<"array_front_and_back", true>::assert_eq(true, [] {
 			jsonifier::internal::array<int32_t, 4> arr{ { 10, 20, 30, 40 } };
 			return arr.front() == 10 && arr.back() == 40;
@@ -76,11 +71,6 @@ namespace array_tests {
 			jsonifier::internal::array<int32_t, 3> b{ { 1, 2, 3 } };
 			jsonifier::internal::array<int32_t, 3> c{ { 1, 2, 4 } };
 			return a == b && !(a != b) && a != c && !(a == c);
-		});
-
-		rt_ut::unit_test<"array_zero_size_reports_empty_and_no_data", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 0> arr{};
-			return arr.size() == 0 && arr.maxSize() == 0 && arr.empty();
 		});
 
 		rt_ut::unit_test<"array_zero_size_equality_always_true", true>::assert_eq(true, [] {

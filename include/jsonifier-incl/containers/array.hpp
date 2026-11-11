@@ -71,10 +71,6 @@ namespace jsonifier::internal {
 			return sizeNew;
 		}
 
-		JSONIFIER_INLINE constexpr size_type maxSize() const noexcept {
-			return sizeNew;
-		}
-
 		JSONIFIER_INLINE constexpr bool empty() const noexcept {
 			return false;
 		}
@@ -156,10 +152,6 @@ namespace jsonifier::internal {
 		using const_iterator  = sized_iterator<const value_type, 0ULL>;
 
 		JSONIFIER_INLINE constexpr size_type size() const noexcept {
-			return 0;
-		}
-
-		JSONIFIER_INLINE constexpr size_type maxSize() const noexcept {
 			return 0;
 		}
 

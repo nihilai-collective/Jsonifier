@@ -14,20 +14,17 @@
 // https://github.com/vitaut/zmij/
 
 #include <jsonifier-incl/core/config.hpp>
-
-namespace jsonifier::zmij {
-	struct dec_fp {
-		int64_t sig;
-		bool negative;
-		int32_t exp;
-	};
-}
-
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/avx.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
 
 namespace jsonifier::zmij {
+
+	struct dec_fp {
+		int64_t sig;
+		bool negative;
+		int32_t exp;
+	};
 
 	namespace impl {
 

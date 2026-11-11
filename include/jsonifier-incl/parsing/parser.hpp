@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 		using derived_type = derived_type_new;
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
-		bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
+		inline bool parseJsonForComparison(comparison_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
@@ -98,7 +98,8 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> unrestrict_t<write_structural_index_ptr> collectStructurals(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type>
+		JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> collectStructurals(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -106,7 +107,8 @@ namespace jsonifier::internal {
 			return derivedRef.section.begin();
 		}
 
-		template<parse_options options = parse_options{}, typename buffer_type> unrestrict_t<write_structural_index_ptr> collectStructuralsSingle(buffer_type&& in) noexcept {
+		template<parse_options options = parse_options{}, typename buffer_type>
+		JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> collectStructuralsSingle(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
@@ -273,7 +275,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> bool parseJson(value_type&& object, const buffer_type& in) {
+		template<parse_options options = parse_options{}, typename value_type, typename buffer_type> inline bool parseJson(value_type&& object, const buffer_type& in) {
 			static constexpr parse_options parseOpts{ options };
 			derivedRef.errors.clear();
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
