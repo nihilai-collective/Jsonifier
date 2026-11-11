@@ -1,9 +1,9 @@
 /*
-* SPDX-License-Identifier: MIT
-* Copyright (c) 2026 Nihilai Collective Corp
-* https://github.com/nihilai-collective/jsonifier
-* include/jsonifier-incl/utilities/string_utils.hpp
-*/
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/string_utils.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/simd/utf8_validation.hpp>
@@ -178,14 +178,14 @@ namespace jsonifier::internal {
 
 	consteval array<char, 256ULL> genEscapeMap() {
 		array<char, 256ULL> returnValues{};
-		returnValues[uint_c_v<'"'>]  = '\"';
+		returnValues[uint_c_v<'"'>]	 = '\"';
 		returnValues[uint_c_v<'\\'>] = '\\';
-		returnValues[uint_c_v<'/'>]  = '/';
-		returnValues[uint_c_v<'b'>]  = '\b';
-		returnValues[uint_c_v<'f'>]  = '\f';
-		returnValues[uint_c_v<'n'>]  = '\n';
-		returnValues[uint_c_v<'r'>]  = '\r';
-		returnValues[uint_c_v<'t'>]  = '\t';
+		returnValues[uint_c_v<'/'>]	 = '/';
+		returnValues[uint_c_v<'b'>]	 = '\b';
+		returnValues[uint_c_v<'f'>]	 = '\f';
+		returnValues[uint_c_v<'n'>]	 = '\n';
+		returnValues[uint_c_v<'r'>]	 = '\r';
+		returnValues[uint_c_v<'t'>]	 = '\t';
 		return returnValues;
 	}
 
@@ -564,7 +564,7 @@ namespace jsonifier::internal {
 
 	consteval array<array<char, 8ULL>, 256ULL> genEscapeTable() {
 		array<array<char, 8ULL>, 256ULL> returnValues{};
-		constexpr char hex[]{ "0123456789ABCDEF" };
+		static constexpr char hex[]{ "0123456789ABCDEF" };
 		for (uint64_t x = 0; x < 32ULL; ++x) {
 			returnValues[x] = { { '\\', 'u', '0', '0', hex[x >> 4], hex[x & 0xF], '\0', 6 } };
 		}

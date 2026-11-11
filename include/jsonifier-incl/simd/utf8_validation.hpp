@@ -30,7 +30,7 @@ namespace jsonifier::internal {
 	using namespace simd;
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte1HighTable() {
-		constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts, tooShort | overLong2,
+		static constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts, tooShort | overLong2,
 			tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
@@ -44,7 +44,7 @@ namespace jsonifier::internal {
 	inline constexpr read_buffer_ptr byte1HighTable{ byte1HighTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte1LowTable() {
-		constexpr array<uint8_t, 16ULL> raw{ { carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
+		static constexpr array<uint8_t, 16ULL> raw{ { carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000 | surrogate, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000 } };
@@ -60,7 +60,7 @@ namespace jsonifier::internal {
 	inline constexpr read_buffer_ptr byte1LowTable{ byte1LowTableRaw.data() };
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte2HighTable() {
-		constexpr array<uint8_t, 16ULL> raw{ { tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
+		static constexpr array<uint8_t, 16ULL> raw{ { tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
 			tooLong | overLong2 | twoConts | overLong3 | tooLarge1000 | overLong4, tooLong | overLong2 | twoConts | overLong3 | tooLarge,
 			tooLong | overLong2 | twoConts | surrogate | tooLarge, tooLong | overLong2 | twoConts | surrogate | tooLarge, tooShort, tooShort, tooShort, tooShort } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};

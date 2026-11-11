@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MIT
  * Copyright (c) 2026 Nihilai Collective Corp
  * https://github.com/nihilai-collective/jsonifier
- * include/jsonifier-incl/parsing/generic_common_pre.hpp
+ * include/jsonifier-incl/parsing/generic_common_post.hpp
  */
 #pragma once
 

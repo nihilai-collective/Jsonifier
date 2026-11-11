@@ -338,7 +338,7 @@ namespace jsonifier::internal {
 	};
 
 	template<auto string, uint64_t offset> consteval string_literal<((offset >= string.length) ? string.length : offset) + 1> offSetIntoLiteral() {
-		constexpr uint64_t newSize = ((offset >= string.length) ? string.length : offset);
+		static constexpr uint64_t newSize = ((offset >= string.length) ? string.length : offset);
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
 			std::copy_n(string.data(), newSize, sl.values);
@@ -348,7 +348,7 @@ namespace jsonifier::internal {
 	}
 
 	template<auto string, uint64_t offset> consteval string_literal<((offset >= string.length) ? 0 : string.length - offset) + 1> offSetNewLiteral() {
-		constexpr uint64_t newSize = (offset >= string.length) ? 0 : string.length - offset;
+		static constexpr uint64_t newSize = (offset >= string.length) ? 0 : string.length - offset;
 		string_literal<newSize + 1> sl{};
 		if constexpr (newSize > 0) {
 			std::copy_n(string.data() + offset, newSize, sl.values);
@@ -358,7 +358,7 @@ namespace jsonifier::internal {
 	}
 
 	template<uint64_t splitMod, uint64_t size> consteval uint64_t getSplitStringCount(const string_literal<size>&) {
-		constexpr uint64_t splitCount = (size + splitMod - 1ull) / splitMod;
+		static constexpr uint64_t splitCount = (size + splitMod - 1ull) / splitMod;
 		return splitCount == 0ull ? 1ull : splitCount;
 	}
 

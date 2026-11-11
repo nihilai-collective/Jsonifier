@@ -28,15 +28,8 @@ namespace jsonifier::zmij {
 #include <jsonifier-incl/simd/bit_ops.hpp>
 
 namespace jsonifier::zmij {
-	namespace impl {
 
-		constexpr auto isConstantEvaluated() noexcept -> bool {
-#ifdef __cpp_lib_is_constant_evaluated
-			return std::is_constant_evaluated();
-#else
-			return false;
-#endif
-		}
+	namespace impl {
 
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 		inline constexpr bool isBigEndian = true;
@@ -44,38 +37,27 @@ namespace jsonifier::zmij {
 		inline constexpr bool isBigEndian = false;
 #endif
 
-		JSONIFIER_INLINE auto bswap64(uint64_t x) noexcept -> uint64_t {
-#if ZMIJ_HAS_BUILTIN(__builtin_bswap64)
-			return __builtin_bswap64(x);
-#elif JSONIFIER_COMPILER_MSVC
-			return _byteswap_uint64(x);
-#else
-			return ((x & 0xff00000000000000ULL) >> 56) | ((x & 0x00ff000000000000ULL) >> 40) | ((x & 0x0000ff0000000000ULL) >> 24) | ((x & 0x000000ff00000000ULL) >> 8) |
-				((x & 0x00000000ff000000ULL) << 8) | ((x & 0x0000000000ff0000ULL) << 24) | ((x & 0x000000000000ff00ULL) << 40) | ((x & 0x00000000000000ffULL) << 56);
-#endif
-		}
-
-		JSONIFIER_INLINE auto clz(uint64_t x) noexcept -> int32_t {
+		JSONIFIER_INLINE int32_t clz(uint64_t x) noexcept {
 			return static_cast<int32_t>(internal::simd::countlZero(x));
 		}
 
-		JSONIFIER_INLINE auto ctz(uint64_t x) noexcept -> int32_t {
+		JSONIFIER_INLINE int32_t ctz(uint64_t x) noexcept {
 			return static_cast<int32_t>(internal::simd::countrZero(x));
 		}
 
-		JSONIFIER_INLINE auto select(uint64_t condition, int64_t trueValue, int64_t falseValue) noexcept -> int64_t {
+		JSONIFIER_INLINE int64_t select(uint64_t condition, int64_t trueValue, int64_t falseValue) noexcept {
 			if constexpr (!(JSONIFIER_ARCH_X64 && JSONIFIER_COMPILER_GCC)) {
 				return (condition != 0) ? trueValue : falseValue;
 			} else {
-				ZMIJ_ASM(volatile("test %2, %2\n\t"
-								  "cmovne %1, %0\n\t" : "+r"(falseValue) : "r"(trueValue),
+				JSONIFIER_ASM(volatile("test %2, %2\n\t"
+									   "cmovne %1, %0\n\t" : "+r"(falseValue) : "r"(trueValue),
 					"r"(condition) : "cc"));
 				return falseValue;
 			}
 		}
 
 		struct uint128 {
-			template<uint64_t shift> [[maybe_unused]] JSONIFIER_INLINE constexpr auto operator>>(jsonifier::internal::integral_constant<shift>) const noexcept -> uint128 {
+			template<uint64_t shift> [[maybe_unused]] JSONIFIER_INLINE constexpr uint128 operator>>(jsonifier::internal::integral_constant<shift>) const noexcept {
 				if constexpr (shift == 32) {
 					return { hi >> 32, (hi << 32) | (lo >> 32) };
 				} else {
@@ -92,31 +74,20 @@ namespace jsonifier::zmij {
 			uint64_t lo;
 		};
 
-#if ZMIJ_USE_INT128
+#if JSONIFIER_USE_INT128
 		using uint128_t = __uint128_t;
 #else
 		using uint128_t = uint128;
 #endif
 
-#if ZMIJ_USE_INT128 && JSONIFIER_PLATFORM_MAC
+#if JSONIFIER_USE_INT128 && JSONIFIER_PLATFORM_MAC
 		inline constexpr bool useUmul128Hi64 = true;
 #else
 		inline constexpr bool useUmul128Hi64 = false;
 #endif
 
-		JSONIFIER_INLINE constexpr auto umul128(uint64_t x, uint64_t y) noexcept -> uint128_t {
-#if ZMIJ_USE_INT128
-			return uint128_t(x) * y;
-#else
-			if (!isConstantEvaluated()) {
-	#if JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_X64 && defined(__cpp_lib_is_constant_evaluated)
-				uint64_t hi = 0;
-				uint64_t lo = _umul128(x, y, &hi);
-				return { hi, lo };
-	#elif JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_ARM64 && defined(__cpp_lib_is_constant_evaluated)
-				return { __umulh(x, y), x * y };
-	#endif
-			}
+#if !JSONIFIER_USE_INT128
+		JSONIFIER_INLINE constexpr uint128_t umul128Portable(uint64_t x, uint64_t y) noexcept {
 			uint64_t a = x >> 32;
 			uint64_t b = static_cast<uint32_t>(x);
 			uint64_t c = y >> 32;
@@ -129,19 +100,39 @@ namespace jsonifier::zmij {
 
 			uint64_t cs = (bd >> 32) + static_cast<uint32_t>(ad) + static_cast<uint32_t>(bc);
 			return { ac + (ad >> 32) + (bc >> 32) + (cs >> 32), (cs << 32) + static_cast<uint32_t>(bd) };
+		}
+#endif
+
+		JSONIFIER_INLINE constexpr uint128_t umul128(uint64_t x, uint64_t y) noexcept {
+#if JSONIFIER_USE_INT128
+			return uint128_t(x) * y;
+#else
+			if !consteval {
+	#if JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_X64
+				uint64_t hi = 0;
+				uint64_t lo = _umul128(x, y, &hi);
+				return { hi, lo };
+	#elif JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_ARM64
+				return { __umulh(x, y), x * y };
+	#else
+				return umul128Portable(x, y);
+	#endif
+			} else {
+				return umul128Portable(x, y);
+			}
 #endif
 		}
 
-		JSONIFIER_INLINE constexpr auto umul128Hi64(uint64_t x, uint64_t y) noexcept -> uint64_t {
-#if ZMIJ_USE_INT128
+		JSONIFIER_INLINE constexpr uint64_t umul128Hi64(uint64_t x, uint64_t y) noexcept {
+#if JSONIFIER_USE_INT128
 			return static_cast<uint64_t>(umul128(x, y) >> 64);
 #else
 			return umul128(x, y).hi;
 #endif
 		}
 
-		JSONIFIER_INLINE auto umul128AddHi64(uint64_t x, uint64_t y, uint64_t c) noexcept -> uint64_t {
-#if ZMIJ_USE_INT128
+		JSONIFIER_INLINE uint64_t umul128AddHi64(uint64_t x, uint64_t y, uint64_t c) noexcept {
+#if JSONIFIER_USE_INT128
 			return static_cast<uint64_t>((uint128_t(x) * y + c) >> 64);
 #else
 			auto p = umul128(x, y);
@@ -149,8 +140,8 @@ namespace jsonifier::zmij {
 #endif
 		}
 
-		JSONIFIER_INLINE auto umul192Hi128(uint64_t xHi, uint64_t xLo, uint64_t y) noexcept -> uint128 {
-#if ZMIJ_USE_INT128
+		JSONIFIER_INLINE uint128 umul192Hi128(uint64_t xHi, uint64_t xLo, uint64_t y) noexcept {
+#if JSONIFIER_USE_INT128
 			uint128_t p = umul128(xHi, y);
 			uint64_t lo = static_cast<uint64_t>(p) + static_cast<uint64_t>(umul128(xLo, y) >> 64);
 			return { static_cast<uint64_t>(p >> 64) + (lo < static_cast<uint64_t>(p) ? 1ULL : 0ULL), lo };
@@ -161,14 +152,14 @@ namespace jsonifier::zmij {
 #endif
 		}
 
-		JSONIFIER_INLINE auto div10(uint64_t x) noexcept -> uint64_t {
-			constexpr uint64_t div10Sig64 = (1ull << 63) / 5ULL + 1ULL;
-			return ZMIJ_USE_INT128 ? umul128Hi64(x, div10Sig64) : x / 10ULL;
+		JSONIFIER_INLINE uint64_t div10(uint64_t x) noexcept {
+			static constexpr uint64_t div10Sig64 = (1ull << 63) / 5ULL + 1ULL;
+			return JSONIFIER_USE_INT128 ? umul128Hi64(x, div10Sig64) : x / 10ULL;
 		}
 
-		JSONIFIER_INLINE constexpr auto computeDecExp(int32_t binExp, bool regular = true) noexcept -> int32_t {
-			constexpr int32_t log103Over4Sig = 131'072;
-			constexpr int32_t log102Sig = 315'653, log102Exp = 20;
+		JSONIFIER_INLINE constexpr int32_t computeDecExp(int32_t binExp, bool regular = true) noexcept {
+			static constexpr int32_t log103Over4Sig = 131'072;
+			static constexpr int32_t log102Sig = 315'653, log102Exp = 20;
 			return (binExp * log102Sig - (regular ? 0 : log103Over4Sig)) >> log102Exp;
 		}
 
@@ -184,21 +175,21 @@ namespace jsonifier::zmij {
 			using sig_type							= std::conditional_t<numBits == 64, uint64_t, uint32_t>;
 			static constexpr sig_type implicitBit	= static_cast<sig_type>(1) << numSigBits;
 
-			JSONIFIER_INLINE static auto toBits(float_type value) noexcept -> sig_type {
+			JSONIFIER_INLINE static sig_type toBits(float_type value) noexcept {
 				sig_type bits;
 				jsonifier::pow2MemcpyWrapper<sizeof(value)>(&bits, &value);
 				return bits;
 			}
 
-			JSONIFIER_INLINE static auto getExp(sig_type bits) noexcept -> int64_t {
+			JSONIFIER_INLINE static int64_t getExp(sig_type bits) noexcept {
 				return static_cast<int64_t>((bits << 1U) >> (numSigBits + 1));
 			}
 
-			JSONIFIER_INLINE static auto isNegative(sig_type bits) noexcept -> bool {
+			JSONIFIER_INLINE static bool isNegative(sig_type bits) noexcept {
 				return (bits >> (numBits - 1)) != 0;
 			}
 
-			JSONIFIER_INLINE static auto getSig(sig_type bits) noexcept -> sig_type {
+			JSONIFIER_INLINE static sig_type getSig(sig_type bits) noexcept {
 				return bits & (implicitBit - 1U);
 			}
 
@@ -223,13 +214,12 @@ namespace jsonifier::zmij {
 			0x00000000, 0xcdf7fffc, 0x6e8201d8, 0x40cd3fd1, 0xdb642501, 0x00000d0d, 0x14042400, 0x53713840, 0x11781db4, 0x00000000 };
 
 		struct alignas(simdBytesPerRegister) pow10_significand_table {
-			static constexpr bool compress	   = ZMIJ_OPTIMIZE_SIZE != 0;
-			static constexpr bool splitTables  = !compress && JSONIFIER_ARCH_ARM64 != 0;
+			static constexpr bool splitTables  = JSONIFIER_ARCH_ARM64 != 0;
 			static constexpr int32_t numPow10s = 618;
-			uint64_t data[compress ? 1 : numPow10s * 2]{};
+			uint64_t data[numPow10s * 2]{};
 
-			JSONIFIER_INLINE static constexpr auto compute(uint32_t i) noexcept -> uint128 {
-				constexpr uint32_t stride = sizeof(pow10Minor) / sizeof(*pow10Minor);
+			JSONIFIER_INLINE static constexpr uint128 compute(uint32_t i) noexcept {
+				static constexpr uint32_t stride = sizeof(pow10Minor) / sizeof(*pow10Minor);
 				auto m					  = pow10Minor[(i + 10U) % stride];
 				auto h					  = pow10Major[(i + 10U) / stride];
 
@@ -245,7 +235,7 @@ namespace jsonifier::zmij {
 			}
 
 			consteval pow10_significand_table() {
-				for (int32_t i = 0; i < numPow10s && !compress; ++i) {
+				for (int32_t i = 0; i < numPow10s; ++i) {
 					uint128 result = compute(static_cast<uint32_t>(i));
 					if constexpr (splitTables) {
 						data[numPow10s - i - 1]		= result.hi;
@@ -257,40 +247,35 @@ namespace jsonifier::zmij {
 				}
 			}
 
-			JSONIFIER_INLINE constexpr auto operator[](int32_t decExp) const noexcept -> uint128 {
-				constexpr int32_t decExpMin = -293;
+			JSONIFIER_INLINE constexpr uint128 operator[](int32_t decExp) const noexcept {
+				static constexpr int32_t decExpMin = -293;
 				int32_t i					= decExp - decExpMin;
-				if constexpr (compress) {
-					return compute(static_cast<uint32_t>(i));
+				if constexpr (!splitTables) {
+					const uint64_t* p = data + i * 2;
+					return { p[0], p[1] };
 				} else {
-					if constexpr (!splitTables) {
-						const uint64_t* p = data + i * 2;
-						return { p[0], p[1] };
+					const uint64_t* p = data + numPow10s + decExpMin;
+					if !consteval {
+						JSONIFIER_ASM(("" : "+r"(p)));
+						return { p[~decExp], p[~decExp + numPow10s] };
 					} else {
-						const uint64_t* p = data + numPow10s + decExpMin;
-						if (!isConstantEvaluated()) {
-							ZMIJ_ASM(("" : "+r"(p)));
-							return { p[~decExp], p[~decExp + numPow10s] };
-						} else {
-							return { p[~decExp], p[~decExp + numPow10s] };
-						}
+						return { p[~decExp], p[~decExp + numPow10s] };
 					}
 				}
 			}
 		};
 
-		JSONIFIER_INLINE constexpr auto computeExpShift(int32_t binExp, int32_t decExp) noexcept -> uint8_t {
-			constexpr int32_t log2Pow10Sig = 217'707, log2Pow10Exp = 16;
+		JSONIFIER_INLINE constexpr uint8_t computeExpShift(int32_t binExp, int32_t decExp) noexcept {
+			static constexpr int32_t log2Pow10Sig = 217'707, log2Pow10Exp = 16;
 			int32_t pow10BinExp = (-decExp * log2Pow10Sig) >> log2Pow10Exp;
 			return static_cast<uint8_t>(binExp + pow10BinExp + 1);
 		}
 
 		struct exp_shift_table {
-			static constexpr bool enable		= ZMIJ_OPTIMIZE_SIZE == 0;
 			static constexpr int32_t extraShift = 6;
 
 			consteval exp_shift_table() {
-				for (int32_t rawExp = 0; rawExp < static_cast<int32_t>(sizeof(data)) && enable; ++rawExp) {
+				for (int32_t rawExp = 0; rawExp < static_cast<int32_t>(sizeof(data)); ++rawExp) {
 					int32_t binExp = rawExp - float_traits<double>::expOffset;
 					if (rawExp == 0) {
 						++binExp;
@@ -300,18 +285,17 @@ namespace jsonifier::zmij {
 				}
 			}
 
-			uint8_t data[enable ? float_traits<double>::expMask + 1 : 1]{};
+			uint8_t data[float_traits<double>::expMask + 1]{};
 		};
 
 		struct alignas(simdBytesPerRegister) exp_string_table {
-			static constexpr bool enable	   = ZMIJ_USE_EXP_STRING_TABLE;
 			using traits					   = float_traits<double>;
 			static constexpr int32_t minDecExp = traits::min_exponent10 - traits::max_digits10;
 			static constexpr int32_t offset	   = -minDecExp;
-			uint64_t data[enable ? traits::max_exponent10 - minDecExp + 1 : 1]{};
+			uint64_t data[traits::max_exponent10 - minDecExp + 1]{};
 
 			consteval exp_string_table() {
-				for (int32_t e = minDecExp; e <= traits::max_exponent10 && enable; ++e) {
+				for (int32_t e = minDecExp; e <= traits::max_exponent10; ++e) {
 					uint64_t absE = e >= 0 ? static_cast<uint64_t>(e) : static_cast<uint64_t>(-e);
 					uint64_t bc	  = absE % 100ULL;
 					uint64_t val  = ((bc % 10ULL + static_cast<uint64_t>('0')) << 8) | (bc / 10ULL + static_cast<uint64_t>('0'));
@@ -325,7 +309,7 @@ namespace jsonifier::zmij {
 		};
 
 		struct exp_float_shuffle_table {
-			static constexpr bool enable		  = (JSONIFIER_ANY_SIMD != 0) && exp_string_table::enable;
+			static constexpr bool enable		  = JSONIFIER_ANY_SIMD != 0;
 			static constexpr uint8_t expPos		  = 8;
 			static constexpr uint8_t lastDigitPos = 12;
 			static constexpr uint8_t pointPos	  = 13;
@@ -387,7 +371,7 @@ namespace jsonifier::zmij {
 #if JSONIFIER_ANY_AVX
 			static constexpr uint64_t entryAlignment = 64;
 #else
-			static constexpr uint64_t entryAlignment = JSONIFIER_ARCH_ARM64 && !ZMIJ_OPTIMIZE_SIZE ? 32 : 1;
+			static constexpr uint64_t entryAlignment = JSONIFIER_ARCH_ARM64 ? 32 : 1;
 #endif
 
 			struct alignas(entryAlignment) entry {
@@ -415,7 +399,7 @@ namespace jsonifier::zmij {
 					e.shiftPos = static_cast<uint8_t>(static_cast<int32_t>(e.pointPos) + (decExp >= 0 ? 1 : 0));
 
 #if JSONIFIER_ANY_AVX
-					constexpr int32_t bcdSize = 16;
+					static constexpr int32_t bcdSize = 16;
 					for (int32_t extra = 0; extra < 2; ++extra) {
 						int32_t len			  = bcdSize + extra - 1;
 						e.lastDigitPos[extra] = static_cast<uint8_t>(len + ((decExp >= 0 && decExp < len) ? 1 : 0));
@@ -440,27 +424,27 @@ namespace jsonifier::zmij {
 				}
 			}
 
-			[[maybe_unused]] JSONIFIER_INLINE constexpr auto get(int32_t decExp) const noexcept -> const entry& {
-				constexpr auto min = traits::minFixedDecExp;
+			[[maybe_unused]] JSONIFIER_INLINE constexpr const entry& get(int32_t decExp) const noexcept {
+				static constexpr auto min = traits::minFixedDecExp;
 				return data[static_cast<uint64_t>(decExp - min)];
 			}
 
 			entry data[numEntries]{};
 		};
 
-		[[maybe_unused]] JSONIFIER_INLINE auto countTrailingNonzeros(uint64_t x) noexcept -> int32_t {
+		[[maybe_unused]] JSONIFIER_INLINE int32_t countTrailingNonzeros(uint64_t x) noexcept {
 			if constexpr (isBigEndian) {
-				x = bswap64(x);
+				x = std::byteswap(x);
 			}
 			return static_cast<int32_t>((70ULL - internal::simd::countlZeroUnsafe((x << 1U) | 1ULL)) / 8ULL);
 		}
 
-		[[maybe_unused]] JSONIFIER_INLINE auto digits2(uint64_t value) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::read_buffer_ptr> {
-			static const char data[] = "0001020304050607080910111213141516171819"
-									   "2021222324252627282930313233343536373839"
-									   "4041424344454647484950515253545556575859"
-									   "6061626364656667686970717273747576777879"
-									   "8081828384858687888990919293949596979899";
+		[[maybe_unused]] JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::read_buffer_ptr> digits2(uint64_t value) noexcept {
+			alignas(64) static constexpr char data[] = "0001020304050607080910111213141516171819"
+													   "2021222324252627282930313233343536373839"
+													   "4041424344454647484950515253545556575859"
+													   "6061626364656667686970717273747576777879"
+													   "8081828384858687888990919293949596979899";
 			return std::bit_cast<jsonifier::read_buffer_ptr>(&data[value * 2ULL]);
 		}
 
@@ -476,24 +460,26 @@ namespace jsonifier::zmij {
 
 		inline constexpr uint64_t zeros = 0x0101010101010101ULL * static_cast<uint64_t>('0');
 
-		[[maybe_unused]] JSONIFIER_INLINE auto writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept
-			-> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
+		[[maybe_unused]] JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> writeIf(jsonifier::write_buffer_ptr buffer, uint32_t digit,
+			bool condition) noexcept {
 			*buffer = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
 			return buffer + (condition ? 1 : 0);
 		}
 
-		consteval auto splat64(uint64_t x) -> uint128 {
+		consteval uint128 splat64(uint64_t x) {
 			return { x, x };
 		}
-		consteval auto splat32(uint32_t x) -> uint128 {
+
+		consteval uint128 splat32(uint32_t x) {
 			return splat64((static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(x));
 		}
-		consteval auto splat16(uint16_t x) -> uint128 {
+
+		consteval uint128 splat16(uint16_t x) {
 			return splat32((static_cast<uint32_t>(x) << 16) | static_cast<uint32_t>(x));
 		}
-		consteval auto pack8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h) -> uint64_t {
-			using u64 = uint64_t;
-			return (u64(h) << 56) | (u64(g) << 48) | (u64(f) << 40) | (u64(e) << 32) | (u64(d) << 24) | (u64(c) << 16) | (u64(b) << 8) | u64(a);
+
+		consteval uint64_t pack8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h) {
+			return (uint64_t(h) << 56) | (uint64_t(g) << 48) | (uint64_t(f) << 40) | (uint64_t(e) << 32) | (uint64_t(d) << 24) | (uint64_t(c) << 16) | (uint64_t(b) << 8) | uint64_t(a);
 		}
 
 		struct alignas(simdBytesPerRegister) data {
@@ -534,8 +520,8 @@ namespace jsonifier::zmij {
 
 #if JSONIFIER_NEON || JSONIFIER_SVE2
 
-		JSONIFIER_INLINE auto toBcd4x4(int32x4_t efghAbcdMnopIjkl) noexcept -> uint8x16_t {
-			ZMIJ_ASM(("" : "+w"(efghAbcdMnopIjkl)));
+		JSONIFIER_INLINE uint8x16_t toBcd4x4(int32x4_t efghAbcdMnopIjkl) noexcept {
+			JSONIFIER_ASM(("" : "+w"(efghAbcdMnopIjkl)));
 
 			int32x4_t efAbMnIj		   = vqdmulhq_n_s32(efghAbcdMnopIjkl, staticData.multipliers32[2]);
 			int16x8_t ghEfCdAbOpMnKlIj = vreinterpretq_s16_s32(vmlaq_n_s32(efghAbcdMnopIjkl, efAbMnIj, staticData.multipliers32[3]));
@@ -543,10 +529,10 @@ namespace jsonifier::zmij {
 			return vreinterpretq_u8_s16(vmlaq_n_s16(ghEfCdAbOpMnKlIj, high10s, staticData.multipliers16[1]));
 		}
 
-		JSONIFIER_INLINE auto toUnshuffledDigits(uint64_t value) noexcept -> uint8x16_t {
+		JSONIFIER_INLINE uint8x16_t toUnshuffledDigits(uint64_t value) noexcept {
 			uint64_t hundredMillion = staticData.hundredMillion;
 
-			ZMIJ_ASM(("" : "+r"(hundredMillion)));
+			JSONIFIER_ASM(("" : "+r"(hundredMillion)));
 
 			uint64_t abcdefgh = static_cast<uint64_t>(umul128(value, staticData.mulConst) >> 90);
 			uint64_t ijklmnop = value - abcdefgh * hundredMillion;
@@ -563,7 +549,7 @@ namespace jsonifier::zmij {
 
 #elif JSONIFIER_ANY_AVX
 
-		JSONIFIER_INLINE auto toBcd4x4(__m128i y) noexcept -> __m128i {
+		JSONIFIER_INLINE __m128i toBcd4x4(__m128i y) noexcept {
 			const __m128i div100Local = internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&staticData.div100);
 			const __m128i div10Local  = internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&staticData.div10);
 			const __m128i neg100Local = internal::simd::gatherValues<jsonifier::jsonifier_simd_int_128>(&staticData.neg100);
@@ -580,16 +566,16 @@ namespace jsonifier::zmij {
 			int32_t len;
 		};
 
-		[[maybe_unused]] JSONIFIER_INLINE auto toBcd8(uint64_t abcdefgh) noexcept -> bcd_result {
+		[[maybe_unused]] JSONIFIER_INLINE bcd_result toBcd8(uint64_t abcdefgh) noexcept {
 			if constexpr (!JSONIFIER_ANY_SIMD) {
 				uint64_t abcdEfgh = abcdefgh + neg10k * ((abcdefgh * div10kSig) >> div10kExp);
 				uint64_t abCdEfGh = abcdEfgh + neg100 * (((abcdEfgh * div100Sig) >> div100Exp) & 0x7f0000007fULL);
 				uint64_t aBCDEFGH = abCdEfGh + neg10 * (((abCdEfGh * div10Sig) >> div10Exp) & 0xf000f000f000fULL);
-				uint64_t bcd	  = isBigEndian ? aBCDEFGH : bswap64(aBCDEFGH);
+				uint64_t bcd	  = isBigEndian ? aBCDEFGH : std::byteswap(aBCDEFGH);
 				return { bcd, countTrailingNonzeros(bcd) };
 			} else {
 				[[maybe_unused]] const auto* d = &staticData;
-				ZMIJ_ASM(("" : "+r"(d)));
+				JSONIFIER_ASM(("" : "+r"(d)));
 
 #if JSONIFIER_NEON || JSONIFIER_SVE2
 				uint64_t abcdEfgh64	 = abcdefgh + neg10k * ((abcdefgh * div10kSig) >> div10kExp);
@@ -602,7 +588,7 @@ namespace jsonifier::zmij {
 				uint64_t abcdEfgh	   = abcdefgh + neg10k * ((abcdefgh * div10kSig) >> div10kExp);
 				uint64_t unshuffledBcd = static_cast<uint64_t>(_mm_cvtsi128_si64(toBcd4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcdEfgh)))));
 				int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
-				return { bswap64(unshuffledBcd), len };
+				return { std::byteswap(unshuffledBcd), len };
 #endif
 			}
 		}
@@ -629,7 +615,7 @@ namespace jsonifier::zmij {
 			int32_t numDigits;
 		};
 
-		template<int32_t numBits> JSONIFIER_INLINE auto toDigits(uint64_t value) noexcept -> dec_digits<numBits> {
+		template<int32_t numBits> JSONIFIER_INLINE dec_digits<numBits> toDigits(uint64_t value) noexcept {
 #if !JSONIFIER_ANY_SIMD
 			uint32_t hi = static_cast<uint32_t>(value / 100'000'000ULL);
 			uint32_t lo = static_cast<uint32_t>(value % 100'000'000ULL);
@@ -665,20 +651,20 @@ namespace jsonifier::zmij {
 #endif
 		}
 
-		template<> JSONIFIER_INLINE auto toDigits<32>(uint64_t value) noexcept -> dec_digits<32> {
+		template<> JSONIFIER_INLINE dec_digits<32> toDigits<32>(uint64_t value) noexcept {
 #if JSONIFIER_ANY_AVX
 			uint64_t abcdEfgh	   = value + neg10k * ((value * div10kSig) >> div10kExp);
 			__m128i bcdXmm		   = toBcd4x4(_mm_set_epi64x(0, static_cast<int64_t>(abcdEfgh)));
 			uint64_t unshuffledBcd = static_cast<uint64_t>(_mm_cvtsi128_si64(bcdXmm));
 			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
-			return { bswap64(unshuffledBcd) + zeros, bcdXmm, len };
+			return { std::byteswap(unshuffledBcd) + zeros, bcdXmm, len };
 #elif JSONIFIER_NEON || JSONIFIER_SVE2
 			uint64_t abcdEfgh	   = value + neg10k * ((value * div10kSig) >> div10kExp);
 			int32x4_t input		   = vcombine_s32(vreinterpret_s32_u64(vcreate_u64(abcdEfgh)), vdup_n_s32(0));
 			uint8x16_t unshuffled  = toBcd4x4(input);
 			uint64_t unshuffledBcd = vget_lane_u64(vreinterpret_u64_u8(vget_low_u8(unshuffled)), 0);
 			int32_t len			   = unshuffledBcd != 0ULL ? 8 - static_cast<int32_t>(internal::simd::countrZeroUnsafe(unshuffledBcd)) / 8 : 0;
-			return { bswap64(unshuffledBcd) + zeros, unshuffled, len };
+			return { std::byteswap(unshuffledBcd) + zeros, unshuffled, len };
 #else
 			auto result = toBcd8(value);
 			return { result.bcd + zeros, result.len };
@@ -706,8 +692,8 @@ namespace jsonifier::zmij {
 			jsonifier::pow2MemmoveWrapper<sizeof(digits)>(buffer, buffer + (dropLeadingZero ? 1 : 0));
 		}
 
-		JSONIFIER_INLINE auto writeExpFloatSimd(jsonifier::write_buffer_ptr buffer, const dec_digits<32>& dig, int32_t lastDigit, bool hasLastDigit, bool hasExtraDigit,
-			[[maybe_unused]] uint64_t expData) noexcept -> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
+		JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> writeExpFloatSimd(jsonifier::write_buffer_ptr buffer, const dec_digits<32>& dig,
+			int32_t lastDigit, bool hasLastDigit, bool hasExtraDigit, [[maybe_unused]] uint64_t expData) noexcept {
 			uint32_t prefix				   = (static_cast<uint32_t>('.') << 8) + static_cast<uint32_t>('0') + static_cast<uint32_t>(lastDigit);
 			[[maybe_unused]] uint64_t tail = expData | (static_cast<uint64_t>(prefix) << 32);
 			auto entry					   = staticData.expFloatShuffles.getEntry(dig.numDigits, hasLastDigit, hasExtraDigit);
@@ -726,8 +712,8 @@ namespace jsonifier::zmij {
 			return buffer + entry.length;
 		}
 
-		[[maybe_unused]] JSONIFIER_INLINE auto writeExpFloatSimd(jsonifier::write_buffer_ptr, const dec_digits<64>&, int32_t, bool, bool, uint64_t) noexcept
-			-> jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> {
+		[[maybe_unused]] JSONIFIER_INLINE jsonifier::internal::unrestrict_t<jsonifier::write_buffer_ptr> writeExpFloatSimd(jsonifier::write_buffer_ptr, const dec_digits<64>&,
+			int32_t, bool, bool, uint64_t) noexcept {
 			return nullptr;
 		}
 
@@ -738,13 +724,13 @@ namespace jsonifier::zmij {
 			int32_t exp;
 		};
 
-		template<typename float_type, typename uint_type> JSONIFIER_INLINE auto toDecimal(uint_type binSig, int64_t rawExp, bool regular) noexcept -> to_decimal_result {
+		template<typename float_type, typename uint_type> JSONIFIER_INLINE to_decimal_result toDecimal(uint_type binSig, int64_t rawExp, bool regular) noexcept {
 			using traits				 = float_traits<float_type>;
 			int64_t binExp				 = rawExp - traits::expOffset;
-			constexpr int32_t numBits	 = std::numeric_limits<uint_type>::digits;
-			constexpr int32_t extraShift = exp_shift_table::extraShift;
+			static constexpr int32_t numBits	 = std::numeric_limits<uint_type>::digits;
+			static constexpr int32_t extraShift = exp_shift_table::extraShift;
 
-			if (!regular) [[ZMIJ_UNLIKELY]] {
+			if (!regular) [[unlikely]] {
 				int32_t decExp = computeDecExp(static_cast<int32_t>(binExp), false);
 				uint8_t shift  = static_cast<uint8_t>(computeExpShift(static_cast<int32_t>(binExp), decExp + 1) + extraShift);
 				uint128 pow10  = staticData.pow10Significands[-decExp - 1];
@@ -766,17 +752,16 @@ namespace jsonifier::zmij {
 				return { (roundUp || roundDown) == false, digit, integral, decExp };
 			}
 
-			constexpr uint64_t log102Sig = 78'913ULL;
-			constexpr int32_t log102Exp	 = 18;
+			static constexpr uint64_t log102Sig = 78'913ULL;
+			static constexpr int32_t log102Exp	 = 18;
 			int32_t decExp =
 				useUmul128Hi64 ? static_cast<int32_t>(umul128Hi64(static_cast<uint64_t>(binExp), log102Sig << (64 - log102Exp))) : computeDecExp(static_cast<int32_t>(binExp));
-			ZMIJ_ASM(("" : "+r"(decExp)));
-			uint8_t shift = static_cast<uint8_t>(exp_shift_table::enable ? staticData.expShifts.data[static_cast<uint64_t>(binExp + float_traits<double>::expOffset)]
-																		 : computeExpShift(static_cast<int32_t>(binExp), decExp + 1) + extraShift);
+			JSONIFIER_ASM(("" : "+r"(decExp)));
+			uint8_t shift = staticData.expShifts.data[static_cast<uint64_t>(binExp + float_traits<double>::expOffset)];
 			uint64_t even = 1ULL - static_cast<uint64_t>(binSig & 1U);
 
 			if constexpr (numBits == 32) {
-				constexpr int32_t extraShift32 = 34;
+				static constexpr int32_t extraShift32 = 34;
 				shift						   = static_cast<uint8_t>(static_cast<int32_t>(shift) + (extraShift32 - exp_shift_table::extraShift));
 				uint64_t pow10Hi			   = staticData.pow10Significands[-decExp - 1].hi;
 				uint64_t p					   = umul128Hi64(pow10Hi + 1ULL, static_cast<uint64_t>(binSig) << shift);
@@ -790,7 +775,7 @@ namespace jsonifier::zmij {
 				integral += (roundUp ? 1LL : 0LL);
 
 				int32_t digit = static_cast<int32_t>((fractional * 10ULL + (1ULL << (extraShift32 - 1))) >> extraShift32);
-				if (fractional == (1ULL << (extraShift32 - 2))) [[ZMIJ_UNLIKELY]] {
+				if (fractional == (1ULL << (extraShift32 - 2))) [[unlikely]] {
 					digit = 2;
 				}
 				return { (roundUp || roundDown) == false, digit, integral, decExp };
@@ -807,7 +792,7 @@ namespace jsonifier::zmij {
 				integral += (roundUp ? 1LL : 0LL);
 
 				int32_t digit = static_cast<int32_t>(umul128AddHi64(fractional, 10ULL, staticData.biasedHalf));
-				if (fractional == (1ULL << 62)) [[ZMIJ_UNLIKELY]] {
+				if (fractional == (1ULL << 62)) [[unlikely]] {
 					digit = 2;
 				}
 				return { (roundUp || roundDown) == false, digit, integral, decExp };
@@ -821,13 +806,13 @@ namespace jsonifier::zmij {
 
 namespace jsonifier::zmij {
 
-	[[maybe_unused]] JSONIFIER_INLINE auto toDecimal(double value) noexcept -> dec_fp {
+	[[maybe_unused]] JSONIFIER_INLINE dec_fp toDecimal(double value) noexcept {
 		using traits  = float_traits<double>;
 		auto bits	  = traits::toBits(value);
 		auto binExp	  = traits::getExp(bits);
 		auto binSig	  = traits::getSig(bits);
 		auto negative = traits::isNegative(bits);
-		if (binExp == 0 || binExp == traits::expMask) [[ZMIJ_UNLIKELY]] {
+		if (binExp == 0 || binExp == traits::expMask) [[unlikely]] {
 			if (binExp != 0) {
 				return { static_cast<int64_t>(binSig), negative, static_cast<int32_t>(~0U >> 1U) };
 			}
@@ -855,12 +840,12 @@ namespace jsonifier::zmij {
 			buffer += (traits::isNegative(bits) ? 1 : 0);
 
 			const auto* d = &staticData;
-			ZMIJ_ASM(("" : "+r"(d)));
+			JSONIFIER_ASM(("" : "+r"(d)));
 			uint64_t threshold = traits::numBits == 64 ? d->threshold : 10000000ULL;
 
 			to_decimal_result dec;
 			bool isNormal = static_cast<uint32_t>(binExp - 1LL) < static_cast<uint32_t>(traits::expMask - 1);
-			if (!isNormal) [[ZMIJ_UNLIKELY]] {
+			if (!isNormal) [[unlikely]] {
 				if (binExp != 0) {
 					jsonifier::pow2MemcpyWrapper<4>(buffer, binSig == 0ULL ? "inf" : "nan");
 					return buffer + 3;
@@ -886,7 +871,7 @@ namespace jsonifier::zmij {
 			bool hasExtraDigit = dec.sig >= static_cast<int64_t>(threshold);
 			int32_t decExp	   = dec.exp + traits::max_digits10 - 2 + (hasExtraDigit ? 1 : 0);
 			if constexpr (traits::numBits == 32) {
-				if (dec.sig < static_cast<int64_t>(1e6)) [[ZMIJ_UNLIKELY]] {
+				if (dec.sig < static_cast<int64_t>(1e6)) [[unlikely]] {
 					dec.sig		 = 10LL * dec.sig + static_cast<int64_t>(-static_cast<int32_t>(hasLastDigit) & dec.lastDigit);
 					hasLastDigit = false;
 					--decExp;
@@ -895,7 +880,7 @@ namespace jsonifier::zmij {
 
 			jsonifier::write_buffer_ptr start = buffer;
 			auto dig						  = toDigits<traits::numBits>(static_cast<uint64_t>(dec.sig));
-			constexpr int32_t bcdSize		  = traits::numBits == 64 ? 16 : 8;
+			static constexpr int32_t bcdSize		  = traits::numBits == 64 ? 16 : 8;
 			if (decExp >= traits::minFixedDecExp && decExp <= traits::maxFixedDecExp) {
 				jsonifier::pow2MemcpyWrapper<8>(start, &zeros);
 				uint8_t lastDigitChar = static_cast<uint8_t>(static_cast<int32_t>('0') + (-static_cast<int32_t>(hasLastDigit) & dec.lastDigit));
@@ -903,7 +888,7 @@ namespace jsonifier::zmij {
 
 				const auto* fixedLayouts = &d->fixedLayouts;
 				if constexpr (JSONIFIER_ARCH_ARM64) {
-					ZMIJ_ASM(("" : "+r"(fixedLayouts)));
+					JSONIFIER_ASM(("" : "+r"(fixedLayouts)));
 				}
 
 				const auto& layout = fixedLayouts->get(decExp);
@@ -941,35 +926,13 @@ namespace jsonifier::zmij {
 				start[1] = '.';
 				buffer -= (buffer - 1 == start + 1 ? 1 : 0);
 
-				if constexpr (exp_string_table::enable) {
-					uint64_t expData = d->expStrings.data[static_cast<uint64_t>(decExp + exp_string_table::offset)];
-					int32_t len		 = static_cast<int32_t>(expData >> 48);
-					if constexpr (isBigEndian) {
-						expData = bswap64(expData);
-					}
-					jsonifier::pow2MemcpyWrapper<(traits::max_exponent10 >= 100 ? 8ULL : 4ULL)>(buffer, &expData);
-					return buffer + len;
-				} else {
-					uint16_t eSign = static_cast<uint16_t>(
-						decExp >= 0 ? (static_cast<int32_t>('+') << 8 | static_cast<int32_t>('e')) : (static_cast<int32_t>('-') << 8 | static_cast<int32_t>('e')));
-					if constexpr (isBigEndian) {
-						eSign = static_cast<uint16_t>((static_cast<int32_t>(eSign) << 8) | (static_cast<int32_t>(eSign) >> 8));
-					} else {
-						jsonifier::pow2MemcpyWrapper<2>(buffer, &eSign);
-						buffer += 2;
-						decExp = decExp >= 0 ? decExp : -decExp;
-						if constexpr (traits::max_exponent10 >= 100) {
-							uint32_t digit = useUmul128Hi64 ? static_cast<uint32_t>(umul128Hi64(static_cast<uint64_t>(decExp), 0x290000000000000ULL))
-															: static_cast<uint32_t>((static_cast<uint32_t>(decExp) * div100Sig) >> div100Exp);
-							*buffer		   = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
-							buffer += (decExp >= 100 ? 1 : 0);
-							decExp -= static_cast<int32_t>(digit * 100U);
-						} else {
-							jsonifier::pow2MemcpyWrapper<2>(buffer, digits2(static_cast<uint64_t>(decExp)));
-							return buffer + 2;
-						}
-					}
+				uint64_t expData = d->expStrings.data[static_cast<uint64_t>(decExp + exp_string_table::offset)];
+				int32_t len		 = static_cast<int32_t>(expData >> 48);
+				if constexpr (isBigEndian) {
+					expData = std::byteswap(expData);
 				}
+				jsonifier::pow2MemcpyWrapper<(traits::max_exponent10 >= 100 ? 8ULL : 4ULL)>(buffer, &expData);
+				return buffer + len;
 			}
 		}
 

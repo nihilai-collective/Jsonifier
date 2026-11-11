@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t count> consteval array<gen_table_value_t<count>, genTableSize<count>()> genTable() {
 		using value_type		= gen_table_value_t<count>;
-		constexpr uint64_t size = genTableSize<count>();
+		static constexpr uint64_t size = genTableSize<count>();
 		array<value_type, size> t{};
 		for (uint64_t i = 0; i < size; ++i) {
 			uint64_t divisor = size / 10;
@@ -357,7 +357,7 @@ namespace jsonifier::internal {
 	template<int_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			using unsigned_type					= std::make_unsigned_t<v_type>;
-			constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
+			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
 			return (value < 0) ? implNegative(buf, value)
 							   : to_chars<unsigned_type>::impl(buf,
 									 static_cast<unsigned_type>((static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) -
@@ -366,7 +366,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> implNegative(write_buffer_ptr buf, const v_type value) noexcept {
 			using unsigned_type					= std::make_unsigned_t<v_type>;
-			constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
+			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
 			*buf								= '-';
 			return to_chars<unsigned_type>::impl(buf + 1,
 				static_cast<unsigned_type>(

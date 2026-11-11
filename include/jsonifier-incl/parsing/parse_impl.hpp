@@ -1898,9 +1898,9 @@ namespace jsonifier::internal {
 					return false;
 				}
 			}
-			if (iter < end && (*iter == uint_c_v<'e'> || *iter == uint_c_v<'E'>)) {
+			if (iter < end && ( *iter == uint_c_v<'e'> || *iter == uint_c_v<'E'> )) {
 				++iter;
-				if (iter < end && (*iter == uint_c_v<'+'> || *iter == uint_c_v<'-'>)) {
+				if (iter < end && ( *iter == uint_c_v<'+'> || *iter == uint_c_v<'-'> )) {
 					++iter;
 				}
 				if (!digit_run_scanner::impl(iter, end)) {

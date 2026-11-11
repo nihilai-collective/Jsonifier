@@ -48,7 +48,8 @@ namespace jsonifier::generic {
 
 		  protected:
 			JSONIFIER_INLINE void validateFieldStart() noexcept {
-				if (err == error_code::success && iter && (!doc->template charAt<internal::uint_c_v<'"'>>(iter) || iter + 1 >= doc->tapeEnd || !doc->template charAt<internal::uint_c_v<':'>>(iter + 1))) [[unlikely]] {
+				if (err == error_code::success && iter &&
+					(!doc->template charAt<internal::uint_c_v<'"'>>(iter) || iter + 1 >= doc->tapeEnd || !doc->template charAt<internal::uint_c_v<':'>>(iter + 1))) [[unlikely]] {
 					err = error_code::tape_error;
 				}
 			}

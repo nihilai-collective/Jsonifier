@@ -82,7 +82,7 @@ namespace jsonifier::internal {
 	};
 
 	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
-		constexpr char hexDigits[]{ "0123456789ABCDEF" };
+		static constexpr char hexDigits[]{ "0123456789ABCDEF" };
 		array<char_escape_entry, 256ULL> returnValue{};
 		for (uint64_t x = 0; x < 256ULL; ++x) {
 			if (x < 0x20) {
@@ -440,7 +440,7 @@ namespace jsonifier::internal {
 		if constexpr (lowIndex == highIndex) {
 			copyBucket<lowIndex>(dst, src, byteCount);
 		} else {
-			constexpr uint64_t splitIndex{ (lowIndex + highIndex + 1) / 2 };
+			static constexpr uint64_t splitIndex{ (lowIndex + highIndex + 1) / 2 };
 			if (byteCount < (1ull << (splitIndex - 1))) {
 				dispatchBuckets<lowIndex, splitIndex - 1>(dst, src, byteCount);
 			} else {
@@ -470,15 +470,15 @@ namespace jsonifier::internal::simd {
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
 	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
 		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
 		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
 	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-				internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-				internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

@@ -296,52 +296,18 @@
 	#define JSONIFIER_ASAN_ENABLED 0
 #endif
 
-#if defined(__has_builtin) && !defined(ZMIJ_NO_BUILTINS)
-	#define ZMIJ_HAS_BUILTIN(x) __has_builtin(x)
-#else
-	#define ZMIJ_HAS_BUILTIN(x) 0
-#endif
-#ifdef __has_cpp_attribute
-	#define ZMIJ_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
-#else
-	#define ZMIJ_HAS_CPP_ATTRIBUTE(x) 0
-#endif
-
-#if ZMIJ_HAS_CPP_ATTRIBUTE(unlikely)
-	#define ZMIJ_UNLIKELY unlikely
-#else
-	#define ZMIJ_UNLIKELY
-#endif
-
-#ifdef ZMIJ_OPTIMIZE_SIZE
-#elif defined(__OPTIMIZE_SIZE__)
-	#define ZMIJ_OPTIMIZE_SIZE 1
-#else
-	#define ZMIJ_OPTIMIZE_SIZE 0
-#endif
-#ifndef ZMIJ_USE_EXP_STRING_TABLE
-	#define ZMIJ_USE_EXP_STRING_TABLE ZMIJ_OPTIMIZE_SIZE == 0
-#endif
-
 #if JSONIFIER_COMPILER_GCC || JSONIFIER_COMPILER_CLANG
-	#define ZMIJ_ASM(x) asm x
+	#define JSONIFIER_ASM(x) asm x
 #else
-	#define ZMIJ_ASM(x)
+	#define JSONIFIER_ASM(x)
 #endif
 
-#ifdef ZMIJ_USE_INT128
+#ifdef JSONIFIER_USE_INT128
 #elif defined(__SIZEOF_INT128__)
-	#define ZMIJ_USE_INT128 1
+	#define JSONIFIER_USE_INT128 1
 #else
-	#define ZMIJ_USE_INT128 0
+	#define JSONIFIER_USE_INT128 0
 #endif
-
-#define JSONIFIER_FASTFLOAT_TRY(x) \
-	{ \
-		if (!(x)) { \
-			return false; \
-		} \
-	}
 
 template<typename... arg_types> void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,

@@ -237,7 +237,7 @@ namespace jsonifier::internal {
 				} else if (rootIter == endIter) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unexpected_end_of_input>(rootIter, rootIter, endIter));
 					return false;
-				} else if (comparison == falseVal && (*rootIter == uint_c_v<'e'>)) [[likely]] {
+				} else if (comparison == falseVal && ( *rootIter == uint_c_v<'e'> )) [[likely]] {
 					object = false;
 					++rootIter;
 				} else {

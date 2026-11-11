@@ -119,7 +119,7 @@ namespace jsonifier::internal {
 	}
 
 	template<string_literal literal> consteval string_literal<escapedKeyLength<literal>() + 1> escapeKeyLiteral() {
-		constexpr uint64_t newLength{ escapedKeyLength<literal>() };
+		static constexpr uint64_t newLength{ escapedKeyLength<literal>() };
 		string_literal<newLength + 1> returnValues{};
 		uint64_t outIndex{};
 		for (uint64_t x = 0; x < literal.size(); ++x) {

@@ -30,7 +30,7 @@ namespace jsonifier::internal {
 		if constexpr (json_entity_types<decltype(value)>) {
 			return json_entity<value.memberPtr, value.name, index, maxIndex>{};
 		} else {
-			constexpr auto nameNew = getName<value>();
+			static constexpr auto nameNew = getName<value>();
 			return json_entity<value, stringLiteralFromView<nameNew.size()>(nameNew), index, maxIndex>{};
 		}
 	}

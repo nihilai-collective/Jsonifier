@@ -620,7 +620,7 @@ namespace jsonifier::internal {
 			iter += 4;
 			if (comparison == trueVal) {
 				value = true;
-			} else if (comparison == falseVal && (*iter == uint_c_v<'e'>)) [[likely]] {
+			} else if (comparison == falseVal && ( *iter == uint_c_v<'e'> )) [[likely]] {
 				value = false;
 				++iter;
 			} else [[unlikely]] {
@@ -939,7 +939,7 @@ namespace jsonifier::internal {
 			while (probe < context.endIter && whitespaceTable[static_cast<uint64_t>(*probe)]) {
 				++probe;
 			}
-			if (probe >= context.endIter || (*probe != uint_c_v<'{'> && *probe != uint_c_v<'['>)) {
+			if (probe >= context.endIter || ( *probe != uint_c_v<'{'> && *probe != uint_c_v<'['> )) {
 				return;
 			}
 			++probe;
@@ -1354,7 +1354,7 @@ namespace jsonifier::internal {
 			iter += 4;
 			if (comparison == trueVal) {
 				value = true;
-			} else if (comparison == falseVal && (*iter == uint_c_v<'e'>)) [[likely]] {
+			} else if (comparison == falseVal && ( *iter == uint_c_v<'e'> )) [[likely]] {
 				value = false;
 				++iter;
 			} else [[unlikely]] {
@@ -1629,7 +1629,7 @@ namespace jsonifier::internal {
 			if (comparison == trueVal) {
 				value = true;
 				++iter;
-			} else if (comparison == falseVal && (*(ptr + 4) == uint_c_v<'e'>)) [[likely]] {
+			} else if (comparison == falseVal && ( *(ptr + 4) == uint_c_v<'e'> )) [[likely]] {
 				value = false;
 				++iter;
 			} else [[unlikely]] {

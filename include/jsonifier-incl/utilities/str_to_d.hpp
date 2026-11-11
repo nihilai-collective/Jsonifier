@@ -112,13 +112,13 @@ namespace jsonifier::internal {
 		}
 
 		int64_t expNumber{};
-		if ((iter != end) && ((*iter == uint_c_v<'e'>) || (*iter == uint_c_v<'E'>))) {
+		if ((iter != end) && (( *iter == uint_c_v<'e'> ) || ( *iter == uint_c_v<'E'> ))) {
 			++iter;
 			bool negExp = false;
-			if ((iter != end) && (*iter == uint_c_v<'-'>)) {
+			if ((iter != end) && ( *iter == uint_c_v<'-'> )) {
 				negExp = true;
 				++iter;
-			} else if ((iter != end) && (*iter == uint_c_v<'+'>)) {
+			} else if ((iter != end) && ( *iter == uint_c_v<'+'> )) {
 				++iter;
 			}
 			if ((iter == end) || !isDigit(*iter)) [[unlikely]] {
@@ -141,7 +141,7 @@ namespace jsonifier::internal {
 
 		if (digitCount > 19) [[unlikely]] {
 			read_buffer_ptr start = startDigits;
-			while ((start != end) && (*start == uint_c_v<'0'> || *start == uint_c_v<'.'>)) {
+			while ((start != end) && ( *start == uint_c_v<'0'> || *start == uint_c_v<'.'> )) {
 				if (*start == uint_c_v<'0'>) {
 					--digitCount;
 				}

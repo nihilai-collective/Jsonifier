@@ -26,9 +26,9 @@ namespace jsonifier::internal {
 		}
 
 		constexpr xoshiro256() noexcept {
-			constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
-			constexpr auto x01 = x ^ x << 25ull;
-			constexpr auto x02 = x01 ^ x01 >> 27ull;
+			static constexpr auto x   = 0x9E3779B185EBCA87ull >> 12ull;
+			static constexpr auto x01 = x ^ x << 25ull;
+			static constexpr auto x02 = x01 ^ x01 >> 27ull;
 			uint64_t s		   = x02 * 0x2545F4914F6CDD1Dull;
 			for (uint64_t y = 0; y < 4; ++y) {
 				state[y] = splitmix64(s);

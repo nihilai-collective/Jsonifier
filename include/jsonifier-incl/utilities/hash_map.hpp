@@ -362,7 +362,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type, uint64_t storageSize>
 	consteval void collectSimdFullLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
-		constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
+		static constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
 		bool collided{ true };
 		for (uint64_t w = keyStatsVal<value_type>.minLength; w <= keyStatsVal<value_type>.maxLength; ++w) {
 			returnValues.uniqueIndex = w;
@@ -409,8 +409,8 @@ namespace jsonifier::internal {
 	consteval void collectUniquePerLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
 		bool fallback = false;
 		if constexpr (keyStatsVal<value_type>.maxLength < 256) {
-			constexpr auto uniqueLengthCount = jsonifier::internal::countUniqueLengths(tupleReferencesByLength<value_type>);
-			constexpr auto results			 = jsonifier::internal::collectLengths<uniqueLengthCount>(tupleReferencesByLength<value_type>);
+			static constexpr auto uniqueLengthCount = jsonifier::internal::countUniqueLengths(tupleReferencesByLength<value_type>);
+			static constexpr auto results			 = jsonifier::internal::collectLengths<uniqueLengthCount>(tupleReferencesByLength<value_type>);
 			returnValues.uniqueIndices.fill(npos8);
 			for (uint64_t x = 0; x < uniqueLengthCount; ++x) {
 				const auto uniqueIndex = jsonifier::internal::findUniqueColumnIndex(results[x], results[x].length);
@@ -432,7 +432,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type, uint64_t storageSize>
 	consteval void collectUniqueByteAndLengthHashMapData(hash_map_construction_data<storageSize>& returnValues, const tuple_references& pairsNew) {
-		constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
+		static constexpr uint16_t indexSentinel{ static_cast<uint16_t>(storageSize) };
 		bool collided{ true };
 		while (returnValues.uniqueIndex < keyStatsVal<value_type>.minLength) {
 			returnValues.indices.fill(indexSentinel);
@@ -559,7 +559,7 @@ namespace jsonifier::internal {
 	template<typename value_type, uint64_t storageSize> inline constexpr auto mapConstructionDataAt = collectMapConstructionDataImpl<value_type, storageSize>();
 
 	template<typename value_type> consteval const auto& selectMapConstructionData() {
-		constexpr auto preferredSize = jsonifier::internal::storageSizeFor(tupleReferences<value_type>.count);
+		static constexpr auto preferredSize = jsonifier::internal::storageSizeFor(tupleReferences<value_type>.count);
 		if constexpr (preferredSize < maxStorageSize && mapConstructionDataAt<value_type, preferredSize>.type == hash_map_types::unset) {
 			return mapConstructionDataAt<value_type, maxStorageSize>;
 		} else {
@@ -574,8 +574,8 @@ namespace jsonifier::internal {
 	}
 
 	template<typename value_type> consteval decltype(auto) collectMapConstructionData() {
-		constexpr auto& constructionData = mapConstructionData<value_type>;
-		constexpr auto storageSize		 = base_t<decltype(constructionData)>::storageSize;
+		static constexpr auto& constructionData = mapConstructionData<value_type>;
+		static constexpr auto storageSize		 = base_t<decltype(constructionData)>::storageSize;
 		static_assert(constructionData.type != hash_map_types::unset, "Failed to construct that hashmap!");
 		if constexpr (constructionData.type == hash_map_types::empty) {
 			return empty_data{ constructionData };

@@ -21,9 +21,9 @@ namespace jsonifier::internal {
 		return str.substr(start);
 #else
 	#if JSONIFIER_COMPILER_MSVC
-		constexpr const char* prettyFunctionTailLocal{ ">(void)" };
+		static constexpr const char* prettyFunctionTailLocal{ ">(void)" };
 	#elif JSONIFIER_COMPILER_CLANG
-		constexpr const char* prettyFunctionTailLocal{ "]" };
+		static constexpr const char* prettyFunctionTailLocal{ "]" };
 	#endif
 		str			   = str.substr(str.find("=") + 2);
 		uint64_t start = str.findLastOf(':') + 1;
@@ -58,8 +58,8 @@ namespace jsonifier::internal {
 			uint64_t pos{};
 			(
 				[&] {
-					constexpr auto value	   = static_cast<current_type>(indices);
-					constexpr string_view name = getEnumName<value>();
+					static constexpr auto value	   = static_cast<current_type>(indices);
+					static constexpr string_view name = getEnumName<value>();
 					if constexpr (isValidEnumName(name)) {
 						result.names[pos]  = name;
 						result.values[pos] = value;
@@ -84,7 +84,7 @@ namespace jsonifier::internal {
 	};
 
 	template<printable_enum_types enum_type> JSONIFIER_INLINE constexpr string_view getName(enum_type type) noexcept {
-		constexpr auto& entries{ enum_data<enum_type>::value };
+		static constexpr auto& entries{ enum_data<enum_type>::value };
 		for (uint64_t i = 0; i < entries.values.size(); ++i) {
 			if (entries.values[i] == type) {
 				return entries.names[i];

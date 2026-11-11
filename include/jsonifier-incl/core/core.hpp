@@ -40,7 +40,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename tuple_type> consteval auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
-		constexpr auto tupleSize = tupleSizeOf<remove_cvref_t<tuple_type>>;
+		static constexpr auto tupleSize = tupleSizeOf<remove_cvref_t<tuple_type>>;
 		array<tuple_reference, tupleSize> tupleRefsRaw{};
 		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
 		return tupleRefsRaw;

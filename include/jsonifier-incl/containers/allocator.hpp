@@ -13,8 +13,8 @@ namespace jsonifier::internal {
 
 	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
 		if constexpr ((multiple & (multiple - 1)) == 0) {
-			constexpr auto mulSub1{ multiple - 1 };
-			constexpr auto notMulSub1{ ~mulSub1 };
+			static constexpr auto mulSub1{ multiple - 1 };
+			static constexpr auto notMulSub1{ ~mulSub1 };
 			return (value + static_cast<value_type>(mulSub1)) & static_cast<value_type>(notMulSub1);
 		} else {
 			const auto remainder = value % multiple;
@@ -24,7 +24,7 @@ namespace jsonifier::internal {
 
 	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundDownToMultiple(value_type value) noexcept {
 		if constexpr ((multiple & (multiple - 1)) == 0) {
-			constexpr auto notMulSub1{ ~(multiple - 1) };
+			static constexpr auto notMulSub1{ ~(multiple - 1) };
 			return value & notMulSub1;
 		} else {
 			if constexpr (std::is_signed_v<value_type>) {

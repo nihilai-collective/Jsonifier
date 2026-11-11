@@ -261,7 +261,7 @@ namespace jsonifier::internal::simd {
 	[[maybe_unused]] JSONIFIER_INLINE simd_int_t01 opAlignR(simd_int_t01 value, simd_int_t02 other) noexcept {
 		simd_int_t01 result{};
 		{
-			constexpr int64_t src = static_cast<int64_t>(0) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(0) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[0] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -271,7 +271,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(1) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(1) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[1] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -281,7 +281,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(2) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(2) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[2] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -291,7 +291,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(3) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(3) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[3] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -301,7 +301,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(4) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(4) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[4] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -311,7 +311,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(5) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(5) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[5] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -321,7 +321,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(6) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(6) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[6] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -331,7 +331,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(7) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(7) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[7] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -341,7 +341,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(8) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(8) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[8] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -351,7 +351,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(9) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(9) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[9] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -361,7 +361,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(10) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(10) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[10] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -371,7 +371,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(11) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(11) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[11] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -381,7 +381,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(12) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(12) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[12] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -391,7 +391,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(13) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(13) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[13] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -401,7 +401,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(14) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(14) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[14] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {
@@ -411,7 +411,7 @@ namespace jsonifier::internal::simd {
 			}
 		}
 		{
-			constexpr int64_t src = static_cast<int64_t>(15) + static_cast<int64_t>(alignment);
+			static constexpr int64_t src = static_cast<int64_t>(15) + static_cast<int64_t>(alignment);
 			if constexpr (src >= 0 && src < static_cast<int64_t>(simd_int_t01::eightPer)) {
 				result.values.xUint8[15] = other.values.xUint8[static_cast<uint64_t>(src)];
 			} else if constexpr (src >= static_cast<int64_t>(simd_int_t01::eightPer) && src < static_cast<int64_t>(simd_int_t01::eightPer) * 2) {

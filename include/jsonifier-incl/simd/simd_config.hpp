@@ -1,8 +1,8 @@
 /*
-* SPDX-License-Identifier: MIT
-* Copyright (c) 2026 Nihilai Collective Corp
-* https://github.com/nihilai-collective/jsonifier
-* include/jsonifier-incl/simd/simd_config.hpp
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/simd/simd_config.hpp
  */
 #pragma once
 

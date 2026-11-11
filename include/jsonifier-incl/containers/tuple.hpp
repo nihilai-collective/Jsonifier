@@ -332,7 +332,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename target_type, typename tuple_type> JSONIFIER_INLINE constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
-		constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index;
+		static constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index;
 		return std::forward<tuple_type>(tupleVal)[tag<index>{}];
 	}
 
@@ -375,8 +375,8 @@ namespace jsonifier::internal {
 		template<typename integer_sequence> struct tuple_cat_impl_internal;
 
 		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) noexcept {
-			constexpr uint64_t listIdx	= map.listIdx[index];
-			constexpr uint64_t localIdx = map.localIdx[index];
+			static constexpr uint64_t listIdx	= map.listIdx[index];
+			static constexpr uint64_t localIdx = map.localIdx[index];
 			auto* tuplePtr				= list[tag<listIdx>{}];
 			using source_type			= type_list_element_t<listIdx, lists_type>;
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
@@ -389,7 +389,7 @@ namespace jsonifier::internal {
 		static consteval tuple_cat_index_map getMapValues() {
 			tuple_cat_index_map m{};
 			if constexpr (total > 0) {
-				constexpr uint64_t sizes[]{ remove_reference_t<list_types>::size... };
+				static constexpr uint64_t sizes[]{ remove_reference_t<list_types>::size... };
 				uint64_t g{};
 				for (uint64_t i = 0; i < sizeof...(list_types); ++i) {
 					for (uint64_t j = 0; j < sizes[i]; ++j, ++g) {
