@@ -95,7 +95,7 @@ namespace jsonifier::internal {
 
 	template<typename derived_type_new> struct parser;
 
-	enum class avx_type { m128 = 0, m256 = 1, m512 = 2 };
+	enum class avx_type : uint8_t { m128 = 0, m256 = 1, m512 = 2 };
 
 	template<avx_type type> struct simd_type_wrapper;
 

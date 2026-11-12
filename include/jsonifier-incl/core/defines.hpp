@@ -309,13 +309,13 @@
 	#define JSONIFIER_USE_INT128 0
 #endif
 
-template<typename... arg_types> void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
+template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
 }
 
-template<typename... arg_types> void jsonifierFailMemmoveImpl(arg_types&&...) noexcept {
+template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&...) noexcept {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memmove is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
@@ -323,28 +323,17 @@ template<typename... arg_types> void jsonifierFailMemmoveImpl(arg_types&&...) no
 
 namespace std {
 
-	template<typename... arg_types> void jsonifierFailMemcpyImpl(arg_types&&... args) noexcept {
-		::jsonifierFailMemcpyImpl(args...);
+	template<typename... arg_types> inline void jsonifierFailMemmoveImpl(arg_types&&... args) noexcept {
+		::jsonifierFailMemmoveImpl(args...);
 	}
 
-	template<typename... arg_types> void jsonifierFailMemmoveImpl(arg_types&&... args) noexcept {
-		::jsonifierFailMemmoveImpl(args...);
+	template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&... args) noexcept {
+		::jsonifierFailMemcpyImpl(args...);
 	}
 
 }
 
 namespace jsonifier {
-
-	template<uint64_t size, typename value_type_01, typename value_type_02>
-	JSONIFIER_INLINE void pow2MemcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src) noexcept {
-		static_assert(std::has_single_bit(size), "Sorry, but you can only memcpy a power-of-2 size.");
-		std::memcpy(dst, src, size);
-	}
-
-	template<typename value_type_01, typename value_type_02>
-	JSONIFIER_INLINE void memcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src, uint64_t size) noexcept {
-		std::memcpy(dst, src, size);
-	}
 
 	template<uint64_t size, typename value_type_01, typename value_type_02> JSONIFIER_INLINE void pow2MemmoveWrapper(value_type_01* dst, const value_type_02* src) noexcept {
 		static_assert(std::has_single_bit(size), "Sorry, but you can only memmove a power-of-2 size.");
@@ -355,6 +344,17 @@ namespace jsonifier {
 
 	template<typename value_type_01, typename value_type_02> JSONIFIER_INLINE void memmoveWrapper(value_type_01* dst, const value_type_02* src, uint64_t size) noexcept {
 		std::memmove(dst, src, size);
+	}
+
+	template<typename value_type_01, typename value_type_02>
+	JSONIFIER_INLINE void memcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src, uint64_t size) noexcept {
+		std::memcpy(dst, src, size);
+	}
+
+	template<uint64_t size, typename value_type_01, typename value_type_02>
+	JSONIFIER_INLINE void pow2MemcpyWrapper(value_type_01* __restrict dst, const value_type_02* __restrict src) noexcept {
+		static_assert(std::has_single_bit(size), "Sorry, but you can only memcpy a power-of-2 size.");
+		std::memcpy(dst, src, size);
 	}
 
 }

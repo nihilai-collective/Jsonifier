@@ -11,17 +11,6 @@
 
 namespace jsonifier::internal {
 
-	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
-		if constexpr ((multiple & (multiple - 1)) == 0) {
-			static constexpr auto mulSub1{ multiple - 1 };
-			static constexpr auto notMulSub1{ ~mulSub1 };
-			return (value + static_cast<value_type>(mulSub1)) & static_cast<value_type>(notMulSub1);
-		} else {
-			const auto remainder = value % multiple;
-			return remainder == 0 ? value : value + (multiple - remainder);
-		}
-	}
-
 	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundDownToMultiple(value_type value) noexcept {
 		if constexpr ((multiple & (multiple - 1)) == 0) {
 			static constexpr auto notMulSub1{ ~(multiple - 1) };
@@ -35,7 +24,18 @@ namespace jsonifier::internal {
 		}
 	}
 
-	enum class allocated_memory_types {
+	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
+		if constexpr ((multiple & (multiple - 1)) == 0) {
+			static constexpr auto mulSub1{ multiple - 1 };
+			static constexpr auto notMulSub1{ ~mulSub1 };
+			return (value + static_cast<value_type>(mulSub1)) & static_cast<value_type>(notMulSub1);
+		} else {
+			const auto remainder = value % multiple;
+			return remainder == 0 ? value : value + (multiple - remainder);
+		}
+	}
+
+	enum class allocated_memory_types : uint8_t {
 		huge_page,
 		mmap,
 		standard_page,
@@ -59,9 +59,15 @@ namespace jsonifier::internal {
 		static constexpr uint64_t hugePageSize		= 2 * 1024 * 1024ULL;
 		static constexpr uint64_t hugePageThreshold = hugePageSize * 2;
 
-		JSONIFIER_INLINE alloc_wrapper() noexcept = default;
+		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
 
-		template<typename other_type> JSONIFIER_INLINE alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
+		template<typename other_type> struct rebind {
+			using other = alloc_wrapper<other_type>;
+		};
+
+		JSONIFIER_INLINE constexpr alloc_wrapper() noexcept = default;
+
+		template<typename other_type> JSONIFIER_INLINE constexpr alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
 		}
 
 		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
@@ -125,7 +131,7 @@ namespace jsonifier::internal {
 			return finalize(p, allocated_memory_types::standard, alignedBytes);
 		}
 
-		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
+		static consteval size_type maxSize() noexcept {
 			return (static_cast<size_type>(-1) - headerSize - (alignment - 1)) / sizeof(value_type);
 		}
 
@@ -182,14 +188,8 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		JSONIFIER_INLINE static void destroy(pointer) noexcept {
+		JSONIFIER_INLINE static constexpr void destroy(pointer) noexcept {
 		}
-
-		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
-
-		template<typename other_type> struct rebind {
-			using other = alloc_wrapper<other_type>;
-		};
 
 		static_assert(alignment >= alignof(allocation_header), "alignment must cover allocation_header's alignment requirement.");
 	};

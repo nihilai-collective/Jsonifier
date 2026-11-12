@@ -35,20 +35,20 @@ namespace jsonifier::internal {
 	};
 #endif
 
-	template<typename literal_type> consteval auto makeQuotedKeyLiteral(const literal_type& keyLiteral) {
-		return string_literal{ "\"" } + keyLiteral + string_literal{ "\"" };
-	}
-
-	template<typename literal_type> consteval auto makeFusedKeyLiteral(const literal_type& keyLiteral) {
-		return string_literal{ "\"" } + keyLiteral + string_literal{ "\"" } + string_literal{ ":" };
-	}
-
-	template<uint64_t index, typename literal_type> consteval auto makeMemberLiteralNew(const literal_type& keyLiteral) {
+	template<uint64_t index, typename literal_type> consteval auto makeMemberLiteralNew(const literal_type& keyLiteral) noexcept {
 		if constexpr (index > 0) {
 			return string_literal{ "," } + string_literal{ "\"" } + keyLiteral + string_literal{ "\"" } + string_literal{ ":" };
 		} else {
 			return string_literal{ "\"" } + keyLiteral + string_literal{ "\"" } + string_literal{ ":" };
 		}
+	}
+
+	template<typename literal_type> consteval auto makeQuotedKeyLiteral(const literal_type& keyLiteral) noexcept {
+		return string_literal{ "\"" } + keyLiteral + string_literal{ "\"" };
+	}
+
+	template<typename literal_type> consteval auto makeFusedKeyLiteral(const literal_type& keyLiteral) noexcept {
+		return string_literal{ "\"" } + keyLiteral + string_literal{ "\"" } + string_literal{ ":" };
 	}
 
 	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::template_iterator_type>;

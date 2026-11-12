@@ -10,7 +10,7 @@
 
 namespace jsonifier::internal {
 
-	template<uint64_t count> consteval uint64_t genTableSize() {
+	template<uint64_t count> consteval uint64_t genTableSize() noexcept {
 		uint64_t result = 1;
 		for (uint64_t j = 0; j < count; ++j) {
 			result *= 10;
@@ -20,8 +20,8 @@ namespace jsonifier::internal {
 
 	template<uint64_t count> using gen_table_value_t = conditional_t<(count <= 2ULL), uint16_t, uint32_t>;
 
-	template<uint64_t count> consteval array<gen_table_value_t<count>, genTableSize<count>()> genTable() {
-		using value_type		= gen_table_value_t<count>;
+	template<uint64_t count> consteval array<gen_table_value_t<count>, genTableSize<count>()> genTable() noexcept {
+		using value_type			   = gen_table_value_t<count>;
 		static constexpr uint64_t size = genTableSize<count>();
 		array<value_type, size> t{};
 		for (uint64_t i = 0; i < size; ++i) {
@@ -90,7 +90,7 @@ namespace jsonifier::internal {
 	template<typename v_type> struct to_chars;
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 5ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type a{ static_cast<v_type>(value * 3518437209ULL >> 45) };
 			*buf = static_cast<uint8_t>(a + '0');
 			pow2MemcpyWrapper<4ULL>(buf + 1, charTable4DigitData + value - a * 10000);
@@ -99,7 +99,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 6ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type ab{ static_cast<v_type>(value * 3518437209ULL >> 45) };
 			pow2MemcpyWrapper<2ULL>(buf, charTable2DigitData + ab);
 			pow2MemcpyWrapper<4ULL>(buf + 2, charTable4DigitData + value - (ab * 10000ULL));
@@ -108,7 +108,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 7ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abc{ static_cast<v_type>(value * 3518437209ULL >> 45) };
 			copy3Digits(buf, abc);
 			pow2MemcpyWrapper<4ULL>(buf + 3, charTable4DigitData + value - (abc * 10000ULL));
@@ -117,7 +117,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 8ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcd{ static_cast<v_type>(value * 3518437209ULL >> 45) };
 			pow2MemcpyWrapper<4ULL>(buf, charTable4DigitData + abcd);
 			pow2MemcpyWrapper<4ULL>(buf + 4, charTable4DigitData + value - (abcd * 10000ULL));
@@ -126,7 +126,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 9ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type a{ static_cast<v_type>(multiply_and_shift::impl(value)) };
 			const v_type bcdefghi{ static_cast<v_type>(value - a * 100000000ULL) };
 			const v_type bcde{ static_cast<v_type>(bcdefghi * 3518437209ULL >> 45) };
@@ -138,7 +138,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint_types v_type> struct to_chars_internal<v_type, 10ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type ab{ static_cast<v_type>(multiply_and_shift::impl(value)) };
 			const v_type cdefghij{ static_cast<v_type>(value - ab * 100000000ULL) };
 			const v_type cdef{ static_cast<v_type>(cdefghij * 3518437209ULL >> 45) };
@@ -150,7 +150,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 11ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abc{ multiply_and_shift::impl(value) };
 			const v_type defghijk{ value - abc * 100000000ULL };
 			const v_type defg{ defghijk * 3518437209ULL >> 45 };
@@ -162,7 +162,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 12ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcd{ multiply_and_shift::impl(value) };
 			const v_type efghijkl{ value - abcd * 100000000ULL };
 			const v_type efgh{ efghijkl * 3518437209ULL >> 45 };
@@ -174,7 +174,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 13ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcde{ multiply_and_shift::impl(value) };
 			const v_type fghijklm{ value - abcde * 100000000ULL };
 			const v_type a{ abcde * 3518437209ULL >> 45 };
@@ -188,7 +188,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 14ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdef{ multiply_and_shift::impl(value) };
 			const v_type ghijklmn{ value - abcdef * 100000000ULL };
 			const v_type ab{ abcdef * 3518437209ULL >> 45 };
@@ -202,7 +202,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 15ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefg{ multiply_and_shift::impl(value) };
 			const v_type hijklmno{ value - abcdefg * 100000000ULL };
 			const v_type abc{ abcdefg * 3518437209ULL >> 45 };
@@ -216,7 +216,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 16ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefgh{ multiply_and_shift::impl(value) };
 			const v_type ijklmnop{ value - abcdefgh * 100000000ULL };
 			const v_type abcd{ abcdefgh * 3518437209ULL >> 45 };
@@ -230,7 +230,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 17ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefghi{ multiply_and_shift::impl(value) };
 			const v_type jklmnopq{ value - abcdefghi * 100000000ULL };
 			const v_type a{ multiply_and_shift::impl(abcdefghi) };
@@ -247,7 +247,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 18ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefghij{ multiply_and_shift::impl(value) };
 			const v_type klmnopqr{ value - abcdefghij * 100000000ULL };
 			const v_type ab{ multiply_and_shift::impl(abcdefghij) };
@@ -264,7 +264,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 19ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefghijk{ multiply_and_shift::impl(value) };
 			const v_type lmnopqrs{ value - abcdefghijk * 100000000ULL };
 			const v_type abc{ multiply_and_shift::impl(abcdefghijk) };
@@ -281,7 +281,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_types v_type> struct to_chars_internal<v_type, 20ULL> {
-		static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
+		inline static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
 			const v_type abcdefghijkl{ multiply_and_shift::impl(value) };
 			const v_type mnopqrst{ value - abcdefghijkl * 100000000ULL };
 			const v_type abcd{ multiply_and_shift::impl(abcdefghijkl) };
@@ -356,16 +356,16 @@ namespace jsonifier::internal {
 
 	template<int_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> implNegative(write_buffer_ptr buf, const v_type value) noexcept {
-			using unsigned_type					= std::make_unsigned_t<v_type>;
+			using unsigned_type						   = std::make_unsigned_t<v_type>;
 			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
-			*buf								= '-';
+			*buf									   = '-';
 			return to_chars<unsigned_type>::impl(buf + 1,
 				static_cast<unsigned_type>(
 					(static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) - static_cast<unsigned_type>(value >> shiftAmount)));
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			using unsigned_type					= std::make_unsigned_t<v_type>;
+			using unsigned_type						   = std::make_unsigned_t<v_type>;
 			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
 			return (value < 0) ? implNegative(buf, value)
 							   : to_chars<unsigned_type>::impl(buf,

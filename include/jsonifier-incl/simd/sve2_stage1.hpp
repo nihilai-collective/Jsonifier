@@ -24,7 +24,7 @@ namespace jsonifier::internal::simd {
 		return returnValue;
 	}() };
 
-	consteval uint64_t getShiftAmount(const uint64_t index) {
+	consteval uint64_t getShiftAmount(const uint64_t index) noexcept {
 		return shiftAmounts[index % shiftAmounts.size()];
 	}
 
@@ -38,8 +38,16 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	JSONIFIER_INLINE jsonifier_simd_int_t sve2BitMask() noexcept {
-		return svreinterpret_u8_u64(svdup_n_u64(0x8040201008040201ULL));
+	JSONIFIER_INLINE jsonifier_simd_int_t sve2OpChars() noexcept {
+		alignas(16) static constexpr uint8_t opPattern[16]{ uint_c_v<','>, uint_c_v<':'>, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, uint_c_v<','>, uint_c_v<':'>,
+			uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, uint_c_v<','>, uint_c_v<':'>, uint_c_v<'['>, uint_c_v<']'> };
+		return svld1_u8(svptrue_b8(), opPattern);
+	}
+
+	JSONIFIER_INLINE jsonifier_simd_int_t sve2WsChars() noexcept {
+		alignas(16) static constexpr uint8_t wsPattern[16]{ uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>,
+			uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'> };
+		return svld1_u8(svptrue_b8(), wsPattern);
 	}
 
 	JSONIFIER_INLINE uint64_t sve2CollapseMasked(const jsonifier_simd_int_t masked0, const jsonifier_simd_int_t masked1, const jsonifier_simd_int_t masked2,
@@ -57,16 +65,8 @@ namespace jsonifier::internal::simd {
 		return sve2CollapseMasked(svand_u8_x(pg, match0, bitMask), svand_u8_x(pg, match1, bitMask), svand_u8_x(pg, match2, bitMask), svand_u8_x(pg, match3, bitMask));
 	}
 
-	JSONIFIER_INLINE jsonifier_simd_int_t sve2WsChars() noexcept {
-		alignas(16) static constexpr uint8_t wsPattern[16]{ uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>,
-			uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'>, uint_c_v<' '>, uint_c_v<'\t'>, uint_c_v<'\n'>, uint_c_v<'\r'> };
-		return svld1_u8(svptrue_b8(), wsPattern);
-	}
-
-	JSONIFIER_INLINE jsonifier_simd_int_t sve2OpChars() noexcept {
-		alignas(16) static constexpr uint8_t opPattern[16]{ uint_c_v<','>, uint_c_v<':'>, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, uint_c_v<','>, uint_c_v<':'>,
-			uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, uint_c_v<','>, uint_c_v<':'>, uint_c_v<'['>, uint_c_v<']'> };
-		return svld1_u8(svptrue_b8(), opPattern);
+	JSONIFIER_INLINE jsonifier_simd_int_t sve2BitMask() noexcept {
+		return svreinterpret_u8_u64(svdup_n_u64(0x8040201008040201ULL));
 	}
 
 	struct ws_collector {
@@ -202,7 +202,7 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArraySve2() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArraySve2() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -213,9 +213,9 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArraySve2<size>() };
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArraySve2() {
-		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u, 0x00u,
-			0x00u, 0x00u, 0x00u };
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArraySve2() noexcept {
+		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u,
+			0x00u, 0x00u, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];

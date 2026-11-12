@@ -11,7 +11,7 @@
 namespace jsonifier::generic {
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
-	consteval jsonifier::internal::array<int8_t, 256> genDepthDeltaTable() {
+	consteval jsonifier::internal::array<int8_t, 256> genDepthDeltaTable() noexcept {
 		jsonifier::internal::array<int8_t, 256> returnValues{};
 		for (auto& entry: returnValues) {
 			entry = 0;
@@ -29,7 +29,7 @@ namespace jsonifier::generic {
 
 	using array_type_table = internal::array<json_type, 256>;
 
-	consteval array_type_table genTypeTable() {
+	consteval array_type_table genTypeTable() noexcept {
 		array_type_table returnValues{};
 		for (auto& entry: returnValues) {
 			entry = json_type::unset;
@@ -51,7 +51,7 @@ namespace jsonifier::generic {
 
 	inline constexpr const json_type* __restrict typeTable{ typeTableRaw.data() };
 
-	consteval jsonifier::internal::array<bool, 256> genSeperatorByteTable() {
+	consteval jsonifier::internal::array<bool, 256> genSeperatorByteTable() noexcept {
 		jsonifier::internal::array<bool, 256> returnValues{};
 		for (auto& entry: returnValues) {
 			entry = false;
@@ -68,7 +68,7 @@ namespace jsonifier::generic {
 
 	inline constexpr const bool* __restrict seperatorByteTable{ seperatorByteTableRaw.data() };
 
-	consteval internal::array<bool, 256ULL> genUtf8StringStopTable() {
+	consteval internal::array<bool, 256ULL> genUtf8StringStopTable() noexcept {
 		internal::array<bool, 256ULL> returnValues{};
 		for (uint64_t x = 0; x < 0x20; ++x) {
 			returnValues[x] = true;
@@ -82,7 +82,7 @@ namespace jsonifier::generic {
 
 	inline constexpr const bool* __restrict utf8StringStopTable{ utf8StringStopTableRaw.data() };
 
-	consteval internal::array<bool, 256ULL> genAsciiStringStopTable() {
+	consteval internal::array<bool, 256ULL> genAsciiStringStopTable() noexcept {
 		internal::array<bool, 256ULL> returnValues{};
 		for (uint64_t x = 0; x < 0x20; ++x) {
 			returnValues[x] = true;

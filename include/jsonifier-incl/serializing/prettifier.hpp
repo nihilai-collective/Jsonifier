@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 	};
 
 	template<prettify_options options, typename prettifier_type> struct prettify_context_ro {
-		prettify_context_ro() noexcept										= delete;
+		prettify_context_ro() noexcept = delete;
 
 		JSONIFIER_INLINE prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew,
 			read_buffer_ptr dataPtrNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
@@ -270,7 +270,7 @@ namespace jsonifier::internal {
 			return status.index;
 		}
 
-		inline ~prettifier() noexcept				   = default;
+		inline ~prettifier() noexcept = default;
 
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};

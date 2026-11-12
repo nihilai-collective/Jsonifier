@@ -19,7 +19,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type> using base_t = remove_cvref_t<value_type>;
 
-	consteval array<bool, 256ULL> genWhitespaceTable() {
+	consteval array<bool, 256ULL> genWhitespaceTable() noexcept {
 		array<bool, 256ULL> returnValues{};
 		returnValues[uint_c_v<'\t'>] = true;
 		returnValues[uint_c_v<' '>]	 = true;
@@ -32,7 +32,7 @@ namespace jsonifier::internal {
 
 	inline constexpr const bool* __restrict whitespaceTable{ whitespaceTableRaw.data() };
 
-	consteval array<int8_t, 256ULL> genNestingDeltaTable() {
+	consteval array<int8_t, 256ULL> genNestingDeltaTable() noexcept {
 		array<int8_t, 256ULL> returnValues{};
 		returnValues[uint_c_v<'{'>] = 1;
 		returnValues[uint_c_v<'['>] = 1;
@@ -45,7 +45,7 @@ namespace jsonifier::internal {
 
 	inline constexpr const int8_t* __restrict nestingDeltaTable{ nestingDeltaTableRaw.data() };
 
-	consteval array<bool, 256ULL> genNewlineTable() {
+	consteval array<bool, 256ULL> genNewlineTable() noexcept {
 		array<bool, 256ULL> returnValues{};
 		returnValues[uint_c_v<'\n'>] = true;
 		returnValues[uint_c_v<'\r'>] = true;
@@ -56,7 +56,7 @@ namespace jsonifier::internal {
 
 	inline constexpr const bool* __restrict newlineTable{ newlineTableRaw.data() };
 
-	consteval array<bool, 256ULL> genNumberTable() {
+	consteval array<bool, 256ULL> genNumberTable() noexcept {
 		array<bool, 256ULL> returnValues{};
 		returnValues[uint_c_v<'-'>] = true;
 		returnValues[uint_c_v<'0'>] = true;
@@ -81,7 +81,7 @@ namespace jsonifier::internal {
 		char values[8]{};
 	};
 
-	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() {
+	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() noexcept {
 		static constexpr char hexDigits[]{ "0123456789ABCDEF" };
 		array<char_escape_entry, 256ULL> returnValue{};
 		for (uint64_t x = 0; x < 256ULL; ++x) {
@@ -128,15 +128,15 @@ namespace jsonifier::internal {
 		return static_cast<value_type&&>(t);
 	}
 
+	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
+		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
+	}
+
 	template<typename value_type>
 		requires(std::is_rvalue_reference_v<value_type>)
 	JSONIFIER_INLINE constexpr value_type&& forward(remove_reference_t<value_type>&& t) noexcept {
 		static_assert(!std::is_lvalue_reference_v<value_type>, "value_type cannot be an lvalue reference (e.g., U&).");
 		return static_cast<value_type&&>(t);
-	}
-
-	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
-		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
 	}
 
 	struct swap_fn {

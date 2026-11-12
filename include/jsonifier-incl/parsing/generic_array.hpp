@@ -66,15 +66,15 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE generic_array(error_code errNew) noexcept : err{ errNew } {
 		}
 
-		JSONIFIER_INLINE generic_array(const generic_array& other) noexcept : open{ other.open }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
+		JSONIFIER_INLINE generic_array& operator=(const generic_array& other) noexcept {
+			open  = other.open;
+			doc	  = other.doc;
+			depth = other.depth;
+			err	  = other.err;
+			return *this;
 		}
 
-		JSONIFIER_INLINE generic_array& operator=(const generic_array& other) noexcept {
-			open = other.open;
-			doc = other.doc;
-			depth = other.depth;
-			err = other.err;
-			return *this;
+		JSONIFIER_INLINE generic_array(const generic_array& other) noexcept : open{ other.open }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
 		}
 
 		[[nodiscard]] JSONIFIER_INLINE error_code countElements(uint64_t& out) const noexcept {

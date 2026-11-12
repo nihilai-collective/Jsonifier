@@ -11,7 +11,7 @@
 namespace jsonifier::generic {
 
 	struct generic_storage {
-		JSONIFIER_INLINE generic_storage() noexcept		   = default;
+		JSONIFIER_INLINE generic_storage() noexcept = default;
 
 		JSONIFIER_INLINE generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
@@ -72,49 +72,6 @@ namespace jsonifier::generic {
 		return getArray().at(index);
 	}
 
-	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::findField(string_view key) const noexcept {
-		return getObject().findField(key);
-	}
-
-	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::findFieldUnordered(string_view key) const noexcept {
-		return getObject().findFieldUnordered(key);
-	}
-
-	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::atPointer(string_view pointer) const noexcept {
-		value current{ *this };
-		string unescapedToken{};
-		const char* position   = pointer.data();
-		const char* pointerEnd = position + pointer.size();
-		while (current.err == error_code::success && position < pointerEnd) {
-			if (*position != '/') [[unlikely]] {
-				current = value{ error_code::invalid_json_pointer };
-			} else {
-				++position;
-				const char* slash	 = jsonifier::internal::char_comparison<'/', char>::memchar(position, static_cast<uint64_t>(pointerEnd - position));
-				const char* tokenEnd = slash ? slash : pointerEnd;
-				current				 = current.pointerStep(string_view{ position, static_cast<uint64_t>(tokenEnd - position) }, unescapedToken);
-				position			 = tokenEnd;
-			}
-		}
-		return current;
-	}
-
-	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::pointerStep(string_view token, string& unescapedToken) const noexcept {
-		switch (doc->charAt(iter)) {
-			case internal::uint_c_v<'{'>: {
-				return unescapePointerToken(token, unescapedToken) ? findField(token) : value{ error_code::invalid_json_pointer };
-			}
-			case internal::uint_c_v<'['>: {
-				uint64_t index{};
-				const error_code indexError = parsePointerIndex(token, index);
-				return indexError == error_code::success ? getArray().at(index) : value{ indexError };
-			}
-			default: {
-				return value{ error_code::invalid_json_pointer };
-			}
-		}
-	}
-
 	template<bool minified> JSONIFIER_INLINE bool generic_value<minified>::unescapePointerToken(string_view& token, string& unescapedToken) noexcept {
 		if (!jsonifier::internal::char_comparison<'~', char>::memchar(token.data(), token.size())) {
 			return true;
@@ -132,6 +89,10 @@ namespace jsonifier::generic {
 		}
 		token = unescapedToken;
 		return true;
+	}
+
+	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::findFieldUnordered(string_view key) const noexcept {
+		return getObject().findFieldUnordered(key);
 	}
 
 	template<bool minified> JSONIFIER_INLINE error_code generic_value<minified>::parsePointerIndex(string_view token, uint64_t& index) noexcept {
@@ -174,6 +135,45 @@ namespace jsonifier::generic {
 			out = *this;
 			return err;
 		}
+	}
+
+	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::findField(string_view key) const noexcept {
+		return getObject().findField(key);
+	}
+
+	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::pointerStep(string_view token, string& unescapedToken) const noexcept {
+		switch (doc->charAt(iter)) {
+			case internal::uint_c_v<'{'>: {
+				return unescapePointerToken(token, unescapedToken) ? findField(token) : value{ error_code::invalid_json_pointer };
+			}
+			case internal::uint_c_v<'['>: {
+				uint64_t index{};
+				const error_code indexError = parsePointerIndex(token, index);
+				return indexError == error_code::success ? getArray().at(index) : value{ indexError };
+			}
+			default: {
+				return value{ error_code::invalid_json_pointer };
+			}
+		}
+	}
+
+	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::atPointer(string_view pointer) const noexcept {
+		value current{ *this };
+		string unescapedToken{};
+		const char* position   = pointer.data();
+		const char* pointerEnd = position + pointer.size();
+		while (current.err == error_code::success && position < pointerEnd) {
+			if (*position != '/') [[unlikely]] {
+				current = value{ error_code::invalid_json_pointer };
+			} else {
+				++position;
+				const char* slash	 = jsonifier::internal::char_comparison<'/', char>::memchar(position, static_cast<uint64_t>(pointerEnd - position));
+				const char* tokenEnd = slash ? slash : pointerEnd;
+				current				 = current.pointerStep(string_view{ position, static_cast<uint64_t>(tokenEnd - position) }, unescapedToken);
+				position			 = tokenEnd;
+			}
+		}
+		return current;
 	}
 
 }

@@ -38,7 +38,7 @@ namespace jsonifier::generic {
 	  public:
 		static constexpr uint32_t npos{ std::numeric_limits<uint32_t>::max() };
 
-		JSONIFIER_INLINE field_index_map() noexcept		   = default;
+		JSONIFIER_INLINE field_index_map() noexcept = default;
 
 		JSONIFIER_INLINE field_index_map& operator=(field_index_map&& other) noexcept {
 			if (this != &other) [[likely]] {
@@ -214,7 +214,7 @@ namespace jsonifier::generic {
 #endif
 		}
 
-		void grow() noexcept {
+		inline void grow() noexcept {
 			const uint64_t newSlotCount = slotCount == 0 ? initialSlots : uint64_t{ slotCount } * 2;
 			alloc_buffer<int8_t> oldControls{ internal::move(controls) };
 			alloc_buffer<entry> oldEntries{ internal::move(entries) };

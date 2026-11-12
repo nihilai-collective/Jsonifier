@@ -60,6 +60,14 @@ namespace jsonifier::generic {
 			error_code err{ error_code::success };
 		};
 
+#if JSONIFIER_PLATFORM_MAC && JSONIFIER_COMPILER_CLANG
+		static constexpr uint32_t indexThreshold{ 16 };
+#else
+		static constexpr uint32_t indexThreshold{ 8 };
+#endif
+		static constexpr uint32_t wrapThreshold{ 2 };
+		static constexpr uint32_t trailCapacity{ 16 };
+
 		JSONIFIER_INLINE generic_object() noexcept = default;
 
 		JSONIFIER_INLINE generic_object(document_state* docNew, read_structural_index_ptr openNew, uint64_t depthNew) noexcept : open{ openNew }, doc{ docNew }, depth{ depthNew } {
@@ -144,14 +152,6 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE iterator end() const noexcept {
 			return iterator{};
 		}
-
-#if JSONIFIER_PLATFORM_MAC && JSONIFIER_COMPILER_CLANG
-		static constexpr uint32_t indexThreshold{ 16 };
-#else
-		static constexpr uint32_t indexThreshold{ 8 };
-#endif
-		static constexpr uint32_t wrapThreshold{ 2 };
-		static constexpr uint32_t trailCapacity{ 16 };
 
 	  protected:
 		JSONIFIER_INLINE void recordField(read_structural_index_ptr keyIter) const noexcept {
@@ -448,7 +448,7 @@ namespace jsonifier::generic {
 		uint32_t skippedKeys{};
 		uint32_t trailCount{};
 		uint32_t wrapCount{};
-		uint8_t trailBytes[trailCapacity * sizeof(uint32_t)]{};
+		uint8_t trailBytes[trailCapacity * sizeof(uint32_t)];
 		error_code err{ error_code::success };
 		bool escapedKeySeen{};
 		bool trailComplete{};

@@ -44,7 +44,7 @@ namespace jsonifier::internal {
 			return document{ &state, state.tape, 0 };
 		}
 
-		template<parse_options options> uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
+		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
 			::jsonifier::generic::document_state& state = derivedRef.genericStorage().stateFor();
 			if (length < smallDocumentBytes) {
 				derivedRef.podSection.template reset<options.minified>(rootIter, length);
@@ -59,12 +59,12 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		generic_iterator() noexcept								   = default;
+		inline generic_iterator() noexcept						   = default;
 		generic_iterator& operator=(generic_iterator&& other)	   = delete;
 		generic_iterator(generic_iterator&& other)				   = delete;
 		generic_iterator& operator=(const generic_iterator& other) = delete;
 		generic_iterator(const generic_iterator& other)			   = delete;
-		~generic_iterator() noexcept							   = default;
+		inline ~generic_iterator() noexcept						   = default;
 
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};

@@ -16,7 +16,7 @@
 
 namespace jsonifier {
 
-	template<internal::number_types value_type01> string toString(const value_type01& value) noexcept {
+	template<internal::number_types value_type01> inline string toString(const value_type01& value) noexcept {
 		string returnString{};
 		returnString.resize(64);
 		if constexpr (sizeof(value_type01) == 8) {

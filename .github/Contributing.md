@@ -41,6 +41,22 @@ The SIMD backend is selected at compile time, so please test on the hardware you
 - Keep includes lean. Only include what the file actually uses.
 - Keep changes focused. Unrelated refactors belong in their own pull request.
 
+### Declarations
+
+- Namespace-scope constants are `inline constexpr`.
+- Class-scope constants are `static constexpr`.
+- Function-local constants are `static constexpr`. The project builds as C++23, which allows them inside `constexpr` functions.
+- Every member function that does not modify its object is `const`.
+- Every function that cannot throw is `noexcept`. Functions that may grow a caller's buffer or container (and so may throw `std::bad_alloc`) are the exception.
+- Every function that only ever runs at compile time is `consteval`.
+- Every function that is not `consteval` is marked `inline` or `JSONIFIER_INLINE`. A recursive function gets plain `inline`, since GCC rejects force-inlining a function that calls itself.
+- `consteval` functions carry no `inline` or `JSONIFIER_INLINE` marker.
+- Every `enum` names the smallest unsigned integer type that holds all of its values. An enum that needs a negative value uses the smallest signed type instead.
+
+### Free Function Ordering
+
+Namespace-scope functions, including those inside `#if`/`#else` branches, follow the same rule as member functions: descending order of the character count of each function's longest line. Dependencies come first, so a function stays below any function it calls by name, and overloads of the same name keep their relative order.
+
 ### Member Ordering
 
 Every struct and class orders its members as follows, applied separately within each `public:`, `protected:` and `private:` section so no member changes access:
@@ -69,6 +85,8 @@ Jsonifier is performance-sensitive. A change on a hot path (parsing, serializati
 - [ ] Builds and passes tests on all CI platforms
 - [ ] Formatted with clang-format
 - [ ] Struct and class members follow the member ordering rules
+- [ ] Free functions follow the free function ordering rules
+- [ ] Declarations follow the `constexpr`, `const`, `noexcept`, `consteval`, `inline`, and enum rules
 - [ ] No added explanatory code comments (source attributions are permitted)
 - [ ] Benchmarks included for performance-sensitive changes
 - [ ] Linked to the issue it addresses, if any

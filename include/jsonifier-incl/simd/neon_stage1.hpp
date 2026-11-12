@@ -21,7 +21,7 @@ namespace jsonifier::internal::simd {
 		return returnValue;
 	}() };
 
-	consteval uint64_t getShiftAmount(const uint64_t index) {
+	consteval uint64_t getShiftAmount(const uint64_t index) noexcept {
 		return shiftAmounts[index % shiftAmounts.size()];
 	}
 
@@ -307,7 +307,7 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArrayNeon() {
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArrayNeon() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
@@ -318,9 +318,9 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArrayNeon() {
-		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u, 0x00u,
-			0x00u, 0x00u, 0x00u };
+	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArrayNeon() noexcept {
+		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u,
+			0x00u, 0x00u, 0x00u, 0x00u };
 		internal::array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];

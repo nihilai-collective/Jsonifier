@@ -24,7 +24,7 @@ namespace jsonifier::internal {
 	  public:
 		static constexpr uint64_t values[]{ JSONIFIER_CPU_ALIGNMENT, 64ULL };
 
-		static consteval uint64_t getValue(cpu_property_types index) {
+		static consteval uint64_t getValue(cpu_property_types index) noexcept {
 			return values[static_cast<uint64_t>(index)];
 		}
 	};

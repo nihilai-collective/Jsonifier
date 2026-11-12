@@ -43,7 +43,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename value_type, typename iterator_type, typename context_type>
-		static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
+		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
 				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, depth, context);
 			} else {
@@ -55,9 +55,9 @@ namespace jsonifier::internal {
 	template<parse_options options, typename value_type, typename iterator_type> struct string_scan_context {
 		using scan_result = typename string_scanner<options>::scan_result;
 
-		string_scan_context() noexcept										= default;
+		inline string_scan_context() noexcept = default;
 
-		string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
+		inline string_scan_context(scan_result& resultNew, iterator_type strIterNew, iterator_type endIterNew) noexcept
 			: strIter{ strIterNew }, endIter{ endIterNew }, result{ resultNew } {
 		}
 
@@ -298,7 +298,7 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		parser() noexcept					   = default;
+		inline parser() noexcept			   = default;
 		parser& operator=(parser&& other)	   = delete;
 		parser(parser&& other)				   = delete;
 		parser& operator=(const parser& other) = delete;
@@ -411,7 +411,7 @@ namespace jsonifier::internal {
 			return derivedRef.errors.size() == 0;
 		}
 
-		~parser() noexcept					   = default;
+		inline ~parser() noexcept = default;
 
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};

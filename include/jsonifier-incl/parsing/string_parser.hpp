@@ -19,6 +19,61 @@ namespace jsonifier::generic {
 			scan_result result{};
 		};
 
+		struct parse_step {
+			template<uint64_t index, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static basic_iterator01 impl(basic_iterator01& current,
+				const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart, parse_state& state) noexcept {
+				using simd_list_local					 = internal::type_list_element_t<index, internal::simd::avx_integer_list>;
+				using integer_type						 = typename simd_list_local::integer_type;
+				static constexpr auto simdType			 = simd_list_local::type::simdType;
+				using simd_type_local					 = typename internal::simd_type_wrapper<simdType>::type;
+				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
+				internal::utf8_register_validator<internal::simd_type_wrapper<simdType>> validator{ state.validationState };
+				const simd_type_local backslashes = internal::simd::gatherValue<simd_type_local>('\\');
+				const simd_type_local quotes	  = internal::simd::gatherValue<simd_type_local>('"');
+				const simd_type_local controls	  = internal::simd::gatherValue<simd_type_local>(static_cast<char>(32));
+				while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
+					const simd_type_local values = internal::simd::gatherValuesU<simd_type_local>(current);
+					internal::simd::storeU(values, out);
+					const integer_type stops = static_cast<integer_type>(internal::simd::opBitMask(
+						internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
+							internal::simd::opCmpLtRaw(values, controls))));
+					if (stops == static_cast<integer_type>(0)) {
+						validator.checkRegister(values);
+						current += bytesProcessed;
+						out += bytesProcessed;
+						continue;
+					}
+					if (!resolveStop(validator, static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops)), current, end, out, stringStart, outStart, state)) {
+						return nullptr;
+					}
+				}
+				validator.flush();
+				if constexpr (index == internal::listSize - 1) {
+					while (current < end) {
+						const uint64_t remaining = static_cast<uint64_t>(end - current);
+						alignas(simdBytesPerRegister) uint8_t padded[bytesProcessed];
+						std::memset(padded, 32, bytesProcessed);
+						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(padded, current, remaining);
+						const simd_type_local values = internal::simd::gatherValues<simd_type_local>(std::bit_cast<const simd_type_local* __restrict>(+padded));
+						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(
+							internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
+								internal::simd::opCmpLtRaw(values, controls))));
+						if (stops == static_cast<integer_type>(0)) {
+							return nullptr;
+						}
+						const uint64_t offset = static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops));
+						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(out, current, offset);
+						if (!resolveStop(validator, offset, current, end, out, stringStart, outStart, state)) {
+							return nullptr;
+						}
+					}
+					return nullptr;
+				} else {
+					return current;
+				}
+			}
+		};
+
 		template<typename validator_type, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static bool resolveStop(validator_type& validator, uint64_t offset,
 			basic_iterator01& current, const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart,
 			parse_state& state) noexcept {
@@ -75,65 +130,10 @@ namespace jsonifier::generic {
 			current += 2;
 			return true;
 		}
-
-		struct parse_step {
-			template<uint64_t index, typename basic_iterator01, typename basic_iterator02> JSONIFIER_INLINE static basic_iterator01 impl(basic_iterator01& current,
-				const basic_iterator01 end, basic_iterator02& out, const basic_iterator01 stringStart, const basic_iterator02 outStart, parse_state& state) noexcept {
-				using simd_list_local					 = internal::type_list_element_t<index, internal::simd::avx_integer_list>;
-				using integer_type						 = typename simd_list_local::integer_type;
-				static constexpr auto simdType			 = simd_list_local::type::simdType;
-				using simd_type_local					 = typename internal::simd_type_wrapper<simdType>::type;
-				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
-				internal::utf8_register_validator<internal::simd_type_wrapper<simdType>> validator{ state.validationState };
-				const simd_type_local backslashes = internal::simd::gatherValue<simd_type_local>('\\');
-				const simd_type_local quotes	  = internal::simd::gatherValue<simd_type_local>('"');
-				const simd_type_local controls	  = internal::simd::gatherValue<simd_type_local>(static_cast<char>(32));
-				while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
-					const simd_type_local values = internal::simd::gatherValuesU<simd_type_local>(current);
-					internal::simd::storeU(values, out);
-					const integer_type stops = static_cast<integer_type>(internal::simd::opBitMask(
-						internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
-							internal::simd::opCmpLtRaw(values, controls))));
-					if (stops == static_cast<integer_type>(0)) {
-						validator.checkRegister(values);
-						current += bytesProcessed;
-						out += bytesProcessed;
-						continue;
-					}
-					if (!resolveStop(validator, static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops)), current, end, out, stringStart, outStart, state)) {
-						return nullptr;
-					}
-				}
-				validator.flush();
-				if constexpr (index == internal::listSize - 1) {
-					while (current < end) {
-						const uint64_t remaining = static_cast<uint64_t>(end - current);
-						alignas(simdBytesPerRegister) uint8_t padded[bytesProcessed];
-						std::memset(padded, 32, bytesProcessed);
-						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(padded, current, remaining);
-						const simd_type_local values = internal::simd::gatherValues<simd_type_local>(std::bit_cast<const simd_type_local* __restrict>(+padded));
-						const integer_type stops	 = static_cast<integer_type>(internal::simd::opBitMask(
-							internal::simd::opOr(internal::simd::opOr(internal::simd::opCmpEqRaw(values, backslashes), internal::simd::opCmpEqRaw(values, quotes)),
-								internal::simd::opCmpLtRaw(values, controls))));
-						if (stops == static_cast<integer_type>(0)) {
-							return nullptr;
-						}
-						const uint64_t offset = static_cast<uint64_t>(internal::simd::countrZeroUnsafe(stops));
-						internal::jsonifierMemcpyUpTo<bytesProcessed - 1>(out, current, offset);
-						if (!resolveStop(validator, offset, current, end, out, stringStart, outStart, state)) {
-							return nullptr;
-						}
-					}
-					return nullptr;
-				} else {
-					return current;
-				}
-			}
-		};
 	};
 
 	struct string_parse_context {
-		string_parse_context() noexcept										  = delete;
+		string_parse_context() noexcept = delete;
 
 		JSONIFIER_INLINE string_parse_context(read_buffer_ptr sourceNew, read_buffer_ptr sourceEndNew, uint64_t& outLengthNew) noexcept
 			: sourceEnd{ sourceEndNew }, source{ sourceNew }, outLength{ outLengthNew } {

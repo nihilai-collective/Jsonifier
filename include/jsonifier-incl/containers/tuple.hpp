@@ -31,7 +31,7 @@ namespace jsonifier::internal {
 			return static_cast<value_type&>(value);
 		}
 
-		JSONIFIER_INLINE static constexpr type_list_elem getForType(tag<index>) {
+		static consteval type_list_elem getForType(tag<index>) noexcept {
 			return type_list_elem{};
 		}
 
@@ -59,7 +59,7 @@ namespace jsonifier::internal {
 			return static_cast<value_type&>(*this);
 		}
 
-		JSONIFIER_INLINE static constexpr type_list_elem getForType(tag<index>) {
+		static consteval type_list_elem getForType(tag<index>) noexcept {
 			return type_list_elem{};
 		}
 	};
@@ -152,12 +152,12 @@ namespace jsonifier::internal {
 	};
 
 	template<typename result_type_new> struct ordering_accumulator {
-		constexpr ordering_accumulator& operator=(result_type_new newValue) noexcept {
+		JSONIFIER_INLINE constexpr ordering_accumulator& operator=(result_type_new newValue) noexcept {
 			value = newValue;
 			return *this;
 		}
 
-		constexpr operator bool() const noexcept {
+		JSONIFIER_INLINE constexpr operator bool() const noexcept {
 			return std::is_eq(value);
 		}
 
@@ -304,7 +304,7 @@ namespace jsonifier::internal {
 	}
 
 	struct completion_signal {
-		constexpr operator bool() const noexcept {
+		consteval operator bool() const noexcept {
 			return notDone;
 		}
 
@@ -322,7 +322,7 @@ namespace jsonifier::internal {
 	template<typename target_type, typename tuple_type, typename integer_sequence> struct index_finder;
 
 	template<typename target_type, typename tuple_type, uint64_t... indices> struct index_finder<target_type, tuple_type, integer_sequence<indices...>> {
-		static consteval uint64_t getIndex() {
+		static consteval uint64_t getIndex() noexcept {
 			completion_signal result{};
 			((result = index_tag<indices, target_type, tuple_type>::value) && ...);
 			return result.index;
@@ -376,11 +376,17 @@ namespace jsonifier::internal {
 
 		template<typename integer_sequence> struct tuple_cat_impl_internal;
 
+		template<uint64_t... indices> struct tuple_cat_impl_internal<integer_sequence<indices...>> {
+			template<typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) impl(list_type&& lists) noexcept {
+				return result_type{ { { getIndividualElement<indices>(std::forward<list_type>(lists)) }... } };
+			}
+		};
+
 		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) noexcept {
-			static constexpr uint64_t listIdx	= map.listIdx[index];
+			static constexpr uint64_t listIdx  = map.listIdx[index];
 			static constexpr uint64_t localIdx = map.localIdx[index];
-			auto* tuplePtr				= list[tag<listIdx>{}];
-			using source_type			= type_list_element_t<listIdx, lists_type>;
+			auto* tuplePtr					   = list[tag<listIdx>{}];
+			using source_type				   = type_list_element_t<listIdx, lists_type>;
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
 				return (*tuplePtr)[tag<localIdx>{}];
 			} else {
@@ -392,7 +398,7 @@ namespace jsonifier::internal {
 			return tuple_cat_impl_internal<make_integer_sequence<total>>::impl(lists_tuple_type{ { { &listVals } }... });
 		}
 
-		static consteval tuple_cat_index_map getMapValues() {
+		static consteval tuple_cat_index_map getMapValues() noexcept {
 			tuple_cat_index_map m{};
 			if constexpr (total > 0) {
 				static constexpr uint64_t sizes[]{ remove_reference_t<list_types>::size... };
@@ -408,12 +414,6 @@ namespace jsonifier::internal {
 		}
 
 		static constexpr auto map{ getMapValues() };
-
-		template<uint64_t... indices> struct tuple_cat_impl_internal<integer_sequence<indices...>> {
-			template<typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) impl(list_type&& lists) noexcept {
-				return result_type{ { { getIndividualElement<indices>(std::forward<list_type>(lists)) }... } };
-			}
-		};
 	};
 
 	template<typename... tuple_list_types> JSONIFIER_INLINE constexpr decltype(auto) tupleCat(tuple_list_types&&... listVals) noexcept {

@@ -29,9 +29,9 @@ namespace jsonifier::internal {
 
 	using namespace simd;
 
-	consteval array<uint8_t, simdBytesPerRegister> genByte1HighTable() {
-		static constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts, tooShort | overLong2,
-			tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
+	consteval array<uint8_t, simdBytesPerRegister> genByte1HighTable() noexcept {
+		static constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts,
+			tooShort | overLong2, tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = raw[x % raw.size()];
@@ -43,7 +43,7 @@ namespace jsonifier::internal {
 
 	inline constexpr read_buffer_ptr byte1HighTable{ byte1HighTableRaw.data() };
 
-	consteval array<uint8_t, simdBytesPerRegister> genByte1LowTable() {
+	consteval array<uint8_t, simdBytesPerRegister> genByte1LowTable() noexcept {
 		static constexpr array<uint8_t, 16ULL> raw{ { carry | overLong3 | overLong2 | overLong4, carry | overLong2, carry, carry, carry | tooLarge, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000 | surrogate, carry | tooLarge | tooLarge1000,
@@ -59,7 +59,7 @@ namespace jsonifier::internal {
 
 	inline constexpr read_buffer_ptr byte1LowTable{ byte1LowTableRaw.data() };
 
-	consteval array<uint8_t, simdBytesPerRegister> genByte2HighTable() {
+	consteval array<uint8_t, simdBytesPerRegister> genByte2HighTable() noexcept {
 		static constexpr array<uint8_t, 16ULL> raw{ { tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort, tooShort,
 			tooLong | overLong2 | twoConts | overLong3 | tooLarge1000 | overLong4, tooLong | overLong2 | twoConts | overLong3 | tooLarge,
 			tooLong | overLong2 | twoConts | surrogate | tooLarge, tooLong | overLong2 | twoConts | surrogate | tooLarge, tooShort, tooShort, tooShort, tooShort } };
@@ -233,7 +233,7 @@ namespace jsonifier::internal {
 				touched			   = false;
 				return;
 			}
-			alignas(simdBytesPerRegister) uint8_t tmp[bytesProcessed]{};
+			alignas(simdBytesPerRegister) uint8_t tmp[bytesProcessed];
 			tmp[bytesProcessed - 3] = state.prevBytes[0];
 			tmp[bytesProcessed - 2] = state.prevBytes[1];
 			tmp[bytesProcessed - 1] = state.prevBytes[2];

@@ -15,11 +15,11 @@
 
 namespace jsonifier::internal {
 
-	template<uint8_t repeat, uint_types return_type> consteval return_type repeatByte() {
+	template<uint8_t repeat, uint_types return_type> consteval return_type repeatByte() noexcept {
 		return static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat);
 	}
 
-	template<uint_types return_type> constexpr return_type repeatByte(uint8_t repeat) noexcept {
+	template<uint_types return_type> inline constexpr return_type repeatByte(uint8_t repeat) noexcept {
 		return static_cast<return_type>(static_cast<return_type>(0x0101010101010101ull) * static_cast<return_type>(repeat));
 	}
 
@@ -263,7 +263,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> consteval uint64_t getPackingSize() {
+	template<uint64_t size> consteval uint64_t getPackingSize() noexcept {
 		if constexpr (size >= 64) {
 			return 64;
 		} else if constexpr (size >= 32) {
@@ -283,7 +283,7 @@ namespace jsonifier::internal {
 
 	template<string_literal string>
 		requires(string.length == 0)
-	consteval auto packValues() {
+	consteval auto packValues() noexcept {
 		return uint8_t{};
 	}
 
@@ -306,7 +306,7 @@ namespace jsonifier::internal {
 	template<auto string> struct pack_values;
 
 	template<gt_0_lte_8_types auto string> struct pack_values<string> {
-		static consteval decltype(auto) gen() {
+		static consteval decltype(auto) gen() noexcept {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
 			for (uint64_t x = 0; x < string.length; ++x) {
@@ -325,7 +325,7 @@ namespace jsonifier::internal {
 	template<gt_8_types auto string> struct pack_values<string> {
 		using array_type = array<uint8_t, intLength<string.size()>>;
 
-		static consteval array_type gen() {
+		static consteval array_type gen() noexcept {
 			array_type outLocal{};
 			for (uint64_t i = 0; i < string.size(); ++i) {
 				outLocal[i] = static_cast<uint8_t>(string[i]);
@@ -361,7 +361,7 @@ namespace jsonifier::internal {
 		return sl;
 	}
 
-	template<uint64_t splitMod, uint64_t size> consteval uint64_t getSplitStringCount(const string_literal<size>&) {
+	template<uint64_t splitMod, uint64_t size> consteval uint64_t getSplitStringCount(const string_literal<size>&) noexcept {
 		static constexpr uint64_t splitCount = (size + splitMod - 1ull) / splitMod;
 		return splitCount == 0ull ? 1ull : splitCount;
 	}
@@ -380,7 +380,7 @@ namespace jsonifier::internal {
 		return sl;
 	}
 
-	consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) {
+	consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) noexcept {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {
 			return 64ULL;
 		} else if (inputSize >= 32ULL && simdBytesPerRegister >= 32ULL) {
@@ -402,7 +402,7 @@ namespace jsonifier::internal {
 				str);
 		}
 
-		static consteval string_status getSplitStringStatus(uint64_t index, uint64_t totalLength) {
+		static consteval string_status getSplitStringStatus(uint64_t index, uint64_t totalLength) noexcept {
 			uint64_t currentIndex{ splitMod * index };
 			string_status status{ totalLength, currentIndex };
 			status.remainingLength -= currentIndex;

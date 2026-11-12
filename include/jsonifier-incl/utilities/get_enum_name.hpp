@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() {
+	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
 		string_view str = std::source_location::current().function_name();
 #if JSONIFIER_COMPILER_GCC
 		str			   = str.substr(str.find("=") + 2);
@@ -32,7 +32,7 @@ namespace jsonifier::internal {
 #endif
 	}
 
-	consteval bool isValidEnumName(string_view name) {
+	consteval bool isValidEnumName(string_view name) noexcept {
 		if (name.empty()) {
 			return false;
 		}
@@ -53,18 +53,18 @@ namespace jsonifier::internal {
 			array<string_view, n> names{};
 		};
 
-		static consteval uint64_t countValid() {
+		static consteval uint64_t countValid() noexcept {
 			uint64_t total{};
 			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
 			return total;
 		}
 
-		template<uint64_t n> static consteval entries<n> buildEntries() {
+		template<uint64_t n> static consteval entries<n> buildEntries() noexcept {
 			entries<n> result{};
 			uint64_t pos{};
 			(
 				[&] {
-					static constexpr auto value	   = static_cast<current_type>(indices);
+					static constexpr auto value		  = static_cast<current_type>(indices);
 					static constexpr string_view name = getEnumName<value>();
 					if constexpr (isValidEnumName(name)) {
 						result.names[pos]  = name;

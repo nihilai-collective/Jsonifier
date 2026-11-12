@@ -282,7 +282,7 @@ namespace jsonifier {
 			return operator std::basic_string_view<value_type>().find_last_not_of(std::forward<arg_types>(args)...);
 		}
 
-		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
+		static consteval size_type maxSize() noexcept {
 			const size_type allocMax   = allocator::maxSize();
 			const size_type storageMax = internal::max(allocMax, static_cast<size_type>(bufferSize));
 			return internal::min(static_cast<size_type>((std::numeric_limits<difference_type>::max)()), storageMax - 1);
@@ -941,10 +941,6 @@ namespace jsonifier {
 			dataVal[sizeVal] = static_cast<value_type>(0x00u);
 		}
 
-		JSONIFIER_INLINE static constexpr size_type maxSize() noexcept {
-			return bufferSize;
-		}
-
 		JSONIFIER_INLINE constexpr const_iterator end() const noexcept {
 			return const_iterator{ dataVal + sizeVal };
 		}
@@ -988,6 +984,10 @@ namespace jsonifier {
 		JSONIFIER_INLINE constexpr void clear() noexcept {
 			dataVal[0] = value_type{};
 			sizeVal	   = 0;
+		}
+
+		static consteval size_type maxSize() noexcept {
+			return bufferSize;
 		}
 
 		JSONIFIER_INLINE constexpr ~string_base() noexcept = default;

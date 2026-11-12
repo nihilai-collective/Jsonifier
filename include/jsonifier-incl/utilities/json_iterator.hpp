@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 	template<parse_options parseOpts, typename string_type> struct iterate_string_context {
 		using scan_result = typename string_scanner<parseOpts>::scan_result;
 
-		iterate_string_context() noexcept										  = delete;
+		iterate_string_context() noexcept = delete;
 
 		JSONIFIER_INLINE iterate_string_context(scan_result& resultNew, read_buffer_ptr strPtrNew, read_buffer_ptr endPtrNew) noexcept
 			: strPtr{ strPtrNew }, endPtr{ endPtrNew }, result{ resultNew } {
@@ -720,7 +720,7 @@ namespace jsonifier::internal {
 	};
 
 	struct ws_tracker {
-		~ws_tracker() {
+		inline ~ws_tracker() noexcept {
 			cout << "Fail: " << fail << endl;
 			cout << "Pass: " << pass << endl;
 		}
@@ -740,7 +740,7 @@ namespace jsonifier::internal {
 			fail,
 		};
 
-		enum class ws_sizes { eq_0, eq_1, eq_2, gt_2, eq_4, gt_4, eq_8 };
+		enum class ws_sizes : uint8_t { eq_0, eq_1, eq_2, gt_2, eq_4, gt_4, eq_8 };
 
 		static constexpr uint32_t tagShift	= 62u;
 		static constexpr uintptr_t tagMask	= uintptr_t{ 0x3 } << tagShift;

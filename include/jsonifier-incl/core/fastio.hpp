@@ -74,6 +74,11 @@ namespace jsonifier::internal {
 		return originalDigitCount + static_cast<uint64_t>(inputValue > digitCountThresholds[originalDigitCount]);
 	}
 
+	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) noexcept {
+		auto result = std::to_chars(dest, dest + 64, value);
+		return static_cast<uint64_t>(result.ptr - dest);
+	}
+
 	inline char* writeUnsigned(char* bufferEnd, uint64_t value) noexcept {
 		char* pos										  = bufferEnd;
 		alignas(64) static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
@@ -98,7 +103,7 @@ namespace jsonifier::internal {
 		return pos;
 	}
 
-	template<typename value_type> uint64_t writeInteger(char* dest, value_type value) noexcept {
+	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) noexcept {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
 			char* outLocal = dest;
@@ -119,11 +124,6 @@ namespace jsonifier::internal {
 			writeUnsigned(end, magnitude);
 			return count;
 		}
-	}
-
-	template<typename value_type> uint64_t writeFloat(char* dest, value_type value) noexcept {
-		auto result = std::to_chars(dest, dest + 64, value);
-		return static_cast<uint64_t>(result.ptr - dest);
 	}
 
 	struct endl_t {};

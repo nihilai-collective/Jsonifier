@@ -12,6 +12,9 @@
 namespace jsonifier::generic {
 
 	struct document_state {
+		static constexpr uint8_t reverseEngageScore{ 4 };
+		static constexpr uint8_t reverseMaxScore{ 8 };
+
 		JSONIFIER_INLINE error_code advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer, read_structural_index_ptr& next) noexcept {
 			const read_buffer_ptr base		   = root;
 			read_structural_index_ptr limit	   = tapeEnd;
@@ -174,9 +177,6 @@ namespace jsonifier::generic {
 		string_arena* arena{};
 		uint64_t depth{};
 		uint8_t reverseScore{};
-
-		static constexpr uint8_t reverseEngageScore{ 4 };
-		static constexpr uint8_t reverseMaxScore{ 8 };
 	};
 
 }

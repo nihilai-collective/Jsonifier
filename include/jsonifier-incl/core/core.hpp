@@ -26,7 +26,8 @@ namespace jsonifier::internal {
 	template<typename integer_sequence> struct tuple_ref_collector;
 
 	template<uint64_t... indices> struct tuple_ref_collector<integer_sequence<indices...>> {
-		template<uint64_t index, typename tuple_type, uint64_t maxIndex> static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+		template<uint64_t index, typename tuple_type, uint64_t maxIndex>
+		static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) noexcept {
 			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
 			const auto& potentialKey	 = internal::getBecauseOtherLibAuthorsResolve<index>(tuple);
 			if constexpr (named_types<decltype(potentialKey)>) {
@@ -34,25 +35,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename tuple_type, uint64_t maxIndex> static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) {
+		template<typename tuple_type, uint64_t maxIndex> static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) noexcept {
 			(impl<indices>(tuple, tupleRefsRaw), ...);
 		}
 	};
 
-	template<typename tuple_type> consteval auto collectTupleRefs(const tuple_type& tuple) -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
+	template<typename tuple_type> consteval auto collectTupleRefs(const tuple_type& tuple) noexcept -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
 		static constexpr auto tupleSize = tupleSizeOf<remove_cvref_t<tuple_type>>;
 		array<tuple_reference, tupleSize> tupleRefsRaw{};
 		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
 		return tupleRefsRaw;
 	}
 
-	template<uint64_t size, typename comparator_type>
-	consteval array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw, comparator_type comparator) {
+	template<typename comparator_type, uint64_t size> consteval array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) noexcept {
 		array<tuple_reference, size> returnValues{ tupleRefsRaw };
 		for (uint64_t i = 1; i < size; ++i) {
 			auto key  = returnValues[i];
 			int64_t j = static_cast<int64_t>(i) - 1;
-			while (j >= 0 && comparator(returnValues[static_cast<uint64_t>(j)], key)) {
+			while (j >= 0 && comparator_type::impl(returnValues[static_cast<uint64_t>(j)], key)) {
 				returnValues[static_cast<uint64_t>(j + 1)] = returnValues[static_cast<uint64_t>(j)];
 				--j;
 			}
@@ -61,17 +61,21 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
-	inline constexpr auto byFirstByte = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
-		const uint64_t lhsByte = lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull;
-		const uint64_t rhsByte = rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull;
-		return lhsByte < rhsByte;
+	struct by_first_byte {
+		static consteval bool impl(const tuple_reference& lhs, const tuple_reference& rhs) noexcept {
+			const uint64_t lhsByte = lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull;
+			const uint64_t rhsByte = rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull;
+			return lhsByte < rhsByte;
+		}
 	};
 
-	inline constexpr auto byLength = [](const tuple_reference& lhs, const tuple_reference& rhs) consteval {
-		return lhs.key.size() < rhs.key.size();
+	struct by_length {
+		static consteval bool impl(const tuple_reference& lhs, const tuple_reference& rhs) noexcept {
+			return lhs.key.size() < rhs.key.size();
+		}
 	};
 
-	template<uint64_t size> consteval tuple_references consolidateTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) {
+	template<uint64_t size> consteval tuple_references consolidateTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) noexcept {
 		tuple_references returnValues{};
 		if constexpr (size > 0) {
 			returnValues.rootPtr = &tupleRefsRaw[0];
@@ -82,9 +86,9 @@ namespace jsonifier::internal {
 
 	template<typename value_type> inline constexpr auto tupleRefs{ collectTupleRefs(core<remove_cvref_t<value_type>>::parseValue) };
 	template<typename value_type> inline constexpr auto tupleReferences{ consolidateTupleRefs(tupleRefs<value_type>) };
-	template<typename value_type> inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs(tupleRefs<value_type>, byLength) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByLength{ sortTupleRefs<by_length>(tupleRefs<value_type>) };
 	template<typename value_type> inline constexpr auto tupleReferencesByLength{ consolidateTupleRefs(sortedTupleReferencesByLength<value_type>) };
-	template<typename value_type> inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs(tupleRefs<value_type>, byFirstByte) };
+	template<typename value_type> inline constexpr auto sortedTupleReferencesByFirstByte{ sortTupleRefs<by_first_byte>(tupleRefs<value_type>) };
 	template<typename value_type> inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
@@ -102,27 +106,27 @@ namespace jsonifier::internal {
 	inline constexpr uint64_t maxParseInlineMemberCount{ 32 };
 #endif
 
-	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount();
+	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount() noexcept;
 
-	template<uint64_t budget, typename... child_types> consteval uint64_t summedChildCount() {
+	template<uint64_t budget, typename... child_types> consteval uint64_t summedChildCount() noexcept {
 		uint64_t total{};
 		static_cast<void>(((total += parseMemberCount<base_t<child_types>, budget>()), ...));
 		return total > budget ? budget + 1 : total;
 	}
 
-	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedMemberCount(integer_sequence<indices...>) {
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedMemberCount(integer_sequence<indices...>) noexcept {
 		return summedChildCount<budget, typename remove_cvref_t<decltype(getBecauseOtherLibAuthorsResolve<indices>(core<value_type>::parseValue))>::member_type...>();
 	}
 
-	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedTupleElementCount(integer_sequence<indices...>) {
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedTupleElementCount(integer_sequence<indices...>) noexcept {
 		return summedChildCount<budget, decltype(get<indices>(std::declval<value_type&>()))...>();
 	}
 
-	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedVariantAlternativeCount(integer_sequence<indices...>) {
+	template<typename value_type, uint64_t budget, uint64_t... indices> consteval uint64_t summedVariantAlternativeCount(integer_sequence<indices...>) noexcept {
 		return summedChildCount<budget, decltype(std::get<indices>(std::declval<value_type&>()))...>();
 	}
 
-	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount() {
+	template<typename value_type, uint64_t budget> consteval uint64_t parseMemberCount() noexcept {
 		if constexpr (isLeafParseType<value_type>) {
 			return 1;
 		} else if constexpr (budget == 0) {
@@ -148,7 +152,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<typename value_type, uint64_t maxMemberCount> consteval bool inlinableOpType() {
+	template<typename value_type, uint64_t maxMemberCount> consteval bool inlinableOpType() noexcept {
 		return parseMemberCount<base_t<value_type>, maxMemberCount>() <= maxMemberCount;
 	}
 

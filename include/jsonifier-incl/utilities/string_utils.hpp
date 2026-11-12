@@ -82,6 +82,32 @@ namespace jsonifier::internal {
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
 		0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu };
 
+	// Sampled from Stephen Berry's library, Glaze: https://github.com/StephenBerry/Glaze
+	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
+		if (static_cast<int64_t>(lengthNew) > 0) {
+			const auto endIter = string1 + lengthNew;
+			while (string1 < endIter) {
+				auto* newIter = char_comparison<'"', base_t<decltype(*string1)>>::memchar(string1, lengthNew);
+				if (newIter) {
+					string1	  = newIter;
+					lengthNew = static_cast<uint64_t>(endIter - string1);
+
+					auto* prev = string1 - 1;
+					while (*prev == '\\') {
+						--prev;
+					}
+					if (static_cast<uint64_t>(string1 - prev) % 2) {
+						break;
+					}
+					++string1;
+					lengthNew = static_cast<uint64_t>(endIter - string1);
+				} else {
+					break;
+				}
+			}
+		}
+	}
+
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
 		return digitToVal32<>[630ull + static_cast<uint8_t>(string1[0])] | digitToVal32<>[420ull + static_cast<uint8_t>(string1[1])] |
@@ -150,33 +176,7 @@ namespace jsonifier::internal {
 		return offset > 0;
 	}
 
-	// Sampled from Stephen Berry's library, Glaze: https://github.com/StephenBerry/Glaze
-	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
-		if (static_cast<int64_t>(lengthNew) > 0) {
-			const auto endIter = string1 + lengthNew;
-			while (string1 < endIter) {
-				auto* newIter = char_comparison<'"', base_t<decltype(*string1)>>::memchar(string1, lengthNew);
-				if (newIter) {
-					string1	  = newIter;
-					lengthNew = static_cast<uint64_t>(endIter - string1);
-
-					auto* prev = string1 - 1;
-					while (*prev == '\\') {
-						--prev;
-					}
-					if (static_cast<uint64_t>(string1 - prev) % 2) {
-						break;
-					}
-					++string1;
-					lengthNew = static_cast<uint64_t>(endIter - string1);
-				} else {
-					break;
-				}
-			}
-		}
-	}
-
-	consteval array<char, 256ULL> genEscapeMap() {
+	consteval array<char, 256ULL> genEscapeMap() noexcept {
 		array<char, 256ULL> returnValues{};
 		returnValues[uint_c_v<'"'>]	 = '\"';
 		returnValues[uint_c_v<'\\'>] = '\\';
@@ -562,7 +562,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	consteval array<array<char, 8ULL>, 256ULL> genEscapeTable() {
+	consteval array<array<char, 8ULL>, 256ULL> genEscapeTable() noexcept {
 		array<array<char, 8ULL>, 256ULL> returnValues{};
 		static constexpr char hex[]{ "0123456789ABCDEF" };
 		for (uint64_t x = 0; x < 32ULL; ++x) {
@@ -933,7 +933,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<string_literal string> consteval convert_length_to_int_t<string.size()> getStringAsInt() {
+	template<string_literal string> consteval convert_length_to_int_t<string.size()> getStringAsInt() noexcept {
 		const auto* stringNew = string.data();
 		convert_length_to_int_t<string.size()> returnValue{};
 		for (uint64_t x = 0; x < string.size(); ++x) {

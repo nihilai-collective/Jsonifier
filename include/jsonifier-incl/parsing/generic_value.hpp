@@ -25,15 +25,15 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE generic_value(error_code errNew) noexcept : err{ errNew } {
 		}
 
-		JSONIFIER_INLINE generic_value(const generic_value& other) noexcept : iter{ other.iter }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
+		JSONIFIER_INLINE generic_value& operator=(const generic_value& other) noexcept {
+			iter  = other.iter;
+			doc	  = other.doc;
+			depth = other.depth;
+			err	  = other.err;
+			return *this;
 		}
 
-		JSONIFIER_INLINE generic_value& operator=(const generic_value& other) noexcept {
-			iter = other.iter;
-			doc = other.doc;
-			depth = other.depth;
-			err = other.err;
-			return *this;
+		JSONIFIER_INLINE generic_value(const generic_value& other) noexcept : iter{ other.iter }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
 		}
 
 		template<jsonifier::internal::string_view_convertible_types key_type> JSONIFIER_INLINE value operator[](key_type&& key) const noexcept;

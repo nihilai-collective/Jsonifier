@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	consteval array<json_structural_type, 256ULL> genJsonTypes() {
+	consteval array<json_structural_type, 256ULL> genJsonTypes() noexcept {
 		array<json_structural_type, 256ULL> returnValues{};
 		using enum json_structural_type;
 		returnValues[uint_c_v<'"'>] = string;
@@ -43,7 +43,7 @@ namespace jsonifier::internal {
 	inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
 
 	template<typename minifier_type> struct minify_context_ro {
-		minify_context_ro() noexcept									= delete;
+		minify_context_ro() noexcept = delete;
 
 		JSONIFIER_INLINE minify_context_ro(minifier_type& minifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew, read_buffer_ptr rootIterNew,
 			read_buffer_ptr endIterNew) noexcept
@@ -221,18 +221,18 @@ namespace jsonifier::internal {
 		}
 
 		template<typename iterator_type>
-		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, read_buffer_ptr& previousPtr, iterator_type iter, read_buffer_ptr rootIter) noexcept {
+		JSONIFIER_INLINE void backTrackWs(int64_t& currentDistance, read_buffer_ptr& previousPtr, iterator_type iter, read_buffer_ptr rootIter) const noexcept {
 			currentDistance = (rootIter + *iter) - previousPtr;
 			skipWs(currentDistance, previousPtr);
 			++currentDistance;
 		}
 
-		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, read_buffer_ptr previousPtr) noexcept {
+		JSONIFIER_INLINE void skipWs(int64_t& currentDistance, read_buffer_ptr previousPtr) const noexcept {
 			while (whitespaceTable[static_cast<uint64_t>(previousPtr[--currentDistance])]) {
 			}
 		}
 
-		inline ~minifier() noexcept				   = default;
+		inline ~minifier() noexcept = default;
 
 		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};

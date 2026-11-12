@@ -11,7 +11,7 @@
 
 namespace jsonifier::internal {
 
-	consteval array<bool, 256> generateExpTable() {
+	consteval array<bool, 256> generateExpTable() noexcept {
 		array<bool, 256> table{};
 		table[uint_c_v<'E'>] = true;
 		table[uint_c_v<'e'>] = true;
@@ -22,7 +22,7 @@ namespace jsonifier::internal {
 
 	inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
 
-	consteval array<bool, 256> generateExpFracTable() {
+	consteval array<bool, 256> generateExpFracTable() noexcept {
 		array<bool, 256> table{};
 		table[uint_c_v<'.'>] = true;
 		table[uint_c_v<'E'>] = true;
@@ -35,9 +35,9 @@ namespace jsonifier::internal {
 	inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
 
 	struct parsed_number {
+		read_buffer_ptr lastMatch{};
 		span<uint8_t> fraction{};
 		span<uint8_t> integer{};
-		read_buffer_ptr lastMatch{};
 		uint64_t mantissa{};
 		int64_t exponent{};
 		bool tooManyDigits{};

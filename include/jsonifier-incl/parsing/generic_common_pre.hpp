@@ -35,7 +35,7 @@ namespace jsonifier::generic {
 	  public:
 		using allocator = internal::alloc_wrapper<value_type>;
 
-		JSONIFIER_INLINE alloc_buffer() noexcept	 = default;
+		JSONIFIER_INLINE alloc_buffer() noexcept = default;
 
 		JSONIFIER_INLINE explicit alloc_buffer(uint64_t capacityNew) noexcept {
 			reserve(capacityNew);
@@ -60,16 +60,16 @@ namespace jsonifier::generic {
 			return ptr;
 		}
 
-		JSONIFIER_INLINE uint64_t size() const noexcept {
-			return capacity;
-		}
-
-		void reserve(uint64_t capacityNew) noexcept {
+		inline void reserve(uint64_t capacityNew) noexcept {
 			if (capacityNew > capacity) {
 				release();
 				ptr		 = allocator::allocate(capacityNew);
 				capacity = capacityNew;
 			}
+		}
+
+		JSONIFIER_INLINE uint64_t size() const noexcept {
+			return capacity;
 		}
 
 		JSONIFIER_INLINE ~alloc_buffer() noexcept {
@@ -90,7 +90,7 @@ namespace jsonifier::generic {
 	};
 
 	struct string_arena {
-		string_arena() noexcept						 = default;
+		inline string_arena() noexcept = default;
 
 		JSONIFIER_INLINE string_arena& operator=(string_arena&& other) noexcept {
 			if (this != &other) [[likely]] {
@@ -164,7 +164,7 @@ namespace jsonifier::generic {
 	class field_index_map;
 
 	struct plain_string_copy_context {
-		plain_string_copy_context() noexcept											= delete;
+		plain_string_copy_context() noexcept = delete;
 
 		JSONIFIER_INLINE plain_string_copy_context(read_buffer_ptr sourceNew) noexcept : source{ sourceNew } {
 		}

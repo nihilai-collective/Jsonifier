@@ -13,7 +13,7 @@
 
 namespace jsonifier::internal {
 
-	template<typename value_type> consteval uint64_t getValueSize(value_type value) {
+	template<typename value_type> consteval uint64_t getValueSize(value_type value) noexcept {
 		if constexpr (integral_types<value_type>) {
 			return sizeof(value_type);
 		} else {
@@ -27,7 +27,7 @@ namespace jsonifier::internal {
 		static constexpr auto value{ pack_values<string>::value };
 	};
 
-	template<serialize_options options, string_literal key> consteval uint64_t objectEntrySize() {
+	template<serialize_options options, string_literal key> consteval uint64_t objectEntrySize() noexcept {
 		if constexpr (options.prettify) {
 			return key.size() + 4;
 		} else {
@@ -244,7 +244,8 @@ namespace jsonifier::internal {
 		static constexpr auto memberCount = tupleSizeOf<value_type>;
 
 		template<auto... values> struct tuple_member_sizer {
-			template<uint64_t index, typename value_type_new> static void impl(value_type_new& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
+			template<uint64_t index, typename value_type_new>
+			JSONIFIER_INLINE static void impl(value_type_new& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 				if constexpr (options.prettify) {
 					requiredSize += 2 + indent;
 				} else {
@@ -440,7 +441,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> consteval uint64_t roundToChunk() {
+	template<uint64_t size> consteval uint64_t roundToChunk() noexcept {
 		if constexpr (size <= 2) {
 			return 2;
 		} else if constexpr (size <= 4) {

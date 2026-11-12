@@ -23,7 +23,7 @@ namespace jsonifier::internal {
 		}
 	}() };
 
-	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() {
+	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() noexcept {
 		static constexpr auto maxValue{ static_cast<std::make_unsigned_t<v_type>>(std::numeric_limits<remove_cvref_t<v_type>>::max()) + compValAddition<negative> };
 		array<std::make_unsigned_t<v_type>, 256ULL> returnValues{};
 		returnValues[uint_c_v<'0'>] = (maxValue - 0) / 10;
@@ -63,7 +63,7 @@ namespace jsonifier::internal {
 
 	inline constexpr int64_t maxExponentValue{ 20 };
 
-	template<typename value_type, size_t count> consteval array<value_type, count> generatePowerOfTen() {
+	template<typename value_type, size_t count> consteval array<value_type, count> generatePowerOfTen() noexcept {
 		array<value_type, count> table{};
 		value_type val = 1;
 		for (size_t i = 0; i < count; ++i) {
@@ -91,6 +91,21 @@ namespace jsonifier::internal {
 
 	template<typename value_type> struct integer_parser;
 
+	template<integer_types value_type> JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
+		value_type aHigh = ab >> 32;
+		value_type aLow	 = ab & 0xFFFFFFFF;
+		value_type bHigh = cd >> 32;
+		value_type bLow	 = cd & 0xFFFFFFFF;
+		value_type loLo	 = aLow * bLow;
+		value_type loHi	 = aLow * bHigh;
+		value_type hiLo	 = aHigh * bLow;
+		value_type hiHi	 = aHigh * bHigh;
+		value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
+		value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
+		hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
+		return lo;
+	}
+
 	template<int_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 		const __int128_t res = static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue);
@@ -103,6 +118,22 @@ namespace jsonifier::internal {
 	#else
 		value_type values;
 		value = mul128Generic(value, expValue, &values);
+		return values == 0;
+	#endif
+	}
+
+	template<uint_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
+	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+		const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
+		value				  = static_cast<value_type>(res);
+		return res <= std::numeric_limits<value_type>::max();
+	#elif JSONIFIER_COMPILER_MSVC
+		value_type values;
+		value = _umul128(value, expValue, &values);
+		return values == 0;
+	#else
+		value_type values;
+		value = umul128Generic(value, expValue, &values);
 		return values == 0;
 	#endif
 	}
@@ -124,22 +155,6 @@ namespace jsonifier::internal {
 	#endif
 	}
 
-	template<uint_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
-	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-		const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
-		value				  = static_cast<value_type>(res);
-		return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-		value_type values;
-		value = _umul128(value, expValue, &values);
-		return values == 0;
-	#else
-		value_type values;
-		value = umul128Generic(value, expValue, &values);
-		return values == 0;
-	#endif
-	}
-
 	template<uint_types value_type> JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 		const __uint128_t dividend = static_cast<__uint128_t>(value);
@@ -157,23 +172,8 @@ namespace jsonifier::internal {
 	#endif
 	}
 
-	template<integer_types value_type> JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-		value_type aHigh = ab >> 32;
-		value_type aLow	 = ab & 0xFFFFFFFF;
-		value_type bHigh = cd >> 32;
-		value_type bLow	 = cd & 0xFFFFFFFF;
-		value_type loLo	 = aLow * bLow;
-		value_type loHi	 = aLow * bHigh;
-		value_type hiLo	 = aHigh * bLow;
-		value_type hiHi	 = aHigh * bHigh;
-		value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
-		value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
-		hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
-		return lo;
-	}
-
 	template<integer_types value_type> struct integer_parser<value_type> {
-		constexpr integer_parser() noexcept = default;
+		inline constexpr integer_parser() noexcept = default;
 
 		template<bool negative, bool checked> JSONIFIER_INLINE static const uint8_t* parseInteger(value_type& value, const uint8_t* iter, const uint8_t* end) noexcept {
 			using v_type_local = std::make_unsigned_t<value_type>;
@@ -604,7 +604,7 @@ namespace jsonifier::internal {
 					++iter;
 				}
 				if (expValue < static_cast<value_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
-					const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+					const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
 					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
 					expValue *= static_cast<value_type>(expSign);
@@ -724,7 +724,7 @@ namespace jsonifier::internal {
 		}
 	}() };
 
-	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() {
+	template<typename v_type, bool negative> consteval array<std::make_unsigned_t<v_type>, 256ULL> genRawCompVals() noexcept {
 		static constexpr auto maxValue{ static_cast<std::make_unsigned_t<v_type>>(std::numeric_limits<remove_cvref_t<v_type>>::max()) + compValAddition<negative> };
 		array<std::make_unsigned_t<v_type>, 256ULL> returnValues{};
 		returnValues[uint_c_v<'0'>] = (maxValue - 0) / 10;
@@ -1315,7 +1315,7 @@ namespace jsonifier::internal {
 		return iter;
 	}
 
-	template<typename value_type, uint64_t size> consteval array<value_type, size> genPowerOfTenTable() {
+	template<typename value_type, uint64_t size> consteval array<value_type, size> genPowerOfTenTable() noexcept {
 		array<value_type, size> returnValues{};
 		value_type value{ 1 };
 		for (uint64_t x = 0; x < size; ++x) {
@@ -1383,7 +1383,7 @@ namespace jsonifier::internal {
 			if (expValue >= 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
 			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
 			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
@@ -1400,10 +1400,10 @@ namespace jsonifier::internal {
 			if (expValue >= 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
 			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift			   = expSign * expValue - fracDigits;
+			const int64_t shift					  = expSign * expValue - fracDigits;
 			const value_type fractionalCorrection =
 				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 19 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
 			if (expSign > 0) {
@@ -1564,7 +1564,7 @@ namespace jsonifier::internal {
 			if (expValue > 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
 			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
 			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
@@ -1581,10 +1581,10 @@ namespace jsonifier::internal {
 			if (expValue > 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp	   = powers_of_ten<value_type>::value[expValue];
+			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
 			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
 			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift			   = expSign * expValue - fracDigits;
+			const int64_t shift					  = expSign * expValue - fracDigits;
 			const value_type fractionalCorrection =
 				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 20 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
 			if (expSign > 0) {
@@ -1663,7 +1663,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+		inline static unrestrict_t<read_buffer_ptr> finishParse(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (peekByte(iter, end) == uint_c_v<'.'>) [[unlikely]] {
 				++iter;
 				return parseFraction(value, iter, end);
