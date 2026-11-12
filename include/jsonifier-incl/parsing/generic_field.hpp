@@ -20,6 +20,17 @@ namespace jsonifier::generic {
 			: iter{ iterNew }, doc{ docNew }, depth{ depthNew }, err{ errNew } {
 		}
 
+		JSONIFIER_INLINE generic_field(const generic_field& other) noexcept : iter{ other.iter }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
+		}
+
+		JSONIFIER_INLINE generic_field& operator=(const generic_field& other) noexcept {
+			iter = other.iter;
+			doc = other.doc;
+			depth = other.depth;
+			err = other.err;
+			return *this;
+		}
+
 		JSONIFIER_INLINE generic_value<minified> value() const noexcept {
 			return err == error_code::success ? generic_value<minified>{ doc, iter + 2, depth } : generic_value<minified>{ err };
 		}
