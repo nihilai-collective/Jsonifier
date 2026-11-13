@@ -135,6 +135,13 @@ namespace jsonifier::internal {
 		return returnValues;
 	}
 
+	template<uint64_t index, typename string_type> consteval string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
+		string_literal<index + 1> sl{};
+		std::copy_n(str.data(), str.size(), sl.values);
+		sl[index] = '\0';
+		return sl;
+	}
+
 	template<string_literal literal> inline constexpr auto escapedKeyLiteral{ escapeKeyLiteral<literal>() };
 
 }

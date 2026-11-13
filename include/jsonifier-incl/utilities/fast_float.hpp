@@ -1424,7 +1424,9 @@ namespace jsonifier::internal {
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wfloat-equal"
 #endif
-		return (fmini + 1.0f == 1.0f - fmini);
+		const float lhs = fmini + 1.0f;
+		const float rhs = 1.0f - fmini;
+		return lhs == rhs;
 #if JSONIFIER_COMPILER_MSVC
 	#pragma warning(pop)
 #elif JSONIFIER_COMPILER_CLANG

@@ -226,11 +226,15 @@ namespace jsonifier::internal {
 			return *errors;
 		}
 
-		base_t<decltype(*std::declval<decltype([]() {
-			return read_buffer_ptr{};
-		}())>())>
+		base_t<std::type_identity_t<decltype(( void )sizeof(char[!![]() consteval {
+			return true;
+		}()]),
+			0 [std::declval<std::invoke_result_t<decltype([]() noexcept {
+				return []<typename...>() noexcept -> decltype(auto) {
+					return read_buffer_ptr{};
+				};
+			}())>>()])>>
 			wsChar{};
-
 		string_buffer_type* stringBuffer{};
 		std::vector<error>* errors{};
 		read_buffer_ptr rootIter{};
