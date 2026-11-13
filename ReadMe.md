@@ -22,22 +22,22 @@
 ##### *Often more than slightly.
 
 ----
-Jsonifier uses SIMD structural indexing and compile-time perfect hash maps to read and write JSON **1.7x to 2.2x faster than Glaze** and **1.9x to 3.1x faster than simdjson**, across every major compiler and both x86-64 and ARM64. ([Nov 11, 2026 results](https://github.com/nihilai-collective/Json-Performance))
+Jsonifier uses SIMD structural indexing and compile-time perfect hash maps to read and write JSON **1.7x to 2.1x faster than Glaze** and **1.8x to 3.1x faster than simdjson**, across every major compiler and both x86-64 and ARM64. ([Nov 13, 2026 results](https://github.com/nihilai-collective/Json-Performance))
 
-* **Schema-aware (reflected structs):** 1006 wins, 11 ties, and 28 losses in 1045 head-to-head tests against Glaze and simdjson on Linux, macOS, and Windows.
-* **Faster reads:** geometric-mean parse throughput is 1.32x to 1.52x that of Glaze and 1.50x to 2.14x that of simdjson On Demand.
-* **Faster writes:** geometric-mean serialization throughput is 2.23x to 3.45x that of Glaze and up to 6.34x that of simdjson's C++26 reflection writer.
-* **Generic (schemaless) parsing:** 1713 wins, 11 ties, and 76 losses in 1800 head-to-head tests against simdjson On Demand, running 1.29x to 1.36x faster on GCC and Clang and 1.45x faster on MSVC.
+* **Schema-aware (reflected structs):** 1015 wins, 10 ties, and 20 losses in 1045 head-to-head tests against Glaze and simdjson on Linux, macOS, and Windows.
+* **Faster reads:** geometric-mean parse throughput is 1.31x to 1.54x that of Glaze and 1.64x to 2.19x that of simdjson On Demand.
+* **Faster writes:** geometric-mean serialization throughput is 2.04x to 3.37x that of Glaze and 5.47x to 6.35x that of simdjson's C++26 reflection writer.
+* **Generic (schemaless) parsing:** 1697 wins, 18 ties, and 85 losses in 1800 head-to-head tests against simdjson On Demand, running 1.26x to 1.37x faster across all five builds.
 * **Portable:** CI-verified on GCC, Clang, and MSVC, on both the detected SIMD backend (whatever the runner's CPU supports, such as AVX-512 on x86-64 or NEON on arm64 macOS) and the pure-scalar fallback.
 * **Strict:** fully [RFC8259](https://datatracker.ietf.org/doc/html/rfc8259) compliant.
 
 | Platform | vs Glaze (schema-aware) | vs simdjson (schema-aware) | vs simdjson On Demand (generic) |
 | :--- | :---: | :---: | :---: |
-| Linux GCC 16.2.1 | 1.80x | 2.70x | 1.29x |
-| Linux Clang 24.0.0 | 1.84x | 1.87x | 1.29x |
-| macOS GCC 16.2.0 | 2.18x | 3.12x | 1.36x |
-| macOS Clang 23.1.4 | 2.05x | 2.13x | 1.34x |
-| Windows MSVC 19.51 | 1.71x | 1.96x | 1.45x |
+| Linux GCC 16.2.1 | 1.79x | 2.70x | 1.26x |
+| Linux Clang 24.0.0 | 1.82x | 1.84x | 1.28x |
+| macOS GCC 16.2.0 | 2.13x | 3.07x | 1.37x |
+| macOS Clang 23.1.4 | 2.07x | 2.18x | 1.37x |
+| Windows MSVC 19.52 | 1.71x | 1.82x | 1.26x |
 
 <sub>Geometric mean of per-test throughput ratios: Jsonifier's best variant against each competitor's best variant. Glaze has no schemaless entry in the generic suite.</sub>
 
@@ -98,9 +98,36 @@ Full RFC8259 compliance. All types (objects, arrays, strings, numbers, booleans,
 - **Known-order parsing**: tries the declaration-order key first, then a self-tuning per-position memo, then the hash map; adds a fused literal-match fast path for minified input
 - **Partial reading**: parse unordered or partial JSON structures
 - **Arbitrary data**: work with unknown JSON via `raw_json_data`
-- **Generic (schema-free) parsing**: lazy, On Demand-style `jsonifier_core::iterate` with re-readable values, out-of-order field access, JSON Pointers and `iterateMany` for NDJSON streams
+- **Generic (schema-free) parsing**: lazy, On Demand-style `jsonifier_core::iterate` with re-readable values, out-of-order field access, JSON Pointers and `iterateMany` for NDJSON and comma-delimited streams
 
 Every parsing-family test in the suite is run across all eight combinations of `partialRead`, `knownOrder`, and `nullTerminated`.
+
+### Choosing a Parsing Mode
+Full-document parses can take either the default fused single-pass path or the two-stage (stage-1 tape + stage-2) path, selected with `partialRead = true`. Which one is faster depends on whether your input is indented and which SIMD backend you are on. The [Two Stages, On Demand](Two-Stages.md) whitepaper measures both paths in one binary across 245 tests on five builds; its results suggest:
+
+| Input | x86 (AVX2 / AVX-512) | ARM (NEON) |
+|---|---|---|
+| POD-type values | Fused (default): won all 15 | Fused (default): won all 10 |
+| Minified documents | Fused (default) + `minified = true`: won 61 of 66 | Fused (default) + `minified = true`: won all 44 |
+| Prettified documents | Two-stage (`partialRead = true`): won 63 of 66 | Fused (default): won 34 of 44 |
+
+```cpp
+// Minified input, any architecture
+parser.parseJson<jsonifier::parse_options{ .minified = true }>(data, json);
+
+// Prettified input on x86
+parser.parseJson<jsonifier::parse_options{ .partialRead = true }>(data, json);
+
+// Prettified input on NEON
+parser.parseJson(data, json);
+```
+
+Notes from the data:
+- The five minified documents the tape won on x86 were all under MSVC (Marine IK and Marine IK Reverse among them), so MSVC users parsing number-heavy minified input may want to benchmark both paths.
+- On x86 the two-stage path wins prettified documents by up to roughly 45%; on NEON the fused path wins most of them, with GCC leaning a little more toward the tape than Clang.
+- If you control the producer, `minifyJson` once and parse with `minified = true`: minified input on the fused path is the fastest combination on every platform measured.
+- Add `knownOrder = true` when keys arrive in declaration order (see [Known Order Parsing](documentation/known_order.md)).
+- Jsonifier does not yet pick the path automatically from architecture, compiler or indentation, so this choice is yours to make.
 
 ### Safety & Reliability
 Comprehensive error reporting with source location tracking, backed by a compact, purpose-built status-code model: parsing, validation, minification, and prettification each propagate failure immediately on the first error rather than continuing to walk a broken buffer. Configurable maximum nesting depth (`parse_options::maxDepth`, default 1024) guards against malicious or runaway input.
@@ -205,7 +232,7 @@ Some users may want to browse code along with the compiled assembly. The followi
 - [Error Handling](documentation/errors.md): Detailed error reporting and handling
 - [Excluding Keys at Runtime](documentation/excluding_keys.md): Dynamic key exclusion during serialization
 - [Parsing Arbitrary Data](documentation/parsing_arbitrary_data.md): Working with unknown JSON structures
-- [Generic Parsing](documentation/generic_parsing.md): Schema-free, On Demand-style parsing and NDJSON streams
+- [Generic Parsing](documentation/generic_parsing.md): Schema-free, On Demand-style parsing and NDJSON or comma-delimited streams
 - [Unit Tests](documentation/unit_tests.md): CI matrix, running tests locally, and everything the suite covers
 
 ---
@@ -230,7 +257,7 @@ This library is licensed under the MIT License. See the [LICENSE](License.md) fi
 
 - SIMD parsing techniques inspired by [simdjson](https://github.com/simdjson/simdjson)
 - Reflection interface inspired by [Glaze](https://github.com/stephenberry/glaze)
-- Dragonbox algorithm for float conversion
+- [zmij](https://github.com/vitaut/zmij) for shortest round-trip float serialization
 - FastFloat for number parsing
 - Unit test harness: [rt-ut](https://github.com/nihilai-collective/rt-ut)
 - Raymond, because, Thanks.

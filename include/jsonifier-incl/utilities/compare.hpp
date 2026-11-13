@@ -263,16 +263,6 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<uint64_t size> consteval uint64_t getPackingSize() noexcept {
-		if constexpr (size >= 64) {
-			return 64;
-		} else if constexpr (size >= 32) {
-			return 32;
-		} else {
-			return 16;
-		}
-	}
-
 	template<uint64_t length> struct convert_length_to_int {
 		using type = jsonifier::internal::conditional_t<length == 1, uint8_t,
 			jsonifier::internal::conditional_t<length <= 2, uint16_t,
@@ -280,12 +270,6 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t length> using convert_length_to_int_t = typename convert_length_to_int<length>::type;
-
-	template<string_literal string>
-		requires(string.length == 0)
-	consteval auto packValues() noexcept {
-		return uint8_t{};
-	}
 
 	template<uint64_t length> inline constexpr uint64_t intLength = []<uint64_t lengthNew> {
 		if constexpr (lengthNew == 1ULL) {
@@ -303,9 +287,9 @@ namespace jsonifier::internal {
 		}
 	}.template operator()<length>();
 
-	template<auto string> struct pack_values;
+	template<auto string, bool = (base_t<decltype(string)>::length > 8)> struct pack_values;
 
-	template<gt_0_lte_8_types auto string> struct pack_values<string> {
+	template<auto string> struct pack_values<string, false> {
 		static consteval decltype(auto) gen() noexcept {
 			using int_type = convert_length_to_int_t<string.length>;
 			int_type returnValues{};
@@ -322,7 +306,7 @@ namespace jsonifier::internal {
 		static constexpr auto value{ gen() };
 	};
 
-	template<gt_8_types auto string> struct pack_values<string> {
+	template<auto string> struct pack_values<string, true> {
 		using array_type = array<uint8_t, intLength<string.size()>>;
 
 		static consteval array_type gen() noexcept {
@@ -372,13 +356,6 @@ namespace jsonifier::internal {
 	};
 
 	template<typename sequence, auto stringNew, uint64_t splitMod> struct string_literal_splitter;
-
-	template<uint64_t index, typename string_type> constexpr string_literal<index + 1> stringLiteralFromView(string_type str) noexcept {
-		string_literal<index + 1> sl{};
-		std::copy_n(str.data(), str.size(), sl.values);
-		sl[index] = '\0';
-		return sl;
-	}
 
 	consteval auto getOffsetIntoLiteralSize(uint64_t inputSize) noexcept {
 		if (inputSize >= 64ULL && simdBytesPerRegister >= 64ULL) {

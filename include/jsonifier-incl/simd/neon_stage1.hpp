@@ -27,17 +27,13 @@ namespace jsonifier::internal::simd {
 
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-	#if JSONIFIER_CLMUL
-			return vgetq_lane_u64(vreinterpretq_u64_p128(vmull_p64(~0ULL, bitmask)), 0);
-	#else
-			bitmask ^= bitmask << 1;
+	                bitmask ^= bitmask << 1;
 			bitmask ^= bitmask << 2;
 			bitmask ^= bitmask << 4;
 			bitmask ^= bitmask << 8;
 			bitmask ^= bitmask << 16;
 			bitmask ^= bitmask << 32;
 			return bitmask;
-	#endif
 		}
 	};
 

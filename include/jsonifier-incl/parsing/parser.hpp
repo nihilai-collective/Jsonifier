@@ -289,7 +289,7 @@ namespace jsonifier::internal {
 		}
 
 		template<parse_options options = parse_options{}, typename buffer_type>
-		JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> collectStructurals(buffer_type&& in) noexcept {
+		inline unrestrict_t<write_structural_index_ptr> collectStructurals(buffer_type&& in) noexcept {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = jsonifier::internal::getBeginIter(in);
 			auto* __restrict endIter  = jsonifier::internal::getEndIter(in);
