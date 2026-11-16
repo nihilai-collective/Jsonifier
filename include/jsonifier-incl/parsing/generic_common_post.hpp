@@ -8,7 +8,7 @@
 
 #include <jsonifier-incl/parsing/generic_common_pre.hpp>
 
-namespace jsonifier::generic {
+namespace jsonifier::internal {
 
 	struct generic_storage {
 		JSONIFIER_INLINE generic_storage() noexcept = default;
@@ -39,12 +39,16 @@ namespace jsonifier::generic {
 		string_arena arena{};
 	};
 
+}
+
+namespace jsonifier::generic {
+
 	template<bool minified> JSONIFIER_INLINE generic_object<minified> generic_value<minified>::getObject() const noexcept {
-		if (err != error_code::success) [[unlikely]] {
-			return object{ err };
+		if (error_code != error_codes::success) [[unlikely]] {
+			return object{ error_code };
 		}
 		if (!doc->template charAt<internal::uint_c_v<'{'>>(iter)) [[unlikely]] {
-			return object{ error_code::incorrect_type };
+			return object{ error_codes::incorrect_type };
 		}
 		doc->cursor = iter + 1;
 		doc->depth	= depth + 1;
@@ -52,18 +56,18 @@ namespace jsonifier::generic {
 	}
 
 	template<bool minified> JSONIFIER_INLINE generic_array<minified> generic_value<minified>::getArray() const noexcept {
-		if (err != error_code::success) [[unlikely]] {
-			return array{ err };
+		if (error_code != error_codes::success) [[unlikely]] {
+			return array{ error_code };
 		}
 		if (!doc->template charAt<internal::uint_c_v<'['>>(iter)) [[unlikely]] {
-			return array{ error_code::incorrect_type };
+			return array{ error_codes::incorrect_type };
 		}
 		doc->cursor = iter + 1;
 		doc->depth	= depth + 1;
 		return array{ doc, iter, depth + 1 };
 	}
 
-	template<bool minified> template<jsonifier::internal::string_view_convertible_types key_type>
+	template<bool minified> template<internal::string_view_convertible_types key_type>
 	JSONIFIER_INLINE generic_value<minified> generic_value<minified>::operator[](key_type&& key) const noexcept {
 		return getObject().findFieldUnordered(static_cast<string_view>(key));
 	}
@@ -73,7 +77,7 @@ namespace jsonifier::generic {
 	}
 
 	template<bool minified> JSONIFIER_INLINE bool generic_value<minified>::unescapePointerToken(string_view& token, string& unescapedToken) noexcept {
-		if (!jsonifier::internal::char_comparison<'~', char>::memchar(token.data(), token.size())) {
+		if (!internal::char_comparison<'~', char>::memchar(token.data(), token.size())) {
 			return true;
 		}
 		unescapedToken.clear();
@@ -95,25 +99,25 @@ namespace jsonifier::generic {
 		return getObject().findFieldUnordered(key);
 	}
 
-	template<bool minified> JSONIFIER_INLINE error_code generic_value<minified>::parsePointerIndex(string_view token, uint64_t& index) noexcept {
+	template<bool minified> JSONIFIER_INLINE error_codes generic_value<minified>::parsePointerIndex(string_view token, uint64_t& index) noexcept {
 		if (token.empty() || (token.size() > 1 && token[0] == '0')) [[unlikely]] {
-			return error_code::invalid_json_pointer;
+			return error_codes::invalid_json_pointer;
 		}
 		index = 0;
 		for (const char digit: token) {
 			if (digit < '0' || digit > '9') [[unlikely]] {
-				return error_code::invalid_json_pointer;
+				return error_codes::invalid_json_pointer;
 			}
 			const uint64_t digitValue = static_cast<uint64_t>(digit - '0');
 			if (index > (std::numeric_limits<uint64_t>::max() - digitValue) / 10) [[unlikely]] {
-				return error_code::index_out_of_bounds;
+				return error_codes::index_out_of_bounds;
 			}
 			index = index * 10 + digitValue;
 		}
-		return error_code::success;
+		return error_codes::success;
 	}
 
-	template<bool minified> template<typename value_type> JSONIFIER_INLINE error_code generic_value<minified>::get(value_type& out) const {
+	template<bool minified> template<typename value_type> JSONIFIER_INLINE error_codes generic_value<minified>::get(value_type& out) const {
 		if constexpr (std::is_same_v<value_type, double>) {
 			return getDouble(out);
 		} else if constexpr (std::is_same_v<value_type, int64_t>) {
@@ -133,7 +137,7 @@ namespace jsonifier::generic {
 		} else {
 			static_assert(std::is_same_v<value_type, value>, "Unsupported generic::value::get type.");
 			out = *this;
-			return err;
+			return error_code;
 		}
 	}
 
@@ -144,15 +148,15 @@ namespace jsonifier::generic {
 	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::pointerStep(string_view token, string& unescapedToken) const noexcept {
 		switch (doc->charAt(iter)) {
 			case internal::uint_c_v<'{'>: {
-				return unescapePointerToken(token, unescapedToken) ? findField(token) : value{ error_code::invalid_json_pointer };
+				return unescapePointerToken(token, unescapedToken) ? findField(token) : value{ error_codes::invalid_json_pointer };
 			}
 			case internal::uint_c_v<'['>: {
 				uint64_t index{};
-				const error_code indexError = parsePointerIndex(token, index);
-				return indexError == error_code::success ? getArray().at(index) : value{ indexError };
+				const error_codes index_error_code = parsePointerIndex(token, index);
+				return index_error_code == error_codes::success ? getArray().at(index) : value{ index_error_code };
 			}
 			default: {
-				return value{ error_code::invalid_json_pointer };
+				return value{ error_codes::invalid_json_pointer };
 			}
 		}
 	}
@@ -162,12 +166,12 @@ namespace jsonifier::generic {
 		string unescapedToken{};
 		const char* position   = pointer.data();
 		const char* pointerEnd = position + pointer.size();
-		while (current.err == error_code::success && position < pointerEnd) {
+		while (current.error_code == error_codes::success && position < pointerEnd) {
 			if (*position != '/') [[unlikely]] {
-				current = value{ error_code::invalid_json_pointer };
+				current = value{ error_codes::invalid_json_pointer };
 			} else {
 				++position;
-				const char* slash	 = jsonifier::internal::char_comparison<'/', char>::memchar(position, static_cast<uint64_t>(pointerEnd - position));
+				const char* slash	 = internal::char_comparison<'/', char>::memchar(position, static_cast<uint64_t>(pointerEnd - position));
 				const char* tokenEnd = slash ? slash : pointerEnd;
 				current				 = current.pointerStep(string_view{ position, static_cast<uint64_t>(tokenEnd - position) }, unescapedToken);
 				position			 = tokenEnd;

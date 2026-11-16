@@ -540,7 +540,7 @@ namespace jsonifier::internal {
 			return answer;
 		}
 
-		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZeroUnsafe(w));
+		int32_t lz = static_cast<int32_t>(simd::countlZeroUnsafe(w));
 		w <<= lz;
 
 		value_128 product = computeProductApproximation<binary::mantissaExplicitBits + 3>(q, w);
@@ -602,7 +602,7 @@ namespace jsonifier::internal {
 	}
 
 	template<typename binary> JSONIFIER_INLINE constexpr adjusted_mantissa computeError(int64_t q, uint64_t w) noexcept {
-		int32_t lz = static_cast<int32_t>(jsonifier::internal::simd::countlZero(w));
+		int32_t lz = static_cast<int32_t>(simd::countlZero(w));
 		w <<= lz;
 		value_128 product = computeProductApproximation<binary::mantissaExplicitBits + 3>(q, w);
 		return computeErrorScaled<binary>(q, product.high, lz);
@@ -798,12 +798,12 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE uint64_t uint64Hi64(uint64_t r0, bool& truncated) noexcept {
 		truncated	= false;
-		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
+		int32_t shl = static_cast<int32_t>(simd::countlZero(r0));
 		return r0 << shl;
 	}
 
 	JSONIFIER_INLINE uint64_t uint64Hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
-		int32_t shl = static_cast<int32_t>(jsonifier::internal::simd::countlZero(r0));
+		int32_t shl = static_cast<int32_t>(simd::countlZero(r0));
 		if (shl == 0) {
 			truncated = r1 != 0;
 			return r0;
@@ -963,7 +963,7 @@ namespace jsonifier::internal {
 			if (vec.isEmpty()) {
 				return 0;
 			} else {
-				return static_cast<int32_t>(jsonifier::internal::simd::countlZero(vec.rindex(0)));
+				return static_cast<int32_t>(simd::countlZero(vec.rindex(0)));
 			}
 		}
 

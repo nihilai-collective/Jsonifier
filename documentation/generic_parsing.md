@@ -19,14 +19,14 @@ int main() {
 
     std::string_view name{};
     uint64_t count{};
-    if (doc["name"].get(name) == jsonifier::generic::error_code::success &&
-        doc["count"].get(count) == jsonifier::generic::error_code::success) {
+    if (doc["name"].get(name) == jsonifier::generic::error_codes::success &&
+        doc["count"].get(count) == jsonifier::generic::error_codes::success) {
         std::cout << name << " x" << count << std::endl;
     }
 
     for (jsonifier::generic::value tag : doc["tags"].getArray()) {
         std::string_view text{};
-        if (tag.get(text) == jsonifier::generic::error_code::success) {
+        if (tag.get(text) == jsonifier::generic::error_codes::success) {
             std::cout << text << std::endl;
         }
     }
@@ -43,14 +43,14 @@ Generic parsing lives on `jsonifier_core<initialBufferSize>` itself, so the same
 
 ## Errors
 
-Accessors don't throw and don't return `result<T>`. Each one returns a `[[nodiscard]] jsonifier::generic::error_code` and writes through an out-parameter. Navigation (`operator[]`, `findField`, `at`, `atPointer`, ...) returns a handle that carries any error forward, so you can chain lookups and check once at the end:
+Accessors don't throw and don't return `result<T>`. Each one returns a `[[nodiscard]] jsonifier::generic::error_codes` and writes through an out-parameter. Navigation (`operator[]`, `findField`, `at`, `atPointer`, ...) returns a handle that carries any error forward, so you can chain lookups and check once at the end:
 
 ```cpp
 double lat{};
 auto err = doc["venue"]["location"]["lat"].get(lat);
 ```
 
-| `error_code` | Meaning |
+| `error_codes` | Meaning |
 |--------------|---------|
 | `success` | No error |
 | `empty` | No JSON in the input |
@@ -72,7 +72,7 @@ auto err = doc["venue"]["location"]["lat"].get(lat);
 
 | Method | Description |
 |--------|-------------|
-| `type()` | `jsonifier::json_type` of the value |
+| `type()` | `jsonifier::json_types` of the value |
 | `get(out)` | Dispatches on `out`'s type: `double`, `int64_t`, `uint64_t`, `bool`, `std::string_view`, any string buffer, `object`, `array` or `value` |
 | `getDouble` / `getInt64` / `getUint64` / `getBool` | Typed scalar reads |
 | `getString(std::string_view&)` | Zero-copy when unescaped, otherwise unescaped into parser-owned storage |
@@ -120,7 +120,7 @@ auto stream = parser.iterateMany(input);
 for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
     jsonifier::generic::generic_document<false> doc = *iter;
     int64_t id{};
-    if (doc["id"].get(id) == jsonifier::generic::error_code::success) {
+    if (doc["id"].get(id) == jsonifier::generic::error_codes::success) {
         std::cout << iter.currentIndex() << ": " << iter.source() << " -> " << id << std::endl;
     }
 }

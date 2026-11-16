@@ -12,7 +12,7 @@ namespace jsonifier::generic {
 
 	template<bool minified> class generic_array {
 	  public:
-		using document_state = generic::document_state;
+		using document_state = internal::document_state;
 		using value			 = generic_value<minified>;
 
 		class iterator {
@@ -23,12 +23,13 @@ namespace jsonifier::generic {
 
 			JSONIFIER_INLINE iterator() noexcept = default;
 
-			JSONIFIER_INLINE iterator(document_state* docNew, read_structural_index_ptr iterNew, uint64_t depthNew) noexcept : iter{ iterNew }, doc{ docNew }, depth{ depthNew } {
+			JSONIFIER_INLINE iterator(document_state* docNew, internal::read_structural_index_ptr iterNew, uint64_t depthNew) noexcept
+				: iter{ iterNew }, doc{ docNew }, depth{ depthNew } {
 				validateElementStart();
 			}
 
 			JSONIFIER_INLINE value operator*() const noexcept {
-				return err == error_code::success ? value{ doc, iter, depth } : value{ err };
+				return error_code == error_codes::success ? value{ doc, iter, depth } : value{ error_code };
 			}
 
 			JSONIFIER_INLINE bool operator==(const iterator& other) const noexcept {
@@ -36,67 +37,68 @@ namespace jsonifier::generic {
 			}
 
 			JSONIFIER_INLINE iterator& operator++() noexcept {
-				if (err != error_code::success) [[unlikely]] {
+				if (error_code != error_codes::success) [[unlikely]] {
 					iter = nullptr;
 					return *this;
 				}
-				err = doc->advanceChild(iter, depth, internal::uint_c_v<']'>, iter);
+				error_code = doc->advanceChild(iter, depth, internal::uint_c_v<']'>, iter);
 				validateElementStart();
 				return *this;
 			}
 
 		  protected:
 			JSONIFIER_INLINE void validateElementStart() noexcept {
-				if (err == error_code::success && iter && document_state::isCloser(doc->charAt(iter))) [[unlikely]] {
-					err = error_code::tape_error;
+				if (error_code == error_codes::success && iter && document_state::isCloser(doc->charAt(iter))) [[unlikely]] {
+					error_code = error_codes::tape_error;
 				}
 			}
 
-			read_structural_index_ptr iter{};
+			internal::read_structural_index_ptr iter{};
 			document_state* doc{};
 			uint64_t depth{};
-			error_code err{ error_code::success };
+			error_codes error_code{ error_codes::success };
 		};
 
 		JSONIFIER_INLINE generic_array() noexcept = default;
 
-		JSONIFIER_INLINE generic_array(document_state* docNew, read_structural_index_ptr openNew, uint64_t depthNew) noexcept : open{ openNew }, doc{ docNew }, depth{ depthNew } {
+		JSONIFIER_INLINE generic_array(document_state* docNew, internal::read_structural_index_ptr openNew, uint64_t depthNew) noexcept
+			: open{ openNew }, doc{ docNew }, depth{ depthNew } {
 		}
 
-		JSONIFIER_INLINE generic_array(error_code errNew) noexcept : err{ errNew } {
+		JSONIFIER_INLINE generic_array(error_codes errorCodeNew) noexcept : error_code{ errorCodeNew } {
 		}
 
 		JSONIFIER_INLINE generic_array& operator=(const generic_array& other) noexcept {
-			open  = other.open;
-			doc	  = other.doc;
-			depth = other.depth;
-			err	  = other.err;
+			open	   = other.open;
+			doc		   = other.doc;
+			depth	   = other.depth;
+			error_code = other.error_code;
 			return *this;
 		}
 
-		JSONIFIER_INLINE generic_array(const generic_array& other) noexcept : open{ other.open }, doc{ other.doc }, depth{ other.depth }, err{ other.err } {
+		JSONIFIER_INLINE generic_array(const generic_array& other) noexcept : open{ other.open }, doc{ other.doc }, depth{ other.depth }, error_code{ other.error_code } {
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_code countElements(uint64_t& out) const noexcept {
-			if (err != error_code::success) [[unlikely]] {
-				return err;
+		[[nodiscard]] JSONIFIER_INLINE error_codes countElements(uint64_t& out) const noexcept {
+			if (error_code != error_codes::success) [[unlikely]] {
+				return error_code;
 			}
 			out = 0;
 			for (auto iter = begin(); iter != end(); ++iter) {
-				if (const error_code childError = (*iter).error(); childError != error_code::success) [[unlikely]] {
-					return childError;
+				if (const error_codes element_error_code = (*iter).error(); element_error_code != error_codes::success) [[unlikely]] {
+					return element_error_code;
 				}
 				++out;
 			}
-			return error_code::success;
+			return error_codes::success;
 		}
 
 		JSONIFIER_INLINE iterator begin() const noexcept {
-			if (err != error_code::success) [[unlikely]] {
+			if (error_code != error_codes::success) [[unlikely]] {
 				return iterator{};
 			}
-			document_state* const state		   = doc;
-			read_structural_index_ptr position = open + 1;
+			document_state* const state					 = doc;
+			internal::read_structural_index_ptr position = open + 1;
 			if (position < state->tapeEnd && state->template charAt<internal::uint_c_v<']'>>(position)) {
 				state->cursor = position + 1;
 				state->depth  = depth - 1;
@@ -110,7 +112,7 @@ namespace jsonifier::generic {
 			return iterator{ state, position, depth };
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_code rawJson(string_view& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE error_codes rawJson(string_view& out) const noexcept {
 			return value{ doc, open, depth - 1 }.rawJson(out);
 		}
 
@@ -123,19 +125,19 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE value at(uint64_t index) const noexcept {
-			if (err != error_code::success) [[unlikely]] {
-				return value{ err };
+			if (error_code != error_codes::success) [[unlikely]] {
+				return value{ error_code };
 			}
 			for (auto iter = begin(); iter != end(); ++iter) {
 				if (index-- == 0) {
 					return *iter;
 				}
 			}
-			return value{ error_code::index_out_of_bounds };
+			return value{ error_codes::index_out_of_bounds };
 		}
 
-		JSONIFIER_INLINE error_code error() const noexcept {
-			return err;
+		JSONIFIER_INLINE error_codes error() const noexcept {
+			return error_code;
 		}
 
 		JSONIFIER_INLINE iterator end() const noexcept {
@@ -143,10 +145,10 @@ namespace jsonifier::generic {
 		}
 
 	  protected:
-		read_structural_index_ptr open{};
+		internal::read_structural_index_ptr open{};
 		document_state* doc{};
 		uint64_t depth{};
-		error_code err{ error_code::success };
+		error_codes error_code{ error_codes::success };
 	};
 
 }

@@ -18,7 +18,7 @@ int32_t main() {
     jsonifier::raw_json_data document;
     parser.parseJson(document, json);
 
-    if (document.getType() == jsonifier::json_type::object) {
+    if (document.getType() == jsonifier::json_types::object) {
         std::cout << "name: " << document["name"].getString() << std::endl;
         std::cout << "count: " << document["count"].getUint() << std::endl;
         std::cout << "tags: " << document["tags"].size() << std::endl;
@@ -49,7 +49,7 @@ A default-constructed `raw_json_data` holds `null`. If decoding a nested object,
 
 | Method | Returns |
 |--------|---------|
-| `getType()` | `jsonifier::json_type`: `object`, `array`, `string`, `number`, `boolean`, `null`, or `unset` |
+| `getType()` | `jsonifier::json_types`: `object`, `array`, `string`, `number`, `boolean`, `null`, or `unset` |
 | `getObject()` | Reference to `object_type` |
 | `getArray()` | Reference to `array_type` |
 | `getString()` | Reference to `string_type` |
@@ -115,7 +115,7 @@ int32_t main() {
     parser.parseJson(msg, json);
 
     std::cout << msg.type << " at " << msg.timestamp << std::endl;
-    if (msg.payload.getType() == jsonifier::json_type::object) {
+    if (msg.payload.getType() == jsonifier::json_types::object) {
         std::cout << "user_id: " << msg.payload["user_id"].getUint() << std::endl;
     }
 }

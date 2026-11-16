@@ -333,7 +333,7 @@ namespace std {
 
 }
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
 	template<uint64_t size, typename value_type_01, typename value_type_02> JSONIFIER_INLINE void pow2MemmoveWrapper(value_type_01* dst, const value_type_02* src) noexcept {
 		static_assert(std::has_single_bit(size), "Sorry, but you can only memmove a power-of-2 size.");
@@ -359,8 +359,8 @@ namespace jsonifier {
 
 }
 
-#define reinterpret_cast jsonifier::banned_reinterpret_cast
-#define const_cast jsonifier::banned_const_cast
-#define dynamic_cast jsonifier::banned_dynamic_cast
-#define memcpy(...) jsonifierFailMemcpyImpl(__VA_ARGS__)
-#define memmove(...) jsonifierFailMemmoveImpl(__VA_ARGS__)
+#define reinterpret_cast jsonifier::internal::banned_reinterpret_cast
+#define const_cast jsonifier::internal::banned_const_cast
+#define dynamic_cast jsonifier::internal::banned_dynamic_cast
+#define memcpy(...) internal::jsonifierFailMemcpyImpl(__VA_ARGS__)
+#define memmove(...) internal::jsonifierFailMemmoveImpl(__VA_ARGS__)

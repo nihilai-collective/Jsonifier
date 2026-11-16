@@ -95,22 +95,22 @@ namespace jsonifier::internal {
 
 	template<typename derived_type_new> struct parser;
 
-	enum class avx_type : uint8_t { m128 = 0, m256 = 1, m512 = 2 };
+	enum class avx_types : uint8_t { m128 = 0, m256 = 1, m512 = 2 };
 
-	template<avx_type type> struct simd_type_wrapper;
+	template<avx_types type> struct simd_type_wrapper;
 
-	template<> struct simd_type_wrapper<avx_type::m128> {
-		static constexpr auto simdType = avx_type::m128;
+	template<> struct simd_type_wrapper<avx_types::m128> {
+		static constexpr auto avx_type = avx_types::m128;
 		using type					   = jsonifier_simd_int_128;
 	};
 
-	template<> struct simd_type_wrapper<avx_type::m256> {
-		static constexpr auto simdType = avx_type::m256;
+	template<> struct simd_type_wrapper<avx_types::m256> {
+		static constexpr auto avx_type = avx_types::m256;
 		using type					   = jsonifier_simd_int_256;
 	};
 
-	template<> struct simd_type_wrapper<avx_type::m512> {
-		static constexpr auto simdType = avx_type::m512;
+	template<> struct simd_type_wrapper<avx_types::m512> {
+		static constexpr auto avx_type = avx_types::m512;
 		using type					   = jsonifier_simd_int_512;
 	};
 

@@ -16,7 +16,7 @@ namespace jsonifier::generic {
 		using generic_value<minified>::generic_value;
 
 		JSONIFIER_INLINE bool atEnd() const noexcept {
-			return this->err == error_code::success && this->doc->depth == 0 && this->doc->cursor == this->doc->tapeEnd;
+			return this->error_code == error_codes::success && this->doc->depth == 0 && this->doc->cursor == this->doc->tapeEnd;
 		}
 	};
 

@@ -11,13 +11,13 @@
 namespace conformance_tests {
 
 	template<rt_ut::string_literal testNameNew, bool partial, bool knownOrder, bool nullTerminated, typename test_type,
-		jsonifier::internal::parse_statuses parse_error = jsonifier::internal::parse_statuses{}>
+		jsonifier::internal::parse_statuses parse_status = jsonifier::internal::parse_statuses{}>
 	inline void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
 		parser.getErrors().clear();
 		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
-		rt_ut::unit_test<testName, true>::template assert_eq<parse_error>([&]() {
+		rt_ut::unit_test<testName, true>::template assert_eq<parse_status>([&]() {
 			auto& errors = parser.getErrors();
 			for (auto& value: errors) {
 				std::cout << "Error: " << value.reportError() << std::endl;

@@ -35,17 +35,17 @@ namespace jsonifier {
 
 		static constexpr size_type npos{ std::numeric_limits<size_type>::max() };
 
-		JSONIFIER_INLINE string_base() noexcept : jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+		JSONIFIER_INLINE string_base() noexcept : internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			if constexpr (newerSize > 0) {
 				reserve(newerSize);
 			}
 		}
 
 		template<internal::pointer_types value_type_newer> JSONIFIER_INLINE string_base(value_type_newer other) noexcept
-			: jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+			: internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			if (other) {
-				const auto newSize = std::char_traits<std::remove_const_t<jsonifier::internal::remove_pointer_t<value_type_newer>>>::length(other) *
-					(sizeof(jsonifier::internal::remove_pointer_t<value_type_newer>) / sizeof(value_type));
+				const auto newSize = std::char_traits<std::remove_const_t<internal::remove_pointer_t<value_type_newer>>>::length(other) *
+					(sizeof(internal::remove_pointer_t<value_type_newer>) / sizeof(value_type));
 				if (newSize > 0 && newSize < maxSize()) [[likely]] {
 					reserve(newSize);
 					sizeVal = newSize;
@@ -56,7 +56,7 @@ namespace jsonifier {
 		}
 
 		template<internal::string_types value_type_newer> JSONIFIER_INLINE string_base(value_type_newer&& other) noexcept
-			: jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+			: internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			size_type newSize = other.size() * (sizeof(typename internal::base_t<value_type_newer>::value_type) / sizeof(value_type));
 			if (newSize > 0 && newSize < maxSize()) [[likely]] {
 				reserve(newSize);
@@ -66,7 +66,7 @@ namespace jsonifier {
 			}
 		}
 
-		JSONIFIER_INLINE string_base(const_iterator other, uint64_t newSize) noexcept : jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+		JSONIFIER_INLINE string_base(const_iterator other, uint64_t newSize) noexcept : internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			if (newSize > 0 && newSize < maxSize()) [[likely]] {
 				reserve(newSize);
 				sizeVal = newSize;
@@ -75,7 +75,7 @@ namespace jsonifier {
 			}
 		}
 
-		JSONIFIER_INLINE string_base(const_pointer other, uint64_t newSize) noexcept : jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+		JSONIFIER_INLINE string_base(const_pointer other, uint64_t newSize) noexcept : internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			if (newSize > 0 && newSize < maxSize()) [[likely]] {
 				reserve(newSize);
 				sizeVal = newSize;
@@ -85,7 +85,7 @@ namespace jsonifier {
 		}
 
 		template<internal::char_types value_type_newer> JSONIFIER_INLINE string_base(value_type_newer other) noexcept
-			: jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+			: internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			*this = other;
 		}
 
@@ -105,7 +105,7 @@ namespace jsonifier {
 			return *this;
 		}
 
-		JSONIFIER_INLINE explicit string_base(string_base&& other) noexcept : jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+		JSONIFIER_INLINE explicit string_base(string_base&& other) noexcept : internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			swap(other);
 		}
 
@@ -117,7 +117,7 @@ namespace jsonifier {
 			return *this;
 		}
 
-		JSONIFIER_INLINE string_base(const string_base& other) noexcept : jsonifier::internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
+		JSONIFIER_INLINE string_base(const string_base& other) noexcept : internal::alloc_wrapper<value_type>{}, capacityVal{}, sizeVal{}, dataVal{} {
 			size_type newSize = other.size();
 			if (newSize > 0 && newSize < maxSize()) [[likely]] {
 				reserve(newSize);
@@ -153,7 +153,7 @@ namespace jsonifier {
 				reserve(sizeVal + newSize);
 			}
 
-			jsonifier::memmoveWrapper(dataVal + posNew + newSize, dataVal + posNew, (sizeVal - posNew) * sizeof(value_type));
+			internal::memmoveWrapper(dataVal + posNew + newSize, dataVal + posNew, (sizeVal - posNew) * sizeof(value_type));
 			std::copy(start.operator->(), start.operator->() + newSize, dataVal + posNew);
 			sizeVal += newSize;
 			allocator::construct(&dataVal[sizeVal], value_type{});
@@ -302,7 +302,7 @@ namespace jsonifier {
 				reserve((sizeVal + 1) * 2);
 			}
 			const auto newSize = sizeVal - positionNew;
-			jsonifier::memmoveWrapper(dataVal + positionNew + 1, dataVal + positionNew, newSize * sizeof(value_type));
+			internal::memmoveWrapper(dataVal + positionNew + 1, dataVal + positionNew, newSize * sizeof(value_type));
 			allocator::construct(&dataVal[positionNew], toInsert);
 			++sizeVal;
 		}
@@ -316,9 +316,9 @@ namespace jsonifier {
 		}
 
 		template<typename string_base_new> JSONIFIER_INLINE void swap(string_base_new&& other) noexcept {
-			jsonifier::internal::swap(capacityVal, other.capacityVal);
-			jsonifier::internal::swap(sizeVal, other.sizeVal);
-			jsonifier::internal::swap(dataVal, other.dataVal);
+			internal::swap(capacityVal, other.capacityVal);
+			internal::swap(sizeVal, other.sizeVal);
+			internal::swap(dataVal, other.dataVal);
 		}
 
 		JSONIFIER_INLINE const_reference at(size_type index) const {
@@ -586,8 +586,8 @@ namespace jsonifier {
 
 		template<internal::pointer_types value_type_newer> JSONIFIER_INLINE constexpr string_base(value_type_newer other) noexcept : sizeVal{}, dataVal{} {
 			if (other) {
-				const auto newSize = std::char_traits<std::remove_const_t<jsonifier::internal::remove_pointer_t<value_type_newer>>>::length(other) *
-					(sizeof(jsonifier::internal::remove_pointer_t<value_type_newer>) / sizeof(value_type));
+				const auto newSize = std::char_traits<std::remove_const_t<internal::remove_pointer_t<value_type_newer>>>::length(other) *
+					(sizeof(internal::remove_pointer_t<value_type_newer>) / sizeof(value_type));
 				if (newSize > 0 && newSize < maxSize()) [[likely]] {
 					sizeVal = newSize;
 					std::copy(other, other + newSize, dataVal);

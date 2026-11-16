@@ -13,7 +13,7 @@
 
 namespace jsonifier::generic {
 
-	enum class error_code : uint8_t {
+	enum class error_codes : uint8_t {
 		success,
 		empty,
 		tape_error,
@@ -30,6 +30,14 @@ namespace jsonifier::generic {
 		invalid_json_pointer,
 		capacity,
 	};
+
+	template<bool minified> class generic_object;
+	template<bool minified> class generic_array;
+	template<bool minified> class generic_field;
+
+}
+
+namespace jsonifier::internal {
 
 	template<typename value_type> class alloc_buffer : internal::alloc_wrapper<value_type> {
 	  public:
@@ -129,18 +137,18 @@ namespace jsonifier::generic {
 	};
 
 	struct utf8_span_step {
-		template<uint64_t index> JSONIFIER_INLINE static internal::unrestrict_t<read_buffer_ptr> impl(internal::unrestrict_t<read_buffer_ptr>& current, read_buffer_ptr end,
-			internal::utf8_validation_state& state) noexcept {
-			using simd_list_local					 = internal::type_list_element_t<index, internal::simd::avx_integer_list>;
-			static constexpr auto simdType			 = simd_list_local::type::simdType;
-			using simd_type_local					 = typename internal::simd_type_wrapper<simdType>::type;
+		template<uint64_t index>
+		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(unrestrict_t<read_buffer_ptr>& current, read_buffer_ptr end, internal::utf8_validation_state& state) noexcept {
+			using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
+			static constexpr auto avx_type			 = simd_list_local::type::avx_type;
+			using simd_type_local					 = typename simd_type_wrapper<avx_type>::type;
 			static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
-			internal::utf8_register_validator<internal::simd_type_wrapper<simdType>> validator{ state };
+			internal::utf8_register_validator<simd_type_wrapper<avx_type>> validator{ state };
 			while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
-				validator.checkRegister(internal::simd::gatherValuesU<simd_type_local>(current));
+				validator.checkRegister(simd::gatherValuesU<simd_type_local>(current));
 				current += bytesProcessed;
 			}
-			if constexpr (index == internal::listSize - 1) {
+			if constexpr (index == listSize - 1) {
 				validator.checkPartial(current, static_cast<uint64_t>(end - current));
 				current = end;
 				return validator.errors() ? nullptr : current;
@@ -157,9 +165,6 @@ namespace jsonifier::generic {
 		}
 	};
 
-	template<bool minified> class generic_object;
-	template<bool minified> class generic_array;
-	template<bool minified> class generic_field;
 	struct document_state;
 	class field_index_map;
 
@@ -175,7 +180,7 @@ namespace jsonifier::generic {
 		plain_string_copy_context(const plain_string_copy_context&) noexcept			= delete;
 
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t length) const noexcept {
-			jsonifier::internal::jsonifierMemcpy(ptrNew, source, length);
+			jsonifierMemcpy(ptrNew, source, length);
 			return length;
 		}
 

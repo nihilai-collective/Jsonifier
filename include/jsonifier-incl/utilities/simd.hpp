@@ -234,10 +234,10 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE simd_string_reader_members& operator=(simd_string_reader_members&& other) noexcept {
 			if (&other != this) {
-				jsonifier::internal::swap(tapeCount, other.tapeCount);
-				jsonifier::internal::swap(capacity, other.capacity);
-				jsonifier::internal::swap(string_block_reader::length, other.string_block_reader::length);
-				jsonifier::internal::swap(tape, other.tape);
+				swap(tapeCount, other.tapeCount);
+				swap(capacity, other.capacity);
+				swap(string_block_reader::length, other.string_block_reader::length);
+				swap(tape, other.tape);
 			}
 			return *this;
 		}
@@ -424,10 +424,10 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE simd_string_reader_locals& operator=(simd_string_reader_locals&& other) noexcept {
 			if (&other != this) {
-				jsonifier::internal::swap(tapeCount, other.tapeCount);
-				jsonifier::internal::swap(capacity, other.capacity);
-				jsonifier::internal::swap(string_block_reader_locals::length, other.string_block_reader_locals::length);
-				jsonifier::internal::swap(tape, other.tape);
+				swap(tapeCount, other.tapeCount);
+				swap(capacity, other.capacity);
+				swap(string_block_reader_locals::length, other.string_block_reader_locals::length);
+				swap(tape, other.tape);
 			}
 			return *this;
 		}
@@ -664,10 +664,10 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE pod_simd_string_reader_members& operator=(pod_simd_string_reader_members&& other) noexcept {
 			if (&other != this) {
-				jsonifier::internal::swap(tapeCount, other.tapeCount);
-				jsonifier::internal::swap(capacity, other.capacity);
-				jsonifier::internal::swap(length, other.length);
-				jsonifier::internal::swap(tape, other.tape);
+				swap(tapeCount, other.tapeCount);
+				swap(capacity, other.capacity);
+				swap(length, other.length);
+				swap(tape, other.tape);
 			}
 			return *this;
 		}

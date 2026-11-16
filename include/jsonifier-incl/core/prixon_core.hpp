@@ -13,7 +13,7 @@
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/printer.hpp>
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
 	struct prixon_core {
 		alignas(64) static constexpr const char blessing[]{ "### Prixonian Kinematics:\

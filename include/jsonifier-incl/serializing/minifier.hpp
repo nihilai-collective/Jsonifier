@@ -11,9 +11,9 @@
 
 namespace jsonifier::internal {
 
-	consteval array<json_structural_type, 256ULL> genJsonTypes() noexcept {
-		array<json_structural_type, 256ULL> returnValues{};
-		using enum json_structural_type;
+	consteval array<json_structural_types, 256ULL> genJsonTypes() noexcept {
+		array<json_structural_types, 256ULL> returnValues{};
+		using enum json_structural_types;
 		returnValues[uint_c_v<'"'>] = string;
 		returnValues[uint_c_v<','>] = comma;
 		returnValues[uint_c_v<'0'>] = number;
@@ -40,7 +40,7 @@ namespace jsonifier::internal {
 
 	alignas(64) inline constexpr auto jsonTypesRaw{ genJsonTypes() };
 
-	inline constexpr const json_structural_type* __restrict jsonTypes{ jsonTypesRaw.data() };
+	inline constexpr const json_structural_types* __restrict jsonTypes{ jsonTypesRaw.data() };
 
 	template<typename minifier_type> struct minify_context_ro {
 		minify_context_ro() noexcept = delete;
@@ -105,7 +105,7 @@ namespace jsonifier::internal {
 
 		template<prettify_buffer_types string_type, typename iterator, typename iterator_end>
 		inline uint64_t impl(iterator* __restrict& iter, iterator_end* __restrict endStructural, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
-			using enum json_structural_type;
+			using enum json_structural_types;
 			read_buffer_ptr previousPtr{};
 			int64_t currentDistance{};
 			int64_t arrayDepth{};
@@ -122,7 +122,7 @@ namespace jsonifier::internal {
 							index += static_cast<uint64_t>(currentDistance);
 						} else {
 							derivedRef.errors.emplace_back(
-								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::invalid_string_length>(rootIter, previousPtr, endIter));
+								internal::error::constructError<status_classes::minifying, minify_statuses::invalid_string_length>(rootIter, previousPtr, endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						break;
@@ -154,7 +154,7 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(array_end): {
 						if (--arrayDepth < 0) [[unlikely]] {
 							derivedRef.errors.emplace_back(
-								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
+								internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						outBuffer[index] = ']';
@@ -189,7 +189,7 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(object_end): {
 						if (--objectDepth < 0) [[unlikely]] {
 							derivedRef.errors.emplace_back(
-								jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
+								internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						outBuffer[index] = '}';
@@ -202,18 +202,16 @@ namespace jsonifier::internal {
 						[[fallthrough]];
 					default: {
 						derivedRef.errors.emplace_back(
-							jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
+							internal::error::constructError<status_classes::minifying, minify_statuses::incorrect_structural_index>(rootIter, previousPtr, endIter));
 						return std::numeric_limits<uint64_t>::max();
 					}
 				}
 			}
 			if ((arrayDepth | objectDepth) != 0) [[unlikely]] {
 				if (arrayDepth != 0) {
-					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_array>(rootIter, previousPtr, endIter));
+					derivedRef.errors.emplace_back(internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_array>(rootIter, previousPtr, endIter));
 				} else {
-					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_object>(rootIter, previousPtr, endIter));
+					derivedRef.errors.emplace_back(internal::error::constructError<status_classes::minifying, minify_statuses::unclosed_object>(rootIter, previousPtr, endIter));
 				}
 				return std::numeric_limits<uint64_t>::max();
 			}

@@ -353,7 +353,7 @@ namespace jsonifier::internal {
 
 namespace jsonifier {
 
-	inline bool validateUtf8(read_buffer_ptr src, uint64_t len) noexcept {
+	inline bool validateUtf8(internal::read_buffer_ptr src, uint64_t len) noexcept {
 		return internal::validateUtf8(src, len);
 	}
 

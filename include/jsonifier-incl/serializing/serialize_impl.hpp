@@ -23,7 +23,7 @@ namespace jsonifier::internal {
 
 	template<string_literal string> struct char_blitter {
 		static constexpr uint64_t lengthToAdvance{ string.size() };
-		static constexpr uint64_t lengthToCopy{ jsonifier::internal::getValueSize(pack_values<string>::value) };
+		static constexpr uint64_t lengthToCopy{ getValueSize(pack_values<string>::value) };
 		static constexpr auto value{ pack_values<string>::value };
 	};
 
@@ -39,11 +39,11 @@ namespace jsonifier::internal {
 		template<typename value_type> JSONIFIER_INLINE static void processIndex(value_type& __restrict value, uint64_t& requiredSize, uint64_t& __restrict indent) noexcept {
 			if constexpr (excluded_keys_types<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
-				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
+				if (keys.find(static_cast<typename remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
 					return;
 				}
 			}
-			requiredSize += jsonifier::internal::objectEntrySize<options, escapedKeyLiteral<json_entity_type::name>>();
+			requiredSize += objectEntrySize<options, escapedKeyLiteral<json_entity_type::name>>();
 			using v_type = remove_cv_t<decltype(getMember<json_entity_type::memberPtr>(value))>;
 			if constexpr (static_sized_types<get_size_impl<v_type, options>>) {
 				requiredSize += get_size_impl<v_type, options>::staticSize;
@@ -188,7 +188,7 @@ namespace jsonifier::internal {
 				if constexpr (static_sized_types<get_size_impl<elem_type, options>>) {
 					requiredSize += newSize * get_size_impl<elem_type, options>::staticSize;
 				} else {
-					auto iter = jsonifier::internal::getBeginIterVec(value);
+					auto iter = getBeginIterVec(value);
 					for (uint64_t index{}; index != newSize; ++index) {
 						requiredSize += get_size<options>::impl(iter[static_cast<uint64_t>(index)], indent);
 					}
@@ -223,7 +223,7 @@ namespace jsonifier::internal {
 				if constexpr (static_sized_types<get_size_impl<elem_type, options>>) {
 					requiredSize += newSize * get_size_impl<elem_type, options>::staticSize;
 				} else {
-					auto iter = jsonifier::internal::getBeginIterVec(value);
+					auto iter = getBeginIterVec(value);
 					for (uint64_t index{}; index != newSize; ++index) {
 						requiredSize += get_size<options>::impl(iter[static_cast<uint64_t>(index)], indent);
 					}
@@ -357,19 +357,19 @@ namespace jsonifier::internal {
 
 		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& __restrict value, uint64_t& indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
-				case static_cast<uint64_t>(json_type::object): {
+				case static_cast<uint64_t>(json_types::object): {
 					return containerSize(value.getObject(), indent);
 				}
-				case static_cast<uint64_t>(json_type::array): {
+				case static_cast<uint64_t>(json_types::array): {
 					return containerSize(value.getArray(), indent);
 				}
-				case static_cast<uint64_t>(json_type::string): {
+				case static_cast<uint64_t>(json_types::string): {
 					return get_size<options>::impl(value.getString(), indent);
 				}
-				case static_cast<uint64_t>(json_type::number): {
+				case static_cast<uint64_t>(json_types::number): {
 					return get_size_impl<double, options>::staticSize;
 				}
-				case static_cast<uint64_t>(json_type::boolean): {
+				case static_cast<uint64_t>(json_types::boolean): {
 					return get_size_impl<bool, options>::staticSize;
 				}
 				default: {
@@ -526,7 +526,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> processIndex(value_type& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			if constexpr (excluded_keys_types<value_type>) {
 				auto& keys = value.jsonifierExcludedKeys;
-				if (keys.find(static_cast<typename jsonifier::internal::remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
+				if (keys.find(static_cast<typename remove_reference_t<decltype(keys)>::key_type>(json_entity_type::name)) != keys.end()) [[unlikely]] {
 					return bufferPtr;
 				}
 			}
@@ -538,9 +538,9 @@ namespace jsonifier::internal {
 				}
 				return serialize<options>::impl(getMember<json_entity_type::memberPtr>(value), bufferPtr, indent);
 			} else {
-				bufferPtr = jsonifier::internal::writeObjectEntry<options, escapedKeyLiteral<json_entity_type::name>>(bufferPtr);
+				bufferPtr = writeObjectEntry<options, escapedKeyLiteral<json_entity_type::name>>(bufferPtr);
 				bufferPtr = serialize<options>::impl(getMember<json_entity_type::memberPtr>(value), bufferPtr, indent);
-				return jsonifier::internal::writeObjectExit<options, json_entity_type::isItLast>(bufferPtr, indent);
+				return writeObjectExit<options, json_entity_type::isItLast>(bufferPtr, indent);
 			}
 		}
 	};
@@ -683,7 +683,7 @@ namespace jsonifier::internal {
 					++bufferPtr;
 				}
 
-				auto iter = jsonifier::internal::getBeginIterVec(value);
+				auto iter = getBeginIterVec(value);
 				bufferPtr = serialize<options>::impl(iter[0], bufferPtr, innerIndent);
 				for (uint64_t index{ 1 }; index != newSize; ++index) {
 					if constexpr (options.prettify) {
@@ -727,7 +727,7 @@ namespace jsonifier::internal {
 					++bufferPtr;
 				}
 
-				auto iter = jsonifier::internal::getBeginIterVec(value);
+				auto iter = getBeginIterVec(value);
 				bufferPtr = serialize<options>::impl(iter[0], bufferPtr, innerIndent);
 				if constexpr (newSize > 1) {
 					for (uint64_t index{ 1 }; index != newSize; ++index) {
@@ -938,16 +938,16 @@ namespace jsonifier::internal {
 		template<typename value_type_new>
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(value_type_new&& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
-				case static_cast<uint64_t>(json_type::object): {
+				case static_cast<uint64_t>(json_types::object): {
 					return serializeContainer(value.getObject(), bufferPtr, indent);
 				}
-				case static_cast<uint64_t>(json_type::array): {
+				case static_cast<uint64_t>(json_types::array): {
 					return serializeContainer(value.getArray(), bufferPtr, indent);
 				}
-				case static_cast<uint64_t>(json_type::string): {
+				case static_cast<uint64_t>(json_types::string): {
 					return serialize<options>::impl(value.getString(), bufferPtr, indent);
 				}
-				case static_cast<uint64_t>(json_type::number): {
+				case static_cast<uint64_t>(json_types::number): {
 					const auto& number = value.getNumber();
 					switch (static_cast<uint64_t>(number.getType())) {
 						case static_cast<uint64_t>(remove_cvref_t<decltype(number)>::number_types::int64): {
@@ -961,7 +961,7 @@ namespace jsonifier::internal {
 						}
 					}
 				}
-				case static_cast<uint64_t>(json_type::boolean): {
+				case static_cast<uint64_t>(json_types::boolean): {
 					return serialize<options>::impl(value.getBool(), bufferPtr, indent);
 				}
 				default: {

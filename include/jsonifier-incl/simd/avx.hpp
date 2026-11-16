@@ -102,7 +102,7 @@ namespace jsonifier::internal::simd {
 
 	template<int32_t shift, simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE auto opPrev(simd_int_t01 current, simd_int_t02 previous) noexcept {
-		return simd::opAlignR<shift>(current, previous);
+		return opAlignR<shift>(current, previous);
 	}
 
 	template<simd_int_128_types simd_int_type_new, typename char_t>

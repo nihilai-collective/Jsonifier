@@ -35,7 +35,7 @@ namespace hash_validation_tests {
 
 		if (remaining >= 4) {
 			uint32_t chunk32{};
-			jsonifier::pow2MemcpyWrapper<4>(&chunk32, bytes.data() + i);
+			jsonifier::internal::pow2MemcpyWrapper<4>(&chunk32, bytes.data() + i);
 			seed64 ^= static_cast<uint64_t>(chunk32) * 0x9E3779B185EBCA87ull;
 			i += 4;
 			remaining -= 4;
@@ -43,7 +43,7 @@ namespace hash_validation_tests {
 
 		if (remaining >= 2) {
 			uint16_t chunk16{};
-			jsonifier::pow2MemcpyWrapper<2>(&chunk16, bytes.data() + i);
+			jsonifier::internal::pow2MemcpyWrapper<2>(&chunk16, bytes.data() + i);
 			seed64 ^= static_cast<uint64_t>(chunk16) * 0x9E3779B185EBCA87ull;
 			i += 2;
 			remaining -= 2;
@@ -65,7 +65,7 @@ namespace hash_validation_tests {
 		}();
 		const std::string byteString{ bytes.data(), length };
 		const uint64_t expected = referenceHash(seed, byteString);
-		const uint64_t rtHash	= jsonifier::internal::rt_key_hasher<seed>::hashKeyRt(std::bit_cast<jsonifier::read_buffer_ptr>(byteString.data()), length);
+		const uint64_t rtHash	= jsonifier::internal::rt_key_hasher<seed>::hashKeyRt(std::bit_cast<jsonifier::internal::read_buffer_ptr>(byteString.data()), length);
 		if (ctHash != expected) {
 			std::cout << "HASH_CT MISMATCH for seed " << seed << ", length " << length << ": ct=" << ctHash << " expected=" << expected << std::endl;
 			return false;
@@ -108,7 +108,7 @@ namespace hash_validation_tests {
 			static constexpr jsonifier::internal::ct_key_hasher hasher{ 123456789ull };
 			const uint64_t expected = hasher.seed ^ (hasher.seed >> 32);
 			const uint64_t ctResult = hasher.hashKeyCt("", 0);
-			const uint64_t rtResult = jsonifier::internal::rt_key_hasher<123456789ull>::hashKeyRt(std::bit_cast<jsonifier::read_buffer_ptr>(+""), 0);
+			const uint64_t rtResult = jsonifier::internal::rt_key_hasher<123456789ull>::hashKeyRt(std::bit_cast<jsonifier::internal::read_buffer_ptr>(+""), 0);
 			return ctResult == expected && rtResult == expected;
 		});
 

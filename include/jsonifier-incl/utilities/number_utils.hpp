@@ -20,21 +20,21 @@ namespace jsonifier {
 		string returnString{};
 		returnString.resize(64);
 		if constexpr (sizeof(value_type01) == 8) {
-			auto newPtr = internal::to_chars<value_type01>::impl(std::bit_cast<write_buffer_ptr>(returnString.data()), value);
-			returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<write_buffer_ptr>(returnString.data())));
+			auto newPtr = internal::to_chars<value_type01>::impl(std::bit_cast<internal::write_buffer_ptr>(returnString.data()), value);
+			returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<internal::write_buffer_ptr>(returnString.data())));
 		} else {
 			if constexpr (internal::uint_types<value_type01>) {
 				uint64_t newValue{ static_cast<uint64_t>(value) };
-				auto newPtr = internal::to_chars<uint64_t>::impl(std::bit_cast<write_buffer_ptr>(returnString.data()), newValue);
-				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<write_buffer_ptr>(returnString.data())));
+				auto newPtr = internal::to_chars<uint64_t>::impl(std::bit_cast<internal::write_buffer_ptr>(returnString.data()), newValue);
+				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<internal::write_buffer_ptr>(returnString.data())));
 			} else if constexpr (internal::int_types<value_type01>) {
 				int64_t newValue{ static_cast<int64_t>(value) };
-				auto newPtr = internal::to_chars<int64_t>::impl(std::bit_cast<write_buffer_ptr>(returnString.data()), newValue);
-				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<write_buffer_ptr>(returnString.data())));
+				auto newPtr = internal::to_chars<int64_t>::impl(std::bit_cast<internal::write_buffer_ptr>(returnString.data()), newValue);
+				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<internal::write_buffer_ptr>(returnString.data())));
 			} else {
 				double newValue{ static_cast<double>(value) };
-				auto newPtr = internal::to_chars<value_type01>::impl(std::bit_cast<write_buffer_ptr>(returnString.data()), newValue);
-				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<write_buffer_ptr>(returnString.data())));
+				auto newPtr = internal::to_chars<value_type01>::impl(std::bit_cast<internal::write_buffer_ptr>(returnString.data()), newValue);
+				returnString.resize(static_cast<uint64_t>(newPtr - std::bit_cast<internal::write_buffer_ptr>(returnString.data())));
 			}
 		}
 		return returnString;
@@ -43,8 +43,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> double strToDouble(const string& stringNew) noexcept {
 		double newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());
-			auto end  = std::bit_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = std::bit_cast<internal::read_buffer_ptr>(stringNew.data());
+			auto end  = std::bit_cast<internal::read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::float_parser<double>::parseFloat(newValue, iter, end);
 		}
 		return newValue;
@@ -61,8 +61,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> int64_t strToInt64(const string& stringNew) noexcept {
 		int64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());
-			auto end  = std::bit_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = std::bit_cast<internal::read_buffer_ptr>(stringNew.data());
+			auto end  = std::bit_cast<internal::read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::integer_parser<int64_t>::parseInt(newValue, iter, end);
 		}
 		return newValue;
@@ -79,8 +79,8 @@ namespace jsonifier {
 	template<uint64_t base = 10> uint64_t strToUint64(const string& stringNew) noexcept {
 		uint64_t newValue{};
 		if (stringNew.size() > 0) [[likely]] {
-			auto iter = std::bit_cast<read_buffer_ptr>(stringNew.data());
-			auto end  = std::bit_cast<read_buffer_ptr>(stringNew.data()) + stringNew.size();
+			auto iter = std::bit_cast<internal::read_buffer_ptr>(stringNew.data());
+			auto end  = std::bit_cast<internal::read_buffer_ptr>(stringNew.data()) + stringNew.size();
 			internal::integer_parser<uint64_t>::parseInt(newValue, iter, end);
 		}
 		return newValue;
@@ -117,11 +117,11 @@ namespace jsonifier::internal {
 				}
 			}
 		} else {
-			if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+			if constexpr (std::is_volatile_v<remove_reference_t<decltype(value)>>) {
 				double temp;
-				return internal::float_parser<double>::parseFloat(temp, iter, end) ? (value = static_cast<value_type>(temp), true) : false;
+				return float_parser<double>::parseFloat(temp, iter, end) ? (value = static_cast<value_type>(temp), true) : false;
 			} else {
-				return internal::float_parser<value_type>::parseFloat(value, iter, end);
+				return float_parser<value_type>::parseFloat(value, iter, end);
 			}
 		}
 	}

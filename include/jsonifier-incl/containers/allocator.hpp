@@ -52,7 +52,7 @@ namespace jsonifier::internal {
 
 		struct allocation_header {
 			size_type totalBytes{};
-			allocated_memory_types type{};
+			allocated_memory_types allocated_memory_type{};
 		};
 
 		static constexpr uint64_t headerSize		= roundUpToMultiple<alignment>(sizeof(allocation_header));
@@ -70,10 +70,10 @@ namespace jsonifier::internal {
 		template<typename other_type> JSONIFIER_INLINE constexpr alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
 		}
 
-		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types type, size_type totalBytes) noexcept {
-			allocation_header* header = static_cast<allocation_header*>(base);
-			header->totalBytes		  = totalBytes;
-			header->type			  = type;
+		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types allocated_memory_type, size_type totalBytes) noexcept {
+			allocation_header* header	  = static_cast<allocation_header*>(base);
+			header->totalBytes			  = totalBytes;
+			header->allocated_memory_type = allocated_memory_type;
 			return std::bit_cast<pointer>(static_cast<std::byte*>(base) + headerSize);
 		}
 
@@ -144,7 +144,7 @@ namespace jsonifier::internal {
 				void* base							  = std::bit_cast<std::byte*>(p) - headerSize;
 				auto* header						  = static_cast<allocation_header*>(base);
 				[[maybe_unused]] size_type totalBytes = header->totalBytes;
-				switch (static_cast<uint64_t>(header->type)) {
+				switch (static_cast<uint64_t>(header->allocated_memory_type)) {
 					case static_cast<uint64_t>(allocated_memory_types::huge_page): {
 #if JSONIFIER_PLATFORM_WINDOWS
 						VirtualFree(base, 0, MEM_RELEASE);

@@ -16,8 +16,8 @@ namespace jsonifier::internal::simd {
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128,
 		"This block collapses simdRegistersPerBlock registers into a single uint64_t bitmask, and SVE2 ADDP is segment-wise; both hold only at 128-bit VL.");
 
-	inline constexpr internal::array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
-		internal::array<uint64_t, simdRegistersPerBlock> returnValue{};
+	inline constexpr array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
+		array<uint64_t, simdRegistersPerBlock> returnValue{};
 		for (uint64_t x = 0; x < simdRegistersPerBlock; ++x) {
 			returnValue[x] = simdBytesPerRegister * x;
 		}
@@ -164,7 +164,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE void finishNext() noexcept {
-			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
+			const uint64_t inString = prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
 		}
@@ -190,7 +190,7 @@ namespace jsonifier::internal::simd {
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {
-			return static_cast<uint32_t>(simd::countrZero(bits) + base);
+			return static_cast<uint32_t>(countrZero(bits) + base);
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
@@ -202,28 +202,28 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArraySve2() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateWhitespaceArraySve2() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArraySve2<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> whitespaceArray{ generateWhitespaceArraySve2<size>() };
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArraySve2() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateOpArraySve2() noexcept {
 		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u,
 			0x00u, 0x00u, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> opArray{ generateOpArraySve2<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> opArray{ generateOpArraySve2<size>() };
 
 #endif
 

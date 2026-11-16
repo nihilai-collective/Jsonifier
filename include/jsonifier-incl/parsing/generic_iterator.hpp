@@ -13,29 +13,28 @@ namespace jsonifier::internal {
 	template<typename derived_type_new> struct generic_iterator {
 		using derived_type = derived_type_new;
 
-		static constexpr uint64_t smallDocumentBytes{ jsonifier::simdBytesPerStep };
+		static constexpr uint64_t smallDocumentBytes{ simdBytesPerStep };
 
-		template<parse_options options = parse_options{}, typename buffer_type> jsonifier::generic::generic_document<options.minified> iterate(const buffer_type& in) {
-			using jsonifier::generic::error_code;
-			using document			 = jsonifier::generic::generic_document<options.minified>;
-			using document_state	 = jsonifier::generic::document_state;
+		template<parse_options options = parse_options{}, typename buffer_type> generic::generic_document<options.minified> iterate(const buffer_type& in) {
+			using generic::error_codes;
+			using document			 = generic::generic_document<options.minified>;
 			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			const uint64_t length	 = in.size();
 			if (!rootIter || length == 0) [[unlikely]] {
-				return document{ error_code::empty };
+				return document{ error_codes::empty };
 			}
 			const uint64_t tapeCount = indexGenericWindow<options>(rootIter, length);
 			if (tapeCount == 0) [[unlikely]] {
-				return document{ error_code::empty };
+				return document{ error_codes::empty };
 			}
-			::jsonifier::generic::generic_storage& data = derivedRef.genericStorage();
-			document_state& state						= data.stateFor();
-			state.root									= rootIter;
-			state.end									= rootIter + length;
-			state.cursor								= state.tape;
-			state.depth									= 0;
+			generic_storage& data = derivedRef.genericStorage();
+			document_state& state = data.stateFor();
+			state.root			  = rootIter;
+			state.end			  = rootIter + length;
+			state.cursor		  = state.tape;
+			state.depth			  = 0;
 			if (tapeCount > 1 && !document_state::isOpener(rootIter[state.tape[0]])) [[unlikely]] {
-				return document{ error_code::trailing_content };
+				return document{ error_codes::trailing_content };
 			}
 			data.arena.reset(length);
 			data.fieldIndex.reset();
@@ -45,7 +44,7 @@ namespace jsonifier::internal {
 		}
 
 		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
-			::jsonifier::generic::document_state& state = derivedRef.genericStorage().stateFor();
+			document_state& state = derivedRef.genericStorage().stateFor();
 			if (length < smallDocumentBytes) {
 				derivedRef.podSection.template reset<options.minified>(rootIter, length);
 				state.tape	  = derivedRef.podSection.begin();

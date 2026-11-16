@@ -13,7 +13,7 @@ namespace jsonifier::generic {
 
 	template<typename parser_type, parse_options options> class document_stream {
 	  public:
-		using document_state = generic::document_state;
+		using document_state = internal::document_state;
 		using document		 = generic_document<options.minified>;
 
 		class iterator {
@@ -60,7 +60,7 @@ namespace jsonifier::generic {
 			document_stream* stream{};
 		};
 
-		JSONIFIER_INLINE document_stream(parser_type& parserNew, read_buffer_ptr inputNew, uint64_t inputLengthNew, uint64_t batchSizeNew) noexcept
+		JSONIFIER_INLINE document_stream(parser_type& parserNew, internal::read_buffer_ptr inputNew, uint64_t inputLengthNew, uint64_t batchSizeNew) noexcept
 			: input{ inputNew }, inputLength{ inputNew ? inputLengthNew : 0 }, parser{ &parserNew },
 			  batchSize{ std::clamp<uint64_t>(batchSizeNew, minimumBatchSize, maximumBatchSize) } {
 		}
@@ -72,8 +72,8 @@ namespace jsonifier::generic {
 			return truncated;
 		}
 
-		JSONIFIER_INLINE error_code error() const noexcept {
-			return err;
+		JSONIFIER_INLINE error_codes error() const noexcept {
+			return error_code;
 		}
 
 		JSONIFIER_INLINE iterator end() const noexcept {
@@ -97,21 +97,21 @@ namespace jsonifier::generic {
 		static constexpr uint64_t minimumBatchSize{ 64 };
 		static constexpr uint64_t maximumBatchSize{ std::numeric_limits<uint32_t>::max() - 64 };
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> findDocumentEnd(read_structural_index_ptr start) noexcept {
+		JSONIFIER_INLINE internal::unrestrict_t<internal::read_structural_index_ptr> findDocumentEnd(internal::read_structural_index_ptr start) noexcept {
 			document_state& state = docState();
 			const uint8_t first	  = state.charAt(start);
 			if (document_state::isOpener(first)) {
 				int64_t openCount{ 1 };
-				for (read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
-					openCount += depthDeltaTable[state.charAt(iter)];
+				for (internal::read_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
+					openCount += internal::depthDeltaTable[state.charAt(iter)];
 					if (openCount == 0) {
 						return iter + 1;
 					}
 				}
 				return nullptr;
 			}
-			if (document_state::isCloser(first) || first == jsonifier::internal::uint_c_v<','> || first == jsonifier::internal::uint_c_v<':'>) [[unlikely]] {
-				err = error_code::tape_error;
+			if (document_state::isCloser(first) || first == internal::uint_c_v<','> || first == internal::uint_c_v<':'>) [[unlikely]] {
+				error_code = error_codes::tape_error;
 				return nullptr;
 			}
 			if (start + 1 == windowTapeEnd && !finalWindow) {
@@ -120,7 +120,7 @@ namespace jsonifier::generic {
 			return start + 1;
 		}
 
-		JSONIFIER_INLINE void bindDocument(read_structural_index_ptr begin, read_structural_index_ptr end) noexcept {
+		JSONIFIER_INLINE void bindDocument(internal::read_structural_index_ptr begin, internal::read_structural_index_ptr end) noexcept {
 			docBegin			  = begin;
 			docEnd				  = end;
 			pendingSeparator	  = false;
@@ -132,9 +132,9 @@ namespace jsonifier::generic {
 			storage().fieldIndex.reset();
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> lastDocumentStart() const noexcept {
+		JSONIFIER_INLINE internal::unrestrict_t<internal::read_structural_index_ptr> lastDocumentStart() const noexcept {
 			document_state& state = docState();
-			for (read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
+			for (internal::read_structural_index_ptr iter = windowTapeEnd - 1; iter > windowTape; --iter) {
 				if (startsDocument(state.charAt(iter)) && endsValue(state.charAt(iter - 1))) {
 					return iter;
 				}
@@ -150,12 +150,12 @@ namespace jsonifier::generic {
 			return !document_state::isOpener(c) && c != internal::uint_c_v<','> && c != internal::uint_c_v<':'>;
 		}
 
-		JSONIFIER_INLINE void locateDelimited(read_structural_index_ptr next) noexcept {
+		JSONIFIER_INLINE void locateDelimited(internal::read_structural_index_ptr next) noexcept {
 			while (true) {
 				if (next == windowTapeEnd) {
 					if (finalWindow) {
 						if (pendingSeparator) [[unlikely]] {
-							err = error_code::trailing_content;
+							error_code = error_codes::trailing_content;
 						} else {
 							finished = true;
 						}
@@ -170,11 +170,11 @@ namespace jsonifier::generic {
 					pendingSeparator = true;
 					continue;
 				}
-				if (read_structural_index_ptr documentEnd = findDocumentEnd(next); documentEnd) [[likely]] {
+				if (internal::read_structural_index_ptr documentEnd = findDocumentEnd(next); documentEnd) [[likely]] {
 					bindDocument(next, documentEnd);
 					return;
 				}
-				if (err != error_code::success) [[unlikely]] {
+				if (error_code != error_codes::success) [[unlikely]] {
 					return;
 				}
 				if (finalWindow) {
@@ -183,7 +183,7 @@ namespace jsonifier::generic {
 					return;
 				}
 				if (next == windowTape) [[unlikely]] {
-					err = error_code::capacity;
+					error_code = error_codes::capacity;
 					return;
 				}
 				loadWindow(windowStart + *next);
@@ -191,7 +191,7 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> consumedEnd() const noexcept {
+		JSONIFIER_INLINE internal::unrestrict_t<internal::read_structural_index_ptr> consumedEnd() const noexcept {
 			document_state& state = docState();
 			if (state.depth > 0) {
 				state.finishToDepth(0);
@@ -203,7 +203,7 @@ namespace jsonifier::generic {
 			return state.skipValue(docBegin);
 		}
 
-		JSONIFIER_INLINE void locateWhitespace(read_structural_index_ptr next) noexcept {
+		JSONIFIER_INLINE void locateWhitespace(internal::read_structural_index_ptr next) noexcept {
 			while (true) {
 				if (next == completeEnd) {
 					if (finalWindow) {
@@ -211,7 +211,7 @@ namespace jsonifier::generic {
 						return;
 					}
 					if (completeEnd == windowTape) [[unlikely]] {
-						err = error_code::capacity;
+						error_code = error_codes::capacity;
 						return;
 					}
 					loadWindow(windowStart + (completeEnd == windowTapeEnd ? windowLength : *completeEnd));
@@ -219,7 +219,7 @@ namespace jsonifier::generic {
 					continue;
 				}
 				if (!startsDocument(docState().charAt(next))) [[unlikely]] {
-					err = error_code::tape_error;
+					error_code = error_codes::tape_error;
 					return;
 				}
 				bindDocument(next, completeEnd);
@@ -232,7 +232,7 @@ namespace jsonifier::generic {
 				completeEnd = windowTapeEnd;
 				return;
 			}
-			read_structural_index_ptr lastStart = lastDocumentStart();
+			internal::read_structural_index_ptr lastStart = lastDocumentStart();
 			if (lastStart != windowTape && !finalWindow) {
 				completeEnd = lastStart;
 				return;
@@ -248,11 +248,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE string_view source() const noexcept {
-			if (err != error_code::success) [[unlikely]] {
+			if (error_code != error_codes::success) [[unlikely]] {
 				return {};
 			}
-			read_buffer_ptr base = input + windowStart;
-			const uint64_t start = *docBegin;
+			internal::read_buffer_ptr base = input + windowStart;
+			const uint64_t start		   = *docBegin;
 			uint64_t stop{};
 			if constexpr (!options.newLineDelimited) {
 				stop = *docEnd;
@@ -266,10 +266,10 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
-			return err == error_code::success ? windowStart + *docBegin : windowStart;
+			return error_code == error_codes::success ? windowStart + *docBegin : windowStart;
 		}
 
-		JSONIFIER_INLINE void locate(read_structural_index_ptr next) noexcept {
+		JSONIFIER_INLINE void locate(internal::read_structural_index_ptr next) noexcept {
 			if constexpr (!options.newLineDelimited) {
 				locateDelimited(next);
 			} else {
@@ -278,17 +278,17 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE void loadWindow(uint64_t start) noexcept {
-			windowStart				   = start;
-			windowLength			   = std::min(batchSize, inputLength - start);
-			finalWindow				   = start + windowLength == inputLength;
-			read_buffer_ptr windowRoot = input + start;
+			windowStart							 = start;
+			windowLength						 = std::min(batchSize, inputLength - start);
+			finalWindow							 = start + windowLength == inputLength;
+			internal::read_buffer_ptr windowRoot = input + start;
 			parser->template indexGenericWindow<options>(windowRoot, windowLength);
-			generic_storage& data = storage();
-			document_state& state = data.stateFor();
-			windowTape			  = state.tape;
-			windowTapeEnd		  = state.tapeEnd;
-			state.root			  = windowRoot;
-			state.end			  = windowRoot + windowLength;
+			internal::generic_storage& data = storage();
+			document_state& state			= data.stateFor();
+			windowTape						= state.tape;
+			windowTapeEnd					= state.tapeEnd;
+			state.root						= windowRoot;
+			state.end						= windowRoot + windowLength;
 			data.arena.reset(windowLength);
 			state.arena		 = &data.arena;
 			state.fieldIndex = &data.fieldIndex;
@@ -298,10 +298,10 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE static bool isSeparatorByte(uint8_t c) noexcept {
-			return seperatorByteTable[c];
+			return internal::seperatorByteTable[c];
 		}
 
-		JSONIFIER_INLINE generic_storage& storage() const noexcept {
+		JSONIFIER_INLINE internal::generic_storage& storage() const noexcept {
 			return parser->genericStorage();
 		}
 
@@ -310,14 +310,14 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE document current() const noexcept {
-			if (err != error_code::success) [[unlikely]] {
-				return document{ err };
+			if (error_code != error_codes::success) [[unlikely]] {
+				return document{ error_code };
 			}
 			return document{ &docState(), docBegin, 0 };
 		}
 
 		JSONIFIER_INLINE void advance() noexcept {
-			if (err != error_code::success) [[unlikely]] {
+			if (error_code != error_codes::success) [[unlikely]] {
 				finished = true;
 				return;
 			}
@@ -328,19 +328,19 @@ namespace jsonifier::generic {
 			}
 		}
 
-		read_structural_index_ptr windowTapeEnd{};
-		read_structural_index_ptr completeEnd{};
-		read_structural_index_ptr windowTape{};
-		read_structural_index_ptr docBegin{};
-		read_structural_index_ptr docEnd{};
-		read_buffer_ptr input{};
+		internal::read_structural_index_ptr windowTapeEnd{};
+		internal::read_structural_index_ptr completeEnd{};
+		internal::read_structural_index_ptr windowTape{};
+		internal::read_structural_index_ptr docBegin{};
+		internal::read_structural_index_ptr docEnd{};
+		internal::read_buffer_ptr input{};
 		uint64_t windowLength{};
 		uint64_t inputLength{};
 		uint64_t windowStart{};
 		parser_type* parser{};
 		uint64_t batchSize{};
 		uint64_t truncated{};
-		error_code err{ error_code::success };
+		error_codes error_code{ error_codes::success };
 		bool pendingSeparator{};
 		bool finalWindow{};
 		bool finished{};

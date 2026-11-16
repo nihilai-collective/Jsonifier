@@ -29,7 +29,7 @@ namespace jsonifier::internal {
 		template<uint64_t index, typename tuple_type, uint64_t maxIndex>
 		static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) noexcept {
 			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
-			const auto& potentialKey	 = internal::getBecauseOtherLibAuthorsResolve<index>(tuple);
+			const auto& potentialKey	 = getBecauseOtherLibAuthorsResolve<index>(tuple);
 			if constexpr (named_types<decltype(potentialKey)>) {
 				tupleRefsRaw[index].key = escapedKeyLiteral<remove_cvref_t<decltype(potentialKey)>::name>.operator string_view();
 			}

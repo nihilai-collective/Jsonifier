@@ -92,9 +92,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint64_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ jsonifier::internal::repeatByte<value, uint64_t>() };
-					static constexpr auto highBits{ jsonifier::internal::repeatByte<0x80, uint64_t>() };
-					static constexpr auto lowBits{ jsonifier::internal::repeatByte<0x01, uint64_t>() };
+					static constexpr auto valueNew{ repeatByte<value, uint64_t>() };
+					static constexpr auto highBits{ repeatByte<0x80, uint64_t>() };
+					static constexpr auto lowBits{ repeatByte<0x01, uint64_t>() };
 					uint64_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint64_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -112,9 +112,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint32_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ jsonifier::internal::repeatByte<value, uint32_t>() };
-					static constexpr auto highBits{ jsonifier::internal::repeatByte<0x80, uint32_t>() };
-					static constexpr auto lowBits{ jsonifier::internal::repeatByte<0x01, uint32_t>() };
+					static constexpr auto valueNew{ repeatByte<value, uint32_t>() };
+					static constexpr auto highBits{ repeatByte<0x80, uint32_t>() };
+					static constexpr auto lowBits{ repeatByte<0x01, uint32_t>() };
 					uint32_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint32_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -132,9 +132,9 @@ namespace jsonifier::internal {
 			{
 				static constexpr uint64_t nBytes{ sizeof(uint16_t) };
 				if (lengthNew >= nBytes) {
-					static constexpr auto valueNew{ jsonifier::internal::repeatByte<value, uint16_t>() };
-					static constexpr auto highBits{ jsonifier::internal::repeatByte<0x80, uint16_t>() };
-					static constexpr auto lowBits{ jsonifier::internal::repeatByte<0x01, uint16_t>() };
+					static constexpr auto valueNew{ repeatByte<value, uint16_t>() };
+					static constexpr auto highBits{ repeatByte<0x80, uint16_t>() };
+					static constexpr auto lowBits{ repeatByte<0x01, uint16_t>() };
 					uint16_t simdValue;
 					pow2MemcpyWrapper<sizeof(uint16_t)>(&simdValue, data);
 					const auto chunk = simdValue ^ valueNew;
@@ -264,9 +264,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t length> struct convert_length_to_int {
-		using type = jsonifier::internal::conditional_t<length == 1, uint8_t,
-			jsonifier::internal::conditional_t<length <= 2, uint16_t,
-				jsonifier::internal::conditional_t<length <= 4, uint32_t, jsonifier::internal::conditional_t<length <= 8, uint64_t, void>>>>;
+		using type = conditional_t<length == 1, uint8_t, conditional_t<length <= 2, uint16_t, conditional_t<length <= 4, uint32_t, conditional_t<length <= 8, uint64_t, void>>>>;
 	};
 
 	template<uint64_t length> using convert_length_to_int_t = typename convert_length_to_int<length>::type;
@@ -588,8 +586,8 @@ namespace jsonifier::internal {
 #endif
 
 	template<gt_16_types sl_type, base_t<sl_type> stringNew> struct string_literal_comparator_impl<sl_type, stringNew, void> {
-		static constexpr uint64_t splitMod{ jsonifier::internal::getOffsetIntoLiteralSize(stringNew.size()) };
-		static constexpr auto stringCount{ jsonifier::internal::getSplitStringCount<splitMod>(stringNew) };
+		static constexpr uint64_t splitMod{ getOffsetIntoLiteralSize(stringNew.size()) };
+		static constexpr auto stringCount{ getSplitStringCount<splitMod>(stringNew) };
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(read_buffer_ptr str) noexcept {
 			return string_literal_splitter<make_integer_sequence<stringCount>, stringNew, splitMod>::impl(str);

@@ -11,17 +11,17 @@
 namespace intrinsics_tests {
 
 #if JSONIFIER_AVX512
-	using active_simd_t = jsonifier::jsonifier_simd_int_512;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_512;
 #elif JSONIFIER_AVX2
-	using active_simd_t = jsonifier::jsonifier_simd_int_256;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_256;
 #elif JSONIFIER_AVX
-	using active_simd_t = jsonifier::jsonifier_simd_int_128;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_128;
 #elif JSONIFIER_SVE2
-	using active_simd_t = jsonifier::jsonifier_simd_int_128;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_128;
 #elif JSONIFIER_NEON
-	using active_simd_t = jsonifier::jsonifier_simd_int_128;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_128;
 #else
-	using active_simd_t = jsonifier::jsonifier_simd_int_128;
+	using active_simd_t = jsonifier::internal::jsonifier_simd_int_128;
 #endif
 
 	inline constexpr uint64_t activeWidth{ sizeof(active_simd_t) };

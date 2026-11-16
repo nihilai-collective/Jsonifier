@@ -34,7 +34,7 @@
 
 namespace jsonifier {
 
-	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public prixon_core,
+	template<uint64_t initialBufferSize = 1024 * 1024> class jsonifier_core : public internal::prixon_core,
 																			  public internal::generic_iterator<jsonifier_core<initialBufferSize>>,
 																			  public internal::json_printer<jsonifier_core<initialBufferSize>>,
 																			  public internal::prettifier<jsonifier_core<initialBufferSize>>,
@@ -74,7 +74,7 @@ namespace jsonifier {
 
 		template<parse_options options = parse_options{ .newLineDelimited = true }, typename buffer_type>
 		inline generic::document_stream<jsonifier_core, options> iterateMany(const buffer_type& in, uint64_t batchSize = options.defaultBatchSize) noexcept {
-			return generic::document_stream<jsonifier_core, options>{ *this, std::bit_cast<read_buffer_ptr>(in.data()), in.size(), batchSize };
+			return generic::document_stream<jsonifier_core, options>{ *this, std::bit_cast<internal::read_buffer_ptr>(in.data()), in.size(), batchSize };
 		}
 
 		inline const std::vector<internal::error>& getErrors() const noexcept {
@@ -90,14 +90,14 @@ namespace jsonifier {
 	  protected:
 		template<typename, parse_options> friend class generic::document_stream;
 
-		JSONIFIER_INLINE generic::generic_storage& genericStorage() noexcept {
+		JSONIFIER_INLINE internal::generic_storage& genericStorage() noexcept {
 			return genericData;
 		}
 
-		internal::pod_simd_string_reader<simdBytesPerStep> podSection{};
+		internal::pod_simd_string_reader<internal::simdBytesPerStep> podSection{};
 		internal::simd_string_reader<initialBufferSize> section{};
 		string_base<initialBufferSize> stringBuffer{};
-		generic::generic_storage genericData{};
+		internal::generic_storage genericData{};
 		std::vector<internal::error> errors{};
 	};
 

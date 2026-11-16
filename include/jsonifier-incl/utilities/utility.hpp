@@ -128,8 +128,8 @@ namespace jsonifier::internal {
 		return static_cast<value_type&&>(t);
 	}
 
-	template<typename value_type> JSONIFIER_INLINE constexpr jsonifier::internal::remove_reference_t<value_type>&& move(value_type&& value) noexcept {
-		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
+	template<typename value_type> JSONIFIER_INLINE constexpr remove_reference_t<value_type>&& move(value_type&& value) noexcept {
+		return static_cast<remove_reference_t<value_type>&&>(value);
 	}
 
 	template<typename value_type>
@@ -151,9 +151,9 @@ namespace jsonifier::internal {
 			requires(std::is_move_constructible_v<value_type> && std::is_move_assignable_v<value_type>)
 		JSONIFIER_INLINE constexpr void operator()(value_type& lhs, value_type& rhs) const
 			noexcept(std::is_nothrow_move_constructible_v<value_type> && std::is_nothrow_move_assignable_v<value_type>) {
-			value_type temp{ jsonifier::internal::move(lhs) };
-			lhs = jsonifier::internal::move(rhs);
-			rhs = jsonifier::internal::move(temp);
+			value_type temp{ internal::move(lhs) };
+			lhs = internal::move(rhs);
+			rhs = internal::move(temp);
 		}
 	};
 
@@ -167,7 +167,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename value_type> struct get_int_type {
-		using type = jsonifier::internal::conditional_t<std::is_unsigned_v<value_type>, uint8_t, int8_t>;
+		using type = conditional_t<std::is_unsigned_v<value_type>, uint8_t, int8_t>;
 	};
 
 	template<uint64_t valueNew> struct integral_constant {
@@ -467,19 +467,17 @@ namespace jsonifier::internal {
 namespace jsonifier::internal::simd {
 
 #if JSONIFIER_NEON || JSONIFIER_SVE2
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
+	using avx_integer_list = type_list_t<type_holder<64, simd_type_wrapper<avx_types::m512>, uint64_t, 64>, type_holder<32, simd_type_wrapper<avx_types::m256>, uint32_t, 32>,
+		type_holder<16, simd_type_wrapper<avx_types::m128>, uint64_t, 16>>;
+	using avx_list		   = type_list_t<type_holder<64, simd_type_wrapper<avx_types::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+		type_holder<32, simd_type_wrapper<avx_types::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		type_holder<16, simd_type_wrapper<avx_types::m128>, uint64_t, std::numeric_limits<uint64_t>::max()>>;
 #else
-	using avx_integer_list = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, 64>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, 32>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, 16>>;
-	using avx_list		   = internal::type_list_t<internal::type_holder<64, internal::simd_type_wrapper<internal::avx_type::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
-		internal::type_holder<32, internal::simd_type_wrapper<internal::avx_type::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
-		internal::type_holder<16, internal::simd_type_wrapper<internal::avx_type::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
+	using avx_integer_list = type_list_t<type_holder<64, simd_type_wrapper<avx_types::m512>, uint64_t, 64>, type_holder<32, simd_type_wrapper<avx_types::m256>, uint32_t, 32>,
+		type_holder<16, simd_type_wrapper<avx_types::m128>, uint16_t, 16>>;
+	using avx_list		   = type_list_t<type_holder<64, simd_type_wrapper<avx_types::m512>, uint64_t, std::numeric_limits<uint64_t>::max()>,
+		type_holder<32, simd_type_wrapper<avx_types::m256>, uint32_t, std::numeric_limits<uint32_t>::max()>,
+		type_holder<16, simd_type_wrapper<avx_types::m128>, uint16_t, std::numeric_limits<uint16_t>::max()>>;
 #endif
 
 }

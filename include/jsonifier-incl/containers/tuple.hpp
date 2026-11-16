@@ -298,7 +298,7 @@ namespace jsonifier::internal {
 	template<typename... value_types> tuple(value_types&&...) -> tuple<value_types...>;
 
 	template<uint64_t index, typename tuple_type>
-		requires(specialization_of_types<remove_cvref_t<tuple_type>, jsonifier::internal::tuple>)
+		requires(specialization_of_types<remove_cvref_t<tuple_type>, tuple>)
 	JSONIFIER_INLINE constexpr decltype(auto) getBecauseOtherLibAuthorsResolve(tuple_type&& t JSONIFIER_LIFETIME_BOUND) noexcept {
 		return std::forward<tuple_type>(t)[tag<index>{}];
 	}
@@ -390,7 +390,7 @@ namespace jsonifier::internal {
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
 				return (*tuplePtr)[tag<localIdx>{}];
 			} else {
-				return jsonifier::internal::move((*tuplePtr)[tag<localIdx>{}]);
+				return internal::move((*tuplePtr)[tag<localIdx>{}]);
 			}
 		}
 

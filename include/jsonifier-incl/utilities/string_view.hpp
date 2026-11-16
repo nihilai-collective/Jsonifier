@@ -71,7 +71,7 @@ namespace jsonifier {
 			std::basic_string<value_type_newer> returnValue{};
 			returnValue.resize(sizeVal);
 			if (sizeVal > 0 && dataVal) [[likely]] {
-				jsonifier::internal::jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
+				internal::jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
 			}
 			return returnValue;
 		}
@@ -160,8 +160,8 @@ namespace jsonifier {
 		}
 
 		JSONIFIER_INLINE constexpr void swap(string_view_base& other) noexcept {
-			jsonifier::internal::swap(dataVal, other.dataVal);
-			jsonifier::internal::swap(sizeVal, other.sizeVal);
+			internal::swap(dataVal, other.dataVal);
+			internal::swap(sizeVal, other.sizeVal);
 		}
 
 		JSONIFIER_INLINE constexpr const_iterator begin() const noexcept {

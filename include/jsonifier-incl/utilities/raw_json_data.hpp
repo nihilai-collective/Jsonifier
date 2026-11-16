@@ -25,8 +25,8 @@ namespace jsonifier {
 		}
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			read_buffer_ptr first = std::bit_cast<read_buffer_ptr>(sv.data());
-			read_buffer_ptr last  = std::bit_cast<read_buffer_ptr>(sv.data() + sv.size());
+			internal::read_buffer_ptr first = std::bit_cast<internal::read_buffer_ptr>(sv.data());
+			internal::read_buffer_ptr last	= std::bit_cast<internal::read_buffer_ptr>(sv.data() + sv.size());
 
 			if (sv.empty()) {
 				uintVal		= 0;
@@ -148,8 +148,9 @@ namespace jsonifier {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
-			internal::parse_context<parse_options{}, internal::unrestrict_t<read_buffer_ptr>, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(),
-				&context.getErrors(), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
+			internal::parse_context<parse_options{}, internal::unrestrict_t<internal::read_buffer_ptr>, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(),
+				&context.getErrors(), std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()),
+				std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
 			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
 
@@ -189,21 +190,21 @@ namespace jsonifier {
 			return value == other.value;
 		}
 
-		JSONIFIER_INLINE json_type getType() const noexcept {
+		JSONIFIER_INLINE json_types getType() const noexcept {
 			if (std::holds_alternative<object_type>(value)) {
-				return json_type::object;
+				return json_types::object;
 			} else if (std::holds_alternative<array_type>(value)) {
-				return json_type::array;
+				return json_types::array;
 			} else if (std::holds_alternative<string_type>(value)) {
-				return json_type::string;
+				return json_types::string;
 			} else if (std::holds_alternative<number_type>(value)) {
-				return json_type::number;
+				return json_types::number;
 			} else if (std::holds_alternative<bool_type>(value)) {
-				return json_type::boolean;
+				return json_types::boolean;
 			} else if (std::holds_alternative<null_type>(value)) {
-				return json_type::null;
+				return json_types::null;
 			} else {
-				return json_type::unset;
+				return json_types::unset;
 			}
 		}
 
@@ -276,39 +277,39 @@ namespace jsonifier {
 
 		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
-			const read_buffer_ptr iter{ std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) };
+			const internal::read_buffer_ptr iter{ std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()) };
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<object_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<array_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<string_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case 't':
-						value.emplace<bool_type>(true);
+						value.template emplace<bool_type>(true);
 						return;
 					case 'f': {
-						value.emplace<bool_type>(false);
+						value.template emplace<bool_type>(false);
 						return;
 					}
 					case 'n': {
-						value.emplace<null_type>();
+						value.template emplace<null_type>();
 						return;
 					}
 					case '0': {
@@ -342,16 +343,16 @@ namespace jsonifier {
 						[[fallthrough]];
 					}
 					case '-': {
-						value.emplace<number_type>(jsonDataNew);
+						value.template emplace<number_type>(jsonDataNew);
 						return;
 					}
 					default: {
-						value.emplace<null_type>();
+						value.template emplace<null_type>();
 						return;
 					}
 				}
 			} else {
-				value.emplace<null_type>();
+				value.template emplace<null_type>();
 				return;
 			}
 		}

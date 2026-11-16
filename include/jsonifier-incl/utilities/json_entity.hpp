@@ -60,7 +60,7 @@ namespace jsonifier::internal {
 namespace jsonifier {
 
 	template<auto... values> consteval auto createValue() noexcept {
-		return internal::create_value_impl<jsonifier::internal::make_integer_sequence<sizeof...(values)>, values...>::impl();
+		return internal::create_value_impl<internal::make_integer_sequence<sizeof...(values)>, values...>::impl();
 	}
 
 	template<auto memberPtr, internal::string_literal nameNew> consteval auto makeJsonEntity() noexcept {

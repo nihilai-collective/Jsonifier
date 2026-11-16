@@ -84,8 +84,8 @@ namespace jsonifier::internal {
 		count,
 	};
 
-	inline void appendErrorType(status_classes statusClass, string& stream, uint64_t value) noexcept {
-		switch (static_cast<uint64_t>(statusClass)) {
+	inline void appendErrorType(status_classes status_class, string& stream, uint64_t value) noexcept {
+		switch (static_cast<uint64_t>(status_class)) {
 			case static_cast<uint64_t>(status_classes::parsing): {
 				stream += getName(static_cast<parse_statuses>(value));
 				return;
@@ -163,7 +163,7 @@ namespace jsonifier::internal {
 		}
 	}
 
-	enum class json_structural_type : int8_t {
+	enum class json_structural_types : int8_t {
 		error		 = -1,
 		unset		 = 0,
 		string		 = '"',
@@ -192,25 +192,25 @@ namespace jsonifier::internal {
 	struct error {
 		inline error() noexcept = default;
 
-		template<typename error_class> error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
+		template<typename error_class> error(std::source_location sourceLocationNew, status_classes statusClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
 			read_buffer_ptr endIterNew, error_class typeNew) noexcept
 			: sourceLocation{ sourceLocationNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew }, errorType{ static_cast<uint64_t>(typeNew) },
-			  errorClass{ errorClassNew } {
+			  status_class{ statusClassNew } {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
+		template<status_classes status_class, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
 			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
+			return { sourceLocation, status_class, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
+		template<status_classes status_class, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
 			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
+			return { sourceLocation, status_class, rootIter, errorPos, endIter, typeNew };
 		}
 
 		inline bool operator==(const error& rhs) const noexcept {
-			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
+			return status_class == rhs.status_class && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
 		}
 
 		inline void formatReport() noexcept {
@@ -244,9 +244,9 @@ namespace jsonifier::internal {
 			}
 			string stream{};
 			stream += "Error of Class: ";
-			stream += getName(errorClass);
+			stream += getName(status_class);
 			stream += ", of Type: ";
-			appendErrorType(errorClass, stream, errorType);
+			appendErrorType(status_class, stream, errorType);
 			stream += ", at global index: ";
 			appendUnsigned(stream, errorIndex);
 			stream += ", on line: ";
@@ -293,7 +293,7 @@ namespace jsonifier::internal {
 		uint64_t errorIndex{};
 		uint64_t errorType{};
 		uint64_t line{};
-		status_classes errorClass{};
+		status_classes status_class{};
 	};
 
 	template<uint64_t bufferSize> inline basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const error& errorNew) noexcept {

@@ -151,7 +151,7 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		uint32_t codePoint = jsonifier::internal::hexToU32NoCheck(srcPtr + 2);
+		uint32_t codePoint = hexToU32NoCheck(srcPtr + 2);
 		srcPtr += 6;
 		if (codePoint >= 0xD800 && codePoint <= 0xDFFF) {
 			if (codePoint >= 0xDC00) {
@@ -163,7 +163,7 @@ namespace jsonifier::internal {
 			if (((srcPtr[0] << 8) | srcPtr[1]) != ((bs << 8) | u)) {
 				return false;
 			}
-			uint32_t lowSurrogate = jsonifier::internal::hexToU32NoCheck(srcPtr + 2);
+			uint32_t lowSurrogate = hexToU32NoCheck(srcPtr + 2);
 			uint32_t lowBit		  = lowSurrogate - 0xDC00;
 			if (lowBit >> 10) {
 				return false;
@@ -201,7 +201,7 @@ namespace jsonifier::internal {
 			if (escapeChar == '\\') {
 				escapeChar = string1Start[1];
 				if (escapeChar == 'u') {
-					if (!jsonifier::internal::handleUnicodeCodePoint(string1Start, string2, string1End)) {
+					if (!handleUnicodeCodePoint(string1Start, string2, string1End)) {
 						return nullptr;
 					}
 					continue;
@@ -266,13 +266,13 @@ namespace jsonifier::internal {
 				const basic_iterator01 string1End, basic_iterator02& string2, const basic_iterator01 stringStart, const basic_iterator02 outStart, scan_state& scanState) noexcept {
 				using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
 				using integer_type						 = typename simd_list_local::integer_type;
-				static constexpr auto simdType			 = simd_list_local::type::simdType;
-				using simd_type_local					 = typename simd_type_wrapper<simdType>::type;
+				static constexpr auto avx_type			 = simd_list_local::type::avx_type;
+				using simd_type_local					 = typename simd_type_wrapper<avx_type>::type;
 				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
 				if (scanState.complete || scanState.outLength == std::numeric_limits<uint64_t>::max()) {
 					return nullptr;
 				}
-				utf8_register_validator<simd_type_wrapper<simdType>> validator{ scanState.validationState };
+				utf8_register_validator<simd_type_wrapper<avx_type>> validator{ scanState.validationState };
 				const simd_type_local simdValues00 = simd::gatherValue<simd_type_local>('\\');
 				const simd_type_local simdValues01 = simd::gatherValue<simd_type_local>('"');
 				const simd_type_local simdValues02 = simd::gatherValue<simd_type_local>(static_cast<char>(32));
@@ -394,7 +394,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static bool handleEscape(basic_iterator01& srcPtr, const basic_iterator01 srcEnd, basic_iterator02& dstPtr) noexcept {
 			const uint8_t escapeChar = static_cast<uint8_t>(srcPtr[1]);
 			if (escapeChar == uint_c_v<'u'>) {
-				return jsonifier::internal::handleUnicodeCodePoint(srcPtr, dstPtr, srcEnd);
+				return handleUnicodeCodePoint(srcPtr, dstPtr, srcEnd);
 			}
 			const uint8_t decoded = static_cast<uint8_t>(escapeMap[escapeChar]);
 			if (decoded == 0u) [[unlikely]] {
@@ -426,8 +426,8 @@ namespace jsonifier::internal {
 				const basic_iterator01 stringStart, scan_state& scanState) noexcept {
 				using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
 				using integer_type						 = typename simd_list_local::integer_type;
-				static constexpr auto simdType			 = simd_list_local::type::simdType;
-				using simd_type_local					 = typename simd_type_wrapper<simdType>::type;
+				static constexpr auto avx_type			 = simd_list_local::type::avx_type;
+				using simd_type_local					 = typename simd_type_wrapper<avx_type>::type;
 				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
 				if (scanState.complete) {
 					return nullptr;
@@ -509,13 +509,13 @@ namespace jsonifier::internal {
 				const basic_iterator01 string1End, basic_iterator02& string2, copy_state& copyState) noexcept {
 				using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
 				using integer_type						 = typename simd_list_local::integer_type;
-				static constexpr auto simdType			 = simd_list_local::type::simdType;
-				using simd_type_local					 = typename simd_type_wrapper<simdType>::type;
+				static constexpr auto avx_type			 = simd_list_local::type::avx_type;
+				using simd_type_local					 = typename simd_type_wrapper<avx_type>::type;
 				static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
 				if (copyState.complete) {
 					return nullptr;
 				}
-				utf8_register_validator<simd_type_wrapper<simdType>> validator{ copyState.validationState };
+				utf8_register_validator<simd_type_wrapper<avx_type>> validator{ copyState.validationState };
 				const simd_type_local simdValues00 = simd::gatherValue<simd_type_local>(static_cast<char>(32));
 				while (static_cast<uint64_t>(string1End - string1Start) >= bytesProcessed) {
 					const simd_type_local simdValue = simd::gatherValuesU<simd_type_local>(string1Start);
@@ -957,16 +957,16 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE bool validateBool(read_buffer_ptr context, read_buffer_ptr end) noexcept {
 		const auto remaining = end - context;
-		if (remaining >= 4 && jsonifier::internal::compareStringAsInt<"true">(context)) {
+		if (remaining >= 4 && compareStringAsInt<"true">(context)) {
 			return true;
-		} else if (remaining >= 5 && jsonifier::internal::compareStringAsInt<"fals">(context) && context[4] == uint_c_v<'e'>) {
+		} else if (remaining >= 5 && compareStringAsInt<"fals">(context) && context[4] == uint_c_v<'e'>) {
 			return true;
 		}
 		return false;
 	}
 
 	JSONIFIER_INLINE bool validateNull(read_buffer_ptr context, read_buffer_ptr end) noexcept {
-		if (end - context >= 4 && jsonifier::internal::compareStringAsInt<"null">(context)) [[likely]] {
+		if (end - context >= 4 && compareStringAsInt<"null">(context)) [[likely]] {
 			return true;
 		} else {
 			return false;

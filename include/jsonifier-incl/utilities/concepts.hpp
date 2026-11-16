@@ -10,7 +10,7 @@
 
 namespace jsonifier {
 
-	enum class json_type : uint8_t {
+	enum class json_types : uint8_t {
 		object	= 0,
 		array	= 1,
 		string	= 2,
@@ -62,7 +62,7 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept json_entity_convertible_types = json_entity_types<value_type> || std::is_member_pointer_v<value_type>;
 
-	template<typename value_type> using base_t = internal::remove_cvref_t<value_type>;
+	template<typename value_type> using base_t = remove_cvref_t<value_type>;
 
 	template<typename, typename> inline constexpr bool isSame						   = false;
 	template<typename value_type> inline constexpr bool isSame<value_type, value_type> = true;
@@ -71,7 +71,7 @@ namespace jsonifier::internal {
 	concept static_sized_types = requires() { base_t<value_type>::staticSize; };
 
 	template<typename value_type_01, typename value_type_02>
-	concept same_as_types = isSame<internal::remove_reference_t<value_type_01>, internal::remove_reference_t<value_type_02>>;
+	concept same_as_types = isSame<remove_reference_t<value_type_01>, remove_reference_t<value_type_02>>;
 
 	template<typename value_type>
 	concept enum_types = std::is_enum_v<base_t<value_type>> && std::is_unsigned_v<std::underlying_type_t<base_t<value_type>>>;
@@ -96,40 +96,40 @@ namespace jsonifier::internal {
 	concept int_types = std::is_signed_v<base_t<value_type>> && integral_types<value_type>;
 
 	template<typename value_type>
-	concept int8_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 1;
+	concept int8_types = int_types<value_type> && sizeof(remove_cvref_t<value_type>) == 1;
 
 	template<typename value_type>
-	concept int16_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 2;
+	concept int16_types = int_types<value_type> && sizeof(remove_cvref_t<value_type>) == 2;
 
 	template<typename value_type>
-	concept int32_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 4;
+	concept int32_types = int_types<value_type> && sizeof(remove_cvref_t<value_type>) == 4;
 
 	template<typename value_type>
-	concept int64_types = int_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
+	concept int64_types = int_types<value_type> && sizeof(remove_cvref_t<value_type>) == 8;
 
 	template<typename value_type>
 	concept uint_types = std::is_unsigned_v<base_t<value_type>> && integral_types<value_type>;
 
 	template<typename value_type>
-	concept uint8_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 1;
+	concept uint8_types = uint_types<value_type> && sizeof(remove_cvref_t<value_type>) == 1;
 
 	template<typename value_type>
-	concept uint16_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 2;
+	concept uint16_types = uint_types<value_type> && sizeof(remove_cvref_t<value_type>) == 2;
 
 	template<typename value_type>
-	concept uint32_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 4;
+	concept uint32_types = uint_types<value_type> && sizeof(remove_cvref_t<value_type>) == 4;
 
 	template<typename value_type>
-	concept uint64_types = uint_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
+	concept uint64_types = uint_types<value_type> && sizeof(remove_cvref_t<value_type>) == 8;
 
 	template<typename value_type>
 	concept float_types = std::floating_point<base_t<value_type>> && (std::numeric_limits<base_t<value_type>>::radix == 2) && std::numeric_limits<base_t<value_type>>::is_iec559;
 
 	template<typename value_type>
-	concept float64_types = float_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 8;
+	concept float64_types = float_types<value_type> && sizeof(remove_cvref_t<value_type>) == 8;
 
 	template<typename value_type>
-	concept float32_types = float_types<value_type> && sizeof(internal::remove_cvref_t<value_type>) == 4;
+	concept float32_types = float_types<value_type> && sizeof(remove_cvref_t<value_type>) == 4;
 
 	template<typename value_type>
 	concept string_view_convertible_types = std::convertible_to<base_t<value_type>, std::string_view>;
@@ -301,7 +301,7 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept tuple_types = requires { std::tuple_size<base_t<value_type>>::value; } && !data_accessible_types<value_type>;
 
-	template<typename value_type> using decay_keep_volatile_t = std::remove_const_t<jsonifier::internal::remove_reference_t<value_type>>;
+	template<typename value_type> using decay_keep_volatile_t = std::remove_const_t<remove_reference_t<value_type>>;
 
 	template<typename value_type>
 	concept optional_types = requires(base_t<value_type> opt) {

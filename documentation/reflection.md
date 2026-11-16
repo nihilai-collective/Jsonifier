@@ -133,7 +133,7 @@ Out of the box, Jsonifier handles:
 
 - **Primitives**: `bool`, `char`, all integer types (`int32_t`, `uint64_t`, etc.), `float`, `double`
 - **Strings**: `std::string`, `std::string_view`, `jsonifier::string`
-- **Containers**: `std::vector`, `std::array`, `jsonifier::internal::array`, `std::map`, `std::unordered_map`, `std::tuple`
+- **Containers**: `std::vector`, `std::array`, `array`, `std::map`, `std::unordered_map`, `std::tuple`
 - **Smart pointers**: `std::unique_ptr`, `std::shared_ptr`
 - **Wrappers**: `std::optional`, `std::variant`
 - **Enums**: serialized as their underlying integer value

@@ -8,7 +8,7 @@
 
 #include <jsonifier-incl/parsing/generic_common_pre.hpp>
 
-namespace jsonifier::generic {
+namespace jsonifier::internal {
 
 	struct field_index_group {
 #if JSONIFIER_NEON || JSONIFIER_SVE2
@@ -20,17 +20,17 @@ namespace jsonifier::generic {
 #endif
 
 		JSONIFIER_INLINE static uint64_t match(const int8_t* controls, int8_t control) noexcept {
-			const jsonifier_simd_int_128 group	 = internal::simd::gatherValuesU<jsonifier_simd_int_128>(controls);
-			const jsonifier_simd_int_128 needles = internal::simd::gatherValue<jsonifier_simd_int_128>(static_cast<char>(control));
-			return static_cast<uint64_t>(internal::simd::opBitMaskRaw(internal::simd::opCmpEqRaw(group, needles))) & laneMask;
+			const jsonifier_simd_int_128 group	 = simd::gatherValuesU<jsonifier_simd_int_128>(controls);
+			const jsonifier_simd_int_128 needles = simd::gatherValue<jsonifier_simd_int_128>(static_cast<char>(control));
+			return static_cast<uint64_t>(simd::opBitMaskRaw(simd::opCmpEqRaw(group, needles))) & laneMask;
 		}
 
 		JSONIFIER_INLINE static uint64_t firstLane(uint64_t mask) noexcept {
-			return static_cast<uint64_t>(internal::simd::countrZeroUnsafe(mask)) >> laneShift;
+			return static_cast<uint64_t>(simd::countrZeroUnsafe(mask)) >> laneShift;
 		}
 
 		JSONIFIER_INLINE static uint64_t clearLane(uint64_t mask) noexcept {
-			return internal::simd::blsr(mask);
+			return simd::blsr(mask);
 		}
 	};
 

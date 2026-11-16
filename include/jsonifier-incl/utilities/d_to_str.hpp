@@ -13,7 +13,7 @@ namespace jsonifier::internal {
 
 	template<float_types value_type> struct to_chars<value_type> {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf, value_type val) noexcept {
-			return zmij::detail::write(val, buf);
+			return zmij::write(val, buf);
 		}
 	};
 }

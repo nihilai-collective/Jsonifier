@@ -10,16 +10,16 @@
 
 namespace jsonifier::internal {
 
-	enum class stream_target : uint8_t { stdout_target, stderr_target };
+	enum class stream_targets : uint8_t { stdout_target, stderr_target };
 
-	inline uint64_t rawWrite(stream_target target, const char* data, uint64_t len) noexcept {
+	inline uint64_t rawWrite(stream_targets stream_target, const char* data, uint64_t len) noexcept {
 		if (len == 0 || data == nullptr) {
 			return 0;
 		}
 #if JSONIFIER_PLATFORM_WINDOWS
 		static constexpr DWORD handle_ids[2]{ STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
 		static constexpr uint64_t max_chunk = 1ull << 30;
-		HANDLE handle						= GetStdHandle(handle_ids[static_cast<uint64_t>(target)]);
+		HANDLE handle						= GetStdHandle(handle_ids[static_cast<uint64_t>(stream_target)]);
 		if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
 			return 0;
 		}
@@ -36,7 +36,7 @@ namespace jsonifier::internal {
 		return total;
 #else
 		static constexpr int32_t stream_types[2]{ 1, 2 };
-		int32_t fd	   = stream_types[static_cast<uint64_t>(target)];
+		int32_t fd	   = stream_types[static_cast<uint64_t>(stream_target)];
 		uint64_t total = 0;
 		while (total < len) {
 			ssize_t result = write(fd, data + total, len - total);
@@ -133,7 +133,7 @@ namespace jsonifier::internal {
 	inline constexpr flush_t flush{};
 
 	template<uint64_t bufferSize = 8192> struct basic_stream {
-		inline explicit basic_stream(stream_target target) noexcept : bufferLength{ 0 }, streamTarget{ target } {
+		inline explicit basic_stream(stream_targets streamTargetNew) noexcept : bufferLength{ 0 }, stream_target{ streamTargetNew } {
 		}
 
 		basic_stream& operator=(const basic_stream&) = delete;
@@ -161,7 +161,7 @@ namespace jsonifier::internal {
 		inline void writeRaw(const char* data, uint64_t size) noexcept {
 			if (size >= bufferSize) {
 				doFlush();
-				rawWrite(streamTarget, data, size);
+				rawWrite(stream_target, data, size);
 				return;
 			}
 			ensureSpace(size);
@@ -185,7 +185,7 @@ namespace jsonifier::internal {
 
 		inline void doFlush() noexcept {
 			if (bufferLength > 0) {
-				rawWrite(streamTarget, streamBuffer, bufferLength);
+				rawWrite(stream_target, streamBuffer, bufferLength);
 				bufferLength = 0;
 			}
 		}
@@ -223,7 +223,7 @@ namespace jsonifier::internal {
 		}
 
 		uint64_t bufferLength;
-		stream_target streamTarget;
+		stream_targets stream_target;
 		char streamBuffer[bufferSize];
 	};
 
@@ -233,9 +233,9 @@ namespace jsonifier::internal {
 	#pragma clang diagnostic ignored "-Wglobal-constructors"
 #endif
 
-	inline basic_stream<> cout{ stream_target::stdout_target };
+	inline basic_stream<> cout{ stream_targets::stdout_target };
 
-	inline basic_stream<> err{ stream_target::stderr_target };
+	inline basic_stream<> err{ stream_targets::stderr_target };
 
 #if JSONIFIER_COMPILER_CLANG
 	#pragma clang diagnostic pop

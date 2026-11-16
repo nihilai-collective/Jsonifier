@@ -112,7 +112,7 @@ namespace jsonifier::internal {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;
 			using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
-			using enum json_structural_type;
+			using enum json_structural_types;
 			read_buffer_ptr newPtr{};
 			prettify_status status{};
 			while (iter < endStructural) {
@@ -164,9 +164,8 @@ namespace jsonifier::internal {
 							outBuffer[status.index] = ']';
 							++status.index;
 							if (status.indent < 0) {
-								derivedRef.errors.emplace_back(
-									jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter,
-										&rootIter[*iter], endIter));
+								derivedRef.errors.emplace_back(internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter,
+									&rootIter[*iter], endIter));
 								return std::numeric_limits<uint64_t>::max();
 							}
 							++iter;
@@ -177,8 +176,8 @@ namespace jsonifier::internal {
 						status.indent -= options.indentSize;
 						--status.arrayDepth;
 						if (status.indent < 0) {
-							derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-								rootIter, &rootIter[*iter], endIter));
+							derivedRef.errors.emplace_back(
+								internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						write_buffer_ptr outPtr = outBuffer + status.index;
@@ -233,8 +232,8 @@ namespace jsonifier::internal {
 						status.indent -= options.indentSize;
 						--status.objectDepth;
 						if (status.indent < 0) {
-							derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-								rootIter, &rootIter[*iter], endIter));
+							derivedRef.errors.emplace_back(
+								internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
 						write_buffer_ptr outPtr = outBuffer + status.index;
@@ -250,8 +249,8 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(error):
 						[[fallthrough]];
 					default: {
-						derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-							rootIter, &rootIter[*iter], endIter));
+						derivedRef.errors.emplace_back(
+							internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 						return std::numeric_limits<uint64_t>::max();
 					}
 				}
@@ -259,10 +258,10 @@ namespace jsonifier::internal {
 			if (status.arrayDepth > 0 || status.objectDepth > 0) {
 				if (status.arrayDepth > 0) {
 					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_array>(rootIter, &rootIter[*iter], endIter));
+						internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_array>(rootIter, &rootIter[*iter], endIter));
 				} else if (status.objectDepth > 0) {
 					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_object>(rootIter, &rootIter[*iter], endIter));
+						internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_object>(rootIter, &rootIter[*iter], endIter));
 				}
 				status.index = 0;
 				return std::numeric_limits<uint64_t>::max();

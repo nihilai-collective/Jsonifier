@@ -9,13 +9,14 @@
 #include <jsonifier-incl/parsing/field_index_map.hpp>
 #include <jsonifier-incl/parsing/string_parser.hpp>
 
-namespace jsonifier::generic {
+namespace jsonifier::internal {
 
 	struct document_state {
 		static constexpr uint8_t reverseEngageScore{ 4 };
 		static constexpr uint8_t reverseMaxScore{ 8 };
 
-		JSONIFIER_INLINE error_code advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer, read_structural_index_ptr& next) noexcept {
+		JSONIFIER_INLINE generic::error_codes advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer,
+			read_structural_index_ptr& next) noexcept {
 			const read_buffer_ptr base		   = root;
 			read_structural_index_ptr limit	   = tapeEnd;
 			read_structural_index_ptr position = cursor;
@@ -27,26 +28,26 @@ namespace jsonifier::generic {
 			} else if (currentDepth > containerDepth) {
 				position = finishToDepth(base, position, limit, currentDepth, containerDepth);
 			}
-			error_code result{ error_code::tape_error };
+			generic::error_codes error_code{ generic::error_codes::tape_error };
 			if (position >= limit) [[unlikely]] {
-				result = error_code::unclosed_container;
-			} else if (const uint8_t separator = base[*position]; separator == internal::uint_c_v<','>) [[likely]] {
+				error_code = generic::error_codes::unclosed_container;
+			} else if (const uint8_t separator = base[*position]; separator == uint_c_v<','>) [[likely]] {
 				++position;
-				next   = position;
-				result = position < limit ? error_code::success : error_code::unclosed_container;
+				next	   = position;
+				error_code = position < limit ? generic::error_codes::success : generic::error_codes::unclosed_container;
 			} else if (separator == closer) [[likely]] {
 				++position;
 				--currentDepth;
-				next   = nullptr;
-				result = error_code::success;
+				next	   = nullptr;
+				error_code = generic::error_codes::success;
 			}
 			cursor = position;
 			depth  = currentDepth;
-			return result;
+			return error_code;
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position,
-			read_structural_index_ptr limit, uint64_t& currentDepth, uint64_t targetDepth) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_structural_index_ptr> finishToDepth(read_buffer_ptr base, read_structural_index_ptr position, read_structural_index_ptr limit,
+			uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			int64_t localDepth{ static_cast<int64_t>(currentDepth) };
 			const int64_t target{ static_cast<int64_t>(targetDepth) };
 #if JSONIFIER_PLATFORM_LINUX && JSONIFIER_COMPILER_GCC
@@ -79,12 +80,11 @@ namespace jsonifier::generic {
 			if constexpr (minified) {
 				return false;
 			} else {
-				return span > keySize + 2 && keyStart[keySize] == internal::uint_c_v<'"'> && internal::comparison::compare(keyStart, key.data(), keySize);
+				return span > keySize + 2 && keyStart[keySize] == uint_c_v<'"'> && internal::comparison::compare(keyStart, key.data(), keySize);
 			}
 		}
 
-		JSONIFIER_INLINE static internal::unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter,
-			read_structural_index_ptr limit) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter, read_structural_index_ptr limit) noexcept {
 			if (!isOpener(base[*iter])) [[likely]] {
 				return iter + 1;
 			}
@@ -103,10 +103,10 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyLimit = root + *(iter + 1);
-			return keyLimit > keyStart && internal::char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
+			return keyLimit > keyStart && char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
 		}
 
-		JSONIFIER_INLINE internal::unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
+		JSONIFIER_INLINE unrestrict_t<read_structural_index_ptr> skipValue(read_structural_index_ptr iter) const noexcept {
 			return skipValue(root, iter, tapeEnd);
 		}
 
@@ -114,7 +114,7 @@ namespace jsonifier::generic {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
 			if constexpr (!minified) {
-				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
+				while (keyEnd > keyStart && *keyEnd != uint_c_v<'"'>) {
 					--keyEnd;
 				}
 			}
@@ -153,11 +153,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE static bool isOpener(uint8_t c) noexcept {
-			return (c | 0x20) == internal::uint_c_v<'{'>;
+			return (c | 0x20) == uint_c_v<'{'>;
 		}
 
 		JSONIFIER_INLINE static bool isCloser(uint8_t c) noexcept {
-			return (c | 0x20) == internal::uint_c_v<'}'>;
+			return (c | 0x20) == uint_c_v<'}'>;
 		}
 
 		JSONIFIER_INLINE void noteForwardHit() noexcept {

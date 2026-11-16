@@ -15,14 +15,14 @@
 namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
-	enum class parse_result : uint8_t {
+	enum class parse_results : uint8_t {
 		active_member,
 		inactive_member,
 		ended,
 		failed,
 	};
 #else
-	enum class parse_result : uint8_t {
+	enum class parse_results : uint8_t {
 		inactive_member,
 		active_member,
 		ended,
@@ -31,7 +31,7 @@ namespace jsonifier::internal {
 
 	template<typename iterator_type> struct parse_step {
 		iterator_type iter;
-		parse_result result;
+		parse_results parse_result;
 	};
 #endif
 
@@ -55,13 +55,13 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	template<parse_options options, typename value_type, typename context_type>
-	JSONIFIER_INLINE parse_result parseMemberValue(value_type&& value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+	JSONIFIER_INLINE parse_results parseMemberValue(value_type&& value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 		const auto iterNew = parse<options>::impl(value, iter, depth, context);
 		if (!iterNew) [[unlikely]] {
-			return parse_result::failed;
+			return parse_results::failed;
 		}
 		iter = iterNew;
-		return parse_result::active_member;
+		return parse_results::active_member;
 	}
 
 	template<typename value_type, typename context_type, parse_options options> struct parse_types_impl {
@@ -69,33 +69,33 @@ namespace jsonifier::internal {
 		static constexpr auto memberCount = coreTupleSize<value_type>;
 
 		template<uint64_t index>
-		JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_results processIndex(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			if constexpr (structural_context_types<context_type>) {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				const read_buffer_ptr keyStart		= cursor::valuePtr(iter, context);
 				if ((keyStart + quotedKeySize) < cursor::stringEnd(context) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(keyStart)) [[likely]] {
 					++iter;
 					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 					return parseMatchedMember<index>(value, iter, depth, context);
 				}
 			} else {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				if constexpr (!options.minified) {
 					if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[unlikely]] {
 						iter += quotedKeySize;
 						if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-							return parse_result::failed;
+							return parse_results::failed;
 						}
 						return parseMatchedMember<index>(value, iter, depth, context);
 					}
 				} else {
-					static constexpr auto fusedKey	   = jsonifier::internal::makeFusedKeyLiteral(keyLiteral);
+					static constexpr auto fusedKey	   = makeFusedKeyLiteral(keyLiteral);
 					static constexpr auto fusedKeySize = fusedKey.size();
 					if (((iter + fusedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(fusedKey), fusedKey>::impl(iter)) [[likely]] {
 						iter += fusedKeySize;
@@ -103,52 +103,52 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			return parse_result::inactive_member;
+			return parse_results::inactive_member;
 		}
 
 		template<uint64_t index>
-		JSONIFIER_NOINLINE static parse_result parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_results parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
 			if constexpr (excluded_keys_types<value_type>) {
-				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+				static constexpr auto key = keyLiteral.operator string_view();
 				auto& keys				  = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-					return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
+					return cursor::skipValue(iter, context) ? parse_results::active_member : parse_results::failed;
 				}
 			}
-			return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
+			return parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
 		}
 
 		template<uint64_t index>
-		JSONIFIER_NOINLINE static parse_result processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_results processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			if constexpr (structural_context_types<context_type>) {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				const read_buffer_ptr keyStart		= cursor::valuePtr(iter, context);
 				if ((keyStart + quotedKeySize) < cursor::stringEnd(context) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(keyStart)) [[likely]] {
 					++iter;
 					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 					return parseMatchedMemberOutline<index>(value, iter, depth, context);
 				}
 			} else {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				if constexpr (!options.minified) {
 					if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[unlikely]] {
 						iter += quotedKeySize;
 						if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-							return parse_result::failed;
+							return parse_results::failed;
 						}
 						return parseMatchedMemberOutline<index>(value, iter, depth, context);
 					}
 				} else {
-					static constexpr auto fusedKey	   = jsonifier::internal::makeFusedKeyLiteral(keyLiteral);
+					static constexpr auto fusedKey	   = makeFusedKeyLiteral(keyLiteral);
 					static constexpr auto fusedKeySize = fusedKey.size();
 					if (((iter + fusedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(fusedKey), fusedKey>::impl(iter)) [[likely]] {
 						iter += fusedKeySize;
@@ -156,22 +156,22 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			return parse_result::inactive_member;
+			return parse_results::inactive_member;
 		}
 
 		template<uint64_t index>
-		JSONIFIER_INLINE static parse_result parseMatchedMember(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE static parse_results parseMatchedMember(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
 			if constexpr (excluded_keys_types<value_type>) {
-				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+				static constexpr auto key = keyLiteral.operator string_view();
 				auto& keys				  = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-					return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
+					return cursor::skipValue(iter, context) ? parse_results::active_member : parse_results::failed;
 				}
 			}
-			return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
+			return parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
 		}
 	};
 #else
@@ -186,44 +186,44 @@ namespace jsonifier::internal {
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
 			if constexpr (excluded_keys_types<value_type>) {
-				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+				static constexpr auto key = keyLiteral.operator string_view();
 				auto& keys				  = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
 					const bool skipped = cursor::skipValue(iter, context);
-					return { iter, skipped ? parse_result::active_member : parse_result::failed };
+					return { iter, skipped ? parse_results::active_member : parse_results::failed };
 				}
 			}
 			const iterator_type iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
-			return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
+			return { iterNew, iterNew ? parse_results::active_member : parse_results::failed };
 		}
 
 		template<uint64_t index> JSONIFIER_INLINE_EXCEPT_MAC_GCC static step_type processIndex(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			if constexpr (structural_context_types<context_type>) {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				const read_buffer_ptr keyStart		= cursor::valuePtr(iter, context);
 				if ((keyStart + quotedKeySize) < cursor::stringEnd(context) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(keyStart)) [[likely]] {
 					++iter;
 					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 					return parseMatchedMember<index>(value, iter, depth, context);
 				}
 			} else {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				if constexpr (!options.minified) {
 					if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[unlikely]] {
 						iter += quotedKeySize;
 						if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-							return { iter, parse_result::failed };
+							return { iter, parse_results::failed };
 						}
 						return parseMatchedMember<index>(value, iter, depth, context);
 					}
 				} else {
-					static constexpr auto fusedKey	   = jsonifier::internal::makeFusedKeyLiteral(keyLiteral);
+					static constexpr auto fusedKey	   = makeFusedKeyLiteral(keyLiteral);
 					static constexpr auto fusedKeySize = fusedKey.size();
 					if (((iter + fusedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(fusedKey), fusedKey>::impl(iter)) [[likely]] {
 						iter += fusedKeySize;
@@ -231,7 +231,7 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			return { iter, parse_result::inactive_member };
+			return { iter, parse_results::inactive_member };
 		}
 
 		template<uint64_t index> JSONIFIER_NOINLINE static step_type parseMatchedMemberOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
@@ -239,44 +239,44 @@ namespace jsonifier::internal {
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
 			if constexpr (excluded_keys_types<value_type>) {
-				static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+				static constexpr auto key = keyLiteral.operator string_view();
 				auto& keys				  = value.jsonifierExcludedKeys;
 				if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
 					const bool skipped = cursor::skipValue(iter, context);
-					return { iter, skipped ? parse_result::active_member : parse_result::failed };
+					return { iter, skipped ? parse_results::active_member : parse_results::failed };
 				}
 			}
 			const iterator_type iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
-			return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
+			return { iterNew, iterNew ? parse_results::active_member : parse_results::failed };
 		}
 
 		template<uint64_t index> JSONIFIER_NOINLINE static step_type processIndexOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			if constexpr (structural_context_types<context_type>) {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				const read_buffer_ptr keyStart		= cursor::valuePtr(iter, context);
 				if ((keyStart + quotedKeySize) < cursor::stringEnd(context) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(keyStart)) [[likely]] {
 					++iter;
 					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 					return parseMatchedMemberOutline<index>(value, iter, depth, context);
 				}
 			} else {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				if constexpr (!options.minified) {
 					if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[unlikely]] {
 						iter += quotedKeySize;
 						if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-							return { iter, parse_result::failed };
+							return { iter, parse_results::failed };
 						}
 						return parseMatchedMemberOutline<index>(value, iter, depth, context);
 					}
 				} else {
-					static constexpr auto fusedKey	   = jsonifier::internal::makeFusedKeyLiteral(keyLiteral);
+					static constexpr auto fusedKey	   = makeFusedKeyLiteral(keyLiteral);
 					static constexpr auto fusedKeySize = fusedKey.size();
 					if (((iter + fusedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(fusedKey), fusedKey>::impl(iter)) [[likely]] {
 						iter += fusedKeySize;
@@ -284,7 +284,7 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			return { iter, parse_result::inactive_member };
+			return { iter, parse_results::inactive_member };
 		}
 	};
 #endif
@@ -295,22 +295,23 @@ namespace jsonifier::internal {
 #if JSONIFIER_COMPILER_MSVC
 	template<template<typename, typename, parse_options> typename parsing_type, typename value_type, typename context_type, parse_options options, uint64_t... indices>
 	struct generate_dispatch_table_new<parsing_type, value_type, context_type, options, integer_sequence<indices...>> {
-		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
-			parse_result result{ parse_result::inactive_member };
-			static_cast<void>((
-				(currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true) : false) ||
-				...));
-			return result;
-		}
-
-		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context,
-			uint64_t currentIndex) {
-			parse_result result{ parse_result::inactive_member };
+		JSONIFIER_INLINE static parse_results impl(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context, uint64_t currentIndex) {
+			parse_results parse_result{ parse_results::inactive_member };
 			static_cast<void>(
-				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
+				((currentIndex == indices ? (parse_result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true)
 										  : false) ||
 					...));
-			return result;
+			return parse_result;
+		}
+
+		JSONIFIER_NOINLINE static parse_results implOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context,
+			uint64_t currentIndex) {
+			parse_results parse_result{ parse_results::inactive_member };
+			static_cast<void>(((currentIndex == indices
+									   ? (parse_result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
+									   : false) ||
+				...));
+			return parse_result;
 		}
 	};
 #else
@@ -320,7 +321,7 @@ namespace jsonifier::internal {
 		using step_type		= parse_step<iterator_type>;
 
 		JSONIFIER_INLINE_EXCEPT_MAC_GCC static step_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context, uint64_t currentIndex) {
-			step_type result{ iter, parse_result::inactive_member };
+			step_type result{ iter, parse_results::inactive_member };
 			static_cast<void>((
 				(currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, depth, context), true) : false) ||
 				...));
@@ -328,7 +329,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_NOINLINE static step_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context, uint64_t currentIndex) {
-			step_type result{ iter, parse_result::inactive_member };
+			step_type result{ iter, parse_results::inactive_member };
 			static_cast<void>(
 				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, depth, context), true)
 										  : false) ||
@@ -355,65 +356,65 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 		template<typename value_type, typename context_type>
-		JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_results processIndex(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			using cursor   = cursor_t<options, context_type>;
 			using dispatch = generate_dispatch_table_new<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
 			if constexpr (options.minified && options.knownOrder && !structural_context_types<context_type>) {
 				if (cursor::objectMaybeEnd(iter, depth, context)) {
-					return parse_result::ended;
+					return parse_results::ended;
 				}
-				if (const auto result = tryKnownOrder(value, iter, depth, context); result != parse_result::inactive_member) {
-					return result;
+				if (const auto parse_result = tryKnownOrder(value, iter, depth, context); parse_result != parse_results::inactive_member) {
+					return parse_result;
 				}
 				if constexpr (json_entity_type::index > 0) {
 					if (!cursor::collectObjectComma(iter, context)) [[unlikely]] {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 				}
 			} else {
 				if constexpr (json_entity_type::index > 0) {
 					switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							break;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							return parse_result::ended;
+						case static_cast<uint64_t>(sep_results::ended): {
+							return parse_results::ended;
 						}
 						default: {
-							return parse_result::failed;
+							return parse_results::failed;
 						}
 					}
 				} else {
 					if (cursor::objectMaybeEnd(iter, depth, context)) {
-						return parse_result::ended;
+						return parse_results::ended;
 					}
 					if constexpr (!options.minified && !structural_context_types<context_type>) {
 						cursor::skipWhitespaceScalar(iter, context);
 					}
 				}
 				if constexpr (options.knownOrder) {
-					if (const auto result = tryKnownOrder(value, iter, depth, context); result != parse_result::inactive_member) {
-						return result;
+					if (const auto parse_result = tryKnownOrder(value, iter, depth, context); parse_result != parse_results::inactive_member) {
+						return parse_result;
 					}
 				}
 			}
 			while (true) {
 				if constexpr (memberCount == 1) {
-					if (const auto result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
-						result != parse_result::inactive_member) [[likely]] {
-						return result;
+					if (const auto parse_result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
+						parse_result != parse_results::inactive_member) [[likely]] {
+						return parse_result;
 					}
 				} else {
 					if constexpr (options.knownOrder) {
 						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
 							indexNew < memberCount) [[likely]] {
-							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
-								return result;
+							if (const auto parse_result = dispatch::impl(value, iter, depth, context, indexNew); parse_result != parse_results::inactive_member) {
+								return parse_result;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
-									if (result2 == parse_result::active_member) {
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_results::inactive_member) {
+									if (result2 == parse_results::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return result2;
@@ -423,7 +424,7 @@ namespace jsonifier::internal {
 					} else {
 						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 							indexNew2 < memberCount) [[likely]] {
-							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
+							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_results::inactive_member) {
 								return result2;
 							}
 						}
@@ -431,95 +432,95 @@ namespace jsonifier::internal {
 				}
 				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::skipString(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::skipValue(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						break;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						return parse_result::ended;
+					case static_cast<uint64_t>(sep_results::ended): {
+						return parse_results::ended;
 					}
 					default: {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 				}
 			}
 		}
 
 		template<typename value_type, typename context_type>
-		JSONIFIER_INLINE static parse_result tryKnownOrder(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_INLINE static parse_results tryKnownOrder(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			using cursor					 = cursor_t<options, context_type>;
 			static constexpr auto keyLiteral = escapedKeyLiteral<json_entity_type::name>;
 			static constexpr auto ptrNew	 = json_entity_type::memberPtr;
 			if constexpr (options.minified && !structural_context_types<context_type>) {
-				static constexpr auto memberLiteral		= jsonifier::internal::makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
+				static constexpr auto memberLiteral		= makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
 				static constexpr auto memberLiteralSize = memberLiteral.size();
 				if (((iter + memberLiteralSize) < context.endIter) && string_literal_comparator_impl<decltype(memberLiteral), memberLiteral>::impl(iter)) [[likely]] {
 					iter += memberLiteralSize;
 					if constexpr (excluded_keys_types<value_type>) {
-						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+						static constexpr auto key = keyLiteral.operator string_view();
 						const auto& keys		  = value.jsonifierExcludedKeys;
 						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-							return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
+							return cursor::skipValue(iter, context) ? parse_results::active_member : parse_results::failed;
 						}
 					}
-					return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
+					return parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
 				}
-				return parse_result::inactive_member;
+				return parse_results::inactive_member;
 			} else if constexpr (!structural_context_types<context_type>) {
-				static constexpr auto quotedKey		= jsonifier::internal::makeQuotedKeyLiteral(keyLiteral);
+				static constexpr auto quotedKey		= makeQuotedKeyLiteral(keyLiteral);
 				static constexpr auto quotedKeySize = quotedKey.size();
 				if (((iter + quotedKeySize) < context.endIter) && string_literal_comparator_impl<decltype(quotedKey), quotedKey>::impl(iter)) [[likely]] {
 					iter += quotedKeySize;
 					if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 					if constexpr (excluded_keys_types<value_type>) {
-						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+						static constexpr auto key = keyLiteral.operator string_view();
 						const auto& keys		  = value.jsonifierExcludedKeys;
 						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
-							return cursor::skipValue(iter, context) ? parse_result::active_member : parse_result::failed;
+							return cursor::skipValue(iter, context) ? parse_results::active_member : parse_results::failed;
 						}
 					}
-					return jsonifier::internal::parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
+					return parseMemberValue<options>(getMember<ptrNew>(value), iter, depth, context);
 				}
-				return parse_result::inactive_member;
+				return parse_results::inactive_member;
 			} else {
 				return parse_types_impl<value_type, context_type, options>::template processIndex<json_entity_type::index>(value, iter, depth, context);
 			}
 		}
 
 		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static parse_result processMissOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_results processMissOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			using cursor   = cursor_t<options, context_type>;
 			using dispatch = generate_dispatch_table_new<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
 			while (true) {
 				if constexpr (memberCount == 1) {
-					if (const auto result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
-						result != parse_result::inactive_member) [[likely]] {
-						return result;
+					if (const auto parse_result = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
+						parse_result != parse_results::inactive_member) [[likely]] {
+						return parse_result;
 					}
 				} else {
 					if constexpr (options.knownOrder) {
 						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
 							indexNew < memberCount) [[likely]] {
-							if (const auto result = dispatch::impl(value, iter, depth, context, indexNew); result != parse_result::inactive_member) {
-								return result;
+							if (const auto parse_result = dispatch::impl(value, iter, depth, context, indexNew); parse_result != parse_results::inactive_member) {
+								return parse_result;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
-									if (result2 == parse_result::active_member) {
+								if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_results::inactive_member) {
+									if (result2 == parse_results::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return result2;
@@ -529,7 +530,7 @@ namespace jsonifier::internal {
 					} else {
 						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 							indexNew2 < memberCount) [[likely]] {
-							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_result::inactive_member) {
+							if (const auto result2 = dispatch::impl(value, iter, depth, context, indexNew2); result2 != parse_results::inactive_member) {
 								return result2;
 							}
 						}
@@ -537,70 +538,70 @@ namespace jsonifier::internal {
 				}
 				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::skipString(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				if (!cursor::skipValue(iter, context)) [[unlikely]] {
-					return parse_result::failed;
+					return parse_results::failed;
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						break;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						return parse_result::ended;
+					case static_cast<uint64_t>(sep_results::ended): {
+						return parse_results::ended;
 					}
 					default: {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 				}
 			}
 		}
 
 		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static parse_result processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
+		JSONIFIER_NOINLINE static parse_results processIndexOutline(value_type& __restrict value, auto&& __restrict iter, uint64_t depth, context_type& __restrict context) {
 			using cursor = cursor_t<options, context_type>;
 			if constexpr (options.minified && options.knownOrder && !structural_context_types<context_type>) {
 				if (cursor::objectMaybeEnd(iter, depth, context)) {
-					return parse_result::ended;
+					return parse_results::ended;
 				}
-				if (const auto result = tryKnownOrder(value, iter, depth, context); result != parse_result::inactive_member) {
-					return result;
+				if (const auto parse_result = tryKnownOrder(value, iter, depth, context); parse_result != parse_results::inactive_member) {
+					return parse_result;
 				}
 				if constexpr (json_entity_type::index > 0) {
 					if (!cursor::collectObjectComma(iter, context)) [[unlikely]] {
-						return parse_result::failed;
+						return parse_results::failed;
 					}
 				}
 			} else {
 				if constexpr (json_entity_type::index > 0) {
 					switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							break;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							return parse_result::ended;
+						case static_cast<uint64_t>(sep_results::ended): {
+							return parse_results::ended;
 						}
 						default: {
-							return parse_result::failed;
+							return parse_results::failed;
 						}
 					}
 				} else {
 					if (cursor::objectMaybeEnd(iter, depth, context)) {
-						return parse_result::ended;
+						return parse_results::ended;
 					}
 					if constexpr (!options.minified && !structural_context_types<context_type>) {
 						cursor::skipWhitespaceScalar(iter, context);
 					}
 				}
 				if constexpr (options.knownOrder) {
-					if (const auto result = tryKnownOrder(value, iter, depth, context); result != parse_result::inactive_member) {
-						return result;
+					if (const auto parse_result = tryKnownOrder(value, iter, depth, context); parse_result != parse_results::inactive_member) {
+						return parse_result;
 					}
 				}
 			}
@@ -614,39 +615,39 @@ namespace jsonifier::internal {
 			using dispatch = generate_dispatch_table_new<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
 			if constexpr (options.minified && options.knownOrder && !structural_context_types<context_type>) {
 				if (cursor::objectMaybeEnd(iter, depth, context)) {
-					return { iter, parse_result::ended };
+					return { iter, parse_results::ended };
 				}
-				if (auto step = tryKnownOrder(value, iter, depth, context); step.result != parse_result::inactive_member) {
+				if (auto step = tryKnownOrder(value, iter, depth, context); step.parse_result != parse_results::inactive_member) {
 					return step;
 				}
 				if constexpr (json_entity_type::index > 0) {
 					if (!cursor::collectObjectComma(iter, context)) [[unlikely]] {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 				}
 			} else {
 				if constexpr (json_entity_type::index > 0) {
 					switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							break;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							return { iter, parse_result::ended };
+						case static_cast<uint64_t>(sep_results::ended): {
+							return { iter, parse_results::ended };
 						}
 						default: {
-							return { iter, parse_result::failed };
+							return { iter, parse_results::failed };
 						}
 					}
 				} else {
 					if (cursor::objectMaybeEnd(iter, depth, context)) {
-						return { iter, parse_result::ended };
+						return { iter, parse_results::ended };
 					}
 					if constexpr (!options.minified && !structural_context_types<context_type>) {
 						cursor::skipWhitespaceScalar(iter, context);
 					}
 				}
 				if constexpr (options.knownOrder) {
-					if (auto step = tryKnownOrder(value, iter, depth, context); step.result != parse_result::inactive_member) {
+					if (auto step = tryKnownOrder(value, iter, depth, context); step.parse_result != parse_results::inactive_member) {
 						return step;
 					}
 				}
@@ -654,20 +655,20 @@ namespace jsonifier::internal {
 			while (true) {
 				if constexpr (memberCount == 1) {
 					if (auto step = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
-						step.result != parse_result::inactive_member) [[likely]] {
+						step.parse_result != parse_results::inactive_member) [[likely]] {
 						return step;
 					}
 				} else {
 					if constexpr (options.knownOrder) {
 						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
 							indexNew < memberCount) [[likely]] {
-							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
+							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.parse_result != parse_results::inactive_member) {
 								return step;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
-									if (step2.result == parse_result::active_member) {
+								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.parse_result != parse_results::inactive_member) {
+									if (step2.parse_result == parse_results::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return step2;
@@ -677,7 +678,7 @@ namespace jsonifier::internal {
 					} else {
 						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 							indexNew2 < memberCount) [[likely]] {
-							if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
+							if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.parse_result != parse_results::inactive_member) {
 								return step2;
 							}
 						}
@@ -685,26 +686,26 @@ namespace jsonifier::internal {
 				}
 				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::skipString(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::skipValue(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						break;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						return { iter, parse_result::ended };
+					case static_cast<uint64_t>(sep_results::ended): {
+						return { iter, parse_results::ended };
 					}
 					default: {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 				}
 			}
@@ -716,22 +717,22 @@ namespace jsonifier::internal {
 			static constexpr auto keyLiteral = escapedKeyLiteral<json_entity_type::name>;
 			static constexpr auto ptrNew	 = json_entity_type::memberPtr;
 			if constexpr (options.minified && !structural_context_types<context_type>) {
-				static constexpr auto memberLiteral		= jsonifier::internal::makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
+				static constexpr auto memberLiteral		= makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
 				static constexpr auto memberLiteralSize = memberLiteral.size();
 				if (((iter + memberLiteralSize) < context.endIter) && string_literal_comparator_impl<decltype(memberLiteral), memberLiteral>::impl(iter)) [[likely]] {
 					iter += memberLiteralSize;
 					if constexpr (excluded_keys_types<value_type>) {
-						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+						static constexpr auto key = keyLiteral.operator string_view();
 						const auto& keys		  = value.jsonifierExcludedKeys;
 						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
 							const bool skipped = cursor::skipValue(iter, context);
-							return { iter, skipped ? parse_result::active_member : parse_result::failed };
+							return { iter, skipped ? parse_results::active_member : parse_results::failed };
 						}
 					}
 					const auto iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
-					return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
+					return { iterNew, iterNew ? parse_results::active_member : parse_results::failed };
 				}
-				return { iter, parse_result::inactive_member };
+				return { iter, parse_results::inactive_member };
 			} else {
 				return parse_types_impl<value_type, context_type, options>::template processIndex<json_entity_type::index>(value, iter, depth, context);
 			}
@@ -743,39 +744,39 @@ namespace jsonifier::internal {
 			using dispatch = generate_dispatch_table_new<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
 			if constexpr (options.minified && options.knownOrder && !structural_context_types<context_type>) {
 				if (cursor::objectMaybeEnd(iter, depth, context)) {
-					return { iter, parse_result::ended };
+					return { iter, parse_results::ended };
 				}
-				if (auto step = tryKnownOrderOutline(value, iter, depth, context); step.result != parse_result::inactive_member) {
+				if (auto step = tryKnownOrderOutline(value, iter, depth, context); step.parse_result != parse_results::inactive_member) {
 					return step;
 				}
 				if constexpr (json_entity_type::index > 0) {
 					if (!cursor::collectObjectComma(iter, context)) [[unlikely]] {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 				}
 			} else {
 				if constexpr (json_entity_type::index > 0) {
 					switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							break;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							return { iter, parse_result::ended };
+						case static_cast<uint64_t>(sep_results::ended): {
+							return { iter, parse_results::ended };
 						}
 						default: {
-							return { iter, parse_result::failed };
+							return { iter, parse_results::failed };
 						}
 					}
 				} else {
 					if (cursor::objectMaybeEnd(iter, depth, context)) {
-						return { iter, parse_result::ended };
+						return { iter, parse_results::ended };
 					}
 					if constexpr (!options.minified && !structural_context_types<context_type>) {
 						cursor::skipWhitespaceScalar(iter, context);
 					}
 				}
 				if constexpr (options.knownOrder) {
-					if (auto step = tryKnownOrder(value, iter, depth, context); step.result != parse_result::inactive_member) {
+					if (auto step = tryKnownOrder(value, iter, depth, context); step.parse_result != parse_results::inactive_member) {
 						return step;
 					}
 				}
@@ -783,20 +784,20 @@ namespace jsonifier::internal {
 			while (true) {
 				if constexpr (memberCount == 1) {
 					if (auto step = parse_types_impl<value_type, context_type, options>::template processIndex<0>(value, iter, depth, context);
-						step.result != parse_result::inactive_member) [[likely]] {
+						step.parse_result != parse_results::inactive_member) [[likely]] {
 						return step;
 					}
 				} else {
 					if constexpr (options.knownOrder) {
 						if (const uint64_t indexNew = antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].load(std::memory_order_relaxed);
 							indexNew < memberCount) [[likely]] {
-							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.result != parse_result::inactive_member) {
+							if (auto step = dispatch::impl(value, iter, depth, context, indexNew); step.parse_result != parse_results::inactive_member) {
 								return step;
 							}
 							if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 								indexNew2 < memberCount) [[likely]] {
-								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
-									if (step2.result == parse_result::active_member) {
+								if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.parse_result != parse_results::inactive_member) {
+									if (step2.parse_result == parse_results::active_member) {
 										antiHashStatesNew<memberCount, value_type>.values[json_entity_type::index].store(indexNew2, std::memory_order_relaxed);
 									}
 									return step2;
@@ -806,7 +807,7 @@ namespace jsonifier::internal {
 					} else {
 						if (auto indexNew2 = hash_map<value_type, read_buffer_ptr>::findIndex(cursor::valuePtr(iter, context) + 1, cursor::stringEnd(context));
 							indexNew2 < memberCount) [[likely]] {
-							if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.result != parse_result::inactive_member) {
+							if (auto step2 = dispatch::impl(value, iter, depth, context, indexNew2); step2.parse_result != parse_results::inactive_member) {
 								return step2;
 							}
 						}
@@ -814,26 +815,26 @@ namespace jsonifier::internal {
 				}
 				if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 					static_cast<void>(cursor::template reject<parse_statuses::missing_key_start>(iter, context));
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::skipString(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				if (!cursor::skipValue(iter, context)) [[unlikely]] {
-					return { iter, parse_result::failed };
+					return { iter, parse_results::failed };
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, depth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						break;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						return { iter, parse_result::ended };
+					case static_cast<uint64_t>(sep_results::ended): {
+						return { iter, parse_results::ended };
 					}
 					default: {
-						return { iter, parse_result::failed };
+						return { iter, parse_results::failed };
 					}
 				}
 			}
@@ -845,22 +846,22 @@ namespace jsonifier::internal {
 			static constexpr auto keyLiteral = escapedKeyLiteral<json_entity_type::name>;
 			static constexpr auto ptrNew	 = json_entity_type::memberPtr;
 			if constexpr (options.minified && !structural_context_types<context_type>) {
-				static constexpr auto memberLiteral		= jsonifier::internal::makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
+				static constexpr auto memberLiteral		= makeMemberLiteralNew<json_entity_type::index>(keyLiteral);
 				static constexpr auto memberLiteralSize = memberLiteral.size();
 				if (((iter + memberLiteralSize) < context.endIter) && string_literal_comparator_impl<decltype(memberLiteral), memberLiteral>::impl(iter)) [[likely]] {
 					iter += memberLiteralSize;
 					if constexpr (excluded_keys_types<value_type>) {
-						static constexpr auto key = keyLiteral.operator jsonifier::string_view();
+						static constexpr auto key = keyLiteral.operator string_view();
 						const auto& keys		  = value.jsonifierExcludedKeys;
 						if (keys.find(static_cast<typename remove_cvref_t<decltype(keys)>::key_type>(key)) != keys.end()) [[unlikely]] {
 							const bool skipped = cursor::skipValue(iter, context);
-							return { iter, skipped ? parse_result::active_member : parse_result::failed };
+							return { iter, skipped ? parse_results::active_member : parse_results::failed };
 						}
 					}
 					const auto iterNew = parse<options>::impl(getMember<ptrNew>(value), iter, depth, context);
-					return { iterNew, iterNew ? parse_result::active_member : parse_result::failed };
+					return { iterNew, iterNew ? parse_results::active_member : parse_results::failed };
 				}
-				return { iter, parse_result::inactive_member };
+				return { iter, parse_results::inactive_member };
 			} else {
 				return parse_types_impl<value_type, context_type, options>::template processIndex<json_entity_type::index>(value, iter, depth, context);
 			}
@@ -870,33 +871,33 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	template<typename... bases> struct parse_map : public bases... {
-		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static parse_result iterateValuesOutline([[maybe_unused]] value_type& __restrict value,
+		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static parse_results iterateValuesOutline([[maybe_unused]] value_type& __restrict value,
 			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& __restrict context) {
-			parse_result result{ parse_result::active_member };
-			static_cast<void>(((result = bases::processIndexOutline(value, iter, depth, context), result == parse_result::active_member) && ...));
-			return result;
+			parse_results parse_result{ parse_results::active_member };
+			static_cast<void>(((parse_result = bases::processIndexOutline(value, iter, depth, context), parse_result == parse_results::active_member) && ...));
+			return parse_result;
 		}
 
-		template<typename value_type, typename context_type> JSONIFIER_INLINE static parse_result iterateValues([[maybe_unused]] value_type& __restrict value,
+		template<typename value_type, typename context_type> JSONIFIER_INLINE static parse_results iterateValues([[maybe_unused]] value_type& __restrict value,
 			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& __restrict context) {
-			parse_result result{ parse_result::active_member };
-			static_cast<void>(((result = bases::processIndex(value, iter, depth, context), result == parse_result::active_member) && ...));
-			return result;
+			parse_results parse_result{ parse_results::active_member };
+			static_cast<void>(((parse_result = bases::processIndex(value, iter, depth, context), parse_result == parse_results::active_member) && ...));
+			return parse_result;
 		}
 	};
 #else
 	template<typename... bases> struct parse_map : public bases... {
 		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_INLINE_EXCEPT_MAC_GCC static parse_step<typename context_type::iterator_type>
 		iterateValues([[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
-			static_cast<void>(((step = bases::processIndex(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
+			parse_step<typename context_type::iterator_type> step{ iter, parse_results::active_member };
+			static_cast<void>(((step = bases::processIndex(value, step.iter, depth, context), step.parse_result == parse_results::active_member) && ...));
 			return step;
 		}
 
 		template<typename value_type, typename iterator_type, typename context_type> JSONIFIER_NOINLINE static parse_step<typename context_type::iterator_type>
 		iterateValuesOutline([[maybe_unused]] value_type& value, iterator_type iter, [[maybe_unused]] uint64_t depth, [[maybe_unused]] context_type& context) {
-			parse_step<typename context_type::iterator_type> step{ iter, parse_result::active_member };
-			static_cast<void>(((step = bases::processIndexOutline(value, step.iter, depth, context), step.result == parse_result::active_member) && ...));
+			parse_step<typename context_type::iterator_type> step{ iter, parse_results::active_member };
+			static_cast<void>(((step = bases::processIndexOutline(value, step.iter, depth, context), step.parse_result == parse_results::active_member) && ...));
 			return step;
 		}
 	};
@@ -925,11 +926,11 @@ namespace jsonifier::internal {
 			if (cursor::objectMaybeEnd(iter, innerDepth, context)) [[unlikely]] {
 				return iter;
 			}
-			const auto result = parse_base_t<options, value_type, context_type>::iterateValues(value, iter, innerDepth, context);
-			if (result == parse_result::ended) {
+			const auto parse_result = parse_base_t<options, value_type, context_type>::iterateValues(value, iter, innerDepth, context);
+			if (parse_result == parse_results::ended) {
 				return iter;
 			}
-			if (result != parse_result::active_member) [[unlikely]] {
+			if (parse_result != parse_results::active_member) [[unlikely]] {
 				return nullptr;
 			}
 			if (cursor::objectMaybeEnd(iter, innerDepth, context)) {
@@ -952,11 +953,11 @@ namespace jsonifier::internal {
 			if (cursor::objectMaybeEnd(iter, innerDepth, context)) [[unlikely]] {
 				return iter;
 			}
-			const auto result = parse_base_t<options, value_type, context_type>::iterateValuesOutline(value, iter, innerDepth, context);
-			if (result == parse_result::ended) {
+			const auto parse_result = parse_base_t<options, value_type, context_type>::iterateValuesOutline(value, iter, innerDepth, context);
+			if (parse_result == parse_results::ended) {
 				return iter;
 			}
-			if (result != parse_result::active_member) [[unlikely]] {
+			if (parse_result != parse_results::active_member) [[unlikely]] {
 				return nullptr;
 			}
 			if (cursor::objectMaybeEnd(iter, innerDepth, context)) {
@@ -985,10 +986,10 @@ namespace jsonifier::internal {
 				return iter;
 			}
 			const auto step = parse_base_t<options, value_type, context_type>::iterateValues(value, iter, innerDepth, context);
-			if (step.result == parse_result::ended) {
+			if (step.parse_result == parse_results::ended) {
 				return step.iter;
 			}
-			if (step.result != parse_result::active_member) [[unlikely]] {
+			if (step.parse_result != parse_results::active_member) [[unlikely]] {
 				return nullptr;
 			}
 			iter = step.iter;
@@ -1013,10 +1014,10 @@ namespace jsonifier::internal {
 				return iter;
 			}
 			const auto step = parse_base_t<options, value_type, context_type>::iterateValuesOutline(value, iter, innerDepth, context);
-			if (step.result == parse_result::ended) {
+			if (step.parse_result == parse_results::ended) {
 				return step.iter;
 			}
-			if (step.result != parse_result::active_member) [[unlikely]] {
+			if (step.parse_result != parse_results::active_member) [[unlikely]] {
 				return nullptr;
 			}
 			iter = step.iter;
@@ -1059,22 +1060,22 @@ namespace jsonifier::internal {
 				return iter;
 			}
 			while (true) {
-				iter = parse<options>::impl(jsonifier::internal::getKeyNew<typename value_type::key_type>(), iter, innerDepth, context);
+				iter = parse<options>::impl(getKeyNew<typename value_type::key_type>(), iter, innerDepth, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
 					return nullptr;
 				}
-				iter = parse<options>::impl(value[jsonifier::internal::getKeyNew<typename value_type::key_type>()], iter, innerDepth, context);
+				iter = parse<options>::impl(value[getKeyNew<typename value_type::key_type>()], iter, innerDepth, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, innerDepth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						continue;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
+					case static_cast<uint64_t>(sep_results::ended): {
 						return iter;
 					}
 					default: {
@@ -1093,22 +1094,22 @@ namespace jsonifier::internal {
 				return iter;
 			}
 			while (true) {
-				iter = parse<options>::impl(jsonifier::internal::getKeyNew<typename value_type::key_type>(), iter, innerDepth, context);
+				iter = parse<options>::impl(getKeyNew<typename value_type::key_type>(), iter, innerDepth, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
 				if (!cursor::collectObjectColon(iter, context)) [[unlikely]] {
 					return nullptr;
 				}
-				iter = parse<options>::impl(value[jsonifier::internal::getKeyNew<typename value_type::key_type>()], iter, innerDepth, context);
+				iter = parse<options>::impl(value[getKeyNew<typename value_type::key_type>()], iter, innerDepth, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
 				switch (static_cast<uint64_t>(cursor::collectObjectSeparator(iter, innerDepth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
+					case static_cast<uint64_t>(sep_results::cont): {
 						continue;
 					}
-					case static_cast<uint64_t>(sep_result::ended): {
+					case static_cast<uint64_t>(sep_results::ended): {
 						return iter;
 					}
 					default: {
@@ -1185,7 +1186,7 @@ namespace jsonifier::internal {
 				uint64_t oldSize{ valueTemp<value_type>.size() };
 				uint64_t newSize{};
 				if (oldSize > 0) {
-					auto beginIter = jsonifier::internal::getBeginIterVec(valueTemp<value_type>);
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
 					for (uint64_t x = 0; x < oldSize; ++x) {
 						iter = parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, innerDepth, context);
 						if (!iter) [[unlikely]] {
@@ -1193,11 +1194,11 @@ namespace jsonifier::internal {
 						}
 						++newSize;
 						switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-							case static_cast<uint64_t>(sep_result::cont): {
+							case static_cast<uint64_t>(sep_results::cont): {
 								continue;
 							}
-							case static_cast<uint64_t>(sep_result::ended): {
-								jsonifier::internal::moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+							case static_cast<uint64_t>(sep_results::ended): {
+								moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
 								return iter;
 							}
 							default: {
@@ -1213,12 +1214,11 @@ namespace jsonifier::internal {
 					}
 					++newSize;
 					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							continue;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							jsonifier::internal::moveAssignVec(value, jsonifier::internal::getBeginIterVec(valueTemp<value_type>),
-								jsonifier::internal::getEndIterVec(valueTemp<value_type>));
+						case static_cast<uint64_t>(sep_results::ended): {
+							moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
 							return iter;
 						}
 						default: {
@@ -1228,7 +1228,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				const uint64_t oldSize{ value.size() };
-				jsonifier::internal::reserveFromHint(value);
+				reserveFromHint(value);
 				uint64_t newSize{};
 				while (cursor::notAtEnd(iter, context)) {
 					iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, innerDepth, context);
@@ -1237,10 +1237,10 @@ namespace jsonifier::internal {
 					}
 					++newSize;
 					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							continue;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
+						case static_cast<uint64_t>(sep_results::ended): {
 							finishInPlace(value, oldSize, newSize);
 							return iter;
 						}
@@ -1267,7 +1267,7 @@ namespace jsonifier::internal {
 				uint64_t oldSize{ valueTemp<value_type>.size() };
 				uint64_t newSize{};
 				if (oldSize > 0) {
-					auto beginIter = jsonifier::internal::getBeginIterVec(valueTemp<value_type>);
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
 					for (uint64_t x = 0; x < oldSize; ++x) {
 						iter = parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, innerDepth, context);
 						if (!iter) [[unlikely]] {
@@ -1275,11 +1275,11 @@ namespace jsonifier::internal {
 						}
 						++newSize;
 						switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-							case static_cast<uint64_t>(sep_result::cont): {
+							case static_cast<uint64_t>(sep_results::cont): {
 								continue;
 							}
-							case static_cast<uint64_t>(sep_result::ended): {
-								jsonifier::internal::moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+							case static_cast<uint64_t>(sep_results::ended): {
+								moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
 								return iter;
 							}
 							default: {
@@ -1295,12 +1295,11 @@ namespace jsonifier::internal {
 					}
 					++newSize;
 					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							continue;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
-							jsonifier::internal::moveAssignVec(value, jsonifier::internal::getBeginIterVec(valueTemp<value_type>),
-								jsonifier::internal::getEndIterVec(valueTemp<value_type>));
+						case static_cast<uint64_t>(sep_results::ended): {
+							moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
 							return iter;
 						}
 						default: {
@@ -1310,7 +1309,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				const uint64_t oldSize{ value.size() };
-				jsonifier::internal::reserveFromHint(value);
+				reserveFromHint(value);
 				uint64_t newSize{};
 				while (cursor::notAtEnd(iter, context)) {
 					iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, innerDepth, context);
@@ -1319,10 +1318,10 @@ namespace jsonifier::internal {
 					}
 					++newSize;
 					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, innerDepth, context))) {
-						case static_cast<uint64_t>(sep_result::cont): {
+						case static_cast<uint64_t>(sep_results::cont): {
 							continue;
 						}
-						case static_cast<uint64_t>(sep_result::ended): {
+						case static_cast<uint64_t>(sep_results::ended): {
 							finishInPlace(value, oldSize, newSize);
 							return iter;
 						}
@@ -1597,24 +1596,24 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		template<json_type type, typename variant_type, uint64_t currentIndex = 0>
+		template<json_types json_type, typename variant_type, uint64_t currentIndex = 0>
 		JSONIFIER_NOINLINE static iterator_type iterateVariantTypesOutline(variant_type&& variant, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (currentIndex < std::variant_size_v<remove_cvref_t<variant_type>>) {
 				using element_type = remove_cvref_t<decltype(std::get<currentIndex>(std::declval<remove_cvref_t<variant_type>>()))>;
-				if constexpr (jsonifier_object_types<element_type> && type == json_type::object) {
+				if constexpr (jsonifier_object_types<element_type> && json_type == json_types::object) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && type == json_type::array) {
+				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && json_type == json_types::array) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && type == json_type::string) {
+				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && json_type == json_types::string) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (bool_types<element_type> && type == json_type::boolean) {
+				} else if constexpr (bool_types<element_type> && json_type == json_types::boolean) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && type == json_type::number) {
+				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && json_type == json_types::number) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (always_null_types<element_type> && type == json_type::null) {
+				} else if constexpr (always_null_types<element_type> && json_type == json_types::null) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
 				} else {
-					return iterateVariantTypesOutline<type, variant_type, currentIndex + 1>(variant, iter, depth, context);
+					return iterateVariantTypesOutline<json_type, variant_type, currentIndex + 1>(variant, iter, depth, context);
 				}
 			} else {
 				static_cast<void>(cursor::template reject<parse_statuses::unexpected_token>(iter, context));
@@ -1622,24 +1621,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<json_type type, typename variant_type, uint64_t currentIndex = 0>
+		template<json_types json_type, typename variant_type, uint64_t currentIndex = 0>
 		JSONIFIER_INLINE static iterator_type iterateVariantTypes(variant_type&& variant, iterator_type iter, uint64_t depth, context_type& context) {
 			if constexpr (currentIndex < std::variant_size_v<remove_cvref_t<variant_type>>) {
 				using element_type = remove_cvref_t<decltype(std::get<currentIndex>(std::declval<remove_cvref_t<variant_type>>()))>;
-				if constexpr (jsonifier_object_types<element_type> && type == json_type::object) {
+				if constexpr (jsonifier_object_types<element_type> && json_type == json_types::object) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && type == json_type::array) {
+				} else if constexpr ((vector_types<element_type> || raw_array_types<element_type>) && json_type == json_types::array) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && type == json_type::string) {
+				} else if constexpr ((string_types<element_type> || string_view_types<element_type>) && json_type == json_types::string) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (bool_types<element_type> && type == json_type::boolean) {
+				} else if constexpr (bool_types<element_type> && json_type == json_types::boolean) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && type == json_type::number) {
+				} else if constexpr ((number_types<element_type> || any_enum_types<element_type>) && json_type == json_types::number) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
-				} else if constexpr (always_null_types<element_type> && type == json_type::null) {
+				} else if constexpr (always_null_types<element_type> && json_type == json_types::null) {
 					return parse<options>::impl(variant.template emplace<element_type>(element_type{}), iter, depth, context);
 				} else {
-					return iterateVariantTypes<type, variant_type, currentIndex + 1>(variant, iter, depth, context);
+					return iterateVariantTypes<json_type, variant_type, currentIndex + 1>(variant, iter, depth, context);
 				}
 			} else {
 				static_cast<void>(cursor::template reject<parse_statuses::unexpected_token>(iter, context));
@@ -1656,18 +1655,18 @@ namespace jsonifier::internal {
 			}
 			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
 				case uint_c_v<'{'>: {
-					return iterateVariantTypesOutline<json_type::object>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::object>(value, iter, depth, context);
 				}
 				case uint_c_v<'['>: {
-					return iterateVariantTypesOutline<json_type::array>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::array>(value, iter, depth, context);
 				}
 				case uint_c_v<'"'>: {
-					return iterateVariantTypesOutline<json_type::string>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::string>(value, iter, depth, context);
 				}
 				case uint_c_v<'t'>:
 					[[fallthrough]];
 				case uint_c_v<'f'>: {
-					return iterateVariantTypesOutline<json_type::boolean>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::boolean>(value, iter, depth, context);
 				}
 				case uint_c_v<'-'>:
 					[[fallthrough]];
@@ -1690,10 +1689,10 @@ namespace jsonifier::internal {
 				case uint_c_v<'8'>:
 					[[fallthrough]];
 				case uint_c_v<'9'>: {
-					return iterateVariantTypesOutline<json_type::number>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::number>(value, iter, depth, context);
 				}
 				case uint_c_v<'n'>: {
-					return iterateVariantTypesOutline<json_type::null>(value, iter, depth, context);
+					return iterateVariantTypesOutline<json_types::null>(value, iter, depth, context);
 				}
 				default: {
 					return iter;
@@ -1710,18 +1709,18 @@ namespace jsonifier::internal {
 			}
 			switch (static_cast<uint8_t>(*cursor::valuePtr(iter, context))) {
 				case uint_c_v<'{'>: {
-					return iterateVariantTypes<json_type::object>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::object>(value, iter, depth, context);
 				}
 				case uint_c_v<'['>: {
-					return iterateVariantTypes<json_type::array>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::array>(value, iter, depth, context);
 				}
 				case uint_c_v<'"'>: {
-					return iterateVariantTypes<json_type::string>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::string>(value, iter, depth, context);
 				}
 				case uint_c_v<'t'>:
 					[[fallthrough]];
 				case uint_c_v<'f'>: {
-					return iterateVariantTypes<json_type::boolean>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::boolean>(value, iter, depth, context);
 				}
 				case uint_c_v<'-'>:
 					[[fallthrough]];
@@ -1744,10 +1743,10 @@ namespace jsonifier::internal {
 				case uint_c_v<'8'>:
 					[[fallthrough]];
 				case uint_c_v<'9'>: {
-					return iterateVariantTypes<json_type::number>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::number>(value, iter, depth, context);
 				}
 				case uint_c_v<'n'>: {
-					return iterateVariantTypes<json_type::null>(value, iter, depth, context);
+					return iterateVariantTypes<json_types::null>(value, iter, depth, context);
 				}
 				default: {
 					return iter;
@@ -1769,7 +1768,7 @@ namespace jsonifier::internal {
 		using cursor		= cursor_t<options, context_type>;
 
 		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				return parse<options>::impl(value.emplace(), iter, depth, context);
 			}
 			value.reset();
@@ -1777,7 +1776,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				return parse<options>::impl(value.emplace(), iter, depth, context);
 			}
 			value.reset();
@@ -1790,10 +1789,10 @@ namespace jsonifier::internal {
 		using cursor		= cursor_t<options, context_type>;
 
 		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
-					value = std::make_shared<jsonifier::internal::remove_pointer_t<remove_cvref_t<member_type>>>();
+					value = std::make_shared<remove_pointer_t<remove_cvref_t<member_type>>>();
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}
@@ -1802,10 +1801,10 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
-					value = std::make_shared<jsonifier::internal::remove_pointer_t<remove_cvref_t<member_type>>>();
+					value = std::make_shared<remove_pointer_t<remove_cvref_t<member_type>>>();
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}
@@ -1819,10 +1818,10 @@ namespace jsonifier::internal {
 		using cursor		= cursor_t<options, context_type>;
 
 		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
-					value = std::make_unique<jsonifier::internal::remove_pointer_t<remove_cvref_t<member_type>>>();
+					value = std::make_unique<remove_pointer_t<remove_cvref_t<member_type>>>();
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}
@@ -1831,10 +1830,10 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				using member_type = decltype(*value);
 				if (!value) {
-					value = std::make_unique<jsonifier::internal::remove_pointer_t<remove_cvref_t<member_type>>>();
+					value = std::make_unique<remove_pointer_t<remove_cvref_t<member_type>>>();
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}
@@ -1848,9 +1847,9 @@ namespace jsonifier::internal {
 		using cursor		= cursor_t<options, context_type>;
 
 		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				if (!value) [[unlikely]] {
-					value = new jsonifier::internal::remove_pointer_t<value_type>{};
+					value = new remove_pointer_t<value_type>{};
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}
@@ -1858,9 +1857,9 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) {
-			if (!jsonifier::internal::isNullValue<options>(iter, context)) [[likely]] {
+			if (!isNullValue<options>(iter, context)) [[likely]] {
 				if (!value) [[unlikely]] {
-					value = new jsonifier::internal::remove_pointer_t<value_type>{};
+					value = new remove_pointer_t<value_type>{};
 				}
 				return parse<options>::impl(*value, iter, depth, context);
 			}

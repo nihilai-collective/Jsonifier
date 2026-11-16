@@ -36,8 +36,8 @@ namespace jsonifier::internal {
 		using cursor = json_cursor<optionsVal, unrestrict_t<write_structural_index_ptr>>;
 
 		template<string_types string_type> inline bool validateJson(string_type&& in) noexcept {
-			auto rootIter = jsonifier::internal::getBeginIter(in);
-			auto endIter  = jsonifier::internal::getEndIter(in);
+			auto rootIter = getBeginIter(in);
+			auto endIter  = getEndIter(in);
 			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 			parse_context<optionsVal, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
 				&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
@@ -50,7 +50,7 @@ namespace jsonifier::internal {
 			if (!cursor::anyInput(iter, context)) {
 				return false;
 			}
-			if (!jsonifier::internal::validateUtf8(rootIter, static_cast<uint64_t>(endIter - rootIter))) [[unlikely]] {
+			if (!validateUtf8(rootIter, static_cast<uint64_t>(endIter - rootIter))) [[unlikely]] {
 				return false;
 			}
 			const write_structural_index_ptr iterNew = impl(iter, 0, context);
@@ -238,7 +238,7 @@ namespace jsonifier::internal {
 		template<typename context_type>
 		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateBool(write_structural_index_ptr iter, context_type& context) noexcept {
 			const auto newPtr = cursor::valuePtr(iter, context);
-			if (!jsonifier::internal::validateBool(newPtr, context.stringEnd)) [[unlikely]] {
+			if (!internal::validateBool(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
 			++iter;
@@ -248,7 +248,7 @@ namespace jsonifier::internal {
 		template<typename context_type>
 		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateNull(write_structural_index_ptr iter, context_type& context) noexcept {
 			const auto newPtr = cursor::valuePtr(iter, context);
-			if (!jsonifier::internal::validateNull(newPtr, context.stringEnd)) [[unlikely]] {
+			if (!internal::validateNull(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
 			++iter;

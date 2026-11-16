@@ -16,63 +16,63 @@ namespace raw_json_data_tests {
 		jsonifier::jsonifier_core<> parser{};
 
 		static constexpr rt_ut::string_literal typeObjectName{ "raw_json_data_get_type_object" };
-		rt_ut::unit_test<typeObjectName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::object), [&] {
+		rt_ut::unit_test<typeObjectName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::object), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"({"a":1})" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeArrayName{ "raw_json_data_get_type_array" };
-		rt_ut::unit_test<typeArrayName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::array), [&] {
+		rt_ut::unit_test<typeArrayName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::array), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"([1,2,3])" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeStringName{ "raw_json_data_get_type_string" };
-		rt_ut::unit_test<typeStringName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::string), [&] {
+		rt_ut::unit_test<typeStringName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::string), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"("hello")" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeNumberIntName{ "raw_json_data_get_type_number_int" };
-		rt_ut::unit_test<typeNumberIntName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::number), [&] {
+		rt_ut::unit_test<typeNumberIntName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::number), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ "12345" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeNumberNegativeName{ "raw_json_data_get_type_number_negative" };
-		rt_ut::unit_test<typeNumberNegativeName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::number), [&] {
+		rt_ut::unit_test<typeNumberNegativeName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::number), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ "-42" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeBoolTrueName{ "raw_json_data_get_type_bool_true" };
-		rt_ut::unit_test<typeBoolTrueName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::boolean), [&] {
+		rt_ut::unit_test<typeBoolTrueName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::boolean), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ "true" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeBoolFalseName{ "raw_json_data_get_type_bool_false" };
-		rt_ut::unit_test<typeBoolFalseName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::boolean), [&] {
+		rt_ut::unit_test<typeBoolFalseName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::boolean), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ "false" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeNullName{ "raw_json_data_get_type_null" };
-		rt_ut::unit_test<typeNullName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::null), [&] {
+		rt_ut::unit_test<typeNullName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::null), [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ "null" });
 			return static_cast<uint8_t>(data.getType());
 		});
 
 		static constexpr rt_ut::string_literal typeDefaultConstructedName{ "raw_json_data_get_type_default_constructed" };
-		rt_ut::unit_test<typeDefaultConstructedName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::null), [] {
+		rt_ut::unit_test<typeDefaultConstructedName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::null), [] {
 			jsonifier::raw_json_data data{};
 			return static_cast<uint8_t>(data.getType());
 		});
@@ -180,7 +180,7 @@ namespace raw_json_data_tests {
 		});
 
 		static constexpr rt_ut::string_literal objectAutoVivifyName{ "raw_json_data_object_operator_bracket_autovivify_from_null" };
-		rt_ut::unit_test<objectAutoVivifyName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::object), [] {
+		rt_ut::unit_test<objectAutoVivifyName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_types::object), [] {
 			jsonifier::raw_json_data data{};
 			data["newKey"];
 			return static_cast<uint8_t>(data.getType());
@@ -404,7 +404,7 @@ namespace raw_json_data_tests {
 				return false;
 			}
 			auto& object = data.getObject();
-			return object["a"].getArray()[1ULL].getObject()["b"].getString() == "c\"d" && object["e"].getBool() && object["f"].getType() == jsonifier::json_type::null &&
+			return object["a"].getArray()[1ULL].getObject()["b"].getString() == "c\"d" && object["e"].getBool() && object["f"].getType() == jsonifier::json_types::null &&
 				std::bit_cast<uint64_t>(object["g"].getDouble()) == std::bit_cast<uint64_t>(-2.5);
 		});
 

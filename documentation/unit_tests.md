@@ -228,7 +228,7 @@ About 200 tests that check both `jsonifier::validateUtf8` and validation inside 
 ## Internal Containers
 
 - **`jsonifier::string` (`string_class.hpp`):** 80 tests: construction from every source, copy and move, append and growth, insert and erase, every `find` variant, `at` throwing on out-of-range indices, a null terminator after every change, conversion to `std::string`/`std::string_view`, and iteration.
-- **`jsonifier::internal::array` (`array.hpp`):** element access, `at` throwing, `fill` and `swap`, equality, the zero-size specialization, and compile-time tag subscripts.
+- **`array` (`array.hpp`):** element access, `at` throwing, `fill` and `swap`, equality, the zero-size specialization, and compile-time tag subscripts.
 - **Tuple (`tuple.hpp`):** `get` by index and by type, `tuple_cat`, equality, relational, and three-way comparison, structured bindings, and the empty tuple.
 - **Iterator (`iterator.hpp`):** everything a contiguous iterator must support (arithmetic, comparisons, subscripting, use with `std::sort` and `std::distance`), the zero-size variant, and `string_view` iteration.
 

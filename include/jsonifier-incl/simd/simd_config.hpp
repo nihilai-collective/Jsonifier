@@ -9,7 +9,7 @@
 #include <jsonifier-incl/core/config.hpp>
 #include <jsonifier-incl/simd/simd_x.hpp>
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
 	using read_structural_index_ptr	 = const uint32_t* __restrict;
 	using read_buffer_ptr			 = const uint8_t* __restrict;
@@ -40,13 +40,13 @@ namespace jsonifier {
 	using jsonifier_simd_int_512 = __m512i;
 
 	#if JSONIFIER_AVX512
-	inline constexpr const char* cpuArchName{ "AVX512" };
+	inline constexpr const char* cpuArchNameInternal{ "AVX512" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_512;
 	#elif JSONIFIER_AVX2
-	inline constexpr const char* cpuArchName{ "AVX2" };
+	inline constexpr const char* cpuArchNameInternal{ "AVX2" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_256;
 	#elif JSONIFIER_AVX
-	inline constexpr const char* cpuArchName{ "AVX" };
+	inline constexpr const char* cpuArchNameInternal{ "AVX" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 	#endif
 
@@ -58,7 +58,7 @@ namespace jsonifier {
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchName{ "SVE2" };
+	inline constexpr const char* cpuArchNameInternal{ "SVE2" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #elif JSONIFIER_NEON
@@ -67,16 +67,16 @@ namespace jsonifier {
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchName{ "NEON" };
+	inline constexpr const char* cpuArchNameInternal{ "NEON" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #else
 
-	using jsonifier_simd_int_128 = jsonifier::internal::simd::simd_x;
+	using jsonifier_simd_int_128 = internal::simd::simd_x;
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchName{ "FALLBACK" };
+	inline constexpr const char* cpuArchNameInternal{ "FALLBACK" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #endif
@@ -136,4 +136,10 @@ namespace jsonifier {
 	using simd_array_t = simd_array<simdRegistersPerBlock>;
 
 	template<uint64_t registerCount, uint64_t registerBytes> using pod_simd_array_t = simd_register_array<registerCount, registerBytes>;
+}
+
+namespace jsonifier {
+
+	inline constexpr const char* cpuArchName{ internal::cpuArchNameInternal };
+
 }

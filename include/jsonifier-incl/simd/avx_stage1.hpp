@@ -15,8 +15,8 @@ namespace jsonifier::internal::simd {
 
 #if !JSONIFIER_NEON && !JSONIFIER_SVE2
 
-	inline constexpr internal::array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
-		internal::array<uint64_t, simdRegistersPerBlock> returnValue{};
+	inline constexpr array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
+		array<uint64_t, simdRegistersPerBlock> returnValue{};
 		for (uint64_t x = 0; x < simdRegistersPerBlock; ++x) {
 			returnValue[x] = simdBytesPerRegister * x;
 		}
@@ -47,24 +47,24 @@ namespace jsonifier::internal::simd {
 
 	struct cmp_eq_op {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t lhs, const jsonifier_simd_int_t rhsBroadcast) noexcept {
-			uint64_t result = simd::opCmpEq(lhs.get<0>(), rhsBroadcast);
+			uint64_t result = opCmpEq(lhs.get<0>(), rhsBroadcast);
 			if constexpr (simdRegistersPerBlock > 1) {
-				result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<1>(), rhsBroadcast)) << getShiftAmount(1);
+				result |= static_cast<uint64_t>(opCmpEq(lhs.get<1>(), rhsBroadcast)) << getShiftAmount(1);
 				if constexpr (simdRegistersPerBlock > 2) {
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<2>(), rhsBroadcast)) << getShiftAmount(2);
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<3>(), rhsBroadcast)) << getShiftAmount(3);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.get<2>(), rhsBroadcast)) << getShiftAmount(2);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.get<3>(), rhsBroadcast)) << getShiftAmount(3);
 				}
 			}
 			return result;
 		}
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t lhs, const simd_array_t rhs) noexcept {
-			uint64_t result = simd::opCmpEq(lhs.get<0>(), rhs.get<0>());
+			uint64_t result = opCmpEq(lhs.get<0>(), rhs.get<0>());
 			if constexpr (simdRegistersPerBlock > 1) {
-				result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<1>(), rhs.get<1>())) << getShiftAmount(1);
+				result |= static_cast<uint64_t>(opCmpEq(lhs.get<1>(), rhs.get<1>())) << getShiftAmount(1);
 				if constexpr (simdRegistersPerBlock > 2) {
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<2>(), rhs.get<2>())) << getShiftAmount(2);
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.get<3>(), rhs.get<3>())) << getShiftAmount(3);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.get<2>(), rhs.get<2>())) << getShiftAmount(2);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.get<3>(), rhs.get<3>())) << getShiftAmount(3);
 				}
 			}
 			return result;
@@ -94,12 +94,12 @@ namespace jsonifier::internal::simd {
 		JSONIFIER_INLINE static bracket_masks impl(const simd_array_t in01, const jsonifier_simd_int_t spaceMask, const jsonifier_simd_int_t openRegister,
 			const jsonifier_simd_int_t closeRegister) noexcept {
 			simd_array_t folded;
-			folded.set<0>(simd::opOr(in01.get<0>(), spaceMask));
+			folded.set<0>(opOr(in01.get<0>(), spaceMask));
 			if constexpr (simdRegistersPerBlock > 1) {
-				folded.set<1>(simd::opOr(in01.get<1>(), spaceMask));
+				folded.set<1>(opOr(in01.get<1>(), spaceMask));
 				if constexpr (simdRegistersPerBlock > 2) {
-					folded.set<2>(simd::opOr(in01.get<2>(), spaceMask));
-					folded.set<3>(simd::opOr(in01.get<3>(), spaceMask));
+					folded.set<2>(opOr(in01.get<2>(), spaceMask));
+					folded.set<3>(opOr(in01.get<3>(), spaceMask));
 				}
 			}
 			return { cmp_eq_op::impl(folded, closeRegister), cmp_eq_op::impl(folded, openRegister) };
@@ -111,8 +111,8 @@ namespace jsonifier::internal::simd {
 			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;
 
 		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
-			const uint64_t escaped = nextEscapeAndTerminalCode(simd::cmp_eq_op::impl(in01, bsRegister));
-			const uint64_t quotes  = (simd::cmp_eq_op::impl(in01, quoteRegister) & ~escaped);
+			const uint64_t escaped = nextEscapeAndTerminalCode(cmp_eq_op::impl(in01, bsRegister));
+			const uint64_t quotes  = (cmp_eq_op::impl(in01, quoteRegister) & ~escaped);
 			rope_block::escaped	   = escaped;
 			rope_block::quotes	   = quotes;
 			return quotes ? finishNext() : finishNextNoInString();
@@ -145,7 +145,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE void finishNext() noexcept {
-			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
+			const uint64_t inString = prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
 		}
@@ -162,12 +162,12 @@ namespace jsonifier::internal::simd {
 	struct ws_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01, const jsonifier_simd_int_t whitespaceTableLocal) noexcept {
 			simd_array_t wsShuffle;
-			wsShuffle.set<0>(simd::opShuffle(whitespaceTableLocal, in01.get<0>()));
+			wsShuffle.set<0>(opShuffle(whitespaceTableLocal, in01.get<0>()));
 			if constexpr (simdRegistersPerBlock > 1) {
-				wsShuffle.set<1>(simd::opShuffle(whitespaceTableLocal, in01.get<1>()));
+				wsShuffle.set<1>(opShuffle(whitespaceTableLocal, in01.get<1>()));
 				if constexpr (simdRegistersPerBlock > 2) {
-					wsShuffle.set<2>(simd::opShuffle(whitespaceTableLocal, in01.get<2>()));
-					wsShuffle.set<3>(simd::opShuffle(whitespaceTableLocal, in01.get<3>()));
+					wsShuffle.set<2>(opShuffle(whitespaceTableLocal, in01.get<2>()));
+					wsShuffle.set<3>(opShuffle(whitespaceTableLocal, in01.get<3>()));
 				}
 			}
 			return cmp_eq_op::impl(in01, wsShuffle);
@@ -179,16 +179,16 @@ namespace jsonifier::internal::simd {
 			simd_array_t orLhs;
 			simd_array_t shuffleRhs;
 
-			orLhs.set<0>(simd::opOr(in01.get<0>(), spaceMask));
-			shuffleRhs.set<0>(simd::opShuffle(opTable, in01.get<0>()));
+			orLhs.set<0>(opOr(in01.get<0>(), spaceMask));
+			shuffleRhs.set<0>(opShuffle(opTable, in01.get<0>()));
 			if constexpr (simdRegistersPerBlock > 1) {
-				orLhs.set<1>(simd::opOr(in01.get<1>(), spaceMask));
-				shuffleRhs.set<1>(simd::opShuffle(opTable, in01.get<1>()));
+				orLhs.set<1>(opOr(in01.get<1>(), spaceMask));
+				shuffleRhs.set<1>(opShuffle(opTable, in01.get<1>()));
 				if constexpr (simdRegistersPerBlock > 2) {
-					orLhs.set<2>(simd::opOr(in01.get<2>(), spaceMask));
-					shuffleRhs.set<2>(simd::opShuffle(opTable, in01.get<2>()));
-					orLhs.set<3>(simd::opOr(in01.get<3>(), spaceMask));
-					shuffleRhs.set<3>(simd::opShuffle(opTable, in01.get<3>()));
+					orLhs.set<2>(opOr(in01.get<2>(), spaceMask));
+					shuffleRhs.set<2>(opShuffle(opTable, in01.get<2>()));
+					orLhs.set<3>(opOr(in01.get<3>(), spaceMask));
+					shuffleRhs.set<3>(opShuffle(opTable, in01.get<3>()));
 				}
 			}
 			return cmp_eq_op::impl(orLhs, shuffleRhs);
@@ -200,24 +200,24 @@ namespace jsonifier::internal::simd {
 		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type lhs, const simd_array_type rhs) noexcept {
-			uint64_t result = static_cast<uint64_t>(simd::opCmpEq(lhs.template get<0>(), rhs.template get<0>()));
+			uint64_t result = static_cast<uint64_t>(opCmpEq(lhs.template get<0>(), rhs.template get<0>()));
 			if constexpr (registerCount > 1) {
-				result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<1>(), rhs.template get<1>())) << (registerBytes * 1);
+				result |= static_cast<uint64_t>(opCmpEq(lhs.template get<1>(), rhs.template get<1>())) << (registerBytes * 1);
 				if constexpr (registerCount > 2) {
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<2>(), rhs.template get<2>())) << (registerBytes * 2);
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<3>(), rhs.template get<3>())) << (registerBytes * 3);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.template get<2>(), rhs.template get<2>())) << (registerBytes * 2);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.template get<3>(), rhs.template get<3>())) << (registerBytes * 3);
 				}
 			}
 			return result;
 		}
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type lhs, const simd_type rhsBroadcast) noexcept {
-			uint64_t result = static_cast<uint64_t>(simd::opCmpEq(lhs.template get<0>(), rhsBroadcast));
+			uint64_t result = static_cast<uint64_t>(opCmpEq(lhs.template get<0>(), rhsBroadcast));
 			if constexpr (registerCount > 1) {
-				result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<1>(), rhsBroadcast)) << (registerBytes * 1);
+				result |= static_cast<uint64_t>(opCmpEq(lhs.template get<1>(), rhsBroadcast)) << (registerBytes * 1);
 				if constexpr (registerCount > 2) {
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<2>(), rhsBroadcast)) << (registerBytes * 2);
-					result |= static_cast<uint64_t>(simd::opCmpEq(lhs.template get<3>(), rhsBroadcast)) << (registerBytes * 3);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.template get<2>(), rhsBroadcast)) << (registerBytes * 2);
+					result |= static_cast<uint64_t>(opCmpEq(lhs.template get<3>(), rhsBroadcast)) << (registerBytes * 3);
 				}
 			}
 			return result;
@@ -232,12 +232,12 @@ namespace jsonifier::internal::simd {
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in01, const simd_type whitespaceTableLocal) noexcept {
 			simd_array_type wsShuffle;
-			wsShuffle.template set<0>(simd::opShuffle(whitespaceTableLocal, in01.template get<0>()));
+			wsShuffle.template set<0>(opShuffle(whitespaceTableLocal, in01.template get<0>()));
 			if constexpr (registerCount > 1) {
-				wsShuffle.template set<1>(simd::opShuffle(whitespaceTableLocal, in01.template get<1>()));
+				wsShuffle.template set<1>(opShuffle(whitespaceTableLocal, in01.template get<1>()));
 				if constexpr (registerCount > 2) {
-					wsShuffle.template set<2>(simd::opShuffle(whitespaceTableLocal, in01.template get<2>()));
-					wsShuffle.template set<3>(simd::opShuffle(whitespaceTableLocal, in01.template get<3>()));
+					wsShuffle.template set<2>(opShuffle(whitespaceTableLocal, in01.template get<2>()));
+					wsShuffle.template set<3>(opShuffle(whitespaceTableLocal, in01.template get<3>()));
 				}
 			}
 			return pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, wsShuffle);
@@ -252,16 +252,16 @@ namespace jsonifier::internal::simd {
 			simd_array_type orLhs;
 			simd_array_type shuffleRhs;
 
-			orLhs.template set<0>(simd::opOr(in01.template get<0>(), spaceMask));
-			shuffleRhs.template set<0>(simd::opShuffle(opTable, in01.template get<0>()));
+			orLhs.template set<0>(opOr(in01.template get<0>(), spaceMask));
+			shuffleRhs.template set<0>(opShuffle(opTable, in01.template get<0>()));
 			if constexpr (registerCount > 1) {
-				orLhs.template set<1>(simd::opOr(in01.template get<1>(), spaceMask));
-				shuffleRhs.template set<1>(simd::opShuffle(opTable, in01.template get<1>()));
+				orLhs.template set<1>(opOr(in01.template get<1>(), spaceMask));
+				shuffleRhs.template set<1>(opShuffle(opTable, in01.template get<1>()));
 				if constexpr (registerCount > 2) {
-					orLhs.template set<2>(simd::opOr(in01.template get<2>(), spaceMask));
-					shuffleRhs.template set<2>(simd::opShuffle(opTable, in01.template get<2>()));
-					orLhs.template set<3>(simd::opOr(in01.template get<3>(), spaceMask));
-					shuffleRhs.template set<3>(simd::opShuffle(opTable, in01.template get<3>()));
+					orLhs.template set<2>(opOr(in01.template get<2>(), spaceMask));
+					shuffleRhs.template set<2>(opShuffle(opTable, in01.template get<2>()));
+					orLhs.template set<3>(opOr(in01.template get<3>(), spaceMask));
+					shuffleRhs.template set<3>(opShuffle(opTable, in01.template get<3>()));
 				}
 			}
 			return pod_cmp_eq_op<registerBytes, registerCount>::impl(orLhs, shuffleRhs);
@@ -279,7 +279,7 @@ namespace jsonifier::internal::simd {
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {
-			return static_cast<uint32_t>(simd::postCmpTzcnt(bits) + base);
+			return static_cast<uint32_t>(postCmpTzcnt(bits) + base);
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
@@ -291,29 +291,29 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArray() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateWhitespaceArray() noexcept {
 		static constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, uint_c_v<'\t'>, uint_c_v<'\n'>, 0x70u, 0x64u, uint_c_v<'\r'>, 0x64u,
 			0x64u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArray() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateOpArray() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, uint_c_v<':'>, uint_c_v<'{'>, uint_c_v<','>, uint_c_v<'}'>,
 			0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> opArray{ generateOpArray<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> opArray{ generateOpArray<size>() };
 
 #endif
 

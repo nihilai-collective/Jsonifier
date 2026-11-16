@@ -8,18 +8,18 @@
 
 #include <jsonifier-incl/parsing/generic_common_pre.hpp>
 
-namespace jsonifier::generic {
+namespace jsonifier::internal {
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
-	consteval jsonifier::internal::array<int8_t, 256> genDepthDeltaTable() noexcept {
-		jsonifier::internal::array<int8_t, 256> returnValues{};
+	consteval internal::array<int8_t, 256> genDepthDeltaTable() noexcept {
+		internal::array<int8_t, 256> returnValues{};
 		for (auto& entry: returnValues) {
 			entry = 0;
 		}
-		returnValues[jsonifier::internal::uint_c_v<'{'>] = 1;
-		returnValues[jsonifier::internal::uint_c_v<'['>] = 1;
-		returnValues[jsonifier::internal::uint_c_v<'}'>] = -1;
-		returnValues[jsonifier::internal::uint_c_v<']'>] = -1;
+		returnValues[uint_c_v<'{'>] = 1;
+		returnValues[uint_c_v<'['>] = 1;
+		returnValues[uint_c_v<'}'>] = -1;
+		returnValues[uint_c_v<']'>] = -1;
 		return returnValues;
 	}
 
@@ -27,40 +27,40 @@ namespace jsonifier::generic {
 
 	inline constexpr const int8_t* __restrict depthDeltaTable{ depthDeltaTableRaw.data() };
 
-	using array_type_table = internal::array<json_type, 256>;
+	using array_type_table = internal::array<json_types, 256>;
 
 	consteval array_type_table genTypeTable() noexcept {
 		array_type_table returnValues{};
 		for (auto& entry: returnValues) {
-			entry = json_type::unset;
+			entry = json_types::unset;
 		}
-		returnValues[jsonifier::internal::uint_c_v<'{'>] = json_type::object;
-		returnValues[jsonifier::internal::uint_c_v<'['>] = json_type::array;
-		returnValues[jsonifier::internal::uint_c_v<'"'>] = json_type::string;
-		returnValues[jsonifier::internal::uint_c_v<'t'>] = json_type::boolean;
-		returnValues[jsonifier::internal::uint_c_v<'f'>] = json_type::boolean;
-		returnValues[jsonifier::internal::uint_c_v<'n'>] = json_type::null;
-		returnValues[jsonifier::internal::uint_c_v<'-'>] = json_type::number;
-		for (uint64_t x = jsonifier::internal::uint_c_v<'0'>; x <= jsonifier::internal::uint_c_v<'9'>; ++x) {
-			returnValues[x] = json_type::number;
+		returnValues[uint_c_v<'{'>] = json_types::object;
+		returnValues[uint_c_v<'['>] = json_types::array;
+		returnValues[uint_c_v<'"'>] = json_types::string;
+		returnValues[uint_c_v<'t'>] = json_types::boolean;
+		returnValues[uint_c_v<'f'>] = json_types::boolean;
+		returnValues[uint_c_v<'n'>] = json_types::null;
+		returnValues[uint_c_v<'-'>] = json_types::number;
+		for (uint64_t x = uint_c_v<'0'>; x <= uint_c_v<'9'>; ++x) {
+			returnValues[x] = json_types::number;
 		}
 		return returnValues;
 	}
 
 	alignas(64) inline constexpr auto typeTableRaw{ genTypeTable() };
 
-	inline constexpr const json_type* __restrict typeTable{ typeTableRaw.data() };
+	inline constexpr const json_types* __restrict typeTable{ typeTableRaw.data() };
 
-	consteval jsonifier::internal::array<bool, 256> genSeperatorByteTable() noexcept {
-		jsonifier::internal::array<bool, 256> returnValues{};
+	consteval internal::array<bool, 256> genSeperatorByteTable() noexcept {
+		internal::array<bool, 256> returnValues{};
 		for (auto& entry: returnValues) {
 			entry = false;
 		}
-		returnValues[jsonifier::internal::uint_c_v<' '>]  = true;
-		returnValues[jsonifier::internal::uint_c_v<'\n'>] = true;
-		returnValues[jsonifier::internal::uint_c_v<'\r'>] = true;
-		returnValues[jsonifier::internal::uint_c_v<'\t'>] = true;
-		returnValues[jsonifier::internal::uint_c_v<','>]  = true;
+		returnValues[uint_c_v<' '>]	 = true;
+		returnValues[uint_c_v<'\n'>] = true;
+		returnValues[uint_c_v<'\r'>] = true;
+		returnValues[uint_c_v<'\t'>] = true;
+		returnValues[uint_c_v<','>]	 = true;
 		return returnValues;
 	}
 
@@ -73,8 +73,8 @@ namespace jsonifier::generic {
 		for (uint64_t x = 0; x < 0x20; ++x) {
 			returnValues[x] = true;
 		}
-		returnValues[jsonifier::internal::uint_c_v<'"'>]  = true;
-		returnValues[jsonifier::internal::uint_c_v<'\\'>] = true;
+		returnValues[uint_c_v<'"'>]	 = true;
+		returnValues[uint_c_v<'\\'>] = true;
 		return returnValues;
 	}
 
@@ -90,8 +90,8 @@ namespace jsonifier::generic {
 		for (uint64_t x = 0x80; x < 0x100; ++x) {
 			returnValues[x] = true;
 		}
-		returnValues[jsonifier::internal::uint_c_v<'"'>]  = true;
-		returnValues[jsonifier::internal::uint_c_v<'\\'>] = true;
+		returnValues[uint_c_v<'"'>]	 = true;
+		returnValues[uint_c_v<'\\'>] = true;
 		return returnValues;
 	}
 

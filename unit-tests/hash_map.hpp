@@ -101,8 +101,8 @@ namespace hash_map_tests {
 
 	template<typename value_type> inline uint64_t lookupKey(const std::string& key) {
 		std::string buffer = key + "\":0}";
-		return jsonifier::internal::hash_map<value_type, jsonifier::read_buffer_ptr>::findIndex(std::bit_cast<jsonifier::read_buffer_ptr>(buffer.data()),
-			std::bit_cast<jsonifier::read_buffer_ptr>(buffer.data()) + buffer.size());
+		return jsonifier::internal::hash_map<value_type, jsonifier::internal::read_buffer_ptr>::findIndex(std::bit_cast<jsonifier::internal::read_buffer_ptr>(buffer.data()),
+			std::bit_cast<jsonifier::internal::read_buffer_ptr>(buffer.data()) + buffer.size());
 	}
 
 	inline void runTests() {

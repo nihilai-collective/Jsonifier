@@ -14,7 +14,7 @@ if (!parser.parseJson(data, json)) {
 }
 ```
 
-`parser.getErrors()` returns `std::vector<jsonifier::internal::error>&`, a reference to the internal list. The list is cleared at the start of each parse, minify, prettify, and validate call, so inspect it before invoking the parser again.
+`parser.getErrors()` returns `std::vector<error>&`, a reference to the internal list. The list is cleared at the start of each parse, minify, prettify, and validate call, so inspect it before invoking the parser again.
 
 ## What an `error` Contains
 
@@ -43,10 +43,10 @@ If you want to route errors into your own logging or telemetry system rather tha
 ```cpp
 for (auto& err : parser.getErrors()) {
     uint64_t raw_code = err;
-    jsonifier::internal::parse_statuses parse_code = err;
+    parse_statuses parse_code = err;
     bool is_error = err;
 
-    if (parse_code == jsonifier::internal::parse_statuses::missing_comma) {
+    if (parse_code == parse_statuses::missing_comma) {
         // handle this specific case
     }
 }
@@ -160,12 +160,12 @@ if (!parser.parseJson(data, json)) {
     auto& errors = parser.getErrors();
     if (!errors.empty()) {
         const auto& first = errors.front();
-        jsonifier::internal::parse_statuses status = first;
+        parse_statuses status = first;
 
         switch (status) {
-            case jsonifier::internal::parse_statuses::no_input:
+            case parse_statuses::no_input:
                 return handle_empty_input();
-            case jsonifier::internal::parse_statuses::exceeded_max_depth:
+            case parse_statuses::exceeded_max_depth:
                 return handle_adversarial_input();
             default:
                 log_parse_error(first.reportError());

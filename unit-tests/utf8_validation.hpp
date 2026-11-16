@@ -117,10 +117,10 @@ namespace utf8_validation_tests {
 		if (destScratch.size() < neededDestSize) {
 			destScratch.assign(neededDestSize, 0);
 		}
-		jsonifier::read_buffer_ptr string1Start = std::bit_cast<jsonifier::read_buffer_ptr>(sourceScratch.data());
-		jsonifier::write_buffer_ptr string2		= std::bit_cast<jsonifier::write_buffer_ptr>(destScratch.data());
-		using scanner_type						= jsonifier::internal::string_scanner<utf8ValidatedOpts>;
-		const auto res							= scanner_type::impl(string1Start, string1Start + sourceScratch.size(), string2);
+		jsonifier::internal::read_buffer_ptr string1Start = std::bit_cast<jsonifier::internal::read_buffer_ptr>(sourceScratch.data());
+		jsonifier::internal::write_buffer_ptr string2	  = std::bit_cast<jsonifier::internal::write_buffer_ptr>(destScratch.data());
+		using scanner_type								  = jsonifier::internal::string_scanner<utf8ValidatedOpts>;
+		const auto res									  = scanner_type::impl(string1Start, string1Start + sourceScratch.size(), string2);
 		return res.outLength != std::numeric_limits<uint64_t>::max();
 	}
 
@@ -243,7 +243,7 @@ namespace utf8_validation_tests {
 
 		for (uint64_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
 			std::copy(validSeq.begin(), validSeq.end(), paddedBuffer.begin() + static_cast<std::ptrdiff_t>(alignOffset));
-			jsonifier::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
+			jsonifier::internal::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
 			++sweepCases;
 			if (!jsonifier::validateUtf8(slicePtr, validSeq.size())) {
 				++sweepFails;
@@ -293,7 +293,7 @@ namespace utf8_validation_tests {
 
 			for (uint64_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
 				std::copy(namedSeq.bytes.begin(), namedSeq.bytes.end(), paddedBuffer.begin() + static_cast<std::ptrdiff_t>(alignOffset));
-				jsonifier::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
+				jsonifier::internal::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
 				++sweepCases;
 				if (jsonifier::validateUtf8(slicePtr, namedSeq.bytes.size())) {
 					++falseAcceptFails;

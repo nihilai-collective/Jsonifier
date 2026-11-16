@@ -252,7 +252,7 @@ namespace jsonifier::internal {
 	template<raw_json_types value_type> struct print_impl<value_type> {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
-				case static_cast<uint64_t>(json_type::object): {
+				case static_cast<uint64_t>(json_types::object): {
 					const auto& object = value.getObject();
 					os << "object (size: " << object.size() << ")" << endl;
 					for (const auto& [key, entry]: object) {
@@ -262,7 +262,7 @@ namespace jsonifier::internal {
 					}
 					return;
 				}
-				case static_cast<uint64_t>(json_type::array): {
+				case static_cast<uint64_t>(json_types::array): {
 					const auto& array = value.getArray();
 					os << "array (size: " << array.size() << ")" << endl;
 					for (uint64_t x = 0; x < array.size(); ++x) {
@@ -272,21 +272,21 @@ namespace jsonifier::internal {
 					}
 					return;
 				}
-				case static_cast<uint64_t>(json_type::string): {
+				case static_cast<uint64_t>(json_types::string): {
 					const auto& string = value.getString();
 					os << "\"" << string << "\" (length: " << string.size() << ")" << endl;
 					return;
 				}
-				case static_cast<uint64_t>(json_type::number): {
+				case static_cast<uint64_t>(json_types::number): {
 					printNumber(value.getNumber(), os);
 					os << endl;
 					return;
 				}
-				case static_cast<uint64_t>(json_type::boolean): {
+				case static_cast<uint64_t>(json_types::boolean): {
 					os << (value.getBool() ? "true" : "false") << endl;
 					return;
 				}
-				case static_cast<uint64_t>(json_type::null): {
+				case static_cast<uint64_t>(json_types::null): {
 					os << "null" << endl;
 					return;
 				}
@@ -297,17 +297,17 @@ namespace jsonifier::internal {
 			}
 		}
 
-		inline static void printNumber(const jsonifier::json_number& number, basic_stream<>& os) noexcept {
+		inline static void printNumber(const json_number& number, basic_stream<>& os) noexcept {
 			switch (static_cast<uint64_t>(number.getType())) {
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::uint64): {
+				case static_cast<uint64_t>(json_number::number_types::uint64): {
 					os << number.getUint() << " (uint64)";
 					return;
 				}
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::int64): {
+				case static_cast<uint64_t>(json_number::number_types::int64): {
 					os << number.getInt() << " (int64)";
 					return;
 				}
-				case static_cast<uint64_t>(jsonifier::json_number::number_types::double64): {
+				case static_cast<uint64_t>(json_number::number_types::double64): {
 					os << number.getDouble() << " (double64)";
 					return;
 				}

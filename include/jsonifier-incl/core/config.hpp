@@ -9,7 +9,7 @@
 #include <jsonifier-incl/core/defines.hpp>
 #include <jsonifier-incl/simd/jsonifier_cpu_properties.hpp>
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
 	template<typename... arg_types> struct banned_reinterpret_cast {
 		static_assert(sizeof...(arg_types) == 0,
@@ -28,6 +28,10 @@ namespace jsonifier {
 			"Sorry, but dynamic_cast is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 			"the std library include you just added.");
 	};
+
+}
+
+namespace jsonifier {
 
 	struct serialize_options {
 		uint64_t indentSize{ 3 };

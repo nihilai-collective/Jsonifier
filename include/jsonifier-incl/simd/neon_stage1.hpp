@@ -13,8 +13,8 @@ namespace jsonifier::internal::simd {
 
 #if JSONIFIER_NEON
 
-	inline constexpr internal::array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
-		internal::array<uint64_t, simdRegistersPerBlock> returnValue{};
+	inline constexpr array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
+		array<uint64_t, simdRegistersPerBlock> returnValue{};
 		for (uint64_t x = 0; x < simdRegistersPerBlock; ++x) {
 			returnValue[x] = simdBytesPerRegister * x;
 		}
@@ -279,7 +279,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE void finishNextInString() noexcept {
-			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
+			const uint64_t inString = prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
 			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString	= inString;
 		}
@@ -295,7 +295,7 @@ namespace jsonifier::internal::simd {
 
 	struct tape_writer_op {
 		JSONIFIER_INLINE static uint32_t extractIndex(const uint64_t base, const uint64_t bits) noexcept {
-			return static_cast<uint32_t>(simd::countrZero(bits) + base);
+			return static_cast<uint32_t>(countrZero(bits) + base);
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
@@ -307,28 +307,28 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateWhitespaceArrayNeon() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateWhitespaceArrayNeon() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
 
-	template<uint64_t size> consteval internal::array<uint8_t, size> generateOpArrayNeon() noexcept {
+	template<uint64_t size> consteval array<uint8_t, size> generateOpArrayNeon() noexcept {
 		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u,
 			0x00u, 0x00u, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
+		array<uint8_t, size> returnValues{};
 		for (uint64_t x = 0; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
 	};
 
-	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr internal::array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
+	template<uint64_t size> alignas(simdBytesPerRegister) inline constexpr array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
 
 #endif
 

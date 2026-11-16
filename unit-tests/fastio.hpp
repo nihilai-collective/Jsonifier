@@ -15,11 +15,11 @@
 namespace fastio_tests {
 
 	struct stream_capture {
-		explicit stream_capture(jsonifier::internal::stream_target target) : target_{ target } {
+		explicit stream_capture(jsonifier::internal::stream_targets target) : target_{ target } {
 			jsonifier::internal::cout.flushNow();
 			jsonifier::internal::err.flushNow();
 			tempPath			= (std::filesystem::temp_directory_path() / "jsonifier_fastio_capture.tmp").string();
-			const bool isStdout = target_ == jsonifier::internal::stream_target::stdout_target;
+			const bool isStdout = target_ == jsonifier::internal::stream_targets::stdout_target;
 #if JSONIFIER_PLATFORM_WINDOWS
 			savedHandle = GetStdHandle(isStdout ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
 			fileHandle	= CreateFileA(tempPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -34,13 +34,13 @@ namespace fastio_tests {
 		}
 
 		std::string finish() {
-			if (target_ == jsonifier::internal::stream_target::stdout_target) {
+			if (target_ == jsonifier::internal::stream_targets::stdout_target) {
 				jsonifier::internal::cout.flushNow();
 			} else {
 				jsonifier::internal::err.flushNow();
 			}
 #if JSONIFIER_PLATFORM_WINDOWS
-			SetStdHandle(target_ == jsonifier::internal::stream_target::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE, savedHandle);
+			SetStdHandle(target_ == jsonifier::internal::stream_targets::stdout_target ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE, savedHandle);
 			CloseHandle(fileHandle);
 #else
 			dup2(savedFd, fdNumber);
@@ -52,7 +52,7 @@ namespace fastio_tests {
 			return content;
 		}
 
-		jsonifier::internal::stream_target target_;
+		jsonifier::internal::stream_targets target_;
 		std::string tempPath{};
 #if JSONIFIER_PLATFORM_WINDOWS
 		HANDLE savedHandle{};
@@ -134,9 +134,9 @@ namespace fastio_tests {
 	}
 
 	inline void basicStreamBufferedOutputTest() {
-		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
+		stream_capture capture{ jsonifier::internal::stream_targets::stdout_target };
 		{
-			jsonifier::internal::basic_stream<8> stream{ jsonifier::internal::stream_target::stdout_target };
+			jsonifier::internal::basic_stream<8> stream{ jsonifier::internal::stream_targets::stdout_target };
 			stream << "hello" << ' ' << 42 << ' ' << -7 << ' ' << true << ' ' << false << jsonifier::internal::endl;
 			stream << std::string_view{ "this string is definitely longer than the eight byte buffer" } << jsonifier::internal::flush;
 			stream.flushNow();
@@ -149,9 +149,9 @@ namespace fastio_tests {
 	}
 
 	inline void basicStreamLargeSingleWriteBypassesBufferTest() {
-		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
+		stream_capture capture{ jsonifier::internal::stream_targets::stdout_target };
 		{
-			jsonifier::internal::basic_stream<4> stream{ jsonifier::internal::stream_target::stdout_target };
+			jsonifier::internal::basic_stream<4> stream{ jsonifier::internal::stream_targets::stdout_target };
 			stream << "ab";
 			stream << std::string_view{ "0123456789" };
 			stream.flushNow();
@@ -163,7 +163,7 @@ namespace fastio_tests {
 	}
 
 	inline void outSingletonWritesToStdoutTest() {
-		stream_capture capture{ jsonifier::internal::stream_target::stdout_target };
+		stream_capture capture{ jsonifier::internal::stream_targets::stdout_target };
 		jsonifier::internal::cout << "out-singleton-check " << 123;
 		std::string captured = capture.finish();
 		rt_ut::unit_test<"fastio_out_singleton_writes_to_stdout", true>::assert_eq(std::string{ "out-singleton-check 123" }, [&]() {
@@ -172,7 +172,7 @@ namespace fastio_tests {
 	}
 
 	inline void errSingletonWritesToStderrTest() {
-		stream_capture capture{ jsonifier::internal::stream_target::stderr_target };
+		stream_capture capture{ jsonifier::internal::stream_targets::stderr_target };
 		jsonifier::internal::err << "err-singleton-check " << 456;
 		std::string captured = capture.finish();
 		rt_ut::unit_test<"fastio_err_singleton_writes_to_stderr", true>::assert_eq(std::string{ "err-singleton-check 456" }, [&]() {
