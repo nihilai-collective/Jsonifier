@@ -18,16 +18,16 @@ namespace jsonifier::internal {
 		}
 #if JSONIFIER_PLATFORM_WINDOWS
 		static constexpr DWORD handle_ids[2]{ STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
-		static constexpr uint64_t max_chunk = 1ull << 30;
-		HANDLE handle						= GetStdHandle(handle_ids[static_cast<uint64_t>(stream_target)]);
+		static constexpr uint64_t max_chunk{ 1ull << 30 };
+		HANDLE handle{ GetStdHandle(handle_ids[static_cast<uint64_t>(stream_target)]) };
 		if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
 			return 0;
 		}
-		uint64_t total = 0;
+		uint64_t total{ 0 };
 		while (total < len) {
-			uint64_t remaining = len - total;
-			DWORD chunk		   = static_cast<DWORD>(remaining < max_chunk ? remaining : max_chunk);
-			DWORD written	   = 0;
+			uint64_t remaining{ len - total };
+			DWORD chunk{ static_cast<DWORD>(remaining < max_chunk ? remaining : max_chunk) };
+			DWORD written{ 0 };
 			if (!WriteFile(handle, data + total, chunk, &written, nullptr) || written == 0) {
 				break;
 			}
@@ -36,10 +36,10 @@ namespace jsonifier::internal {
 		return total;
 #else
 		static constexpr int32_t stream_types[2]{ 1, 2 };
-		int32_t fd	   = stream_types[static_cast<uint64_t>(stream_target)];
-		uint64_t total = 0;
+		int32_t fd{ stream_types[static_cast<uint64_t>(stream_target)] };
+		uint64_t total{ 0 };
 		while (total < len) {
-			ssize_t result = write(fd, data + total, len - total);
+			ssize_t result{ write(fd, data + total, len - total) };
 			if (result < 0) {
 				if (errno == EINTR) {
 					continue;
@@ -75,19 +75,19 @@ namespace jsonifier::internal {
 	}
 
 	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) noexcept {
-		auto result = std::to_chars(dest, dest + 64, value);
+		auto result{ std::to_chars(dest, dest + 64, value) };
 		return static_cast<uint64_t>(result.ptr - dest);
 	}
 
 	inline char* writeUnsigned(char* bufferEnd, uint64_t value) noexcept {
-		char* pos										  = bufferEnd;
+		char* pos{ bufferEnd };
 		alignas(64) static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
 															"2021222324252627282930313233343536373839"
 															"4041424344454647484950515253545556575859"
 															"6061626364656667686970717273747576777879"
 															"8081828384858687888990919293949596979899";
 		while (value >= 100) {
-			auto pair = value % 100;
+			auto pair{ value % 100 };
 			value /= 100;
 			pos -= 2;
 			pos[0] = digitPairs[pair * 2];
@@ -106,21 +106,21 @@ namespace jsonifier::internal {
 	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) noexcept {
 		if constexpr (std::is_signed_v<value_type>) {
 			uint64_t magnitude;
-			char* outLocal = dest;
+			char* outLocal{ dest };
 			if (value < 0) {
 				*outLocal++ = '-';
 				magnitude	= ~static_cast<uint64_t>(value) + 1;
 			} else {
 				magnitude = static_cast<uint64_t>(value);
 			}
-			auto count = fastDigitCount(magnitude);
-			char* end  = outLocal + count;
+			auto count{ fastDigitCount(magnitude) };
+			char* end{ outLocal + count };
 			writeUnsigned(end, magnitude);
 			return static_cast<uint64_t>(end - dest);
 		} else {
-			uint64_t magnitude = static_cast<uint64_t>(value);
-			auto count		   = fastDigitCount(magnitude);
-			char* end		   = dest + count;
+			uint64_t magnitude{ static_cast<uint64_t>(value) };
+			auto count{ fastDigitCount(magnitude) };
+			char* end{ dest + count };
 			writeUnsigned(end, magnitude);
 			return count;
 		}

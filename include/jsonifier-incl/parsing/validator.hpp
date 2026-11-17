@@ -36,12 +36,12 @@ namespace jsonifier::internal {
 		using cursor = json_cursor<optionsVal, unrestrict_t<write_structural_index_ptr>>;
 
 		template<string_types string_type> inline bool validateJson(string_type&& in) noexcept {
-			auto rootIter = getBeginIter(in);
-			auto endIter  = getEndIter(in);
+			auto rootIter{ getBeginIter(in) };
+			auto endIter{ getEndIter(in) };
 			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 			parse_context<optionsVal, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
 				&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
-			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
+			auto newSize{ static_cast<uint64_t>(endIter - rootIter) / 2 };
 			if (derivedRef.stringBuffer.size() < newSize) {
 				derivedRef.stringBuffer.resize(newSize);
 			}
@@ -53,7 +53,7 @@ namespace jsonifier::internal {
 			if (!validateUtf8(rootIter, static_cast<uint64_t>(endIter - rootIter))) [[unlikely]] {
 				return false;
 			}
-			const write_structural_index_ptr iterNew = impl(iter, 0, context);
+			const write_structural_index_ptr iterNew{ impl(iter, 0, context) };
 			if (!iterNew) {
 				return false;
 			}
@@ -73,7 +73,7 @@ namespace jsonifier::internal {
 			if (!cursor::notAtEnd(iter, context)) {
 				return nullptr;
 			}
-			const auto c = *cursor::valuePtr(iter, context);
+			const auto c{ *cursor::valuePtr(iter, context) };
 			if (c == uint_c_v<'{'>) {
 				return validateObject(iter, depth, context);
 			} else if (c == uint_c_v<'['>) {
@@ -158,20 +158,20 @@ namespace jsonifier::internal {
 			if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 				return nullptr;
 			}
-			const auto contentPtr = cursor::valuePtr(iter, context) + 1;
+			const auto contentPtr{ cursor::valuePtr(iter, context) + 1 };
 			++iter;
-			const auto bound = scalarBound(iter, context);
-			auto ptr		 = contentPtr;
-			bool found		 = false;
+			const auto bound{ scalarBound(iter, context) };
+			auto ptr{ contentPtr };
+			bool found{ false };
 			if constexpr (std::endian::native == std::endian::little) {
 				while (bound - ptr >= 8) {
 					uint64_t chunk;
 					pow2MemcpyWrapper<sizeof(chunk)>(&chunk, ptr);
-					const uint64_t quotes	   = chunk ^ 0x2222222222222222ull;
-					const uint64_t backslashes = chunk ^ 0x5C5C5C5C5C5C5C5Cull;
-					const uint64_t flagged =
-						(((quotes - 0x0101010101010101ull) & ~quotes) | ((backslashes - 0x0101010101010101ull) & ~backslashes) | ((chunk - 0x2020202020202020ull) & ~chunk)) &
-						0x8080808080808080ull;
+					const uint64_t quotes{ chunk ^ 0x2222222222222222ull };
+					const uint64_t backslashes{ chunk ^ 0x5C5C5C5C5C5C5C5Cull };
+					const uint64_t flagged{ (((quotes - 0x0101010101010101ull) & ~quotes) | ((backslashes - 0x0101010101010101ull) & ~backslashes) |
+												((chunk - 0x2020202020202020ull) & ~chunk)) &
+						0x8080808080808080ull };
 					if (flagged != 0) {
 						ptr += static_cast<uint64_t>(simd::countrZeroUnsafe(flagged)) >> 3;
 						found = true;
@@ -194,13 +194,14 @@ namespace jsonifier::internal {
 			if (*ptr < 0x20) [[unlikely]] {
 				return nullptr;
 			}
+
 			using scanner_type = string_scanner<optionsVal>;
-			auto& scratch	   = context.getStringBuffer();
-			const auto needed  = static_cast<uint64_t>(bound - contentPtr) + simdBytesPerStep;
+			auto& scratch{ context.getStringBuffer() };
+			const auto needed{ static_cast<uint64_t>(bound - contentPtr) + simdBytesPerStep };
 			if (scratch.size() < needed) [[unlikely]] {
 				scratch.resize(needed);
 			}
-			const auto result = scanner_type::impl(contentPtr, bound, scratch.data());
+			const auto result{ scanner_type::impl(contentPtr, bound, scratch.data()) };
 			if (result.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				return nullptr;
 			}
@@ -209,10 +210,10 @@ namespace jsonifier::internal {
 
 		template<typename context_type>
 		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateNumber(write_structural_index_ptr iter, context_type& context) noexcept {
-			auto newPtr = cursor::valuePtr(iter, context);
+			auto newPtr{ cursor::valuePtr(iter, context) };
 			++iter;
-			const auto bound   = scalarBound(iter, context);
-			const auto readEnd = context.stringEnd;
+			const auto bound{ scalarBound(iter, context) };
+			const auto readEnd{ context.stringEnd };
 			consumeChar(uint_c_v<'-'>, newPtr, bound);
 			if (consumeChar(uint_c_v<'0'>, newPtr, bound)) {
 				if (newPtr < bound && isDigit(static_cast<uint8_t>(*newPtr))) [[unlikely]] {
@@ -237,7 +238,7 @@ namespace jsonifier::internal {
 
 		template<typename context_type>
 		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateBool(write_structural_index_ptr iter, context_type& context) noexcept {
-			const auto newPtr = cursor::valuePtr(iter, context);
+			const auto newPtr{ cursor::valuePtr(iter, context) };
 			if (!internal::validateBool(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
@@ -247,7 +248,7 @@ namespace jsonifier::internal {
 
 		template<typename context_type>
 		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateNull(write_structural_index_ptr iter, context_type& context) noexcept {
-			const auto newPtr = cursor::valuePtr(iter, context);
+			const auto newPtr{ cursor::valuePtr(iter, context) };
 			if (!internal::validateNull(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
@@ -256,14 +257,14 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static bool consumeDigits(read_buffer_ptr& newerPtr, read_buffer_ptr bound, read_buffer_ptr readEnd) noexcept {
-			const auto start = newerPtr;
+			const auto start{ newerPtr };
 			if constexpr (std::endian::native == std::endian::little) {
 				while (readEnd - newerPtr >= 8) {
 					uint64_t chunk;
 					pow2MemcpyWrapper<sizeof(chunk)>(&chunk, newerPtr);
 					chunk ^= 0x3030303030303030ull;
-					uint64_t nonDigits	 = ((chunk + 0x7676767676767676ull) | chunk) & 0x8080808080808080ull;
-					const auto remaining = bound - newerPtr;
+					uint64_t nonDigits{ ((chunk + 0x7676767676767676ull) | chunk) & 0x8080808080808080ull };
+					const auto remaining{ bound - newerPtr };
 					if (remaining < 8) {
 						nonDigits |= 0x80ull << (remaining * 8);
 					}

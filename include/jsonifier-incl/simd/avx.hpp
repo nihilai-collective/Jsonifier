@@ -18,7 +18,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_128_types simd_int_t01, simd_int_128_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
-		const jsonifier_simd_int_128 offset = _mm_set1_epi8(static_cast<char>(0x80));
+		const jsonifier_simd_int_128 offset{ _mm_set1_epi8(static_cast<char>(0x80)) };
 		return _mm_cmpgt_epi8(_mm_add_epi8(other, offset), _mm_add_epi8(value, offset));
 	}
 
@@ -124,7 +124,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_256_types simd_int_t01, simd_int_256_types simd_int_t02> [[maybe_unused]] JSONIFIER_INLINE auto opCmpLtRaw(simd_int_t01 value, simd_int_t02 other) noexcept {
-		const jsonifier_simd_int_256 offset = _mm256_set1_epi8(static_cast<char>(0x80));
+		const jsonifier_simd_int_256 offset{ _mm256_set1_epi8(static_cast<char>(0x80)) };
 		return _mm256_cmpgt_epi8(_mm256_add_epi8(other, offset), _mm256_add_epi8(value, offset));
 	}
 

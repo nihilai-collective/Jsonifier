@@ -24,7 +24,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
 			write_structural_index_ptr tape, size_type strIdx) noexcept {
-			uint64_t offset = 0;
+			uint64_t offset{ 0 };
 			const __m512i compressionMask{ _mm512_set_epi32(0x3f3e3d3c, 0x3b3a3938, 0x37363534, 0x33323130, 0x2f2e2d2c, 0x2b2a2928, 0x27262524, 0x23222120, 0x1f1e1d1c, 0x1b1a1918,
 				0x17161514, 0x13121110, 0x0f0e0d0c, 0x0b0a0908, 0x07060504, 0x03020100) };
 			const __m512i strIdxVec{ _mm512_set1_epi32(static_cast<int32_t>(strIdx)) };
@@ -33,24 +33,24 @@ namespace jsonifier::internal {
 
 		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const __m512i compressionMask, const __m512i strIdxVec,
 			const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr tape) noexcept {
-			uint64_t bits = bitsArr[tag<index>{}];
+			uint64_t bits{ bitsArr[tag<index>{}] };
 			if (!static_cast<bool>(bits)) [[unlikely]] {
 				return;
 			}
-			const uint64_t count = cnts[tag<index>{}];
+			const uint64_t count{ cnts[tag<index>{}] };
 			static constexpr int32_t bitTotal{ static_cast<int32_t>(index * 64ull) };
-			const __m512i indexes		  = _mm512_maskz_compress_epi8(bits, compressionMask);
-			const __m512i startIndexLocal = _mm512_add_epi32(strIdxVec, _mm512_set1_epi32(bitTotal));
-			__m512i t0					  = _mm512_cvtepu8_epi32(_mm512_castsi512_si128(indexes));
+			const __m512i indexes{ _mm512_maskz_compress_epi8(bits, compressionMask) };
+			const __m512i startIndexLocal{ _mm512_add_epi32(strIdxVec, _mm512_set1_epi32(bitTotal)) };
+			__m512i t0{ _mm512_cvtepu8_epi32(_mm512_castsi512_si128(indexes)) };
 			_mm512_storeu_si512(tape, _mm512_add_epi32(t0, startIndexLocal));
 			if (count > 16) {
-				const __m512i t1 = _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 1));
+				const __m512i t1{ _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 1)) };
 				_mm512_storeu_si512(tape + 16, _mm512_add_epi32(t1, startIndexLocal));
 				if (count > 32) {
-					const __m512i t2 = _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 2));
+					const __m512i t2{ _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 2)) };
 					_mm512_storeu_si512(tape + 32, _mm512_add_epi32(t2, startIndexLocal));
 					if (count > 48) {
-						const __m512i t3 = _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 3));
+						const __m512i t3{ _mm512_cvtepu8_epi32(_mm512_extracti32x4_epi32(indexes, 3)) };
 						_mm512_storeu_si512(tape + 48, _mm512_add_epi32(t3, startIndexLocal));
 					}
 				}
@@ -97,16 +97,16 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static void impl(const array<uint64_t, blocksPerStep>& __restrict bitsArr, const array<uint64_t, blocksPerStep>& __restrict cnts,
 			write_structural_index_ptr tape, size_type strIdx) noexcept {
-			uint64_t offset = 0;
+			uint64_t offset{ 0 };
 			(((drainLane<indices>(bitsArr, cnts, tape + offset, strIdx)), offset += cnts[tag<indices>{}]), ...);
 		}
 
 		template<uint64_t index> JSONIFIER_INLINE static void drainLane(const array<uint64_t, blocksPerStep>& __restrict bitsArr,
 			const array<uint64_t, blocksPerStep>& __restrict cnts, write_structural_index_ptr tape, size_type strIdx) noexcept {
-			uint64_t bits	   = bitsArr[tag<index>{}];
-			const uint64_t cnt = cnts[tag<index>{}];
+			uint64_t bits{ bitsArr[tag<index>{}] };
+			const uint64_t cnt{ cnts[tag<index>{}] };
 			static constexpr size_type bitTotal{ tag<index>{} * 64ull };
-			const size_type base = bitTotal + strIdx;
+			const size_type base{ bitTotal + strIdx };
 			functor_runner<write_indices_stepped_functor, make_stepped_range_sequence<0, 64, simdTapeStep>, simdTapeStep>::implAnd(base, bits, tape, cnt);
 		}
 	};

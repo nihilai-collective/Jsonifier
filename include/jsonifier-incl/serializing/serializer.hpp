@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 		serialize_writer_ro(const serialize_writer_ro&) noexcept			= delete;
 
 		JSONIFIER_INLINE uint64_t operator()(char* ptrNew, uint64_t) noexcept {
-			const write_buffer_ptr start = std::bit_cast<write_buffer_ptr>(ptrNew);
+			const write_buffer_ptr start{ std::bit_cast<write_buffer_ptr>(ptrNew) };
 			return static_cast<uint64_t>(serialize<options>::impl(object, start, 0) - start);
 		}
 
@@ -76,9 +76,9 @@ namespace jsonifier::internal {
 #if JSONIFIER_COMPILER_MSVC
 			if (buffer.capacity() < newSize) {
 				alignas(64) uint8_t scratch[newSize];
-				const uint64_t length = static_cast<uint64_t>(serialize<options>::impl(object, scratch, 0) - scratch);
+				const uint64_t length{ static_cast<uint64_t>(serialize<options>::impl(object, scratch, 0) - scratch) };
 				if constexpr (resize_and_overwriteable_types<remove_cvref_t<buffer_type>>) {
-					const uint64_t requestSize = length > buffer.capacity() ? newSize : length;
+					const uint64_t requestSize{ length > buffer.capacity() ? newSize : length };
 					buffer.resize_and_overwrite(requestSize, serialize_copier_ro<newSize>{ scratch, length });
 				} else {
 					buffer.resize(length);
@@ -93,7 +93,7 @@ namespace jsonifier::internal {
 				if (buffer.size() < newSize) {
 					buffer.resize(newSize);
 				}
-				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
+				const auto bufferPtr{ serialize<options>::impl(object, buffer.data(), 0) };
 				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
 			}
 			return true;
@@ -102,14 +102,14 @@ namespace jsonifier::internal {
 		template<serialize_options optionsNew = serialize_options{}, string_types value_type, buffer_like_types buffer_type>
 		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
-			const auto newSize = object.size() * 6ull + 2ull + simdBytesPerRegister;
+			const auto newSize{ object.size() * 6ull + 2ull + simdBytesPerRegister };
 			if constexpr (resize_and_overwriteable_types<remove_cvref_t<buffer_type>>) {
 				buffer.resize_and_overwrite(newSize, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });
 			} else {
 				if (buffer.size() < newSize) {
 					buffer.resize(newSize);
 				}
-				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
+				const auto bufferPtr{ serialize<options>::impl(object, buffer.data(), 0) };
 				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
 			}
 			return true;
@@ -124,7 +124,7 @@ namespace jsonifier::internal {
 				if (buffer.size() < 8ull) {
 					buffer.resize(8ull);
 				}
-				const uint64_t targetSize = object ? 4ull : 5ull;
+				const uint64_t targetSize{ object ? 4ull : 5ull };
 				serialize<options>::impl(object, buffer.data(), 0);
 				buffer.resize(targetSize);
 			}
@@ -135,14 +135,14 @@ namespace jsonifier::internal {
 		inline bool serializeJson(value_type&& object, buffer_type&& buffer) {
 			static constexpr serialize_options options{ optionsNew };
 			uint64_t sizeIndent{};
-			const uint64_t newSize = get_size<options>::impl(object, sizeIndent) + 64ull;
+			const uint64_t newSize{ get_size<options>::impl(object, sizeIndent) + 64ull };
 			if constexpr (resize_and_overwriteable_types<remove_cvref_t<buffer_type>>) {
 				buffer.resize_and_overwrite(newSize, serialize_writer_ro<options, remove_reference_t<value_type>>{ object });
 			} else {
 				if (buffer.size() < newSize) {
 					buffer.resize(newSize);
 				}
-				const auto bufferPtr = serialize<options>::impl(object, buffer.data(), 0);
+				const auto bufferPtr{ serialize<options>::impl(object, buffer.data(), 0) };
 				buffer.resize(static_cast<uint64_t>(bufferPtr - buffer.data()));
 			}
 			return true;

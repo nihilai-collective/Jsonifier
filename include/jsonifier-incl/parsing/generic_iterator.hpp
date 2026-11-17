@@ -17,22 +17,22 @@ namespace jsonifier::internal {
 
 		template<parse_options options = parse_options{}, typename buffer_type> generic::generic_document<options.minified> iterate(const buffer_type& in) {
 			using generic::error_codes;
-			using document			 = generic::generic_document<options.minified>;
-			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
-			const uint64_t length	 = in.size();
+			using document = generic::generic_document<options.minified>;
+			read_buffer_ptr rootIter{ std::bit_cast<read_buffer_ptr>(in.data()) };
+			const uint64_t length{ in.size() };
 			if (!rootIter || length == 0) [[unlikely]] {
 				return document{ error_codes::empty };
 			}
-			const uint64_t tapeCount = indexGenericWindow<options>(rootIter, length);
+			const uint64_t tapeCount{ indexGenericWindow<options>(rootIter, length) };
 			if (tapeCount == 0) [[unlikely]] {
 				return document{ error_codes::empty };
 			}
-			generic_storage& data = derivedRef.genericStorage();
-			document_state& state = data.stateFor();
-			state.root			  = rootIter;
-			state.end			  = rootIter + length;
-			state.cursor		  = state.tape;
-			state.depth			  = 0;
+			generic_storage& data{ derivedRef.genericStorage() };
+			document_state& state{ data.stateFor() };
+			state.root	 = rootIter;
+			state.end	 = rootIter + length;
+			state.cursor = state.tape;
+			state.depth	 = 0;
 			if (tapeCount > 1 && !document_state::isOpener(rootIter[state.tape[0]])) [[unlikely]] {
 				return document{ error_codes::trailing_content };
 			}
@@ -44,7 +44,7 @@ namespace jsonifier::internal {
 		}
 
 		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
-			document_state& state = derivedRef.genericStorage().stateFor();
+			document_state& state{ derivedRef.genericStorage().stateFor() };
 			if (length < smallDocumentBytes) {
 				derivedRef.podSection.template reset<options.minified>(rootIter, length);
 				state.tape	  = derivedRef.podSection.begin();

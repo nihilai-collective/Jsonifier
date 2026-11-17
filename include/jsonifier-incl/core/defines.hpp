@@ -23,78 +23,6 @@
 #include <limits>
 #include <bit>
 
-#if !defined(JSONIFIER_LZCNT)
-	#if defined(__LZCNT__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX2__))
-		#define JSONIFIER_LZCNT 1
-	#else
-		#define JSONIFIER_LZCNT 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_POPCNT)
-	#if defined(__POPCNT__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX__))
-		#define JSONIFIER_POPCNT 1
-	#else
-		#define JSONIFIER_POPCNT 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_BMI)
-	#if defined(__BMI__) || (defined(_MSC_VER) && !defined(__clang__) && defined(__AVX2__))
-		#define JSONIFIER_BMI 1
-	#else
-		#define JSONIFIER_BMI 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_CLMUL)
-	#if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (defined(_MSC_VER) && !defined(__clang__) && (defined(__AVX2__) || defined(_M_ARM64)))
-		#define JSONIFIER_CLMUL 1
-	#else
-		#define JSONIFIER_CLMUL 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_AVX)
-	#if defined(__AVX__)
-		#define JSONIFIER_AVX 1
-	#else
-		#define JSONIFIER_AVX 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_AVX2)
-	#if defined(__AVX2__)
-		#define JSONIFIER_AVX2 1
-	#else
-		#define JSONIFIER_AVX2 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_AVX512)
-	#if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)
-		#define JSONIFIER_AVX512 1
-	#else
-		#define JSONIFIER_AVX512 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_SVE2)
-	#if defined(__ARM_FEATURE_SVE2)
-		#define JSONIFIER_SVE2 1
-	#else
-		#define JSONIFIER_SVE2 0
-	#endif
-#endif
-
-#if !defined(JSONIFIER_NEON)
-	#if (defined(__ARM_NEON) || defined(_M_ARM64)) && !JSONIFIER_SVE2
-		#define JSONIFIER_NEON 1
-	#else
-		#define JSONIFIER_NEON 0
-	#endif
-#endif
-
 #if !defined(JSONIFIER_ARCH_X64)
 	#if defined(__x86_64__) || defined(_M_X64)
 		#define JSONIFIER_ARCH_X64 1
@@ -152,7 +80,7 @@
 #endif
 
 #if !defined(JSONIFIER_COMPILER_GCC)
-	#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_LLVM_COMPILER) && !defined(__NVCOMPILER)
+	#if defined(__GNUC__) && !JSONIFIER_COMPILER_CLANG && !defined(__INTEL_LLVM_COMPILER) && !defined(__NVCOMPILER)
 		#define JSONIFIER_COMPILER_GCC 1
 	#else
 		#define JSONIFIER_COMPILER_GCC 0
@@ -160,10 +88,82 @@
 #endif
 
 #if !defined(JSONIFIER_COMPILER_MSVC)
-	#if defined(_MSC_VER) && !defined(__clang__)
+	#if defined(_MSC_VER) && !JSONIFIER_COMPILER_CLANG
 		#define JSONIFIER_COMPILER_MSVC 1
 	#else
 		#define JSONIFIER_COMPILER_MSVC 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_LZCNT)
+	#if defined(__LZCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__))
+		#define JSONIFIER_LZCNT 1
+	#else
+		#define JSONIFIER_LZCNT 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_POPCNT)
+	#if defined(__POPCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX__))
+		#define JSONIFIER_POPCNT 1
+	#else
+		#define JSONIFIER_POPCNT 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_BMI)
+	#if defined(__BMI__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__))
+		#define JSONIFIER_BMI 1
+	#else
+		#define JSONIFIER_BMI 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_CLMUL)
+	#if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (JSONIFIER_COMPILER_MSVC && (defined(__AVX2__) || JSONIFIER_ARCH_ARM64))
+		#define JSONIFIER_CLMUL 1
+	#else
+		#define JSONIFIER_CLMUL 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX)
+	#if defined(__AVX__)
+		#define JSONIFIER_AVX 1
+	#else
+		#define JSONIFIER_AVX 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX2)
+	#if defined(__AVX2__)
+		#define JSONIFIER_AVX2 1
+	#else
+		#define JSONIFIER_AVX2 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_AVX512)
+	#if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)
+		#define JSONIFIER_AVX512 1
+	#else
+		#define JSONIFIER_AVX512 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_SVE2)
+	#if defined(__ARM_FEATURE_SVE2)
+		#define JSONIFIER_SVE2 1
+	#else
+		#define JSONIFIER_SVE2 0
+	#endif
+#endif
+
+#if !defined(JSONIFIER_NEON)
+	#if (defined(__ARM_NEON) || JSONIFIER_ARCH_ARM64) && !JSONIFIER_SVE2
+		#define JSONIFIER_NEON 1
+	#else
+		#define JSONIFIER_NEON 0
 	#endif
 #endif
 

@@ -202,7 +202,7 @@ namespace jsonifier::internal::simd {
 		}
 	}
 
-	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t popCount(value_type value) noexcept {
+	template<uint64_types value_type> JSONIFIER_INLINE constexpr uint64_t popcount(value_type value) noexcept {
 		if consteval {
 			return static_cast<uint64_t>(std::popcount(value));
 		} else {

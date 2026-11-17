@@ -10,10 +10,9 @@
 #include <jsonifier-incl/utilities/fast_float.hpp>
 #include <jsonifier-incl/utilities/str_to_d.hpp>
 
-#if JSONIFIER_COMPILER_MSVC
-
-
 namespace jsonifier::internal {
+
+#if JSONIFIER_COMPILER_MSVC
 
 	template<bool negative> inline constexpr uint64_t compValAddition{ [] {
 		if constexpr (negative) {
@@ -65,8 +64,8 @@ namespace jsonifier::internal {
 
 	template<typename value_type, size_t count> consteval array<value_type, count> generatePowerOfTen() noexcept {
 		array<value_type, count> table{};
-		value_type val = 1;
-		for (size_t i = 0; i < count; ++i) {
+		value_type val{ 1 };
+		for (size_t i{ 0 }; i < count; ++i) {
 			table[i] = val;
 			if (i + 1 < count) {
 				val *= 10;
@@ -92,24 +91,24 @@ namespace jsonifier::internal {
 	template<typename value_type> struct integer_parser;
 
 	template<integer_types value_type> JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-		value_type aHigh = ab >> 32;
-		value_type aLow	 = ab & 0xFFFFFFFF;
-		value_type bHigh = cd >> 32;
-		value_type bLow	 = cd & 0xFFFFFFFF;
-		value_type loLo	 = aLow * bLow;
-		value_type loHi	 = aLow * bHigh;
-		value_type hiLo	 = aHigh * bLow;
-		value_type hiHi	 = aHigh * bHigh;
-		value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
-		value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
-		hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
+		value_type aHigh{ ab >> 32 };
+		value_type aLow{ ab & 0xFFFFFFFF };
+		value_type bHigh{ cd >> 32 };
+		value_type bLow{ cd & 0xFFFFFFFF };
+		value_type loLo{ aLow * bLow };
+		value_type loHi{ aLow * bHigh };
+		value_type hiLo{ aHigh * bLow };
+		value_type hiHi{ aHigh * bHigh };
+		value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
+		value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
+		hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
 		return lo;
 	}
 
 	template<int_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-		const __int128_t res = static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue);
-		value				 = static_cast<value_type>(res);
+		const __int128_t res{ static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue) };
+		value = static_cast<value_type>(res);
 		return res <= std::numeric_limits<value_type>::max();
 	#elif JSONIFIER_COMPILER_MSVC
 		value_type values;
@@ -124,8 +123,8 @@ namespace jsonifier::internal {
 
 	template<uint_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-		const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
-		value				  = static_cast<value_type>(res);
+		const __uint128_t res{ static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue) };
+		value = static_cast<value_type>(res);
 		return res <= std::numeric_limits<value_type>::max();
 	#elif JSONIFIER_COMPILER_MSVC
 		value_type values;
@@ -140,8 +139,8 @@ namespace jsonifier::internal {
 
 	template<int_types value_type> JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-		const __int128_t dividend = static_cast<__int128_t>(value);
-		value					  = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
+		const __int128_t dividend{ static_cast<__int128_t>(value) };
+		value = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
 		return (dividend % static_cast<__int128_t>(expValue)) == 0;
 	#elif JSONIFIER_COMPILER_MSVC
 		value_type values;
@@ -157,8 +156,8 @@ namespace jsonifier::internal {
 
 	template<uint_types value_type> JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-		const __uint128_t dividend = static_cast<__uint128_t>(value);
-		value					   = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
+		const __uint128_t dividend{ static_cast<__uint128_t>(value) };
+		value = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
 		return (dividend % static_cast<__uint128_t>(expValue)) == 0;
 	#elif JSONIFIER_COMPILER_MSVC
 		value_type values;
@@ -604,9 +603,9 @@ namespace jsonifier::internal {
 					++iter;
 				}
 				if (expValue < static_cast<value_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
-					const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
-					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+					const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
+					static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+					static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
 					expValue *= static_cast<value_type>(expSign);
 					return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
 										 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
@@ -629,18 +628,18 @@ namespace jsonifier::internal {
 					++iter;
 				}
 				if (expValue < static_cast<exp_type>(powers_of_ten<value_type>::valueRaw.size())) [[likely]] {
-					const value_type powerExp = powers_of_ten<value_type>::value[expValue];
+					const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
 
-					static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-					static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+					static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+					static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
 
 					if (fracDigits + expValue >= 0) {
 						expValue *= expSign;
-						const auto fractionalCorrection = expValue > fracDigits
-							? fracValue * powers_of_ten<value_type>::value[expValue - fracDigits]
-							: (fracDigits - expValue < static_cast<decltype(fracDigits - expValue)>(powers_of_ten<value_type>::valueRaw.size())
-									  ? fracValue / powers_of_ten<value_type>::value[fracDigits - expValue]
-									  : value_type{});
+						const auto fractionalCorrection{ expValue > fracDigits
+								? fracValue * powers_of_ten<value_type>::value[expValue - fracDigits]
+								: (fracDigits - expValue < static_cast<decltype(fracDigits - expValue)>(powers_of_ten<value_type>::valueRaw.size())
+										  ? fracValue / powers_of_ten<value_type>::value[fracDigits - expValue]
+										  : value_type{}) };
 						return (expSign > 0) ? ((value <= (doubleMax / powerExp))
 													   ? (multiply(value, powerExp), (fractionalCorrection <= doubleMax - value) ? (value += fractionalCorrection, iter) : nullptr)
 													   : nullptr)
@@ -671,7 +670,7 @@ namespace jsonifier::internal {
 				}
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
-					int8_t expSign = 1;
+					int8_t expSign{ 1 };
 					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
@@ -694,7 +693,7 @@ namespace jsonifier::internal {
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
-				int8_t expSign = 1;
+				int8_t expSign{ 1 };
 				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
@@ -710,11 +709,8 @@ namespace jsonifier::internal {
 			}
 		}
 	};
-}
 
 #else
-
-namespace jsonifier::internal {
 
 	template<bool negative> inline constexpr uint64_t compValAddition{ [] {
 		if constexpr (negative) {
@@ -746,8 +742,8 @@ namespace jsonifier::internal {
 
 	namespace int_swar {
 
-		template<uint8_types auto repeat, uint_types v_type> inline constexpr v_type repeatBytes =
-			static_cast<v_type>(static_cast<v_type>(0x0101010101010101ull) * static_cast<v_type>(repeat));
+		template<uint8_types auto repeat, uint_types v_type>
+		inline constexpr v_type repeatBytes{ static_cast<v_type>(static_cast<v_type>(0x0101010101010101ull) * static_cast<v_type>(repeat)) };
 
 		template<uint_types v_type> JSONIFIER_INLINE v_type countZeros(v_type value) noexcept {
 			if constexpr (std::endian::native == std::endian::little) {
@@ -792,8 +788,8 @@ namespace jsonifier::internal {
 		template<uint64_types v_type> struct fold<v_type> {
 			JSONIFIER_INLINE static uint64_t impl(v_type raw) noexcept {
 				const v_type sub{ raw - repeatBytes<static_cast<uint8_t>(0x30), v_type> };
-				v_type val = (sub * 10 + (sub >> 8)) & 0x00FF00FF00FF00FFULL;
-				val		   = (val * 100 + (val >> 16)) & 0x0000FFFF0000FFFFULL;
+				v_type val{ (sub * 10 + (sub >> 8)) & 0x00FF00FF00FF00FFULL };
+				val = (val * 100 + (val >> 16)) & 0x0000FFFF0000FFFFULL;
 				return (val * 10000 + (val >> 32)) & 0x00000000FFFFFFFFULL;
 			}
 		};
@@ -801,7 +797,7 @@ namespace jsonifier::internal {
 		template<uint32_types v_type> struct fold<v_type> {
 			JSONIFIER_INLINE static uint64_t impl(v_type raw) noexcept {
 				const v_type sub{ static_cast<v_type>(raw - repeatBytes<static_cast<uint8_t>(0x30), v_type>) };
-				v_type val = (sub * 10 + (sub >> 8)) & 0x00FF00FFUL;
+				v_type val{ static_cast<v_type>((sub * 10 + (sub >> 8)) & 0x00FF00FFUL) };
 				return static_cast<uint64_t>((val * 100 + (val >> 16)) & 0x0000FFFFUL);
 			}
 		};
@@ -823,7 +819,7 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 1ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint8_t s1 = load<uint8_t>(str);
+				const uint8_t s1{ load<uint8_t>(str) };
 				if (incorrect(s1)) [[unlikely]] {
 					return { 0, 0 };
 				}
@@ -833,8 +829,8 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 2ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint16_t s2 = load<uint16_t>(str);
-				const uint16_t m2 = mask(s2);
+				const uint16_t s2{ load<uint16_t>(str) };
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -844,9 +840,9 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 3ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint16_t s2 = load<uint16_t>(str);
-				const uint8_t s1  = load<uint8_t>(str + 2);
-				const uint16_t m2 = mask(s2);
+				const uint16_t s2{ load<uint16_t>(str) };
+				const uint8_t s1{ load<uint8_t>(str + 2) };
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -859,8 +855,8 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 4ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint32_t s4 = load<uint32_t>(str);
-				const uint32_t m4 = mask(s4);
+				const uint32_t s4{ load<uint32_t>(str) };
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
@@ -870,9 +866,9 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 5ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint32_t s4 = load<uint32_t>(str);
-				const uint8_t s1  = load<uint8_t>(str + 4);
-				const uint32_t m4 = mask(s4);
+				const uint32_t s4{ load<uint32_t>(str) };
+				const uint8_t s1{ load<uint8_t>(str + 4) };
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
@@ -885,13 +881,13 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 6ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint32_t s4 = load<uint32_t>(str);
-				const uint16_t s2 = load<uint16_t>(str + 4);
-				const uint32_t m4 = mask(s4);
+				const uint32_t s4{ load<uint32_t>(str) };
+				const uint16_t s2{ load<uint16_t>(str + 4) };
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 4ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -901,14 +897,14 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 7ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint32_t s4 = load<uint32_t>(str);
-				const uint16_t s2 = load<uint16_t>(str + 4);
-				const uint8_t s1  = load<uint8_t>(str + 6);
-				const uint32_t m4 = mask(s4);
+				const uint32_t s4{ load<uint32_t>(str) };
+				const uint16_t s2{ load<uint16_t>(str + 4) };
+				const uint8_t s1{ load<uint8_t>(str + 6) };
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 4ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -921,8 +917,8 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 8ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
@@ -932,9 +928,9 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 9ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint8_t s1  = load<uint8_t>(str + 8);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint8_t s1{ load<uint8_t>(str + 8) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
@@ -947,13 +943,13 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 10ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint16_t s2 = load<uint16_t>(str + 8);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint16_t s2{ load<uint16_t>(str + 8) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -963,14 +959,14 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 11ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint16_t s2 = load<uint16_t>(str + 8);
-				const uint8_t s1  = load<uint8_t>(str + 10);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint16_t s2{ load<uint16_t>(str + 8) };
+				const uint8_t s1{ load<uint8_t>(str + 10) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -983,13 +979,13 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 12ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint32_t s4 = load<uint32_t>(str + 8);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint32_t s4{ load<uint32_t>(str + 8) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint32_t m4 = mask(s4);
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
@@ -999,14 +995,14 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 13ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint32_t s4 = load<uint32_t>(str + 8);
-				const uint8_t s1  = load<uint8_t>(str + 12);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint32_t s4{ load<uint32_t>(str + 8) };
+				const uint8_t s1{ load<uint8_t>(str + 12) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint32_t m4 = mask(s4);
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
@@ -1019,18 +1015,18 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 14ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint32_t s4 = load<uint32_t>(str + 8);
-				const uint16_t s2 = load<uint16_t>(str + 12);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint32_t s4{ load<uint32_t>(str + 8) };
+				const uint16_t s2{ load<uint16_t>(str + 12) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint32_t m4 = mask(s4);
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 12ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -1040,19 +1036,19 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 15ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8 = load<uint64_t>(str);
-				const uint32_t s4 = load<uint32_t>(str + 8);
-				const uint16_t s2 = load<uint16_t>(str + 12);
-				const uint8_t s1  = load<uint8_t>(str + 14);
-				const uint64_t m8 = mask(s8);
+				const uint64_t s8{ load<uint64_t>(str) };
+				const uint32_t s4{ load<uint32_t>(str + 8) };
+				const uint16_t s2{ load<uint16_t>(str + 12) };
+				const uint8_t s1{ load<uint8_t>(str + 14) };
+				const uint64_t m8{ mask(s8) };
 				if (m8) [[unlikely]] {
 					return { 0, countZeros(m8) >> 3 };
 				}
-				const uint32_t m4 = mask(s4);
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, 8ULL + static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 12ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -1067,13 +1063,13 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 16ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8a = load<uint64_t>(str);
-				const uint64_t s8b = load<uint64_t>(str + 8);
-				const uint64_t m8a = mask(s8a);
+				const uint64_t s8a{ load<uint64_t>(str) };
+				const uint64_t s8b{ load<uint64_t>(str + 8) };
+				const uint64_t m8a{ mask(s8a) };
 				if (m8a) [[unlikely]] {
 					return { 0, countZeros(m8a) >> 3 };
 				}
-				const uint64_t m8b = mask(s8b);
+				const uint64_t m8b{ mask(s8b) };
 				if (m8b) [[unlikely]] {
 					return { 0, 8ULL + (countZeros(m8b) >> 3) };
 				}
@@ -1083,14 +1079,14 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 17ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8a = load<uint64_t>(str);
-				const uint64_t s8b = load<uint64_t>(str + 8);
-				const uint8_t s1   = load<uint8_t>(str + 16);
-				const uint64_t m8a = mask(s8a);
+				const uint64_t s8a{ load<uint64_t>(str) };
+				const uint64_t s8b{ load<uint64_t>(str + 8) };
+				const uint8_t s1{ load<uint8_t>(str + 16) };
+				const uint64_t m8a{ mask(s8a) };
 				if (m8a) [[unlikely]] {
 					return { 0, countZeros(m8a) >> 3 };
 				}
-				const uint64_t m8b = mask(s8b);
+				const uint64_t m8b{ mask(s8b) };
 				if (m8b) [[unlikely]] {
 					return { 0, 8ULL + (countZeros(m8b) >> 3) };
 				}
@@ -1103,18 +1099,18 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 18ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8a = load<uint64_t>(str);
-				const uint64_t s8b = load<uint64_t>(str + 8);
-				const uint16_t s2  = load<uint16_t>(str + 16);
-				const uint64_t m8a = mask(s8a);
+				const uint64_t s8a{ load<uint64_t>(str) };
+				const uint64_t s8b{ load<uint64_t>(str + 8) };
+				const uint16_t s2{ load<uint16_t>(str + 16) };
+				const uint64_t m8a{ mask(s8a) };
 				if (m8a) [[unlikely]] {
 					return { 0, countZeros(m8a) >> 3 };
 				}
-				const uint64_t m8b = mask(s8b);
+				const uint64_t m8b{ mask(s8b) };
 				if (m8b) [[unlikely]] {
 					return { 0, 8ULL + (countZeros(m8b) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 16ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -1124,19 +1120,19 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 19ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8a = load<uint64_t>(str);
-				const uint64_t s8b = load<uint64_t>(str + 8);
-				const uint16_t s2  = load<uint16_t>(str + 16);
-				const uint8_t s1   = load<uint8_t>(str + 18);
-				const uint64_t m8a = mask(s8a);
+				const uint64_t s8a{ load<uint64_t>(str) };
+				const uint64_t s8b{ load<uint64_t>(str + 8) };
+				const uint16_t s2{ load<uint16_t>(str + 16) };
+				const uint8_t s1{ load<uint8_t>(str + 18) };
+				const uint64_t m8a{ mask(s8a) };
 				if (m8a) [[unlikely]] {
 					return { 0, countZeros(m8a) >> 3 };
 				}
-				const uint64_t m8b = mask(s8b);
+				const uint64_t m8b{ mask(s8b) };
 				if (m8b) [[unlikely]] {
 					return { 0, 8ULL + (countZeros(m8b) >> 3) };
 				}
-				const uint16_t m2 = mask(s2);
+				const uint16_t m2{ mask(s2) };
 				if (m2) [[unlikely]] {
 					return { 0, 16ULL + static_cast<uint64_t>(countZeros(m2) >> 3) };
 				}
@@ -1151,18 +1147,18 @@ namespace jsonifier::internal {
 
 		template<integer_types v_type> struct parse_fixed<v_type, 20ULL> {
 			JSONIFIER_INLINE static parse_chunk_result<v_type> impl(read_buffer_ptr str) noexcept {
-				const uint64_t s8a = load<uint64_t>(str);
-				const uint64_t s8b = load<uint64_t>(str + 8);
-				const uint32_t s4  = load<uint32_t>(str + 16);
-				const uint64_t m8a = mask(s8a);
+				const uint64_t s8a{ load<uint64_t>(str) };
+				const uint64_t s8b{ load<uint64_t>(str + 8) };
+				const uint32_t s4{ load<uint32_t>(str + 16) };
+				const uint64_t m8a{ mask(s8a) };
 				if (m8a) [[unlikely]] {
 					return { 0, countZeros(m8a) >> 3 };
 				}
-				const uint64_t m8b = mask(s8b);
+				const uint64_t m8b{ mask(s8b) };
 				if (m8b) [[unlikely]] {
 					return { 0, 8ULL + (countZeros(m8b) >> 3) };
 				}
-				const uint32_t m4 = mask(s4);
+				const uint32_t m4{ mask(s4) };
 				if (m4) [[unlikely]] {
 					return { 0, 16ULL + static_cast<uint64_t>(countZeros(m4) >> 3) };
 				}
@@ -1318,7 +1314,7 @@ namespace jsonifier::internal {
 	template<typename value_type, uint64_t size> consteval array<value_type, size> genPowerOfTenTable() noexcept {
 		array<value_type, size> returnValues{};
 		value_type value{ 1 };
-		for (uint64_t x = 0; x < size; ++x) {
+		for (uint64_t x{ 0 }; x < size; ++x) {
 			returnValues[x] = value;
 			if (x + 1 < size) {
 				value *= 10;
@@ -1383,9 +1379,9 @@ namespace jsonifier::internal {
 			if (expValue >= 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+			const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
+			static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+			static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
 			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
 								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
 		}
@@ -1400,12 +1396,12 @@ namespace jsonifier::internal {
 			if (expValue >= 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift					  = expSign * expValue - fracDigits;
-			const value_type fractionalCorrection =
-				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 19 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
+			const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
+			static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+			static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
+			const int64_t shift{ expSign * expValue - fracDigits };
+			const value_type fractionalCorrection{ shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift]
+															  : (-shift < 19 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{}) };
 			if (expSign > 0) {
 				if (value > doubleMax / powerExp) [[unlikely]] {
 					return nullptr;
@@ -1438,7 +1434,7 @@ namespace jsonifier::internal {
 				}
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
-					int8_t expSign = 1;
+					int8_t expSign{ 1 };
 					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
@@ -1461,7 +1457,7 @@ namespace jsonifier::internal {
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
-				int8_t expSign = 1;
+				int8_t expSign{ 1 };
 				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
@@ -1481,7 +1477,7 @@ namespace jsonifier::internal {
 			if (iter < end) [[likely]] {
 				if (*iter == uint_c_v<'-'>) {
 					++iter;
-					read_buffer_ptr resultPtr = parseInteger<true>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
+					read_buffer_ptr resultPtr{ parseInteger<true>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
 					if (resultPtr) [[likely]] {
 						iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
 						return iter;
@@ -1490,7 +1486,7 @@ namespace jsonifier::internal {
 						return nullptr;
 					}
 				} else {
-					read_buffer_ptr resultPtr = parseInteger<false>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
+					read_buffer_ptr resultPtr{ parseInteger<false>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
 					if (resultPtr) [[likely]] {
 						iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
 						return iter;
@@ -1506,24 +1502,24 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-			value_type aHigh = ab >> 32;
-			value_type aLow	 = ab & 0xFFFFFFFF;
-			value_type bHigh = cd >> 32;
-			value_type bLow	 = cd & 0xFFFFFFFF;
-			value_type loLo	 = aLow * bLow;
-			value_type loHi	 = aLow * bHigh;
-			value_type hiLo	 = aHigh * bLow;
-			value_type hiHi	 = aHigh * bHigh;
-			value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
-			value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
-			hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
+			value_type aHigh{ ab >> 32 };
+			value_type aLow{ ab & 0xFFFFFFFF };
+			value_type bHigh{ cd >> 32 };
+			value_type bLow{ cd & 0xFFFFFFFF };
+			value_type loLo{ aLow * bLow };
+			value_type loHi{ aLow * bHigh };
+			value_type hiLo{ aHigh * bLow };
+			value_type hiHi{ aHigh * bHigh };
+			value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
+			value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
+			hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
 			return lo;
 		}
 
 		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __int128_t res = static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue);
-			value				 = static_cast<value_type>(res);
+			const __int128_t res{ static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue) };
+			value = static_cast<value_type>(res);
 			return res <= std::numeric_limits<value_type>::max();
 	#elif JSONIFIER_COMPILER_MSVC
 			value_type values;
@@ -1538,8 +1534,8 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __int128_t dividend = static_cast<__int128_t>(value);
-			value					  = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
+			const __int128_t dividend{ static_cast<__int128_t>(value) };
+			value = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
 			return (dividend % static_cast<__int128_t>(expValue)) == 0;
 	#elif JSONIFIER_COMPILER_MSVC
 			value_type values;
@@ -1564,9 +1560,9 @@ namespace jsonifier::internal {
 			if (expValue > 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
+			const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
+			static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+			static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
 			return (expSign > 0) ? ((value <= (doubleMax / powerExp)) ? (multiply(value, powerExp), iter) : nullptr)
 								 : ((value / powerExp >= (doubleMin)) ? (divide(value, powerExp), iter) : nullptr);
 		}
@@ -1581,12 +1577,12 @@ namespace jsonifier::internal {
 			if (expValue > 19) [[unlikely]] {
 				return nullptr;
 			}
-			const value_type powerExp			  = powers_of_ten<value_type>::value[expValue];
-			static constexpr value_type doubleMax = std::numeric_limits<value_type>::max();
-			static constexpr value_type doubleMin = std::numeric_limits<value_type>::min();
-			const int64_t shift					  = expSign * expValue - fracDigits;
-			const value_type fractionalCorrection =
-				shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift] : (-shift < 20 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{});
+			const value_type powerExp{ powers_of_ten<value_type>::value[expValue] };
+			static constexpr value_type doubleMax{ std::numeric_limits<value_type>::max() };
+			static constexpr value_type doubleMin{ std::numeric_limits<value_type>::min() };
+			const int64_t shift{ expSign * expValue - fracDigits };
+			const value_type fractionalCorrection{ shift >= 0 ? fracValue * powers_of_ten<value_type>::value[shift]
+															  : (-shift < 20 ? fracValue / powers_of_ten<value_type>::value[-shift] : value_type{}) };
 			if (expSign > 0) {
 				if (value > doubleMax / powerExp) [[unlikely]] {
 					return nullptr;
@@ -1619,7 +1615,7 @@ namespace jsonifier::internal {
 				}
 				if (expTable[peekByte(iter, end)]) {
 					++iter;
-					int8_t expSign = 1;
+					int8_t expSign{ 1 };
 					if (peekByte(iter, end) == uint_c_v<'-'>) {
 						expSign = -1;
 						++iter;
@@ -1649,7 +1645,7 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 			if (iter < end) [[likely]] {
-				read_buffer_ptr resultPtr = parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end));
+				read_buffer_ptr resultPtr{ parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
 				if (resultPtr) [[likely]] {
 					iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
 					return iter;
@@ -1669,7 +1665,7 @@ namespace jsonifier::internal {
 				return parseFraction(value, iter, end);
 			} else if (expTable[peekByte(iter, end)]) {
 				++iter;
-				int8_t expSign = 1;
+				int8_t expSign{ 1 };
 				if (peekByte(iter, end) == uint_c_v<'-'>) {
 					expSign = -1;
 					++iter;
@@ -1686,24 +1682,24 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-			value_type aHigh = ab >> 32;
-			value_type aLow	 = ab & 0xFFFFFFFF;
-			value_type bHigh = cd >> 32;
-			value_type bLow	 = cd & 0xFFFFFFFF;
-			value_type loLo	 = aLow * bLow;
-			value_type loHi	 = aLow * bHigh;
-			value_type hiLo	 = aHigh * bLow;
-			value_type hiHi	 = aHigh * bHigh;
-			value_type cross = (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF);
-			value_type lo	 = (cross << 32) | (loLo & 0xFFFFFFFF);
-			hi				 = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
+			value_type aHigh{ ab >> 32 };
+			value_type aLow{ ab & 0xFFFFFFFF };
+			value_type bHigh{ cd >> 32 };
+			value_type bLow{ cd & 0xFFFFFFFF };
+			value_type loLo{ aLow * bLow };
+			value_type loHi{ aLow * bHigh };
+			value_type hiLo{ aHigh * bLow };
+			value_type hiHi{ aHigh * bHigh };
+			value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
+			value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
+			hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
 			return lo;
 		}
 
 		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __uint128_t res = static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue);
-			value				  = static_cast<value_type>(res);
+			const __uint128_t res{ static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue) };
+			value = static_cast<value_type>(res);
 			return res <= std::numeric_limits<value_type>::max();
 	#elif JSONIFIER_COMPILER_MSVC
 			value_type values;
@@ -1718,8 +1714,8 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE static bool divide(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
-			const __uint128_t dividend = static_cast<__uint128_t>(value);
-			value					   = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
+			const __uint128_t dividend{ static_cast<__uint128_t>(value) };
+			value = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
 			return (dividend % static_cast<__uint128_t>(expValue)) == 0;
 	#elif JSONIFIER_COMPILER_MSVC
 			value_type values;
@@ -1733,6 +1729,6 @@ namespace jsonifier::internal {
 	#endif
 		}
 	};
-}
 
 #endif
+}

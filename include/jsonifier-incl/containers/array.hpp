@@ -68,7 +68,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE constexpr friend bool operator==(const array& lhs, const array& rhs) noexcept {
-			for (uint64_t x = 0; x < sizeNew; ++x) {
+			for (uint64_t x{ 0 }; x < sizeNew; ++x) {
 				if (lhs[x] != rhs[x]) {
 					return false;
 				}

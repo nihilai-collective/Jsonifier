@@ -64,7 +64,7 @@ namespace jsonifier::internal {
 
 	template<typename value_type> using base_t = remove_cvref_t<value_type>;
 
-	template<typename, typename> inline constexpr bool isSame						   = false;
+	template<typename, typename> inline constexpr bool isSame{ false };
 	template<typename value_type> inline constexpr bool isSame<value_type, value_type> = true;
 
 	template<typename value_type>
@@ -320,6 +320,9 @@ namespace jsonifier::internal {
 
 	template<typename value_type>
 	concept vector_types = vector_subscriptable_types<value_type> && resizeable_types<value_type> && emplace_backable_types<value_type>;
+
+	template<typename value_type>
+	concept float_vector_types = vector_types<value_type> && float_types<typename base_t<value_type>::value_type>;
 
 	template<typename value_type>
 	concept jsonifier_object_types = requires { core<base_t<value_type>>::parseValue; };

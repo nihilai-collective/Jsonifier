@@ -12,12 +12,12 @@
 namespace jsonifier::internal {
 
 	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
-		string_view str = std::source_location::current().function_name();
+		string_view str{ std::source_location::current().function_name() };
 #if JSONIFIER_COMPILER_GCC
-		str			   = str.substr(str.find("=") + 2);
-		uint64_t end   = str.find(';');
-		str			   = str.substr(0, end);
-		uint64_t start = str.findLastOf(':') + 1;
+		str = str.substr(str.find("=") + 2);
+		uint64_t end{ str.find(';') };
+		str = str.substr(0, end);
+		uint64_t start{ str.findLastOf(':') + 1 };
 		return str.substr(start);
 #else
 	#if JSONIFIER_COMPILER_MSVC
@@ -25,9 +25,9 @@ namespace jsonifier::internal {
 	#elif JSONIFIER_COMPILER_CLANG
 		static constexpr const char* prettyFunctionTailLocal{ "]" };
 	#endif
-		str			   = str.substr(str.find("=") + 2);
-		uint64_t start = str.findLastOf(':') + 1;
-		uint64_t end   = str.find(prettyFunctionTailLocal);
+		str = str.substr(str.find("=") + 2);
+		uint64_t start{ str.findLastOf(':') + 1 };
+		uint64_t end{ str.find(prettyFunctionTailLocal) };
 		return str.substr(start, end - start);
 #endif
 	}
@@ -64,8 +64,8 @@ namespace jsonifier::internal {
 			uint64_t pos{};
 			(
 				[&] {
-					static constexpr auto value		  = static_cast<current_type>(indices);
-					static constexpr string_view name = getEnumName<value>();
+					static constexpr auto value{ static_cast<current_type>(indices) };
+					static constexpr string_view name{ getEnumName<value>() };
 					if constexpr (isValidEnumName(name)) {
 						result.names[pos]  = name;
 						result.values[pos] = value;
@@ -85,7 +85,7 @@ namespace jsonifier::internal {
 
 	template<printable_enum_types enum_type> JSONIFIER_INLINE constexpr string_view getName(enum_type type) noexcept {
 		static constexpr auto& entries{ enum_data<enum_type>::value };
-		for (uint64_t i = 0; i < entries.values.size(); ++i) {
+		for (uint64_t i{ 0 }; i < entries.values.size(); ++i) {
 			if (entries.values[i] == type) {
 				return entries.names[i];
 			}

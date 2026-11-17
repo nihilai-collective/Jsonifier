@@ -139,10 +139,10 @@ namespace jsonifier::internal {
 	struct utf8_span_step {
 		template<uint64_t index>
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(unrestrict_t<read_buffer_ptr>& current, read_buffer_ptr end, internal::utf8_validation_state& state) noexcept {
-			using simd_list_local					 = type_list_element_t<index, simd::avx_integer_list>;
-			static constexpr auto avx_type			 = simd_list_local::type::avx_type;
-			using simd_type_local					 = typename simd_type_wrapper<avx_type>::type;
-			static constexpr uint64_t bytesProcessed = simd_list_local::bytesProcessed;
+			using simd_list_local = type_list_element_t<index, simd::avx_integer_list>;
+			static constexpr auto avx_type{ simd_list_local::type::avx_type };
+			using simd_type_local = typename simd_type_wrapper<avx_type>::type;
+			static constexpr uint64_t bytesProcessed{ simd_list_local::bytesProcessed };
 			internal::utf8_register_validator<simd_type_wrapper<avx_type>> validator{ state };
 			while (static_cast<uint64_t>(end - current) >= bytesProcessed) {
 				validator.checkRegister(simd::gatherValuesU<simd_type_local>(current));

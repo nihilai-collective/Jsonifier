@@ -25,8 +25,8 @@ namespace jsonifier {
 		}
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			internal::read_buffer_ptr first = std::bit_cast<internal::read_buffer_ptr>(sv.data());
-			internal::read_buffer_ptr last	= std::bit_cast<internal::read_buffer_ptr>(sv.data() + sv.size());
+			internal::read_buffer_ptr first{ std::bit_cast<internal::read_buffer_ptr>(sv.data()) };
+			internal::read_buffer_ptr last{ std::bit_cast<internal::read_buffer_ptr>(sv.data() + sv.size()) };
 
 			if (sv.empty()) {
 				uintVal		= 0;
@@ -34,8 +34,8 @@ namespace jsonifier {
 				return;
 			}
 
-			bool isFloat = false;
-			for (auto c = first; c != last; ++c) {
+			bool isFloat{ false };
+			for (auto c{ first }; c != last; ++c) {
 				if (*c == '.' || *c == 'e' || *c == 'E') {
 					isFloat = true;
 					break;
@@ -43,16 +43,16 @@ namespace jsonifier {
 			}
 			if (!isFloat) {
 				if (sv[0] == '-') {
-					int64_t ival = 0;
-					auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
+					int64_t ival{ 0 };
+					auto ptr{ internal::integer_parser<int64_t>::parseInt(ival, first, last) };
 					if (ptr == last) {
 						intVal		= ival;
 						number_type = number_types::int64;
 						return;
 					}
 				} else {
-					uint64_t uval = 0;
-					auto ptr	  = internal::integer_parser<uint64_t>::parseInt(uval, first, last);
+					uint64_t uval{ 0 };
+					auto ptr{ internal::integer_parser<uint64_t>::parseInt(uval, first, last) };
 					if (ptr == last) {
 						uintVal		= uval;
 						number_type = number_types::uint64;
@@ -61,8 +61,8 @@ namespace jsonifier {
 				}
 			}
 
-			double dval = 0.0;
-			auto ptr	= internal::float_parser<double>::parseFloat(dval, first, last);
+			double dval{ 0.0 };
+			auto ptr{ internal::float_parser<double>::parseFloat(dval, first, last) };
 			if (ptr == last) {
 				doubleVal	= dval;
 				number_type = number_types::double64;
@@ -155,7 +155,7 @@ namespace jsonifier {
 		}
 
 		template<std::convertible_to<const string_view> key_type> JSONIFIER_INLINE const raw_json_data& operator[](key_type&& key) const {
-			const auto& object	 = std::get<object_type>(value);
+			const auto& object{ std::get<object_type>(value) };
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object.at(static_cast<key_type_local>(key));
 		}
@@ -168,7 +168,7 @@ namespace jsonifier {
 			if (std::holds_alternative<null_type>(value)) {
 				value = object_type{};
 			}
-			auto& object		 = std::get<object_type>(value);
+			auto& object{ std::get<object_type>(value) };
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object[static_cast<key_type_local>(key)];
 		}
@@ -177,7 +177,7 @@ namespace jsonifier {
 			if (!std::holds_alternative<object_type>(value)) {
 				return false;
 			}
-			const auto& object	 = std::get<object_type>(value);
+			const auto& object{ std::get<object_type>(value) };
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object.contains(static_cast<key_type_local>(key));
 		}

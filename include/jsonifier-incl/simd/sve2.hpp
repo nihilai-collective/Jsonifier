@@ -35,15 +35,15 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE uint64_t opBitMaskRaw(simd_int_t01 value) noexcept {
 		static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "opBitMaskRaw's nibble-per-byte packing only fits a uint64_t at 128-bit VL.");
-		const jsonifier_simd_int_t narrowed = svshrnb_n_u16(svreinterpret_u16_u8(value), 4);
-		const jsonifier_simd_int_t packed	= svuzp1_u8(narrowed, narrowed);
+		const jsonifier_simd_int_t narrowed{ svshrnb_n_u16(svreinterpret_u16_u8(value), 4) };
+		const jsonifier_simd_int_t packed{ svuzp1_u8(narrowed, narrowed) };
 		return svlastb_u64(svptrue_pat_b64(SV_VL1), svreinterpret_u64_u8(packed));
 	}
 
 	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE uint16_t opBitMask(simd_int_t01 value) noexcept {
 		static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "opBitMask returns uint16_t and therefore only covers a 128-bit vector.");
-		const uint8x16_t masked = vandq_u8(svget_neonq_u8(value), vreinterpretq_u8_u64(vdupq_n_u64(0x8040201008040201ULL)));
-		const uint64x2_t summed = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(masked)));
+		const uint8x16_t masked{ vandq_u8(svget_neonq_u8(value), vreinterpretq_u8_u64(vdupq_n_u64(0x8040201008040201ULL))) };
+		const uint64x2_t summed{ vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(masked))) };
 		return static_cast<uint16_t>(vgetq_lane_u64(summed, 0) | (vgetq_lane_u64(summed, 1) << 8));
 	}
 
@@ -52,7 +52,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_sve2_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE bool opTest(simd_int_t01 value) noexcept {
-		const auto pg = svptrue_b8();
+		const auto pg{ svptrue_b8() };
 		return !svptest_any(pg, svcmpne_n_u8(pg, value, 0));
 	}
 
@@ -77,7 +77,7 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_sve2_types simd_int_t01, simd_int_sve2_types simd_int_t02>
 	[[maybe_unused]] JSONIFIER_INLINE jsonifier_simd_int_t opShuffle(simd_int_t01 value, simd_int_t02 other) noexcept {
-		const jsonifier_simd_int_t bitMask = svreinterpret_u8_u8(svdup_n_u8(0x0F));
+		const jsonifier_simd_int_t bitMask{ svreinterpret_u8_u8(svdup_n_u8(0x0F)) };
 		return svtbl_u8(value, svand_u8_x(svptrue_b8(), other, bitMask));
 	}
 
@@ -111,7 +111,7 @@ namespace jsonifier::internal::simd {
 	}
 
 	template<simd_int_sve2_types simd_int_t> JSONIFIER_INLINE bool isAscii(simd_int_t input) noexcept {
-		const auto pg = svptrue_b8();
+		const auto pg{ svptrue_b8() };
 		return !svptest_any(pg, svcmpge_n_u8(pg, input, 0x80));
 	}
 

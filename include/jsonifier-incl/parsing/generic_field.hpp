@@ -37,8 +37,8 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE string_view key() const noexcept {
-			internal::read_buffer_ptr keyStart = doc->root + *iter + 1;
-			internal::read_buffer_ptr keyEnd   = doc->root + *(iter + 1) - 1;
+			internal::read_buffer_ptr keyStart{ doc->root + *iter + 1 };
+			internal::read_buffer_ptr keyEnd{ doc->root + *(iter + 1) - 1 };
 			if constexpr (!minified) {
 				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
 					--keyEnd;

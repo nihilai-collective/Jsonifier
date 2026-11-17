@@ -10,11 +10,15 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
+#include <iomanip>
 #include <numeric>
+#include <sstream>
 #include <random>
 #include <array>
 #include <rt-ut>
 #include <map>
+#include <bit>
 
 struct abc_in_order_partial_test_struct {
 	std::string test_string;

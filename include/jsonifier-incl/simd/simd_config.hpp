@@ -84,14 +84,14 @@ namespace jsonifier::internal {
 	inline constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::getValue(internal::cpu_property_types::alignment) };
 	inline constexpr uint64_t simdRegistersPerBlock{ 64 / simdBytesPerRegister };
 	inline constexpr uint64_t simdBytesPerBlock{ 64 };
-	inline constexpr uint64_t simdBytesPerStep = simdBlocksPerStep * simdBytesPerBlock;
+	inline constexpr uint64_t simdBytesPerStep{ simdBlocksPerStep * simdBytesPerBlock };
 
 #if JSONIFIER_AVX2 && !JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
 	inline constexpr uint64_t podBlocksPerStep{ 4 };
 #else
 	inline constexpr uint64_t podBlocksPerStep{ simdBlocksPerStep };
 #endif
-	inline constexpr uint64_t podBytesPerStep = podBlocksPerStep * simdBytesPerBlock;
+	inline constexpr uint64_t podBytesPerStep{ podBlocksPerStep * simdBytesPerBlock };
 
 	static_assert(simdBytesPerRegister == sizeof(jsonifier_simd_int_t),
 		"simdBytesPerRegister disagrees with the actual register width; simdRegistersPerBlock and every bitmask collapse depend on these matching.");

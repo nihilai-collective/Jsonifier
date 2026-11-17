@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 		returnValues[uint_c_v<'f'>] = json_types::boolean;
 		returnValues[uint_c_v<'n'>] = json_types::null;
 		returnValues[uint_c_v<'-'>] = json_types::number;
-		for (uint64_t x = uint_c_v<'0'>; x <= uint_c_v<'9'>; ++x) {
+		for (uint64_t x{ uint_c_v<'0'> }; x <= uint_c_v<'9'>; ++x) {
 			returnValues[x] = json_types::number;
 		}
 		return returnValues;
@@ -70,7 +70,7 @@ namespace jsonifier::internal {
 
 	consteval internal::array<bool, 256ULL> genUtf8StringStopTable() noexcept {
 		internal::array<bool, 256ULL> returnValues{};
-		for (uint64_t x = 0; x < 0x20; ++x) {
+		for (uint64_t x{ 0 }; x < 0x20; ++x) {
 			returnValues[x] = true;
 		}
 		returnValues[uint_c_v<'"'>]	 = true;
@@ -84,10 +84,10 @@ namespace jsonifier::internal {
 
 	consteval internal::array<bool, 256ULL> genAsciiStringStopTable() noexcept {
 		internal::array<bool, 256ULL> returnValues{};
-		for (uint64_t x = 0; x < 0x20; ++x) {
+		for (uint64_t x{ 0 }; x < 0x20; ++x) {
 			returnValues[x] = true;
 		}
-		for (uint64_t x = 0x80; x < 0x100; ++x) {
+		for (uint64_t x{ 0x80 }; x < 0x100; ++x) {
 			returnValues[x] = true;
 		}
 		returnValues[uint_c_v<'"'>]	 = true;

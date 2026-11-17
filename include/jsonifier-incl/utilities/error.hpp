@@ -110,7 +110,7 @@ namespace jsonifier::internal {
 
 	inline void appendUnsigned(string& stream, uint64_t value) noexcept {
 		uint8_t buffer[24];
-		auto* end = to_chars<uint64_t>::impl(buffer, value);
+		auto* end{ to_chars<uint64_t>::impl(buffer, value) };
 		stream.append(std::bit_cast<const char*>(+buffer), static_cast<uint64_t>(end - buffer));
 	}
 
@@ -223,8 +223,8 @@ namespace jsonifier::internal {
 
 				line = static_cast<uint64_t>(std::count(rootIter, errorPos, '\n') + 1);
 
-				read_buffer_ptr scan		   = errorPos;
-				uint64_t distanceFromLineStart = 0;
+				read_buffer_ptr scan{ errorPos };
+				uint64_t distanceFromLineStart{ 0 };
 				while (scan > rootIter && *(scan - 1) != '\n') {
 					--scan;
 					++distanceFromLineStart;
@@ -232,7 +232,7 @@ namespace jsonifier::internal {
 				localIndex = distanceFromLineStart;
 
 				if (errorPos < endIter) {
-					uint64_t errorLength = std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos));
+					uint64_t errorLength{ std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos)) };
 					string_view view{ std::bit_cast<const char*>(errorPos), errorLength };
 					context = string{ std::begin(view), static_cast<uint64_t>(view.size()) };
 					for (auto& c: context) {
@@ -268,7 +268,7 @@ namespace jsonifier::internal {
 		}
 
 		inline static void collectValues(string& stream, const string& inputValues) noexcept {
-			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
+			for (uint64_t i{ 0 }; i < 32 && i < inputValues.size(); ++i) {
 				stream += "'";
 				appendEscapedByte(stream, inputValues[i]);
 				stream += "' ";

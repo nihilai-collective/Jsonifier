@@ -36,22 +36,22 @@ namespace jsonifier::internal {
 	template<typename value_type> using remove_class_pointer_t = typename remove_class_pointer<value_type>::type;
 
 #if JSONIFIER_COMPILER_CLANG
-	inline constexpr auto prettyFunctionTail = "]";
+	inline constexpr auto prettyFunctionTail{ "]" };
 #elif JSONIFIER_COMPILER_GCC
-	inline constexpr auto prettyFunctionTail = ";";
+	inline constexpr auto prettyFunctionTail{ ";" };
 #endif
 
 #if JSONIFIER_COMPILER_MSVC
 	template<typename value_type, auto p> consteval string_view getNameImpl() noexcept {
-		string_view str = std::source_location::current().function_name();
-		str				= str.substr(str.find("->") + 2);
+		string_view str{ std::source_location::current().function_name() };
+		str = str.substr(str.find("->") + 2);
 		return str.substr(0, str.find(">"));
 	}
 #else
 	template<auto p> consteval string_view getNameImpl() noexcept {
-		string_view str = std::source_location::current().function_name();
-		str				= str.substr(str.find("&") + 1);
-		str				= str.substr(0, str.find(prettyFunctionTail));
+		string_view str{ std::source_location::current().function_name() };
+		str = str.substr(str.find("&") + 1);
+		str = str.substr(0, str.find(prettyFunctionTail));
 		return str.substr(str.rfind("::") + 2);
 	}
 #endif
@@ -60,11 +60,11 @@ namespace jsonifier::internal {
 		requires(std::is_member_pointer_v<decltype(p)>)
 	consteval string_view getName() noexcept {
 #if JSONIFIER_COMPILER_MSVC
-		using value_type				= remove_member_pointer_t<decltype(p)>;
-		static constexpr auto pNew		= p;
-		static constexpr auto newString = getNameImpl<value_type, &(external<value_type>.*pNew)>();
+		using value_type = remove_member_pointer_t<decltype(p)>;
+		static constexpr auto pNew{ p };
+		static constexpr auto newString{ getNameImpl<value_type, &(external<value_type>.*pNew)>() };
 #else
-		static constexpr auto newString = getNameImpl<p>();
+		static constexpr auto newString{ getNameImpl<p>() };
 #endif
 		return newString;
 	}

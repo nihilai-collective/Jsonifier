@@ -178,7 +178,7 @@ namespace jsonifier::internal {
 	template<uint64_t... indices> struct comparison_op<integer_sequence<indices...>, lt_op> {
 		template<template<typename...> typename tuple_type_01, typename... value_types_01, template<typename...> typename tuple_type_02, typename... value_types_02>
 		JSONIFIER_INLINE static constexpr bool impl(const tuple_type_01<value_types_01...>& t1, const tuple_type_02<value_types_02...>& t2) noexcept {
-			bool result = false;
+			bool result{ false };
 			(((result = lt_op::impl(t1[tag<indices>{}], t2[tag<indices>{}])) || (!lt_op::impl(t2[tag<indices>{}], t1[tag<indices>{}]))) && ...);
 			return result;
 		}
@@ -194,7 +194,7 @@ namespace jsonifier::internal {
 	template<uint64_t... indices> struct comparison_op<integer_sequence<indices...>, gt_op> {
 		template<template<typename...> typename tuple_type_01, typename... value_types_01, template<typename...> typename tuple_type_02, typename... value_types_02>
 		JSONIFIER_INLINE static constexpr bool impl(const tuple_type_01<value_types_01...>& t1, const tuple_type_02<value_types_02...>& t2) noexcept {
-			bool result = false;
+			bool result{ false };
 			(((result = gt_op::impl(t1[tag<indices>{}], t2[tag<indices>{}])) || (!gt_op::impl(t2[tag<indices>{}], t1[tag<indices>{}]))) && ...);
 			return result;
 		}
@@ -293,7 +293,7 @@ namespace jsonifier::internal {
 
 	template<typename... value_type> struct tuple_size<std::tuple<value_type...>> : public integral_constant<sizeof...(value_type)> {};
 
-	template<typename tuple_type> inline constexpr uint64_t tupleSizeOf = tuple_size<remove_cvref_t<tuple_type>>::value;
+	template<typename tuple_type> inline constexpr uint64_t tupleSizeOf{ tuple_size<remove_cvref_t<tuple_type>>::value };
 
 	template<typename... value_types> tuple(value_types&&...) -> tuple<value_types...>;
 
@@ -313,8 +313,8 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t indexNew, typename target_type, typename tuple_type> struct index_tag {
-		using element_type				 = type_list_element_t<indexNew, tuple_type>;
-		static constexpr bool isNotMatch = !std::is_same_v<remove_cvref_t<target_type>, remove_cvref_t<element_type>>;
+		using element_type = type_list_element_t<indexNew, tuple_type>;
+		static constexpr bool isNotMatch{ !std::is_same_v<remove_cvref_t<target_type>, remove_cvref_t<element_type>> };
 		static constexpr uint64_t index{ isNotMatch ? std::numeric_limits<uint64_t>::max() : indexNew };
 		static constexpr completion_signal value{ index, isNotMatch };
 	};
@@ -334,7 +334,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename target_type, typename tuple_type> JSONIFIER_INLINE constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
-		static constexpr uint64_t index = index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index;
+		static constexpr uint64_t index{ index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index };
 		return std::forward<tuple_type>(tupleVal)[tag<index>{}];
 	}
 
@@ -383,10 +383,10 @@ namespace jsonifier::internal {
 		};
 
 		template<uint64_t index, typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) getIndividualElement(list_type&& list) noexcept {
-			static constexpr uint64_t listIdx  = map.listIdx[index];
-			static constexpr uint64_t localIdx = map.localIdx[index];
-			auto* tuplePtr					   = list[tag<listIdx>{}];
-			using source_type				   = type_list_element_t<listIdx, lists_type>;
+			static constexpr uint64_t listIdx{ map.listIdx[index] };
+			static constexpr uint64_t localIdx{ map.localIdx[index] };
+			auto* tuplePtr{ list[tag<listIdx>{}] };
+			using source_type = type_list_element_t<listIdx, lists_type>;
 			if constexpr (std::is_lvalue_reference_v<source_type>) {
 				return (*tuplePtr)[tag<localIdx>{}];
 			} else {
@@ -403,8 +403,8 @@ namespace jsonifier::internal {
 			if constexpr (total > 0) {
 				static constexpr uint64_t sizes[]{ remove_reference_t<list_types>::size... };
 				uint64_t g{};
-				for (uint64_t i = 0; i < sizeof...(list_types); ++i) {
-					for (uint64_t j = 0; j < sizes[i]; ++j, ++g) {
+				for (uint64_t i{ 0 }; i < sizeof...(list_types); ++i) {
+					for (uint64_t j{ 0 }; j < sizes[i]; ++j, ++g) {
 						m.listIdx[g]  = i;
 						m.localIdx[g] = j;
 					}

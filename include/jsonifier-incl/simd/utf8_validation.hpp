@@ -16,16 +16,16 @@
 
 namespace jsonifier::internal {
 
-	inline constexpr uint8_t tooShort	  = 1 << 0;
-	inline constexpr uint8_t tooLong	  = 1 << 1;
-	inline constexpr uint8_t overLong3	  = 1 << 2;
-	inline constexpr uint8_t tooLarge	  = 1 << 3;
-	inline constexpr uint8_t surrogate	  = 1 << 4;
-	inline constexpr uint8_t overLong2	  = 1 << 5;
-	inline constexpr uint8_t twoConts	  = 1 << 7;
-	inline constexpr uint8_t tooLarge1000 = 1 << 6;
-	inline constexpr uint8_t overLong4	  = 1 << 6;
-	inline constexpr uint8_t carry		  = tooShort | tooLong | twoConts;
+	inline constexpr uint8_t tooShort{ 1 << 0 };
+	inline constexpr uint8_t tooLong{ 1 << 1 };
+	inline constexpr uint8_t overLong3{ 1 << 2 };
+	inline constexpr uint8_t tooLarge{ 1 << 3 };
+	inline constexpr uint8_t surrogate{ 1 << 4 };
+	inline constexpr uint8_t overLong2{ 1 << 5 };
+	inline constexpr uint8_t twoConts{ 1 << 7 };
+	inline constexpr uint8_t tooLarge1000{ 1 << 6 };
+	inline constexpr uint8_t overLong4{ 1 << 6 };
+	inline constexpr uint8_t carry{ tooShort | tooLong | twoConts };
 
 	using namespace simd;
 
@@ -33,7 +33,7 @@ namespace jsonifier::internal {
 		static constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts,
 			tooShort | overLong2, tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
-		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
+		for (uint64_t x{ 0 }; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = raw[x % raw.size()];
 		}
 		return returnValue;
@@ -49,7 +49,7 @@ namespace jsonifier::internal {
 			carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000, carry | tooLarge | tooLarge1000 | surrogate, carry | tooLarge | tooLarge1000,
 			carry | tooLarge | tooLarge1000 } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
-		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
+		for (uint64_t x{ 0 }; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = raw[x % raw.size()];
 		}
 		return returnValue;
@@ -64,7 +64,7 @@ namespace jsonifier::internal {
 			tooLong | overLong2 | twoConts | overLong3 | tooLarge1000 | overLong4, tooLong | overLong2 | twoConts | overLong3 | tooLarge,
 			tooLong | overLong2 | twoConts | surrogate | tooLarge, tooLong | overLong2 | twoConts | surrogate | tooLarge, tooShort, tooShort, tooShort, tooShort } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
-		for (uint64_t x = 0; x < simdBytesPerRegister; ++x) {
+		for (uint64_t x{ 0 }; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = raw[x % raw.size()];
 		}
 		return returnValue;
@@ -122,7 +122,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) noexcept {
-			const jsonifier_simd_int_t loNibbleMask = gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu));
+			const jsonifier_simd_int_t loNibbleMask{ gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu)) };
 			return opAnd(opAnd(opShuffle(lookupH, opAnd(opSrLi<4>(p1), loNibbleMask)), opShuffle(lookupL, opAnd(p1, loNibbleMask))),
 				opShuffle(lookup2, opAnd(opSrLi<4>(input), loNibbleMask)));
 		}
@@ -141,7 +141,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE void checkStepImpl(read_buffer_ptr src) noexcept {
-			simd_array_t chunks = chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src);
+			simd_array_t chunks{ chunk_loader<make_integer_sequence<simdRegistersPerBlock>>::impl(src) };
 
 			if (isAscii(simd::orAll<jsonifier_simd_int_t>(chunks))) {
 				error		   = opOr(error, prevIncomplete);
@@ -186,7 +186,7 @@ namespace jsonifier::internal {
 		utf8_checker checker{};
 		checker.reset();
 
-		uint64_t i = 0;
+		uint64_t i{ 0 };
 
 		for (; i + simdBytesPerStep <= len; i += simdBytesPerStep) {
 			checker.checkStep(src + i);
@@ -221,9 +221,9 @@ namespace jsonifier::internal {
 	};
 
 	template<typename simd_type_new> struct utf8_register_validator {
-		static constexpr uint64_t bytesProcessed = sizeof(typename simd_type_new::type);
-		using simd_type							 = typename simd_type_new::type;
-		using simd_type_alias					 = simd_type;
+		static constexpr uint64_t bytesProcessed{ sizeof(typename simd_type_new::type) };
+		using simd_type		  = typename simd_type_new::type;
+		using simd_type_alias = simd_type;
 
 		JSONIFIER_INLINE utf8_register_validator(utf8_validation_state& stateNew) noexcept : state{ stateNew } {
 			error = simd_type{};
@@ -252,8 +252,8 @@ namespace jsonifier::internal {
 				incompleteRegister = simd_type{};
 				return;
 			}
-			touched			   = true;
-			const simd_type sc = checkSpecialCases(input, simd::opPrev<15>(input, prevInput));
+			touched = true;
+			const simd_type sc{ checkSpecialCases(input, simd::opPrev<15>(input, prevInput)) };
 			error = simd::opOr(error, simd::opXor(simd::opAnd(mustBe23Continuation(simd::opPrev<14>(input, prevInput), simd::opPrev<13>(input, prevInput)), maskNibble01()), sc));
 			prevInput		   = input;
 			incompleteRegister = simd::opSubs(input, incompleteMax());

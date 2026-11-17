@@ -18,7 +18,7 @@ namespace jsonifier::internal {
 		return table;
 	}
 
-	template<typename = void> alignas(64) inline constexpr array<bool, 256> expTableRaw = generateExpTable();
+	template<typename = void> alignas(64) inline constexpr array<bool, 256> expTableRaw{ generateExpTable() };
 
 	inline constexpr const bool* __restrict expTable{ expTableRaw<>.data() };
 
@@ -30,9 +30,46 @@ namespace jsonifier::internal {
 		return table;
 	}
 
-	template<typename = void> alignas(64) inline constexpr array<bool, 256> expFracTableRaw = generateExpFracTable();
+	template<typename = void> alignas(64) inline constexpr array<bool, 256> expFracTableRaw{ generateExpFracTable() };
 
 	inline constexpr const bool* __restrict expFracTable{ expFracTableRaw<>.data() };
+
+	enum class number_shapes : uint8_t {
+		general,
+		short_fraction,
+		long_integer,
+	};
+
+	struct number_shape_detector {
+		static constexpr uint64_t longIntegerThreshold{ 6 };
+		static constexpr uint64_t shortFractionLimit{ 8 };
+
+		JSONIFIER_INLINE static number_shapes impl(read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			while (iter < end && ( *iter == uint_c_v<' '> || *iter == uint_c_v<'\t'> || *iter == uint_c_v<'\n'> || *iter == uint_c_v<'\r'> )) {
+				++iter;
+			}
+			if (iter < end && *iter == uint_c_v<'-'>) {
+				++iter;
+			}
+			read_buffer_ptr const integerStart{ iter };
+			while (iter < end && isDigit(*iter)) {
+				++iter;
+			}
+			if (static_cast<uint64_t>(iter - integerStart) >= longIntegerThreshold) {
+				return number_shapes::long_integer;
+			}
+			if (iter >= end || *iter != uint_c_v<'.'>) {
+				return number_shapes::general;
+			}
+			++iter;
+			read_buffer_ptr const fractionStart{ iter };
+			while (iter < end && isDigit(*iter)) {
+				++iter;
+			}
+			uint64_t const fractionDigits{ static_cast<uint64_t>(iter - fractionStart) };
+			return (fractionDigits > 0 && fractionDigits < shortFractionLimit) ? number_shapes::short_fraction : number_shapes::general;
+		}
+	};
 
 	struct parsed_number {
 		read_buffer_ptr lastMatch{};
@@ -45,7 +82,7 @@ namespace jsonifier::internal {
 		bool valid{};
 	};
 
-	JSONIFIER_INLINE parsed_number parseNumberString(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
+	template<number_shapes shape> JSONIFIER_INLINE parsed_number parseNumberString(read_buffer_ptr iter, read_buffer_ptr end) noexcept {
 		parsed_number answer{};
 		answer.negative = (*iter == uint_c_v<'-'>);
 		if (answer.negative) {
@@ -54,15 +91,19 @@ namespace jsonifier::internal {
 				return answer;
 			}
 		}
-		read_buffer_ptr const startDigits = iter;
+		read_buffer_ptr const startDigits{ iter };
 
 		uint64_t mantissa{};
 		if ((iter != end) && isDigit(*iter)) {
 			mantissa = static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 			++iter;
-			if ((iter != end) && isDigit(*iter)) {
-				mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
-				++iter;
+			if constexpr (shape == number_shapes::long_integer) {
+				loopParseIfEightDigits(iter, end, mantissa);
+				while ((iter != end) && isDigit(*iter)) {
+					mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
+					++iter;
+				}
+			} else {
 				if ((iter != end) && isDigit(*iter)) {
 					mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 					++iter;
@@ -72,39 +113,42 @@ namespace jsonifier::internal {
 						if ((iter != end) && isDigit(*iter)) {
 							mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 							++iter;
-							while ((iter != end) && isDigit(*iter)) {
+							if ((iter != end) && isDigit(*iter)) {
 								mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 								++iter;
+								loopParseIfEightDigits(iter, end, mantissa);
+								while ((iter != end) && isDigit(*iter)) {
+									mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
+									++iter;
+								}
 							}
 						}
 					}
 				}
 			}
 		}
-		read_buffer_ptr const endOfIntegerPart = iter;
-		int64_t digitCount					   = static_cast<int64_t>(endOfIntegerPart - startDigits);
-		if (storeSpans) {
-			answer.integer = span<uint8_t>{ startDigits, endOfIntegerPart };
-		}
+		read_buffer_ptr const endOfIntegerPart{ iter };
+		int64_t digitCount{ static_cast<int64_t>(endOfIntegerPart - startDigits) };
+		answer.integer = span<uint8_t>{ startDigits, endOfIntegerPart };
 		if (digitCount == 0 || (startDigits[0] == uint_c_v<'0'> && digitCount > 1)) [[unlikely]] {
 			return answer;
 		}
 
 		int64_t exponent{};
-		bool const hasDecimalPoint = (iter != end) && (*iter == uint_c_v<'.'>);
+		bool const hasDecimalPoint{ (iter != end) && ( *iter == uint_c_v<'.'> )};
 		if (hasDecimalPoint) {
 			++iter;
-			read_buffer_ptr const before = iter;
-			loopParseIfEightDigits(iter, end, mantissa);
+			read_buffer_ptr const before{ iter };
+			if constexpr (shape != number_shapes::short_fraction) {
+				loopParseIfEightDigits(iter, end, mantissa);
+			}
 			while ((iter != end) && isDigit(*iter)) {
-				uint8_t digit = static_cast<uint8_t>(*iter - uint_c_v<'0'>);
+				uint8_t digit{ static_cast<uint8_t>(*iter - uint_c_v<'0'>) };
 				++iter;
 				mantissa = mantissa * 10 + digit;
 			}
-			exponent = before - iter;
-			if (storeSpans) {
-				answer.fraction = span<uint8_t>{ before, iter };
-			}
+			exponent		= before - iter;
+			answer.fraction = span<uint8_t>{ before, iter };
 			digitCount -= exponent;
 			if (exponent == 0) [[unlikely]] {
 				return answer;
@@ -114,7 +158,7 @@ namespace jsonifier::internal {
 		int64_t expNumber{};
 		if ((iter != end) && (( *iter == uint_c_v<'e'> ) || ( *iter == uint_c_v<'E'> ))) {
 			++iter;
-			bool negExp = false;
+			bool negExp{ false };
 			if ((iter != end) && ( *iter == uint_c_v<'-'> )) {
 				negExp = true;
 				++iter;
@@ -125,7 +169,7 @@ namespace jsonifier::internal {
 				return answer;
 			}
 			while ((iter != end) && isDigit(*iter)) {
-				uint8_t digit = static_cast<uint8_t>(*iter - uint_c_v<'0'>);
+				uint8_t digit{ static_cast<uint8_t>(*iter - uint_c_v<'0'>) };
 				if (expNumber < 0x10000000) {
 					expNumber = 10 * expNumber + digit;
 				}
@@ -140,7 +184,7 @@ namespace jsonifier::internal {
 		answer.valid	 = true;
 
 		if (digitCount > 19) [[unlikely]] {
-			read_buffer_ptr start = startDigits;
+			read_buffer_ptr start{ startDigits };
 			while ((start != end) && ( *start == uint_c_v<'0'> || *start == uint_c_v<'.'> )) {
 				if (*start == uint_c_v<'0'>) {
 					--digitCount;
@@ -149,24 +193,22 @@ namespace jsonifier::internal {
 			}
 			if (digitCount > 19) {
 				answer.tooManyDigits = true;
-				if (storeSpans) {
-					static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
-					mantissa = 0;
-					iter	 = answer.integer.ptr;
-					while ((mantissa < minNineteenDigitInteger) && (iter != answer.integer.end)) {
+				static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
+				mantissa = 0;
+				iter	 = answer.integer.ptr;
+				while ((mantissa < minNineteenDigitInteger) && (iter != answer.integer.end)) {
+					mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
+					++iter;
+				}
+				if (mantissa >= minNineteenDigitInteger) {
+					exponent = endOfIntegerPart - iter + expNumber;
+				} else {
+					iter = answer.fraction.ptr;
+					while ((mantissa < minNineteenDigitInteger) && (iter != answer.fraction.end)) {
 						mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
 						++iter;
 					}
-					if (mantissa >= minNineteenDigitInteger) {
-						exponent = endOfIntegerPart - iter + expNumber;
-					} else {
-						iter = answer.fraction.ptr;
-						while ((mantissa < minNineteenDigitInteger) && (iter != answer.fraction.end)) {
-							mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - uint_c_v<'0'>);
-							++iter;
-						}
-						exponent = answer.fraction.ptr - iter + expNumber;
-					}
+					exponent = answer.fraction.ptr - iter + expNumber;
 				}
 			}
 		}
@@ -176,46 +218,28 @@ namespace jsonifier::internal {
 	}
 
 	template<float_types value_type> struct float_parser {
+		template<number_shapes shape = number_shapes::general>
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
 			if (iter >= end) [[unlikely]] {
 				return nullptr;
 			}
-			parsed_number pns = parseNumberString(iter, end, false);
+			parsed_number pns{ parseNumberString<shape>(iter, end) };
 			if (!pns.valid) [[unlikely]] {
 				return nullptr;
 			}
-			if (pns.tooManyDigits) [[unlikely]] {
-				return parseFloatSlow(value, iter, end);
-			}
-			if (clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
+			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) [[likely]] {
 				return pns.lastMatch;
 			}
-			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
-			if (am.power2 < 0) [[unlikely]] {
-				return parseFloatSlow(value, iter, end);
-			}
-			if (am.power2 == binary_format<value_type>::infinitePower) [[unlikely]] {
-				return nullptr;
-			}
-			toFloat(pns.negative, am, value);
-			return pns.lastMatch;
-		}
-
-		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			parsed_number pns = parseNumberString(iter, end, true);
-			if (!pns.tooManyDigits && clingerFastPath(pns.mantissa, pns.exponent, pns.negative, value)) {
-				return pns.lastMatch;
-			}
-			adjusted_mantissa am = computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa);
-			if (pns.tooManyDigits && am.power2 >= 0) {
+			adjusted_mantissa am{ computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa) };
+			if (pns.tooManyDigits && am.power2 >= 0) [[unlikely]] {
 				if (am != computeFloat<binary_format<value_type>>(pns.exponent, pns.mantissa + 1)) {
 					am = computeError<binary_format<value_type>>(pns.exponent, pns.mantissa);
 				}
 			}
-			if (am.power2 < 0) {
+			if (am.power2 < 0) [[unlikely]] {
 				am = digitComp<value_type>(pns.integer, pns.fraction, pns.mantissa, pns.exponent, am);
 			}
-			if (am.power2 == binary_format<value_type>::infinitePower) {
+			if (am.power2 == binary_format<value_type>::infinitePower) [[unlikely]] {
 				return nullptr;
 			}
 			toFloat(pns.negative, am, value);

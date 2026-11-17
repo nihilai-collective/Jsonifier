@@ -83,7 +83,7 @@ namespace jsonifier::generic {
 				return error_code;
 			}
 			out = 0;
-			for (auto iter = begin(); iter != end(); ++iter) {
+			for (auto iter{ begin() }; iter != end(); ++iter) {
 				if (const error_codes field_error_code = (*iter).error(); field_error_code != error_codes::success) [[unlikely]] {
 					return field_error_code;
 				}
@@ -96,8 +96,8 @@ namespace jsonifier::generic {
 			if (error_code != error_codes::success) [[unlikely]] {
 				return iterator{};
 			}
-			document_state* const state					 = doc;
-			internal::read_structural_index_ptr position = open + 1;
+			document_state* const state = doc;
+			internal::read_structural_index_ptr position{ open + 1 };
 			if (position < state->tapeEnd && state->template charAt<internal::uint_c_v<'}'>>(position)) {
 				state->cursor = position + 1;
 				state->depth  = depth - 1;
@@ -157,22 +157,22 @@ namespace jsonifier::generic {
 
 	  protected:
 		JSONIFIER_INLINE void recordField(internal::read_structural_index_ptr keyIter) const noexcept {
-			document_state* const state		   = doc;
-			internal::read_buffer_ptr keyStart = state->root + *keyIter + 1;
-			internal::read_buffer_ptr keyEnd   = state->root + *(keyIter + 1) - 1;
+			document_state* const state = doc;
+			internal::read_buffer_ptr keyStart{ state->root + *keyIter + 1 };
+			internal::read_buffer_ptr keyEnd{ state->root + *(keyIter + 1) - 1 };
 			if constexpr (!minified) {
 				while (keyEnd > keyStart && *keyEnd != internal::uint_c_v<'"'>) {
 					--keyEnd;
 				}
 			}
-			const uint32_t object = objectIndex();
+			const uint32_t object{ objectIndex() };
 			state->fieldIndex->insert(internal::field_index_map::hashKey(keyStart, static_cast<uint64_t>(keyEnd - keyStart), object), object,
 				static_cast<uint32_t>(keyIter - state->tape));
 		}
 
 		JSONIFIER_INLINE value expectedField(string_view key) const noexcept {
-			document_state* const state					  = doc;
-			internal::read_structural_index_ptr candidate = state->cursor;
+			document_state* const state = doc;
+			internal::read_structural_index_ptr candidate{ state->cursor };
 			if (candidate < state->tapeEnd && state->template charAt<internal::uint_c_v<','>>(candidate)) {
 				++candidate;
 			}
@@ -185,11 +185,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE value extendTrail(string_view key, internal::read_structural_index_ptr resumePoint, bool resumed) noexcept {
-			document_state* const state					= doc;
-			internal::read_structural_index_ptr tapeEnd = state->tapeEnd;
-			internal::read_structural_index_ptr cursor	= trailCount == 0 ? open + 1 : state->skipValue(state->tape + trailEntry(trailCount - 1) + 2);
+			document_state* const state = doc;
+			internal::read_structural_index_ptr tapeEnd{ state->tapeEnd };
+			internal::read_structural_index_ptr cursor{ trailCount == 0 ? open + 1 : state->skipValue(state->tape + trailEntry(trailCount - 1) + 2) };
 			while (cursor < tapeEnd) {
-				const uint8_t current = state->charAt(cursor);
+				const uint8_t current{ state->charAt(cursor) };
 				if (current == internal::uint_c_v<'}'>) {
 					trailComplete = true;
 					return value{ error_codes::no_such_field };
@@ -203,7 +203,7 @@ namespace jsonifier::generic {
 						trailOverflow = true;
 						return value{ error_codes::no_such_field };
 					}
-					const uint32_t keyOffset = static_cast<uint32_t>(cursor - state->tape);
+					const uint32_t keyOffset{ static_cast<uint32_t>(cursor - state->tape) };
 					internal::pow2MemcpyWrapper<sizeof(uint32_t)>(trailBytes + trailCount * sizeof(uint32_t), &keyOffset);
 					++trailCount;
 					if (state->template keyMatches<minified>(cursor, key)) {
@@ -218,11 +218,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE void indexAllFields() const noexcept {
-			document_state* const state					= doc;
-			internal::read_structural_index_ptr cursor	= open + 1;
-			internal::read_structural_index_ptr tapeEnd = state->tapeEnd;
+			document_state* const state = doc;
+			internal::read_structural_index_ptr cursor{ open + 1 };
+			internal::read_structural_index_ptr tapeEnd{ state->tapeEnd };
 			while (cursor < tapeEnd) {
-				const uint8_t current = state->charAt(cursor);
+				const uint8_t current{ state->charAt(cursor) };
 				if (current == internal::uint_c_v<'}'>) {
 					return;
 				}
@@ -239,13 +239,13 @@ namespace jsonifier::generic {
 		}
 
 		template<bool escapeAware> JSONIFIER_INLINE value scanFields(string_view key, internal::read_structural_index_ptr stop) noexcept {
-			document_state* const state					= doc;
-			internal::read_structural_index_ptr cursor	= state->cursor;
-			internal::read_structural_index_ptr tapeEnd = state->tapeEnd;
+			document_state* const state = doc;
+			internal::read_structural_index_ptr cursor{ state->cursor };
+			internal::read_structural_index_ptr tapeEnd{ state->tapeEnd };
 			uint32_t skipped{ skippedKeys };
 			bool expectSeparator{};
 			while (cursor < stop) {
-				const uint8_t current = state->charAt(cursor);
+				const uint8_t current{ state->charAt(cursor) };
 				if (current == internal::uint_c_v<','>) {
 					++cursor;
 					expectSeparator = false;
@@ -262,10 +262,10 @@ namespace jsonifier::generic {
 					return value{ error_codes::tape_error };
 				}
 				if (current == internal::uint_c_v<'"'> && cursor + 1 < tapeEnd && state->template charAt<internal::uint_c_v<':'>>(cursor + 1)) [[likely]] {
-					internal::read_structural_index_ptr valueIter = cursor + 2;
+					internal::read_structural_index_ptr valueIter{ cursor + 2 };
 					bool matched{};
 					if constexpr (escapeAware) {
-						const bool hasEscape = state->keyHasEscape(cursor);
+						const bool hasEscape{ state->keyHasEscape(cursor) };
 						escapedKeySeen |= hasEscape;
 						matched = hasEscape && state->unescapedKeyMatches(cursor, key);
 					} else {
@@ -301,8 +301,8 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE value trailLookup(string_view key, internal::read_structural_index_ptr resumePoint, bool resumed) noexcept {
 			document_state* const state = doc;
-			for (uint32_t x = 0; x < trailCount; ++x) {
-				internal::read_structural_index_ptr keyIter = state->tape + trailEntry(x);
+			for (uint32_t x{ 0 }; x < trailCount; ++x) {
+				internal::read_structural_index_ptr keyIter{ state->tape + trailEntry(x) };
 				if (state->template keyMatches<minified>(keyIter, key)) {
 					return trailHit(keyIter, resumePoint, resumed);
 				}
@@ -315,8 +315,8 @@ namespace jsonifier::generic {
 			}
 			if (!escapeFree) {
 				bool sawEscape{};
-				for (uint32_t x = 0; x < trailCount; ++x) {
-					internal::read_structural_index_ptr keyIter = state->tape + trailEntry(x);
+				for (uint32_t x{ 0 }; x < trailCount; ++x) {
+					internal::read_structural_index_ptr keyIter{ state->tape + trailEntry(x) };
 					if (state->keyHasEscape(keyIter)) {
 						sawEscape = true;
 						if (state->unescapedKeyMatches(keyIter, key)) {
@@ -331,12 +331,12 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE value indexedField(string_view key) noexcept {
-			document_state* const state						= doc;
-			internal::read_structural_index_ptr resumePoint = state->cursor;
+			document_state* const state = doc;
+			internal::read_structural_index_ptr resumePoint{ state->cursor };
 			value found{ error_codes::no_such_field };
 			if (!indexed) {
 				if (!indexEarned) {
-					const bool resumed = resumePoint != open + 1;
+					const bool resumed{ resumePoint != open + 1 };
 					if (!trailOverflow) {
 						if (trailCount == 0 && !trailComplete && !(resumed && state->reverseMode())) {
 							found = scanFields<false>(key, state->tapeEnd);
@@ -381,9 +381,9 @@ namespace jsonifier::generic {
 				indexed = true;
 			}
 
-			const uint32_t object = objectIndex();
-			const uint64_t hash	  = internal::field_index_map::hashKey(std::bit_cast<internal::read_buffer_ptr>(key.data()), key.size(), object);
-			const uint32_t hit	  = state->fieldIndex->template find<minified, internal::key_matcher>(hash, object, state, key);
+			const uint32_t object{ objectIndex() };
+			const uint64_t hash{ internal::field_index_map::hashKey(std::bit_cast<internal::read_buffer_ptr>(key.data()), key.size(), object) };
+			const uint32_t hit = state->fieldIndex->template find<minified, internal::key_matcher>(hash, object, state, key);
 			if (hit != internal::field_index_map::npos) {
 				state->cursor = state->tape + hit + 2;
 				found		  = value{ state, state->cursor, depth };

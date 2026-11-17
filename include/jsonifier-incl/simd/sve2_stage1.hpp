@@ -18,7 +18,7 @@ namespace jsonifier::internal::simd {
 
 	inline constexpr array<uint64_t, simdRegistersPerBlock> shiftAmounts{ [] {
 		array<uint64_t, simdRegistersPerBlock> returnValue{};
-		for (uint64_t x = 0; x < simdRegistersPerBlock; ++x) {
+		for (uint64_t x{ 0 }; x < simdRegistersPerBlock; ++x) {
 			returnValue[x] = simdBytesPerRegister * x;
 		}
 		return returnValue;
@@ -32,8 +32,8 @@ namespace jsonifier::internal::simd {
 
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-			const poly64_t allOnes = static_cast<poly64_t>(~0ull);
-			const poly128_t result = vmull_p64(static_cast<poly64_t>(bitmask), allOnes);
+			const poly64_t allOnes{ static_cast<poly64_t>(~0ull) };
+			const poly128_t result{ vmull_p64(static_cast<poly64_t>(bitmask), allOnes) };
 			return static_cast<uint64_t>(vgetq_lane_u64(vreinterpretq_u64_p128(result), 0));
 		}
 	};
@@ -52,16 +52,16 @@ namespace jsonifier::internal::simd {
 
 	JSONIFIER_INLINE uint64_t sve2CollapseMasked(const jsonifier_simd_int_t masked0, const jsonifier_simd_int_t masked1, const jsonifier_simd_int_t masked2,
 		const jsonifier_simd_int_t masked3) noexcept {
-		uint8x16_t sum0		  = vpaddq_u8(svget_neonq_u8(masked0), svget_neonq_u8(masked1));
-		const uint8x16_t sum1 = vpaddq_u8(svget_neonq_u8(masked2), svget_neonq_u8(masked3));
-		sum0				  = vpaddq_u8(sum0, sum1);
-		sum0				  = vpaddq_u8(sum0, sum0);
+		uint8x16_t sum0{ vpaddq_u8(svget_neonq_u8(masked0), svget_neonq_u8(masked1)) };
+		const uint8x16_t sum1{ vpaddq_u8(svget_neonq_u8(masked2), svget_neonq_u8(masked3)) };
+		sum0 = vpaddq_u8(sum0, sum1);
+		sum0 = vpaddq_u8(sum0, sum0);
 		return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
 	}
 
 	JSONIFIER_INLINE uint64_t sve2CollapseToBitmask(const jsonifier_simd_int_t match0, const jsonifier_simd_int_t match1, const jsonifier_simd_int_t match2,
 		const jsonifier_simd_int_t match3, const jsonifier_simd_int_t bitMask) noexcept {
-		const auto pg = svptrue_b8();
+		const auto pg{ svptrue_b8() };
 		return sve2CollapseMasked(svand_u8_x(pg, match0, bitMask), svand_u8_x(pg, match1, bitMask), svand_u8_x(pg, match2, bitMask), svand_u8_x(pg, match3, bitMask));
 	}
 
@@ -71,9 +71,9 @@ namespace jsonifier::internal::simd {
 
 	struct ws_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01, const jsonifier_simd_int_t) noexcept {
-			const auto pg	   = svptrue_b8();
-			const auto bitMask = sve2BitMask();
-			const auto wsChars = sve2WsChars();
+			const auto pg{ svptrue_b8() };
+			const auto bitMask{ sve2BitMask() };
+			const auto wsChars{ sve2WsChars() };
 			return sve2CollapseMasked(svand_u8_z(svmatch_u8(pg, in01.template get<0>(), wsChars), bitMask, bitMask),
 				svand_u8_z(svmatch_u8(pg, in01.template get<1>(), wsChars), bitMask, bitMask), svand_u8_z(svmatch_u8(pg, in01.template get<2>(), wsChars), bitMask, bitMask),
 				svand_u8_z(svmatch_u8(pg, in01.template get<3>(), wsChars), bitMask, bitMask));
@@ -82,9 +82,9 @@ namespace jsonifier::internal::simd {
 
 	struct op_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01, const jsonifier_simd_int_t, const jsonifier_simd_int_t) noexcept {
-			const auto pg	   = svptrue_b8();
-			const auto bitMask = sve2BitMask();
-			const auto opChars = sve2OpChars();
+			const auto pg{ svptrue_b8() };
+			const auto bitMask{ sve2BitMask() };
+			const auto opChars{ sve2OpChars() };
 			return sve2CollapseMasked(svand_u8_z(svmatch_u8(pg, in01.template get<0>(), opChars), bitMask, bitMask),
 				svand_u8_z(svmatch_u8(pg, in01.template get<1>(), opChars), bitMask, bitMask), svand_u8_z(svmatch_u8(pg, in01.template get<2>(), opChars), bitMask, bitMask),
 				svand_u8_z(svmatch_u8(pg, in01.template get<3>(), opChars), bitMask, bitMask));
@@ -93,8 +93,8 @@ namespace jsonifier::internal::simd {
 
 	struct unescaped_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01) noexcept {
-			const auto pg	   = svptrue_b8();
-			const auto bitMask = sve2BitMask();
+			const auto pg{ svptrue_b8() };
+			const auto bitMask{ sve2BitMask() };
 			return sve2CollapseMasked(svand_u8_x(pg, in01.template get<0>(), bitMask), svand_u8_x(pg, in01.template get<1>(), bitMask),
 				svand_u8_x(pg, in01.template get<2>(), bitMask), svand_u8_x(pg, in01.template get<3>(), bitMask));
 		}
@@ -102,28 +102,28 @@ namespace jsonifier::internal::simd {
 
 	template<typename rope_block> struct rope_detector : rope_block {
 		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
-			const auto pg				  = svptrue_b8();
-			const auto bitMask			  = sve2BitMask();
-			const jsonifier_simd_int_t d0 = in01.template get<0>();
-			const jsonifier_simd_int_t d1 = in01.template get<1>();
-			const jsonifier_simd_int_t d2 = in01.template get<2>();
-			const jsonifier_simd_int_t d3 = in01.template get<3>();
-			const auto eqBs0			  = svcmpeq_u8(pg, d0, bsRegister);
-			const auto eqQ0				  = svcmpeq_u8(pg, d0, quoteRegister);
-			const auto eqBs1			  = svcmpeq_u8(pg, d1, bsRegister);
-			const auto eqQ1				  = svcmpeq_u8(pg, d1, quoteRegister);
-			const auto eqBs2			  = svcmpeq_u8(pg, d2, bsRegister);
-			const auto eqQ2				  = svcmpeq_u8(pg, d2, quoteRegister);
-			const auto eqBs3			  = svcmpeq_u8(pg, d3, bsRegister);
-			const auto eqQ3				  = svcmpeq_u8(pg, d3, quoteRegister);
-			const uint64_t backslashLocal = sve2CollapseMasked(svand_u8_z(eqBs0, bitMask, bitMask), svand_u8_z(eqBs1, bitMask, bitMask), svand_u8_z(eqBs2, bitMask, bitMask),
-				svand_u8_z(eqBs3, bitMask, bitMask));
-			const uint64_t quotesLocal =
-				sve2CollapseMasked(svand_u8_z(eqQ0, bitMask, bitMask), svand_u8_z(eqQ1, bitMask, bitMask), svand_u8_z(eqQ2, bitMask, bitMask), svand_u8_z(eqQ3, bitMask, bitMask));
-			const uint64_t escaped = nextEscapeAndTerminalCode(backslashLocal);
-			const uint64_t quotes  = (quotesLocal & ~escaped);
-			rope_block::escaped	   = escaped;
-			rope_block::quotes	   = quotes;
+			const auto pg{ svptrue_b8() };
+			const auto bitMask{ sve2BitMask() };
+			const jsonifier_simd_int_t d0{ in01.template get<0>() };
+			const jsonifier_simd_int_t d1{ in01.template get<1>() };
+			const jsonifier_simd_int_t d2{ in01.template get<2>() };
+			const jsonifier_simd_int_t d3{ in01.template get<3>() };
+			const auto eqBs0{ svcmpeq_u8(pg, d0, bsRegister) };
+			const auto eqQ0{ svcmpeq_u8(pg, d0, quoteRegister) };
+			const auto eqBs1{ svcmpeq_u8(pg, d1, bsRegister) };
+			const auto eqQ1{ svcmpeq_u8(pg, d1, quoteRegister) };
+			const auto eqBs2{ svcmpeq_u8(pg, d2, bsRegister) };
+			const auto eqQ2{ svcmpeq_u8(pg, d2, quoteRegister) };
+			const auto eqBs3{ svcmpeq_u8(pg, d3, bsRegister) };
+			const auto eqQ3{ svcmpeq_u8(pg, d3, quoteRegister) };
+			const uint64_t backslashLocal{ sve2CollapseMasked(svand_u8_z(eqBs0, bitMask, bitMask), svand_u8_z(eqBs1, bitMask, bitMask), svand_u8_z(eqBs2, bitMask, bitMask),
+				svand_u8_z(eqBs3, bitMask, bitMask)) };
+			const uint64_t quotesLocal{ sve2CollapseMasked(svand_u8_z(eqQ0, bitMask, bitMask), svand_u8_z(eqQ1, bitMask, bitMask), svand_u8_z(eqQ2, bitMask, bitMask),
+				svand_u8_z(eqQ3, bitMask, bitMask)) };
+			const uint64_t escaped{ nextEscapeAndTerminalCode(backslashLocal) };
+			const uint64_t quotes{ (quotesLocal & ~escaped) };
+			rope_block::escaped = escaped;
+			rope_block::quotes	= quotes;
 			return quotes ? finishNext() : finishNextNoInString();
 		}
 
@@ -139,34 +139,34 @@ namespace jsonifier::internal::simd {
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
 			if (!backslashLocal) {
-				const uint64_t escaped = nextIsEscaped;
-				nextIsEscaped		   = 0;
+				const uint64_t escaped{ nextIsEscaped };
+				nextIsEscaped = 0;
 				return escaped;
 			}
-			const uint64_t escapeAndTerminalCode = nextEscapeAndTerminalCodeImpl(backslashLocal & ~nextIsEscaped);
-			const uint64_t escaped				 = escapeAndTerminalCode ^ (backslashLocal | nextIsEscaped);
-			nextIsEscaped						 = (escapeAndTerminalCode & backslashLocal) >> 63;
+			const uint64_t escapeAndTerminalCode{ nextEscapeAndTerminalCodeImpl(backslashLocal & ~nextIsEscaped) };
+			const uint64_t escaped{ escapeAndTerminalCode ^ (backslashLocal | nextIsEscaped) };
+			nextIsEscaped = (escapeAndTerminalCode & backslashLocal) >> 63;
 			return escaped;
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCodeImpl(const uint64_t potentialEscape) noexcept {
 			static constexpr uint64_t oddBits{ 0xAAAAAAAAAAAAAAAAULL };
-			const uint64_t maybeEscaped				 = potentialEscape << 1;
-			const uint64_t maybeEscapedAndOddBits	 = maybeEscaped | oddBits;
-			const uint64_t evenSeriesCodesAndOddBits = maybeEscapedAndOddBits - potentialEscape;
+			const uint64_t maybeEscaped{ potentialEscape << 1 };
+			const uint64_t maybeEscapedAndOddBits{ maybeEscaped | oddBits };
+			const uint64_t evenSeriesCodesAndOddBits{ maybeEscapedAndOddBits - potentialEscape };
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
 		JSONIFIER_INLINE uint64_t followsNonquoteScalar(const uint64_t nonquoteScalar) noexcept {
-			const uint64_t shifted = (nonquoteScalar << 1) | prevScalar;
-			prevScalar			   = nonquoteScalar >> 63;
+			const uint64_t shifted{ (nonquoteScalar << 1) | prevScalar };
+			prevScalar = nonquoteScalar >> 63;
 			return shifted;
 		}
 
 		JSONIFIER_INLINE void finishNext() noexcept {
-			const uint64_t inString = prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
-			prevInString			= static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
-			rope_block::inString	= inString;
+			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes) ^ prevInString };
+			prevInString		 = static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
+			rope_block::inString = inString;
 		}
 
 		JSONIFIER_INLINE void finishNextNoInString() noexcept {
@@ -194,7 +194,7 @@ namespace jsonifier::internal::simd {
 		}
 
 		JSONIFIER_INLINE static uint64_t correctedPopcount(const uint64_t bits) noexcept {
-			return static_cast<uint64_t>(popCount(bits));
+			return static_cast<uint64_t>(popcount(bits));
 		}
 
 		JSONIFIER_INLINE static uint64_t advance(const uint64_t bits) noexcept {
@@ -205,7 +205,7 @@ namespace jsonifier::internal::simd {
 	template<uint64_t size> consteval array<uint8_t, size> generateWhitespaceArraySve2() noexcept {
 		static constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
 		array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
+		for (uint64_t x{ 0 }; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;
@@ -217,7 +217,7 @@ namespace jsonifier::internal::simd {
 		static constexpr const uint8_t values[]{ 0xFFu, 0x00u, uint_c_v<','>, uint_c_v<':'>, 0x00u, uint_c_v<'['>, uint_c_v<']'>, uint_c_v<'{'>, uint_c_v<'}'>, 0x00u, 0x00u, 0x00u,
 			0x00u, 0x00u, 0x00u, 0x00u };
 		array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
+		for (uint64_t x{ 0 }; x < size; ++x) {
 			returnValues[x] = values[x % 16];
 		}
 		return returnValues;

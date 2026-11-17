@@ -42,7 +42,7 @@ namespace jsonifier::internal {
 	};
 
 	inline void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
-		for (uint64_t x = 0; x < depth; ++x) {
+		for (uint64_t x{ 0 }; x < depth; ++x) {
 			os << "  ";
 		}
 	}
@@ -90,7 +90,7 @@ namespace jsonifier::internal {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
 			printIndent(os, depth);
 			os << "map (entries: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
-			for (auto iter = value.begin(); iter != value.end(); ++iter) {
+			for (auto iter{ value.begin() }; iter != value.end(); ++iter) {
 				printIndent(os, depth + 1);
 				os << "key: ";
 				print::impl(iter->first, os, depth + 1);
@@ -107,7 +107,7 @@ namespace jsonifier::internal {
 		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new>
 		inline static void printElements(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
 			if constexpr (currentIndex < newSize) {
-				auto& sub = get<currentIndex>(value);
+				auto& sub{ get<currentIndex>(value) };
 				printIndent(os, depth);
 				os << "[" << currentIndex << "]: ";
 				print::impl(sub, os, depth + 1);
@@ -116,7 +116,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
-			static constexpr auto size = std::tuple_size_v<remove_cvref_t<value_type>>;
+			static constexpr auto size{ std::tuple_size_v<remove_cvref_t<value_type>> };
 			printIndent(os, depth);
 			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
 			printElements<0, size>(value, os, depth + 1);
@@ -127,10 +127,10 @@ namespace jsonifier::internal {
 
 	template<vector_types value_type> struct print_impl<value_type> {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
-			const auto newSize = value.size();
+			const auto newSize{ value.size() };
 			printIndent(os, depth);
 			os << "vector (elements: " << newSize << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") [" << endl;
-			auto iter = getBeginIterVec(value);
+			auto iter{ getBeginIterVec(value) };
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(newSize); ++index) {
 				printIndent(os, depth + 1);
 				os << "[" << index << "]: ";
@@ -146,7 +146,7 @@ namespace jsonifier::internal {
 		inline static void impl(const value_type_new<value_type_internal, size>& value, basic_stream<>& os, uint64_t depth) noexcept {
 			printIndent(os, depth);
 			os << "array (elements: " << size << ", size: " << sizeof(value_type_new<value_type_internal, size>) << ") [" << endl;
-			auto iter = getBeginIterVec(value);
+			auto iter{ getBeginIterVec(value) };
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(size); ++index) {
 				printIndent(os, depth + 1);
 				os << "[" << index << "]: ";
@@ -253,7 +253,7 @@ namespace jsonifier::internal {
 		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_types::object): {
-					const auto& object = value.getObject();
+					const auto& object{ value.getObject() };
 					os << "object (size: " << object.size() << ")" << endl;
 					for (const auto& [key, entry]: object) {
 						printIndent(os, depth + 1);
@@ -263,9 +263,9 @@ namespace jsonifier::internal {
 					return;
 				}
 				case static_cast<uint64_t>(json_types::array): {
-					const auto& array = value.getArray();
+					const auto& array{ value.getArray() };
 					os << "array (size: " << array.size() << ")" << endl;
-					for (uint64_t x = 0; x < array.size(); ++x) {
+					for (uint64_t x{ 0 }; x < array.size(); ++x) {
 						printIndent(os, depth + 1);
 						os << "[" << x << "]: ";
 						impl(array[x], os, depth + 1);
@@ -273,7 +273,7 @@ namespace jsonifier::internal {
 					return;
 				}
 				case static_cast<uint64_t>(json_types::string): {
-					const auto& string = value.getString();
+					const auto& string{ value.getString() };
 					os << "\"" << string << "\" (length: " << string.size() << ")" << endl;
 					return;
 				}
@@ -319,7 +319,7 @@ namespace jsonifier::internal {
 		}
 
 		inline static void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
-			for (uint64_t x = 0; x < depth; ++x) {
+			for (uint64_t x{ 0 }; x < depth; ++x) {
 				os << "  ";
 			}
 		}

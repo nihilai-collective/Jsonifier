@@ -11,8 +11,8 @@
 namespace jsonifier::internal {
 
 	template<uint64_t count> consteval uint64_t genTableSize() noexcept {
-		uint64_t result = 1;
-		for (uint64_t j = 0; j < count; ++j) {
+		uint64_t result{ 1 };
+		for (uint64_t j{ 0 }; j < count; ++j) {
 			result *= 10;
 		}
 		return result;
@@ -21,14 +21,14 @@ namespace jsonifier::internal {
 	template<uint64_t count> using gen_table_value_t = conditional_t<(count <= 2ULL), uint16_t, uint32_t>;
 
 	template<uint64_t count> consteval array<gen_table_value_t<count>, genTableSize<count>()> genTable() noexcept {
-		using value_type			   = gen_table_value_t<count>;
-		static constexpr uint64_t size = genTableSize<count>();
+		using value_type = gen_table_value_t<count>;
+		static constexpr uint64_t size{ genTableSize<count>() };
 		array<value_type, size> t{};
-		for (uint64_t i = 0; i < size; ++i) {
-			uint64_t divisor = size / 10;
-			for (uint64_t j = 0; j < count; ++j) {
-				const auto digit	 = static_cast<value_type>(static_cast<uint8_t>('0') + (i / divisor % 10));
-				const uint64_t shift = (std::endian::native == std::endian::little ? j : sizeof(value_type) - 1 - j) * 8;
+		for (uint64_t i{ 0 }; i < size; ++i) {
+			uint64_t divisor{ size / 10 };
+			for (uint64_t j{ 0 }; j < count; ++j) {
+				const auto digit{ static_cast<value_type>(static_cast<uint8_t>('0') + (i / divisor % 10)) };
+				const uint64_t shift{ (std::endian::native == std::endian::little ? j : sizeof(value_type) - 1 - j) * 8 };
 				t[i] |= static_cast<value_type>(digit << shift);
 				divisor /= 10;
 			}
@@ -46,19 +46,19 @@ namespace jsonifier::internal {
 #if !JSONIFIER_COMPILER_CLANG && !JSONIFIER_COMPILER_GCC && !JSONIFIER_COMPILER_MSVC
 
 	template<uint_types v_type_new> JSONIFIER_INLINE v_type_new mulhiPortable(v_type_new a, v_type_new b) noexcept {
-		using v_type						= next_higher_int_t<v_type_new>;
-		static constexpr uint64_t totalBits = sizeof(v_type_new) * 8;
-		static constexpr uint64_t halfBits	= totalBits / 2;
-		static constexpr v_type mask		= (static_cast<v_type>(1) << halfBits) - 1;
-		const v_type aLo					= static_cast<v_type>(a) & mask;
-		const v_type aHi					= static_cast<v_type>(a) >> halfBits;
-		const v_type bLo					= static_cast<v_type>(b) & mask;
-		const v_type bHi					= static_cast<v_type>(b) >> halfBits;
-		const v_type loLo					= aLo * bLo;
-		const v_type hiLo					= aHi * bLo;
-		const v_type loHi					= aLo * bHi;
-		const v_type hiHi					= aHi * bHi;
-		const v_type cross					= (loLo >> halfBits) + (hiLo & mask) + (loHi & mask);
+		using v_type = next_higher_int_t<v_type_new>;
+		static constexpr uint64_t totalBits{ sizeof(v_type_new) * 8 };
+		static constexpr uint64_t halfBits{ totalBits / 2 };
+		static constexpr v_type mask{ (static_cast<v_type>(1) << halfBits) - 1 };
+		const v_type aLo{ static_cast<v_type>(a) & mask };
+		const v_type aHi{ static_cast<v_type>(a) >> halfBits };
+		const v_type bLo{ static_cast<v_type>(b) & mask };
+		const v_type bHi{ static_cast<v_type>(b) >> halfBits };
+		const v_type loLo{ aLo * bLo };
+		const v_type hiLo{ aHi * bLo };
+		const v_type loHi{ aLo * bHi };
+		const v_type hiHi{ aHi * bHi };
+		const v_type cross{ (loLo >> halfBits) + (hiLo & mask) + (loHi & mask) };
 		return static_cast<v_type_new>(hiHi + (hiLo >> halfBits) + (loHi >> halfBits) + (cross >> halfBits));
 	}
 
@@ -356,17 +356,17 @@ namespace jsonifier::internal {
 
 	template<int_types v_type> struct to_chars<v_type> {
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> implNegative(write_buffer_ptr buf, const v_type value) noexcept {
-			using unsigned_type						   = std::make_unsigned_t<v_type>;
-			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
-			*buf									   = '-';
+			using unsigned_type = std::make_unsigned_t<v_type>;
+			static constexpr unsigned_type shiftAmount{ static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL) };
+			*buf = '-';
 			return to_chars<unsigned_type>::impl(buf + 1,
 				static_cast<unsigned_type>(
 					(static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) - static_cast<unsigned_type>(value >> shiftAmount)));
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buf JSONIFIER_LIFETIME_BOUND, const v_type value) noexcept {
-			using unsigned_type						   = std::make_unsigned_t<v_type>;
-			static constexpr unsigned_type shiftAmount = static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL);
+			using unsigned_type = std::make_unsigned_t<v_type>;
+			static constexpr unsigned_type shiftAmount{ static_cast<unsigned_type>(sizeof(v_type) * 8ULL - 1ULL) };
 			return (value < 0) ? implNegative(buf, value)
 							   : to_chars<unsigned_type>::impl(buf,
 									 static_cast<unsigned_type>((static_cast<unsigned_type>(value) ^ static_cast<unsigned_type>(value >> shiftAmount)) -

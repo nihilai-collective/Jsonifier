@@ -81,7 +81,7 @@ namespace jsonifier {
 		}
 
 		template<uint64_t size> JSONIFIER_INLINE friend bool operator==(const string_view_base& lhs, const char (&rhs)[size]) noexcept {
-			auto rhsLength = traits_type::length(rhs);
+			auto rhsLength{ traits_type::length(rhs) };
 			return rhsLength == lhs.size() && internal::comparison::compare(lhs.data(), rhs, rhsLength);
 		}
 

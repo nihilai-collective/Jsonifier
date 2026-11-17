@@ -29,7 +29,7 @@ namespace jsonifier::internal {
 		template<uint64_t index, typename tuple_type, uint64_t maxIndex>
 		static consteval void impl(const tuple_type& tuple, array<tuple_reference, maxIndex>& tupleRefsRaw) noexcept {
 			tupleRefsRaw[index].oldIndex = static_cast<uint8_t>(index);
-			const auto& potentialKey	 = getBecauseOtherLibAuthorsResolve<index>(tuple);
+			const auto& potentialKey{ getBecauseOtherLibAuthorsResolve<index>(tuple) };
 			if constexpr (named_types<decltype(potentialKey)>) {
 				tupleRefsRaw[index].key = escapedKeyLiteral<remove_cvref_t<decltype(potentialKey)>::name>.operator string_view();
 			}
@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename tuple_type> consteval auto collectTupleRefs(const tuple_type& tuple) noexcept -> array<tuple_reference, tupleSizeOf<remove_cvref_t<tuple_type>>> {
-		static constexpr auto tupleSize = tupleSizeOf<remove_cvref_t<tuple_type>>;
+		static constexpr auto tupleSize{ tupleSizeOf<remove_cvref_t<tuple_type>> };
 		array<tuple_reference, tupleSize> tupleRefsRaw{};
 		tuple_ref_collector<make_integer_sequence<tupleSize>>::impl(tuple, tupleRefsRaw);
 		return tupleRefsRaw;
@@ -49,9 +49,9 @@ namespace jsonifier::internal {
 
 	template<typename comparator_type, uint64_t size> consteval array<tuple_reference, size> sortTupleRefs(const array<tuple_reference, size>& tupleRefsRaw) noexcept {
 		array<tuple_reference, size> returnValues{ tupleRefsRaw };
-		for (uint64_t i = 1; i < size; ++i) {
-			auto key  = returnValues[i];
-			int64_t j = static_cast<int64_t>(i) - 1;
+		for (uint64_t i{ 1 }; i < size; ++i) {
+			auto key{ returnValues[i] };
+			int64_t j{ static_cast<int64_t>(i) - 1 };
 			while (j >= 0 && comparator_type::impl(returnValues[static_cast<uint64_t>(j)], key)) {
 				returnValues[static_cast<uint64_t>(j + 1)] = returnValues[static_cast<uint64_t>(j)];
 				--j;
@@ -63,8 +63,8 @@ namespace jsonifier::internal {
 
 	struct by_first_byte {
 		static consteval bool impl(const tuple_reference& lhs, const tuple_reference& rhs) noexcept {
-			const uint64_t lhsByte = lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull;
-			const uint64_t rhsByte = rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull;
+			const uint64_t lhsByte{ lhs.key.size() ? static_cast<uint8_t>(lhs.key[0]) : 0ull };
+			const uint64_t rhsByte{ rhs.key.size() ? static_cast<uint8_t>(rhs.key[0]) : 0ull };
 			return lhsByte < rhsByte;
 		}
 	};
@@ -92,11 +92,11 @@ namespace jsonifier::internal {
 	template<typename value_type> inline constexpr auto tupleReferencesByFirstByte{ consolidateTupleRefs(sortedTupleReferencesByFirstByte<value_type>) };
 
 	// Idea for this interface sampled from Stephen Berry and his library, Glaze library: https://github.com/stephenberry/glaze
-	template<typename value_type> using core_tuple_type					  = decltype(core<base_t<value_type>>::parseValue);
-	template<typename value_type> inline constexpr uint64_t coreTupleSize = tupleSizeOf<core_tuple_type<value_type>>;
+	template<typename value_type> using core_tuple_type = decltype(core<base_t<value_type>>::parseValue);
+	template<typename value_type> inline constexpr uint64_t coreTupleSize{ tupleSizeOf<core_tuple_type<value_type>> };
 
-	template<typename value_type> inline constexpr bool isLeafParseType = string_types<value_type> || string_view_types<value_type> || bool_types<value_type> ||
-		number_types<value_type> || any_enum_types<value_type> || always_null_types<value_type>;
+	template<typename value_type> inline constexpr bool isLeafParseType{ string_types<value_type> || string_view_types<value_type> || bool_types<value_type> ||
+		number_types<value_type> || any_enum_types<value_type> || always_null_types<value_type> };
 
 #if JSONIFIER_COMPILER_MSVC
 	inline constexpr uint64_t maxParseInlineMemberCount{ 8 };

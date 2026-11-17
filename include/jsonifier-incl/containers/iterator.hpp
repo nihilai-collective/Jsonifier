@@ -36,13 +36,13 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE constexpr sized_iterator operator+(const difference_type offSet) const noexcept {
-			sized_iterator temp = *this;
+			sized_iterator temp{ *this };
 			temp += offSet;
 			return temp;
 		}
 
 		JSONIFIER_INLINE constexpr sized_iterator operator-(const difference_type offSet) const noexcept {
-			sized_iterator temp = *this;
+			sized_iterator temp{ *this };
 			temp -= offSet;
 			return temp;
 		}
@@ -85,13 +85,13 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE constexpr sized_iterator operator++(int32_t) noexcept {
-			sized_iterator temp = *this;
+			sized_iterator temp{ *this };
 			++*this;
 			return temp;
 		}
 
 		JSONIFIER_INLINE constexpr sized_iterator operator--(int32_t) noexcept {
-			sized_iterator temp = *this;
+			sized_iterator temp{ *this };
 			--*this;
 			return temp;
 		}

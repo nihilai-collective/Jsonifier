@@ -56,7 +56,7 @@ namespace jsonifier::internal {
 		minify_context_ro(const minify_context_ro&) noexcept			= delete;
 
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
-			const auto index = minifier.impl(iter, endStructural, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
+			const auto index{ minifier.impl(iter, endStructural, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter) };
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
 
@@ -73,17 +73,17 @@ namespace jsonifier::internal {
 
 		template<string_types input_string_type, string_types output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			derivedRef.errors.clear();
-			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
-			read_buffer_ptr endIter	 = rootIter + in.size();
+			read_buffer_ptr rootIter{ std::bit_cast<read_buffer_ptr>(in.data()) };
+			read_buffer_ptr endIter{ rootIter + in.size() };
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			write_structural_index_ptr iter{ derivedRef.section.begin() };
-			write_structural_index_ptr endStructural = derivedRef.section.end();
+			write_structural_index_ptr endStructural{ derivedRef.section.end() };
 			if (iter == endStructural) [[unlikely]] {
 				derivedRef.errors.emplace_back(error::constructError<status_classes::minifying, minify_statuses::no_input>(rootIter, rootIter, endIter));
 				return false;
 			}
-			const uint64_t requiredSize = in.size();
-			using context_type			= minify_context_ro<remove_reference_t<decltype(*this)>>;
+			const uint64_t requiredSize{ in.size() };
+			using context_type = minify_context_ro<remove_reference_t<decltype(*this)>>;
 			if constexpr (resize_and_overwriteable_types<remove_cvref_t<output_buffer_type>>) {
 				buffer.resize_and_overwrite(requiredSize, context_type{ *this, iter, endStructural, rootIter, endIter });
 			} else {

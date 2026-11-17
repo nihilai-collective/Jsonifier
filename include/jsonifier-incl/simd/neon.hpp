@@ -52,10 +52,10 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_types simd_int_t01> [[maybe_unused]] JSONIFIER_INLINE uint16_t opBitMask(simd_int_t01 value) noexcept {
 		static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80 };
-		const auto minput = vandq_u8(value, bitMask);
-		uint8x16_t tmp	  = vpaddq_u8(minput, minput);
-		tmp				  = vpaddq_u8(tmp, tmp);
-		tmp				  = vpaddq_u8(tmp, tmp);
+		const auto minput{ vandq_u8(value, bitMask) };
+		uint8x16_t tmp{ vpaddq_u8(minput, minput) };
+		tmp = vpaddq_u8(tmp, tmp);
+		tmp = vpaddq_u8(tmp, tmp);
 		return vgetq_lane_u16(vreinterpretq_u16_u8(tmp), 0);
 	}
 

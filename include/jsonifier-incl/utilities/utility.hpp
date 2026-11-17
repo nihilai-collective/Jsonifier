@@ -84,7 +84,7 @@ namespace jsonifier::internal {
 	consteval array<char_escape_entry, 256ULL> genCharEscapeEntries() noexcept {
 		static constexpr char hexDigits[]{ "0123456789ABCDEF" };
 		array<char_escape_entry, 256ULL> returnValue{};
-		for (uint64_t x = 0; x < 256ULL; ++x) {
+		for (uint64_t x{ 0 }; x < 256ULL; ++x) {
 			if (x < 0x20) {
 				returnValue[x].values[0] = '\\';
 				returnValue[x].values[1] = 'u';
@@ -104,7 +104,7 @@ namespace jsonifier::internal {
 			}
 		}
 		auto setEscape = [&](char value, char escaped) {
-			auto& entry		= returnValue[static_cast<uint8_t>(value)];
+			auto& entry{ returnValue[static_cast<uint8_t>(value)] };
 			entry			= char_escape_entry{};
 			entry.values[0] = '\\';
 			entry.values[1] = escaped;
@@ -142,7 +142,7 @@ namespace jsonifier::internal {
 	struct swap_fn {
 		template<typename value_type, std::size_t size> JSONIFIER_INLINE constexpr void operator()(value_type (&lhs)[size], value_type (&rhs)[size]) const
 			noexcept(noexcept((*this)(lhs[0], rhs[0]))) {
-			for (std::size_t index = 0; index < size; ++index) {
+			for (std::size_t index{ 0 }; index < size; ++index) {
 				(*this)(lhs[index], rhs[index]);
 			}
 		}
@@ -171,7 +171,7 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t valueNew> struct integral_constant {
-		static constexpr uint64_t value = valueNew;
+		static constexpr uint64_t value{ valueNew };
 
 		JSONIFIER_INLINE constexpr uint64_t operator()() const noexcept {
 			return value;
@@ -253,7 +253,7 @@ namespace jsonifier::internal {
 
 	template<typename function_type, uint64_t... indices> struct visit_impl<function_type, integer_sequence<indices...>> {
 		template<typename variant_type, typename... arg_types> JSONIFIER_INLINE static constexpr void impl(variant_type&& variant, arg_types&&... args) noexcept {
-			const auto idx = variant.index();
+			const auto idx{ variant.index() };
 			static_cast<void>((
 				(idx == indices ? (function_type::impl(std::get<indices>(internal::forward<variant_type>(variant)), internal::forward<arg_types>(args)...), true) : false) || ...));
 		}
@@ -324,13 +324,13 @@ namespace jsonifier::internal {
 		static constexpr uint64_t value{ 34 };
 	};
 
-	template<typename value_type> inline constexpr uint64_t digit_size_v = digit_sizes<value_type>::value;
+	template<typename value_type> inline constexpr uint64_t digit_size_v{ digit_sizes<value_type>::value };
 
 	template<char_types value_type> struct char_sizes {
 		static constexpr uint64_t value{ 16 };
 	};
 
-	template<typename value_type> inline constexpr uint64_t char_size_v = char_sizes<value_type>::value;
+	template<typename value_type> inline constexpr uint64_t char_size_v{ char_sizes<value_type>::value };
 
 #if JSONIFIER_PLATFORM_MAC
 

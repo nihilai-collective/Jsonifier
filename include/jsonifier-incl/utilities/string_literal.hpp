@@ -23,7 +23,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE constexpr string_literal() noexcept = default;
 
 		JSONIFIER_INLINE constexpr string_literal(const char (&str)[sizeVal]) noexcept {
-			for (uint64_t x = 0; x < length; ++x) {
+			for (uint64_t x{ 0 }; x < length; ++x) {
 				values[x] = str[x];
 			}
 			values[length] = '\0';
@@ -111,8 +111,8 @@ namespace jsonifier::internal {
 
 	template<string_literal literal> consteval uint64_t escapedKeyLength() noexcept {
 		uint64_t newLength{};
-		for (uint64_t x = 0; x < literal.size(); ++x) {
-			const char c = literal[x];
+		for (uint64_t x{ 0 }; x < literal.size(); ++x) {
+			const char c{ literal[x] };
 			newLength += (c == '"' || c == '\\') ? 2 : 1;
 		}
 		return newLength;
@@ -122,8 +122,8 @@ namespace jsonifier::internal {
 		static constexpr uint64_t newLength{ escapedKeyLength<literal>() };
 		string_literal<newLength + 1> returnValues{};
 		uint64_t outIndex{};
-		for (uint64_t x = 0; x < literal.size(); ++x) {
-			const char c = literal[x];
+		for (uint64_t x{ 0 }; x < literal.size(); ++x) {
+			const char c{ literal[x] };
 			if (c == '"' || c == '\\') {
 				returnValues[outIndex] = '\\';
 				++outIndex;

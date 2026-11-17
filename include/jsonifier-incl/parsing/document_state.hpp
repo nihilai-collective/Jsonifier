@@ -17,10 +17,10 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE generic::error_codes advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer,
 			read_structural_index_ptr& next) noexcept {
-			const read_buffer_ptr base		   = root;
-			read_structural_index_ptr limit	   = tapeEnd;
-			read_structural_index_ptr position = cursor;
-			uint64_t currentDepth			   = depth;
+			const read_buffer_ptr base{ root };
+			read_structural_index_ptr limit{ tapeEnd };
+			read_structural_index_ptr position{ cursor };
+			uint64_t currentDepth{ depth };
 			if (currentDepth == containerDepth) {
 				if (position <= childValue) {
 					position = skipValue(base, childValue, limit);
@@ -71,9 +71,9 @@ namespace jsonifier::internal {
 		}
 
 		template<bool minified> JSONIFIER_INLINE bool keyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
-			const uint64_t keySize	 = key.size();
-			const uint64_t span		 = static_cast<uint64_t>(*(iter + 1) - *iter);
-			read_buffer_ptr keyStart = root + *iter + 1;
+			const uint64_t keySize{ key.size() };
+			const uint64_t span{ static_cast<uint64_t>(*(iter + 1) - *iter) };
+			read_buffer_ptr keyStart{ root + *iter + 1 };
 			if (span == keySize + 2) [[likely]] {
 				return internal::comparison::compare(keyStart, key.data(), keySize);
 			}
@@ -101,8 +101,8 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool keyHasEscape(read_structural_index_ptr iter) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			read_buffer_ptr keyLimit = root + *(iter + 1);
+			read_buffer_ptr keyStart{ root + *iter + 1 };
+			read_buffer_ptr keyLimit{ root + *(iter + 1) };
 			return keyLimit > keyStart && char_comparison<'\\', uint8_t>::memchar(keyStart, static_cast<uint64_t>(keyLimit - keyStart));
 		}
 
@@ -111,8 +111,8 @@ namespace jsonifier::internal {
 		}
 
 		template<bool minified> JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
+			read_buffer_ptr keyStart{ root + *iter + 1 };
+			read_buffer_ptr keyEnd{ root + *(iter + 1) - 1 };
 			if constexpr (!minified) {
 				while (keyEnd > keyStart && *keyEnd != uint_c_v<'"'>) {
 					--keyEnd;
@@ -122,9 +122,9 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {
-			read_buffer_ptr keyStart = root + *iter + 1;
-			char* unescaped			 = arena->scratch();
-			const auto scanned		 = string_parser::impl(keyStart, end, unescaped);
+			read_buffer_ptr keyStart{ root + *iter + 1 };
+			char* unescaped{ arena->scratch() };
+			const auto scanned{ string_parser::impl(keyStart, end, unescaped) };
 			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
 		}
 
