@@ -249,6 +249,30 @@ namespace jsonifier::internal {
 		}
 	};
 
+	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundDownToMultiple(value_type value) noexcept {
+		if constexpr ((multiple & (multiple - 1)) == 0) {
+			static constexpr auto notMulSub1{ ~(multiple - 1) };
+			return value & notMulSub1;
+		} else {
+			if constexpr (std::is_signed_v<value_type>) {
+				return value >= 0 ? (value / multiple) * multiple : ((value - multiple + 1) / multiple) * multiple;
+			} else {
+				return (value / multiple) * multiple;
+			}
+		}
+	}
+
+	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
+		if constexpr ((multiple & (multiple - 1)) == 0) {
+			static constexpr auto mulSub1{ multiple - 1 };
+			static constexpr auto notMulSub1{ ~mulSub1 };
+			return (value + static_cast<value_type>(mulSub1)) & static_cast<value_type>(notMulSub1);
+		} else {
+			const auto remainder{ value % multiple };
+			return remainder == 0 ? value : value + (multiple - remainder);
+		}
+	}
+
 	template<typename function_type, typename sequence_type> struct visit_impl;
 
 	template<typename function_type, uint64_t... indices> struct visit_impl<function_type, integer_sequence<indices...>> {

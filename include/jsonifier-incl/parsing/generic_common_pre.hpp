@@ -39,9 +39,9 @@ namespace jsonifier::generic {
 
 namespace jsonifier::internal {
 
-	template<typename value_type> class alloc_buffer : internal::alloc_wrapper<value_type> {
+	template<typename value_type> class alloc_buffer : internal::aligned_allocator<value_type> {
 	  public:
-		using allocator = internal::alloc_wrapper<value_type>;
+		using allocator = internal::aligned_allocator<value_type>;
 
 		JSONIFIER_INLINE alloc_buffer() noexcept = default;
 

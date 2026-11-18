@@ -30,7 +30,7 @@ namespace enum_name_tests {
 		});
 
 		rt_ut::unit_test<"enum_name_stream_operator_writes_name", true>::assert_eq(true, [] {
-			jsonifier::internal::basic_stream<> stream{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> stream{};
 			jsonifier::internal::operator<<(stream, shape_kinds::square);
 			auto streamText = stream.view();
 			stream.discard();

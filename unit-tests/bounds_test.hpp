@@ -8,6 +8,7 @@
 
 #include "parsing_tests.hpp"
 #include "common.hpp"
+#include <chrono>
 
 namespace bounds_tests {
 

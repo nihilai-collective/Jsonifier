@@ -126,7 +126,7 @@ namespace jsonifier::generic {
 			return getUint64(out);
 		} else if constexpr (std::is_same_v<value_type, bool>) {
 			return getBool(out);
-		} else if constexpr (std::is_same_v<value_type, std::string_view> || internal::buffer_like_types<value_type>) {
+		} else if constexpr (internal::string_view_types<value_type>) {
 			return getString(out);
 		} else if constexpr (std::is_same_v<value_type, object>) {
 			out = getObject();

@@ -99,13 +99,8 @@ namespace jsonifier::internal {
 
 	template<uint64_t sizeVal> string_literal(const char (&)[sizeVal]) -> string_literal<sizeVal>;
 
-	template<uint64_t size, uint64_t bufferSize> inline basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const string_literal<size>& input) noexcept {
-		os << std::basic_string_view<char>{ input.data(), input.size() };
-		return os;
-	}
-
-	template<uint64_t size> inline std::ostream& operator<<(std::ostream& os, const string_literal<size>& input) noexcept {
-		os << std::basic_string_view<char>{ input.data(), input.size() };
+	template<ostream_types ostream_type, uint64_t size> inline ostream_type& operator<<(ostream_type& os, const string_literal<size>& input) noexcept {
+		os.write(input.data(), static_cast<int64_t>(input.size()));
 		return os;
 	}
 

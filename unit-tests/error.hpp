@@ -109,7 +109,7 @@ namespace error_tests {
 		}
 
 		{
-			jsonifier::internal::basic_stream<> stream{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> stream{};
 			static constexpr std::string_view testInput{ R"({"key": "value"})" };
 			auto err = jsonifier::internal::error::constructError<jsonifier::internal::status_classes::minifying, jsonifier::internal::parse_statuses::no_input>(
 				std::bit_cast<jsonifier::internal::read_buffer_ptr>(testInput.data()), std::bit_cast<jsonifier::internal::read_buffer_ptr>(testInput.data()) + 2,

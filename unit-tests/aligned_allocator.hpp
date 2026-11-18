@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MIT
  * Copyright (c) 2026 Nihilai Collective Corp
  * https://github.com/nihilai-collective/jsonifier
- * unit-tests/allocator.hpp
+ * unit-tests/aligned_allocator.hpp
  */
 #pragma once
 
@@ -102,8 +102,8 @@ namespace allocator_tests {
 			return result == expected;
 		});
 
-		rt_ut::unit_test<"alloc_wrapper_large_count_no_wraparound", true>::assert_eq(true, [] {
-			using alloc_t	   = jsonifier::internal::alloc_wrapper<uint64_t>;
+		rt_ut::unit_test<"aligned_allocator_large_count_no_wraparound", true>::assert_eq(true, [] {
+			using alloc_t	   = jsonifier::internal::aligned_allocator<uint64_t>;
 			uint64_t hugeCount = (std::numeric_limits<uint64_t>::max() / sizeof(uint64_t)) + 1;
 			auto* p			   = alloc_t::allocate(hugeCount);
 			bool safe		   = (p == nullptr);
@@ -113,8 +113,8 @@ namespace allocator_tests {
 			return safe;
 		});
 
-		rt_ut::unit_test<"alloc_wrapper_small_alloc_round_trip", true>::assert_eq(true, [] {
-			using alloc_t = jsonifier::internal::alloc_wrapper<uint64_t>;
+		rt_ut::unit_test<"aligned_allocator_small_alloc_round_trip", true>::assert_eq(true, [] {
+			using alloc_t = jsonifier::internal::aligned_allocator<uint64_t>;
 			auto* p		  = alloc_t::allocate(4);
 			bool nonNull  = (p != nullptr);
 			bool aligned  = nonNull && (std::bit_cast<uintptr_t>(p) % alloc_t::alignment == 0);
@@ -133,7 +133,7 @@ namespace allocator_tests {
 		});
 
 		rt_ut::unit_test<"allocator_max_size_matches_size_bound", true>::assert_eq(true, [] {
-			using alloc_t = jsonifier::internal::alloc_wrapper<uint64_t>;
+			using alloc_t = jsonifier::internal::aligned_allocator<uint64_t>;
 			auto maxVal	  = alloc_t::maxSize();
 			auto bytes	  = maxVal * sizeof(uint64_t);
 			return bytes < std::numeric_limits<uint64_t>::max();
@@ -184,7 +184,7 @@ namespace allocator_tests {
 		});
 
 		rt_ut::unit_test<"allocator_max_size_exact_boundary_rejection", true>::assert_eq(true, [] {
-			using alloc_t = jsonifier::internal::alloc_wrapper<uint8_t>;
+			using alloc_t = jsonifier::internal::aligned_allocator<uint8_t>;
 			auto maxVal	  = alloc_t::maxSize();
 			auto* p		  = alloc_t::allocate(maxVal + 1);
 			return p == nullptr;
@@ -195,7 +195,7 @@ namespace allocator_tests {
 		};
 
 		rt_ut::unit_test<"allocator_over_aligned_type_alignment_preserved", true>::assert_eq(true, [] {
-			using alloc_t = jsonifier::internal::alloc_wrapper<over_aligned_pod>;
+			using alloc_t = jsonifier::internal::aligned_allocator<over_aligned_pod>;
 			auto* p		  = alloc_t::allocate(2);
 			bool aligned  = (std::bit_cast<uintptr_t>(p) % alignof(over_aligned_pod)) == 0;
 			alloc_t::deallocate(p, 2);
@@ -207,27 +207,27 @@ namespace allocator_tests {
 		});
 
 		rt_ut::unit_test<"allocator_allocate_zero_returns_null", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<int32_t> alloc{};
+			jsonifier::internal::aligned_allocator<int32_t> alloc{};
 			auto* p = alloc.allocate(0);
 			return p == nullptr;
 		});
 
 		rt_ut::unit_test<"allocator_deallocate_null_is_safe", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<int32_t> alloc{};
+			jsonifier::internal::aligned_allocator<int32_t> alloc{};
 			alloc.deallocate(nullptr, 0);
 			return true;
 		});
 
 		rt_ut::unit_test<"allocator_allocate_returns_simd_aligned_pointer", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<int32_t> alloc{};
+			jsonifier::internal::aligned_allocator<int32_t> alloc{};
 			auto* p			   = alloc.allocate(64);
-			const bool aligned = (std::bit_cast<uintptr_t>(p) % jsonifier::internal::alloc_wrapper<int32_t>::alignment) == 0;
+			const bool aligned = (std::bit_cast<uintptr_t>(p) % jsonifier::internal::aligned_allocator<int32_t>::alignment) == 0;
 			alloc.deallocate(p, 64);
 			return p != nullptr && aligned;
 		});
 
 		rt_ut::unit_test<"allocator_construct_destroy_round_trips_value", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<alloc_pod> alloc{};
+			jsonifier::internal::aligned_allocator<alloc_pod> alloc{};
 			auto* p = alloc.allocate(1);
 			alloc.construct(p, alloc_pod{ 42, 3.5 });
 			const bool matches = p->a == 42 && std::equal_to<double>{}(p->b, 3.5);
@@ -237,25 +237,25 @@ namespace allocator_tests {
 		});
 
 		rt_ut::unit_test<"allocator_equality_always_true", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<int32_t> allocA{};
-			jsonifier::internal::alloc_wrapper<int32_t> allocB{};
+			jsonifier::internal::aligned_allocator<int32_t> allocA{};
+			jsonifier::internal::aligned_allocator<int32_t> allocB{};
 			return allocA == allocB;
 		});
 
 		rt_ut::unit_test<"allocator_inequality_always_false", true>::assert_eq(false, [] {
-			jsonifier::internal::alloc_wrapper<int32_t> allocA{};
-			jsonifier::internal::alloc_wrapper<int32_t> allocB{};
+			jsonifier::internal::aligned_allocator<int32_t> allocA{};
+			jsonifier::internal::aligned_allocator<int32_t> allocB{};
 			return allocA != allocB;
 		});
 
 		rt_ut::unit_test<"allocator_rebind_produces_matching_type", true>::assert_eq(true, [] {
-			return std::is_same_v<jsonifier::internal::alloc_wrapper<int32_t>::rebind<double>::other, jsonifier::internal::alloc_wrapper<double>>;
+			return std::is_same_v<jsonifier::internal::aligned_allocator<int32_t>::rebind<double>::other, jsonifier::internal::aligned_allocator<double>>;
 		});
 
 		rt_ut::unit_test<"allocator_converting_constructor_from_other_specialization", true>::assert_eq(true, [] {
-			jsonifier::internal::alloc_wrapper<double> allocSrc{};
-			jsonifier::internal::alloc_wrapper<int32_t> allocDst{ allocSrc };
-			return allocDst == jsonifier::internal::alloc_wrapper<int32_t>{};
+			jsonifier::internal::aligned_allocator<double> allocSrc{};
+			jsonifier::internal::aligned_allocator<int32_t> allocDst{ allocSrc };
+			return allocDst == jsonifier::internal::aligned_allocator<int32_t>{};
 		});
 
 		std::cout << "Allocator validation tests complete." << std::endl;

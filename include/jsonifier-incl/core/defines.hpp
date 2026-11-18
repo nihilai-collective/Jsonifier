@@ -10,14 +10,17 @@
 #include <source_location>
 #include <unordered_map>
 #include <string_view>
+#include <stdexcept>
 #include <algorithm>
 #include <optional>
+#include <utility>
 #include <variant>
 #include <cstring>
-#include <utility>
+#include <cstdlib>
+#include <string>
+#include <cctype>
 #include <memory>
 #include <cfloat>
-#include <chrono>
 #include <vector>
 #include <atomic>
 #include <limits>
@@ -362,5 +365,5 @@ namespace jsonifier::internal {
 #define reinterpret_cast jsonifier::internal::banned_reinterpret_cast
 #define const_cast jsonifier::internal::banned_const_cast
 #define dynamic_cast jsonifier::internal::banned_dynamic_cast
-#define memcpy(...) internal::jsonifierFailMemcpyImpl(__VA_ARGS__)
-#define memmove(...) internal::jsonifierFailMemmoveImpl(__VA_ARGS__)
+#define memcpy(...) jsonifierFailMemcpyImpl(__VA_ARGS__)
+#define memmove(...) jsonifierFailMemmoveImpl(__VA_ARGS__)

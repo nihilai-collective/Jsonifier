@@ -21,7 +21,7 @@ namespace jsonifier {
 		count,
 	};
 
-	class string_view_base;
+	class string_view;
 
 	template<uint64_t = 17> class string_base;
 
@@ -38,6 +38,27 @@ namespace jsonifier::internal {
 
 	template<typename context_type>
 	concept structural_context_types = std::same_as<typename context_type::template_iterator_type, unrestrict_t<write_structural_index_ptr>>;
+
+	enum class stream_targets : uint8_t;
+
+	template<uint64_t bufferSize, stream_targets stream_target> struct basic_stream;
+
+	template<typename value_type> struct is_basic_stream : std::false_type {};
+
+	template<uint64_t bufferSize, stream_targets stream_target> struct is_basic_stream<basic_stream<bufferSize, stream_target>> : std::true_type {};
+
+	template<typename value_type>
+	concept basic_stream_types = is_basic_stream<remove_cvref_t<value_type>>::value;
+
+	template<typename value_type>
+	concept ostream_types = requires(std::remove_cvref_t<value_type>& value, const typename std::remove_cvref_t<value_type>::char_type* ptr,
+		typename std::remove_cvref_t<value_type>::char_type ch, int64_t count) {
+		typename std::remove_cvref_t<value_type>::char_type;
+		typename std::remove_cvref_t<value_type>::traits_type;
+		{ value.write(ptr, count) } -> std::same_as<std::remove_cvref_t<value_type>&>;
+		{ value.put(ch) } -> std::same_as<std::remove_cvref_t<value_type>&>;
+		{ value.flush() } -> std::same_as<std::remove_cvref_t<value_type>&>;
+	};
 
 	template<typename context_type> using context_iterator_t = typename context_type::iterator_type;
 
@@ -80,7 +101,7 @@ namespace jsonifier::internal {
 	concept integral_types = std::is_integral_v<base_t<value_type>> && !same_as_types<base_t<value_type>, bool>;
 
 	template<typename value_type>
-	concept trivially_copyable_types = __is_trivial(base_t<value_type>) || std::is_standard_layout_v<base_t<value_type>>;
+	concept trivially_copyable_types = std::is_trivially_copyable_v<base_t<value_type>>;
 
 	template<typename value_type>
 	concept trivially_destructible_types = std::is_trivially_destructible_v<base_t<value_type>>;
@@ -214,13 +235,6 @@ namespace jsonifier::internal {
 		(std::is_pointer_v<base_t<value_type>> || ( std::is_null_pointer_v<base_t<value_type>> && !std::is_array_v<base_t<value_type>> )) && !always_null_types<value_type>;
 
 	template<typename value_type>
-	concept char_types = std::same_as<base_t<value_type>, char> || std::same_as<base_t<value_type>, wchar_t> || std::same_as<base_t<value_type>, char8_t> ||
-		std::same_as<base_t<value_type>, char16_t> || std::same_as<base_t<value_type>, char32_t>;
-
-	template<typename value_type>
-	concept number_types = (float_types<value_type> || uint_types<value_type> || int_types<value_type>) && !char_types<value_type>;
-
-	template<typename value_type>
 	concept substringable_types = requires(base_t<value_type> value) {
 		{ value.substr(std::declval<typename base_t<value_type>::size_type>(), std::declval<typename base_t<value_type>::size_type>()) } -> std::same_as<base_t<value_type>>;
 	};
@@ -241,6 +255,9 @@ namespace jsonifier::internal {
 	template<typename value_type>
 	concept string_view_types = substringable_types<value_type> && data_accessible_types<value_type> && sized_types<value_type> && vector_subscriptable_types<value_type> &&
 		findable_types<value_type> && !resizeable_types<value_type>;
+
+	template<typename value_type>
+	concept error_reportable_types = requires(const remove_cvref_t<value_type>& value) { value.reportError(); };
 
 	template<typename value_type>
 	concept map_types =
@@ -335,7 +352,14 @@ namespace jsonifier::internal {
 	concept buffer_like_types = vector_subscriptable_types<value_type> && data_accessible_types<value_type> && resizeable_types<value_type>;
 
 	template<typename value_type>
-	concept integer_types = std::integral<base_t<value_type>> && !bool_types<value_type> && !std::floating_point<base_t<value_type>>;
+	concept char_types = std::same_as<base_t<value_type>, char> || std::same_as<base_t<value_type>, wchar_t> || std::same_as<base_t<value_type>, char8_t> ||
+		std::same_as<base_t<value_type>, char16_t> || std::same_as<base_t<value_type>, char32_t>;
+
+	template<typename value_type>
+	concept number_types = (float_types<value_type> || uint_types<value_type> || int_types<value_type>) && !char_types<value_type>;
+
+	template<typename value_type>
+	concept integer_types = std::integral<base_t<value_type>> && !bool_types<value_type> && !std::floating_point<base_t<value_type>> && !char_types<value_type>;
 
 	template<typename value_type>
 	concept count_types = requires { base_t<value_type>::count; } && static_cast<uint64_t>(base_t<value_type>::count) < 128;

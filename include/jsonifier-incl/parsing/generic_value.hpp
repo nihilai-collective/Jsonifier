@@ -139,7 +139,7 @@ namespace jsonifier::generic {
 
 		template<typename element_type> [[nodiscard]] JSONIFIER_INLINE error_codes getArray(std::vector<element_type>& out) const;
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes getString(std::string_view& out) const noexcept {
+		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE error_codes getString(string_view_type& out) const noexcept {
 			if (error_code != error_codes::success) [[unlikely]] {
 				return error_code;
 			}

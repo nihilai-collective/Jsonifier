@@ -280,8 +280,8 @@ namespace jsonifier::internal {
 			return static_cast<error_class>(errorType);
 		}
 
-		inline std::string_view reportError() const noexcept {
-			return reportString.operator std::basic_string_view<char>();
+		inline string_view reportError() const noexcept {
+			return static_cast<string_view>(reportString);
 		}
 
 		std::source_location sourceLocation{};
@@ -296,13 +296,9 @@ namespace jsonifier::internal {
 		status_classes status_class{};
 	};
 
-	template<uint64_t bufferSize> inline basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const error& errorNew) noexcept {
-		os << errorNew.reportError();
-		return os;
-	}
-
-	inline std::ostream& operator<<(std::ostream& os, const error& errorNew) noexcept {
-		os << errorNew.reportError();
+	template<internal::ostream_types ostream_type> inline ostream_type& operator<<(ostream_type& os, const error& errorNew) noexcept {
+		string_view value{ errorNew.reportError() };
+		os.write(value.data(), static_cast<int64_t>(value.size()));
 		return os;
 	}
 

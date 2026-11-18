@@ -238,6 +238,37 @@ namespace jsonifier::internal {
 			}
 			return requiredSize;
 		}
+
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(const value_type_new& __restrict value, uint64_t& __restrict indent) noexcept {
+			uint64_t requiredSize{};
+			using elem_type = remove_cvref_t<decltype(value[0])>;
+			static constexpr auto newSize{ std::size(value) };
+			if constexpr (newSize > 0) {
+				if constexpr (options.prettify) {
+					indent += options.indentSize;
+					requiredSize += 2 + indent;
+					requiredSize += (newSize - 1) * (2 + indent);
+				} else {
+					requiredSize += newSize;
+				}
+				if constexpr (static_sized_types<get_size_impl<elem_type, options>>) {
+					requiredSize += newSize * get_size_impl<elem_type, options>::staticSize;
+				} else {
+					auto iter{ +value };
+					for (uint64_t index{}; index != newSize; ++index) {
+						requiredSize += get_size<options>::impl(iter[static_cast<uint64_t>(index)], indent);
+					}
+				}
+				if constexpr (options.prettify) {
+					indent -= options.indentSize;
+					requiredSize += 1 + indent;
+				}
+				++requiredSize;
+			} else {
+				requiredSize += 2;
+			}
+			return requiredSize;
+		}
 	};
 
 	template<tuple_types value_type, serialize_options options> struct get_size_impl<value_type, options> {
@@ -728,6 +759,44 @@ namespace jsonifier::internal {
 				}
 
 				auto iter{ getBeginIterVec(value) };
+				bufferPtr = serialize<options>::impl(iter[0], bufferPtr, innerIndent);
+				if constexpr (newSize > 1) {
+					for (uint64_t index{ 1 }; index != newSize; ++index) {
+						if constexpr (options.prettify) {
+							comma_indent::blitWithOverflow(bufferPtr, innerIndent);
+						} else {
+							*bufferPtr = ',';
+							++bufferPtr;
+						}
+						bufferPtr = serialize<options>::impl(iter[index], bufferPtr, innerIndent);
+					}
+				}
+
+				if constexpr (options.prettify) {
+					close_indent::blitWithOverflow(bufferPtr, indent);
+				}
+				*bufferPtr = ']';
+				++bufferPtr;
+			} else {
+				pow2MemcpyWrapper<emptyArray.lengthToCopy>(bufferPtr, &emptyArray.value);
+				bufferPtr += emptyArray.lengthToAdvance;
+			}
+			return bufferPtr;
+		}
+
+		template<typename value_type_new>
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(const value_type_new& __restrict value, write_buffer_ptr bufferPtr, uint64_t indent) noexcept {
+			static constexpr auto newSize{ std::size(value) };
+			if constexpr (newSize > 0) {
+				const uint64_t innerIndent{ indent + options.indentSize };
+				if constexpr (options.prettify) {
+					open_indent::blitWithOverflow(bufferPtr, innerIndent);
+				} else {
+					*bufferPtr = '[';
+					++bufferPtr;
+				}
+
+				auto iter{ +value };
 				bufferPtr = serialize<options>::impl(iter[0], bufferPtr, innerIndent);
 				if constexpr (newSize > 1) {
 					for (uint64_t index{ 1 }; index != newSize; ++index) {

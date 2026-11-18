@@ -6,8 +6,7 @@
  */
 #pragma once
 
-#include <jsonifier-incl/containers/allocator.hpp>
-#include <jsonifier-incl/utilities/fast_float.hpp>
+#include <jsonifier-incl/containers/aligned_allocator.hpp>
 #include <jsonifier-incl/utilities/str_to_d.hpp>
 
 namespace jsonifier::internal {

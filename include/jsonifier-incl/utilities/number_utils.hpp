@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <jsonifier-incl/containers/allocator.hpp>
+#include <jsonifier-incl/containers/aligned_allocator.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 #include <jsonifier-incl/utilities/i_to_str.hpp>
 #include <jsonifier-incl/utilities/d_to_str.hpp>

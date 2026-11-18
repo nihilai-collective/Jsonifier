@@ -223,7 +223,7 @@ About 200 tests that check both `jsonifier::validateUtf8` and validation inside 
 - **Compare (`compare.hpp`):** `compare` and `memchar` at every length around the 16-, 32-, and 64-byte SSE, AVX2, and AVX-512 widths, plus lengths that need several vectors, and zero length.
 - **String-literal comparator (`string_literal_comparator.hpp`):** compile-time literal matching at lengths from 0 to 200, at every point where the comparison splits into chunks, with binary content, near a page boundary (lengths 15 to 64), in an exhaustive mode, and through the driver's accept and reject paths.
 - **memcpy (`memcpy.hpp`):** `jsonifier::memcpy` and `memcpyUpTo` with zero length and null pointers, every byte value, every length from 0 to 256 at every offset, lengths from 257 to 1100, powers of two up to 1 MB, large odd sizes, guard bytes to catch overruns, back-to-back appends into one buffer, and results identical to `std::memcpy`.
-- **Allocator (`allocator.hpp`):** SIMD-aligned allocations, zero-size and null handling, rejection right at the `max_size` limit, rebinding and equality, over-aligned types, and `roundUp`/`roundDown` for power-of-two and other sizes, including negative values and zero.
+- **Allocator (`aligned_allocator.hpp`):** SIMD-aligned allocations, zero-size and null handling, rejection right at the `max_size` limit, rebinding and equality, over-aligned types, and `roundUp`/`roundDown` for power-of-two and other sizes, including negative values and zero.
 
 ---
 

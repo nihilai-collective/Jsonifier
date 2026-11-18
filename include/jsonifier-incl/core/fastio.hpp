@@ -6,212 +6,206 @@
  */
 #pragma once
 
+#include <jsonifier-incl/containers/aligned_allocator.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
+#include <jsonifier-incl/utilities/string_view.hpp>
 
 namespace jsonifier::internal {
 
+	struct byte_alloc_buffer : public aligned_allocator<std::byte> {
+		using allocator = aligned_allocator<std::byte>;
+
+		inline byte_alloc_buffer(uint64_t capacityNew) noexcept {
+			if (capacityNew <= allocator::maxSize() && capacityNew > 0) {
+				values = allocator::allocate(capacityNew);
+				if (values) {
+					capacity = capacityNew;
+				}
+			}
+		}
+
+		byte_alloc_buffer& operator=(byte_alloc_buffer&&) noexcept		= delete;
+		byte_alloc_buffer(byte_alloc_buffer&&) noexcept					= delete;
+		byte_alloc_buffer& operator=(const byte_alloc_buffer&) noexcept = delete;
+		byte_alloc_buffer(const byte_alloc_buffer&) noexcept			= delete;
+
+		inline operator bool() const noexcept {
+			return capacity > 0 && values;
+		}
+
+		inline ~byte_alloc_buffer() noexcept {
+			if (values && capacity) {
+				allocator::deallocate(values, capacity);
+			}
+		}
+
+		uint64_t capacity{};
+		std::byte* values{};
+	};
+
 	enum class stream_targets : uint8_t { stdout_target, stderr_target };
 
-	inline uint64_t rawWrite(stream_targets stream_target, const char* data, uint64_t len) noexcept {
-		if (len == 0 || data == nullptr) {
-			return 0;
-		}
-#if JSONIFIER_PLATFORM_WINDOWS
-		static constexpr DWORD handle_ids[2]{ STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
-		static constexpr uint64_t max_chunk{ 1ull << 30 };
-		HANDLE handle{ GetStdHandle(handle_ids[static_cast<uint64_t>(stream_target)]) };
-		if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
-			return 0;
-		}
-		uint64_t total{ 0 };
-		while (total < len) {
-			uint64_t remaining{ len - total };
-			DWORD chunk{ static_cast<DWORD>(remaining < max_chunk ? remaining : max_chunk) };
-			DWORD written{ 0 };
-			if (!WriteFile(handle, data + total, chunk, &written, nullptr) || written == 0) {
-				break;
-			}
-			total += written;
-		}
-		return total;
-#else
-		static constexpr int32_t stream_types[2]{ 1, 2 };
-		int32_t fd{ stream_types[static_cast<uint64_t>(stream_target)] };
-		uint64_t total{ 0 };
-		while (total < len) {
-			ssize_t result{ write(fd, data + total, len - total) };
-			if (result < 0) {
-				if (errno == EINTR) {
-					continue;
-				}
-				if (errno == EAGAIN || errno == EWOULDBLOCK) {
-					pollfd pfd{ fd, POLLOUT, 0 };
-					if (poll(&pfd, 1, -1) < 0 && errno != EINTR) {
-						break;
-					}
-					continue;
-				}
-				break;
-			}
-			if (result == 0) {
-				break;
-			}
-			total += static_cast<uint64_t>(result);
-		}
-		return total;
-#endif
-	}
+	template<serialize_options options> struct get_size;
+	template<serialize_options options> struct serialize;
 
-	alignas(64) inline constexpr uint8_t digitCounts[]{ 19, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10,
-		10, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1 };
-
-	alignas(64) inline constexpr uint64_t digitCountThresholds[]{ 0ULL, 9ULL, 99ULL, 999ULL, 9999ULL, 99999ULL, 999999ULL, 9999999ULL, 99999999ULL, 999999999ULL, 9999999999ULL,
-		99999999999ULL, 999999999999ULL, 9999999999999ULL, 99999999999999ULL, 999999999999999ULL, 9999999999999999ULL, 99999999999999999ULL, 999999999999999999ULL,
-		9999999999999999999ULL };
-
-	inline uint64_t fastDigitCount(const uint64_t inputValue) noexcept {
-		const uint64_t originalDigitCount{ digitCounts[simd::countlZero(inputValue)] };
-		return originalDigitCount + static_cast<uint64_t>(inputValue > digitCountThresholds[originalDigitCount]);
-	}
-
-	template<typename value_type> inline uint64_t writeFloat(char* dest, value_type value) noexcept {
-		auto result{ std::to_chars(dest, dest + 64, value) };
-		return static_cast<uint64_t>(result.ptr - dest);
-	}
-
-	inline char* writeUnsigned(char* bufferEnd, uint64_t value) noexcept {
-		char* pos{ bufferEnd };
-		alignas(64) static constexpr char digitPairs[201] = "0001020304050607080910111213141516171819"
-															"2021222324252627282930313233343536373839"
-															"4041424344454647484950515253545556575859"
-															"6061626364656667686970717273747576777879"
-															"8081828384858687888990919293949596979899";
-		while (value >= 100) {
-			auto pair{ value % 100 };
-			value /= 100;
-			pos -= 2;
-			pos[0] = digitPairs[pair * 2];
-			pos[1] = digitPairs[pair * 2 + 1];
-		}
-		if (value < 10) {
-			*--pos = static_cast<char>('0' + value);
-		} else {
-			pos -= 2;
-			pos[0] = digitPairs[value * 2];
-			pos[1] = digitPairs[value * 2 + 1];
-		}
-		return pos;
-	}
-
-	template<typename value_type> inline uint64_t writeInteger(char* dest, value_type value) noexcept {
-		if constexpr (std::is_signed_v<value_type>) {
-			uint64_t magnitude;
-			char* outLocal{ dest };
-			if (value < 0) {
-				*outLocal++ = '-';
-				magnitude	= ~static_cast<uint64_t>(value) + 1;
-			} else {
-				magnitude = static_cast<uint64_t>(value);
-			}
-			auto count{ fastDigitCount(magnitude) };
-			char* end{ outLocal + count };
-			writeUnsigned(end, magnitude);
-			return static_cast<uint64_t>(end - dest);
-		} else {
-			uint64_t magnitude{ static_cast<uint64_t>(value) };
-			auto count{ fastDigitCount(magnitude) };
-			char* end{ dest + count };
-			writeUnsigned(end, magnitude);
-			return count;
-		}
-	}
+	template<typename> inline constexpr serialize_options default_serialize_options{};
 
 	struct endl_t {};
 	inline constexpr endl_t endl{};
 
-	struct flush_t {};
-	inline constexpr flush_t flush{};
-
-	template<uint64_t bufferSize = 8192> struct basic_stream {
-		inline explicit basic_stream(stream_targets streamTargetNew) noexcept : bufferLength{ 0 }, stream_target{ streamTargetNew } {
+	template<uint64_t bufferSize = 8192, stream_targets stream_target = stream_targets::stdout_target> struct basic_stream {
+		inline explicit basic_stream() noexcept : bufferLength{ 0 } {
 		}
 
 		basic_stream& operator=(const basic_stream&) = delete;
 		basic_stream(const basic_stream&)			 = delete;
 
-		template<typename integer_type>
-		inline std::enable_if_t<std::is_integral_v<integer_type> && !std::is_same_v<integer_type, char> && !std::is_same_v<integer_type, bool>, basic_stream&> operator<<(
-			integer_type value) noexcept {
-			ensureSpace(21);
-			bufferLength += writeInteger(streamBuffer + bufferLength, value);
+		template<typename value_type> inline basic_stream& operator<<(value_type&& value) noexcept {
+			static constexpr serialize_options options{ default_serialize_options<value_type> };
+			uint64_t indent{};
+			uint64_t requiredSize{ get_size<options>::impl(value, indent) + 64 };
+			if (requiredSize > bufferSize) {
+				if (doFlush()) {
+					byte_alloc_buffer allocBuffer{ requiredSize };
+					if (allocBuffer) {
+						write_buffer_ptr scratchStart{ std::bit_cast<write_buffer_ptr>(allocBuffer.values) };
+						rawWrite(allocBuffer.values,
+							static_cast<uint64_t>(serialize<options>::impl(value, std::bit_cast<write_buffer_ptr>(allocBuffer.values), indent) - scratchStart));
+					}
+				}
+				return *this;
+			}
+			if (!ensureSpace(requiredSize)) {
+				return *this;
+			}
+			write_buffer_ptr start{ std::bit_cast<write_buffer_ptr>(streamBuffer + bufferLength) };
+			bufferLength += static_cast<uint64_t>(serialize<options>::impl(value, std::bit_cast<write_buffer_ptr>(streamBuffer + bufferLength), indent) - start);
 			return *this;
 		}
 
-		template<typename float_type> inline std::enable_if_t<std::is_floating_point_v<float_type>, basic_stream&> operator<<(float_type value) noexcept {
-			ensureSpace(64);
-			bufferLength += writeFloat(streamBuffer + bufferLength, value);
+		template<error_reportable_types value_type> inline basic_stream& operator<<(value_type&& value) noexcept {
+			const auto report{ value.reportError() };
+			write(report.data(), report.size());
 			return *this;
 		}
 
-		inline basic_stream& operator<<(std::string_view value) noexcept {
-			writeRaw(value.data(), value.size());
+		template<string_types value_type> inline basic_stream& operator<<(value_type&& value) noexcept {
+			write(value.data(), value.size());
 			return *this;
 		}
 
-		inline void writeRaw(const char* data, uint64_t size) noexcept {
+		template<typename char_type> inline uint64_t rawWrite(const char_type* data, uint64_t len) noexcept {
+			if (len == 0 || data == nullptr) {
+				return 0;
+			}
+#if JSONIFIER_PLATFORM_WINDOWS
+			static constexpr DWORD handle_ids[2]{ STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
+			static constexpr uint64_t max_chunk{ 1ull << 30 };
+			HANDLE handle{ GetStdHandle(handle_ids[static_cast<uint64_t>(stream_target)]) };
+			if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
+				return 0;
+			}
+			uint64_t total{ 0 };
+			while (total < len) {
+				uint64_t remaining{ len - total };
+				DWORD chunk{ static_cast<DWORD>(remaining < max_chunk ? remaining : max_chunk) };
+				DWORD written{ 0 };
+				if (!WriteFile(handle, static_cast<const void*>(data + total), chunk, &written, nullptr) || written == 0) {
+					break;
+				}
+				total += written;
+			}
+			return total;
+#else
+			static constexpr int32_t stream_types[2]{ 1, 2 };
+			int32_t fd{ stream_types[static_cast<uint64_t>(stream_target)] };
+			uint64_t total{ 0 };
+			while (total < len) {
+				ssize_t result{ ::write(fd, static_cast<const void*>(data + total), len - total) };
+				if (result < 0) {
+					if (errno == EINTR) {
+						continue;
+					}
+					if (errno == EAGAIN || errno == EWOULDBLOCK) {
+						pollfd pfd{ fd, POLLOUT, 0 };
+						int32_t ready{ poll(&pfd, 1, -1) };
+						if (ready < 0) {
+							if (errno == EINTR) {
+								continue;
+							}
+							break;
+						}
+						if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0 || (pfd.revents & POLLOUT) == 0) {
+							break;
+						}
+						continue;
+					}
+					break;
+				}
+				if (result == 0) {
+					break;
+				}
+				total += static_cast<uint64_t>(result);
+			}
+			return total;
+#endif
+		}
+
+		template<uint64_t size> inline basic_stream& operator<<(const char (&value)[size]) noexcept {
+			write(value, size - 1);
+			return *this;
+		}
+
+		template<char_types value_type> inline basic_stream& operator<<(value_type&& value) noexcept {
+			if (ensureSpace(1)) {
+				streamBuffer[bufferLength++] = static_cast<uint8_t>(value);
+			}
+			return *this;
+		}
+
+		inline void write(const char* data, uint64_t size) noexcept {
 			if (size >= bufferSize) {
-				doFlush();
-				rawWrite(stream_target, data, size);
+				if (doFlush()) {
+					rawWrite(data, size);
+				}
 				return;
 			}
-			ensureSpace(size);
-			jsonifierMemcpy(streamBuffer + bufferLength, data, size);
-			bufferLength += size;
-		}
-
-		inline basic_stream& operator<<(bool value) noexcept {
-			return (*this) << std::string_view(value ? "true" : "false");
-		}
-
-		inline basic_stream& operator<<(const char* value) noexcept {
-			return (*this) << std::string_view(value);
-		}
-
-		inline basic_stream& operator<<(char value) noexcept {
-			ensureSpace(1);
-			streamBuffer[bufferLength++] = value;
-			return *this;
-		}
-
-		inline void doFlush() noexcept {
-			if (bufferLength > 0) {
-				rawWrite(stream_target, streamBuffer, bufferLength);
-				bufferLength = 0;
+			if (ensureSpace(size)) {
+				jsonifierMemcpy(streamBuffer + bufferLength, data, size);
+				bufferLength += size;
 			}
 		}
 
-		inline void ensureSpace(uint64_t needed) noexcept {
-			if (bufferLength + needed > bufferSize) {
-				doFlush();
+		inline bool doFlush() noexcept {
+			if (bufferLength == 0) {
+				return true;
 			}
+			uint64_t written{ rawWrite(streamBuffer, bufferLength) };
+			if (written < bufferLength) {
+				memmoveWrapper(+streamBuffer, streamBuffer + written, bufferLength - written);
+				bufferLength -= written;
+				return false;
+			}
+			bufferLength = 0;
+			return true;
 		}
 
-		inline basic_stream& operator<<(flush_t) noexcept {
+		inline bool ensureSpace(uint64_t needed) noexcept {
+			if (bufferLength + needed <= bufferSize) {
+				return true;
+			}
 			doFlush();
-			return *this;
+			return bufferLength + needed <= bufferSize;
 		}
 
 		inline basic_stream& operator<<(endl_t) noexcept {
 			(*this) << '\n';
+			doFlush();
 			return *this;
 		}
 
-		inline std::string_view view() const noexcept {
-			return { streamBuffer, bufferLength };
-		}
-
-		inline void flushNow() noexcept {
-			doFlush();
+		inline string_view view() const noexcept {
+			return { std::bit_cast<const char*>(+streamBuffer), bufferLength };
 		}
 
 		inline void discard() noexcept {
@@ -223,8 +217,7 @@ namespace jsonifier::internal {
 		}
 
 		uint64_t bufferLength;
-		stream_targets stream_target;
-		char streamBuffer[bufferSize];
+		uint8_t streamBuffer[bufferSize];
 	};
 
 #if JSONIFIER_COMPILER_CLANG
@@ -233,12 +226,22 @@ namespace jsonifier::internal {
 	#pragma clang diagnostic ignored "-Wglobal-constructors"
 #endif
 
-	inline basic_stream<> cout{ stream_targets::stdout_target };
+	inline basic_stream<8192, stream_targets::stdout_target> cout{};
 
-	inline basic_stream<> err{ stream_targets::stderr_target };
+	inline basic_stream<8192, stream_targets::stderr_target> err{};
 
 #if JSONIFIER_COMPILER_CLANG
 	#pragma clang diagnostic pop
 #endif
+
+	template<basic_stream_types basic_stream_type> JSONIFIER_INLINE basic_stream_type& operator<<(basic_stream_type& os, const string_view& input) noexcept {
+		os.write(input.data(), input.size());
+		return os;
+	}
+
+	template<basic_stream_types basic_stream_type, uint64_t size> inline basic_stream_type& operator<<(basic_stream_type& os, const string_literal<size>& input) noexcept {
+		os.write(input.data(), input.size());
+		return os;
+	}
 
 }

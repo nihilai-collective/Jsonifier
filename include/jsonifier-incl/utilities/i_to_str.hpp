@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <jsonifier-incl/containers/allocator.hpp>
+#include <jsonifier-incl/containers/aligned_allocator.hpp>
 
 namespace jsonifier::internal {
 

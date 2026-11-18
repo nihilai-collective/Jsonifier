@@ -55,11 +55,11 @@ namespace jsonifier {
 
 		inline jsonifier_core& operator=(jsonifier_core&& other) noexcept {
 			if (this != &other) [[likely]] {
+				stringBuffer = internal::move(other.stringBuffer);
+				genericData	 = internal::move(other.genericData);
 				podSection	 = internal::move(other.podSection);
 				section		 = internal::move(other.section);
-				stringBuffer = internal::move(other.stringBuffer);
 				errors		 = internal::move(other.errors);
-				genericData	 = internal::move(other.genericData);
 			}
 			return *this;
 		}

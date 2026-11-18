@@ -26,19 +26,6 @@ namespace std {
 
 namespace jsonifier::internal {
 
-	template<typename value_type, uint64_t size, uint64_t bufferSize>
-	inline basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, const array<value_type, size>& values) noexcept {
-		os << "[";
-		for (uint64_t x{ 0 }; x < size; ++x) {
-			os << values[x];
-			if (x < size - 1) {
-				os << ",";
-			}
-		}
-		os << "]";
-		return os;
-	}
-
 	inline constexpr uint64_t npos64{ ~0ull };
 	inline constexpr uint8_t npos8{ 0xFFu };
 
@@ -639,7 +626,7 @@ namespace jsonifier::internal {
 		inline ~hash_map_type_tracker() noexcept {
 			for (auto& [key, value]: types) {
 				auto name{ getName(value) };
-				cout << "Type: " << key << ", Hash Map Type: " << std::string_view{ name.data(), name.size() } << endl;
+				cout << "Type: " << key << ", Hash Map Type: " << string_view{ name.data(), name.size() } << endl;
 			}
 		}
 

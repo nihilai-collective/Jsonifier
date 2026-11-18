@@ -45,7 +45,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_print_json_writes_header_line", true>::assert_eq(true, [&] {
 			leaf_struct obj{ "hello", 7 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("Printing Json") == 0;
 			os.discard();
@@ -54,7 +54,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_print_json_impl_omits_header", true>::assert_eq(false, [&] {
 			leaf_struct obj{ "hello", 7 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			jsonifier::internal::print::impl(obj, os);
 			auto printResult = os.view().find("Printing Json") != std::string::npos;
 			os.discard();
@@ -63,7 +63,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_object_reports_member_count_and_field_names", true>::assert_eq(true, [&] {
 			leaf_struct obj{ "hello", 7 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(obj, os);
 			auto text = os.view();
 			os.discard();
@@ -72,7 +72,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_int_field_prints_value", true>::assert_eq(true, [&] {
 			leaf_struct obj{ "hi", 42 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("42 (size:") != std::string::npos;
 			os.discard();
@@ -81,7 +81,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_string_field_is_quoted_with_length", true>::assert_eq(true, [&] {
 			leaf_struct obj{ "hi", 1 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(obj, os);
 			auto printResult = os.view().find("\"hi\" (length: 2") != std::string::npos;
 			os.discard();
@@ -89,7 +89,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_bool_prints_true", true>::assert_eq(true, [&] {
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(true, os);
 			auto printResult = os.view().find("true") != std::string::npos;
 			os.discard();
@@ -97,7 +97,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_bool_prints_false", true>::assert_eq(true, [&] {
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(false, os);
 			auto printResult = os.view().find("false") != std::string::npos;
 			os.discard();
@@ -105,7 +105,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_char_is_single_quoted", true>::assert_eq(true, [&] {
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson('Q', os);
 			auto printResult = os.view().find("'Q'") != std::string::npos;
 			os.discard();
@@ -113,7 +113,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_enum_prints_underlying_integer", true>::assert_eq(true, [&] {
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(printer_enums::second, os);
 			auto printResult = os.view().find("1 (size:") != std::string::npos;
 			os.discard();
@@ -122,7 +122,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_vector_reports_element_count", true>::assert_eq(true, [&] {
 			std::vector<int32_t> vec{ 1, 2, 3, 4 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(vec, os);
 			auto printResult = os.view().find("vector (elements: 4") != std::string::npos;
 			os.discard();
@@ -131,7 +131,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_array_reports_element_count", true>::assert_eq(true, [&] {
 			jsonifier::internal::array<int32_t, 3> arr{ { 5, 6, 7 } };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(arr, os);
 			auto printResult = os.view().find("array (elements: 3") != std::string::npos;
 			os.discard();
@@ -140,7 +140,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_map_reports_entry_count_and_key", true>::assert_eq(true, [&] {
 			std::map<std::string, int32_t> map{ { "a", 1 }, { "b", 2 } };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(map, os);
 			auto text = os.view();
 			os.discard();
@@ -149,7 +149,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_tuple_reports_element_indices", true>::assert_eq(true, [&] {
 			std::tuple<int32_t, std::string> tup{ 5, "five" };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(tup, os);
 			auto text = os.view();
 			os.discard();
@@ -158,7 +158,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_optional_with_value_unwraps_contents", true>::assert_eq(true, [&] {
 			std::optional<double> opt{ 3.5 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(opt, os);
 			auto printResult = os.view().find("3.5") != std::string::npos;
 			os.discard();
@@ -167,7 +167,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_optional_without_value_prints_nullopt", true>::assert_eq(true, [&] {
 			std::optional<double> opt{};
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(opt, os);
 			auto printResult = os.view().find("nullopt") != std::string::npos;
 			os.discard();
@@ -176,7 +176,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_null_shared_ptr_prints_null", true>::assert_eq(true, [&] {
 			std::shared_ptr<leaf_struct> ptr{};
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(ptr, os);
 			auto printResult = os.view().find("null") != std::string::npos;
 			os.discard();
@@ -185,7 +185,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_populated_shared_ptr_unwraps_contents", true>::assert_eq(true, [&] {
 			auto ptr = std::make_shared<leaf_struct>(leaf_struct{ "nine", 9 });
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(ptr, os);
 			auto text = os.view();
 			os.discard();
@@ -194,7 +194,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_null_raw_pointer_prints_null", true>::assert_eq(true, [&] {
 			int32_t* ptr{ nullptr };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(ptr, os);
 			auto printResult = os.view().find("null") != std::string::npos;
 			os.discard();
@@ -204,7 +204,7 @@ namespace printer_tests {
 		rt_ut::unit_test<"printer_populated_raw_pointer_unwraps_contents", true>::assert_eq(true, [&] {
 			int32_t value{ 17 };
 			int32_t* ptr{ &value };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(ptr, os);
 			auto text = os.view();
 			os.discard();
@@ -212,7 +212,7 @@ namespace printer_tests {
 		});
 
 		rt_ut::unit_test<"printer_nullptr_t_prints_null", true>::assert_eq(true, [&] {
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(nullptr, os);
 			auto printResult = os.view().find("null") != std::string::npos;
 			os.discard();
@@ -221,7 +221,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_variant_reports_active_index_and_value", true>::assert_eq(true, [&] {
 			std::variant<int32_t, std::string> var{ std::string{ "picked" } };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(var, os);
 			auto text = os.view();
 			os.discard();
@@ -230,7 +230,7 @@ namespace printer_tests {
 
 		rt_ut::unit_test<"printer_skip_type_prints_skipped", true>::assert_eq(true, [&] {
 			jsonifier::skip skipped{};
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(skipped, os);
 			auto printResult = os.view().find("skipped") != std::string::npos;
 			os.discard();
@@ -240,7 +240,7 @@ namespace printer_tests {
 		rt_ut::unit_test<"printer_raw_json_data_reports_raw_length", true>::assert_eq(true, [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"({"a":1})" });
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(data, os);
 			auto printResult = os.view().find("object (size: 1)") != std::string::npos;
 			os.discard();
@@ -251,7 +251,7 @@ namespace printer_tests {
 			nested_printer_struct obj{};
 			obj.inner	= { "nested", 3 };
 			obj.numbers = { 1, 2 };
-			jsonifier::internal::basic_stream<> os{ jsonifier::internal::stream_targets::stdout_target };
+			jsonifier::internal::basic_stream<> os{};
 			parser.printJson(obj, os);
 			auto text = os.view();
 			os.discard();

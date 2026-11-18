@@ -11,26 +11,27 @@
 
 namespace jsonifier::internal {
 
+#if JSONIFIER_COMPILER_CLANG
+	inline constexpr auto prettyFunctionTail{ "]" };
+#elif JSONIFIER_COMPILER_GCC
+	inline constexpr auto prettyFunctionTail{ ";]" };
+#endif
+
+#if JSONIFIER_COMPILER_MSVC
 	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
 		string_view str{ std::source_location::current().function_name() };
-#if JSONIFIER_COMPILER_GCC
-		str = str.substr(str.find("=") + 2);
-		uint64_t end{ str.find(';') };
-		str = str.substr(0, end);
-		uint64_t start{ str.findLastOf(':') + 1 };
-		return str.substr(start);
-#else
-	#if JSONIFIER_COMPILER_MSVC
-		static constexpr const char* prettyFunctionTailLocal{ ">(void)" };
-	#elif JSONIFIER_COMPILER_CLANG
-		static constexpr const char* prettyFunctionTailLocal{ "]" };
-	#endif
-		str = str.substr(str.find("=") + 2);
-		uint64_t start{ str.findLastOf(':') + 1 };
-		uint64_t end{ str.find(prettyFunctionTailLocal) };
-		return str.substr(start, end - start);
-#endif
+		str = str.substr(str.find("getEnumName<") + 12);
+		str = str.substr(0, str.find(">(void)"));
+		return str.substr(str.findLastOf(':') + 1);
 	}
+#else
+	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
+		string_view str{ std::source_location::current().function_name() };
+		str = str.substr(str.find("= ") + 2);
+		str = str.substr(0, str.findFirstOf(prettyFunctionTail));
+		return str.substr(str.findLastOf(':') + 1);
+	}
+#endif
 
 	consteval bool isValidEnumName(string_view name) noexcept {
 		if (name.empty()) {
@@ -93,13 +94,15 @@ namespace jsonifier::internal {
 		return "Unknown Type";
 	}
 
-	template<printable_enum_types enum_type, uint64_t bufferSize> JSONIFIER_INLINE basic_stream<bufferSize>& operator<<(basic_stream<bufferSize>& os, enum_type type) noexcept {
-		os << getName(type).operator std::basic_string_view<char>();
+	template<basic_stream_types basic_stream_type, printable_enum_types enum_type> JSONIFIER_INLINE basic_stream_type& operator<<(basic_stream_type& os, enum_type type) noexcept {
+		string_view input{ getName(type) };
+		os.write(input.data(), input.size());
 		return os;
 	}
 
-	template<printable_enum_types enum_type> JSONIFIER_INLINE std::ostream& operator<<(std::ostream& os, enum_type type) noexcept {
-		os << getName(type).operator std::basic_string_view<char>();
+	template<ostream_types ostream_type, printable_enum_types enum_type> JSONIFIER_INLINE ostream_type& operator<<(ostream_type& os, enum_type type) noexcept {
+		string_view value{ getName(type) };
+		os.write(value.data(), static_cast<int64_t>(value.size()));
 		return os;
 	}
 

@@ -7,7 +7,7 @@
 #pragma once
 
 #include <jsonifier-incl/simd/utf8_validation.hpp>
-#include <jsonifier-incl/containers/allocator.hpp>
+#include <jsonifier-incl/containers/aligned_allocator.hpp>
 #include <jsonifier-incl/utilities/hash_map.hpp>
 #include <jsonifier-incl/utilities/str_to_d.hpp>
 #include <jsonifier-incl/utilities/error.hpp>

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MIT
  * Copyright (c) 2026 Nihilai Collective Corp
  * https://github.com/nihilai-collective/jsonifier
- * include/jsonifier-incl/containers/allocator.hpp
+ * include/jsonifier-incl/containers/aligned_allocator.hpp
  */
 #pragma once
 
@@ -11,30 +11,6 @@
 
 namespace jsonifier::internal {
 
-	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundDownToMultiple(value_type value) noexcept {
-		if constexpr ((multiple & (multiple - 1)) == 0) {
-			static constexpr auto notMulSub1{ ~(multiple - 1) };
-			return value & notMulSub1;
-		} else {
-			if constexpr (std::is_signed_v<value_type>) {
-				return value >= 0 ? (value / multiple) * multiple : ((value - multiple + 1) / multiple) * multiple;
-			} else {
-				return (value / multiple) * multiple;
-			}
-		}
-	}
-
-	template<auto multiple, typename value_type = decltype(multiple)> JSONIFIER_INLINE constexpr value_type roundUpToMultiple(value_type value) noexcept {
-		if constexpr ((multiple & (multiple - 1)) == 0) {
-			static constexpr auto mulSub1{ multiple - 1 };
-			static constexpr auto notMulSub1{ ~mulSub1 };
-			return (value + static_cast<value_type>(mulSub1)) & static_cast<value_type>(notMulSub1);
-		} else {
-			const auto remainder{ value % multiple };
-			return remainder == 0 ? value : value + (multiple - remainder);
-		}
-	}
-
 	enum class allocated_memory_types : uint8_t {
 		huge_page,
 		mmap,
@@ -42,7 +18,7 @@ namespace jsonifier::internal {
 		standard,
 	};
 
-	template<trivially_constructible_copyable_destructible_types value_type_new> struct alloc_wrapper {
+	template<trivially_constructible_copyable_destructible_types value_type_new> struct aligned_allocator {
 		using value_type	  = value_type_new;
 		using size_type		  = uint64_t;
 		using difference_type = ptrdiff_t;
@@ -59,15 +35,15 @@ namespace jsonifier::internal {
 		static constexpr uint64_t hugePageSize{ 2 * 1024 * 1024ULL };
 		static constexpr uint64_t hugePageThreshold{ hugePageSize * 2 };
 
-		using allocator_traits = std::allocator_traits<alloc_wrapper<value_type>>;
+		using allocator_traits = std::allocator_traits<aligned_allocator<value_type>>;
 
 		template<typename other_type> struct rebind {
-			using other = alloc_wrapper<other_type>;
+			using other = aligned_allocator<other_type>;
 		};
 
-		JSONIFIER_INLINE constexpr alloc_wrapper() noexcept = default;
+		JSONIFIER_INLINE constexpr aligned_allocator() noexcept = default;
 
-		template<typename other_type> JSONIFIER_INLINE constexpr alloc_wrapper(const alloc_wrapper<other_type>&) noexcept {
+		template<typename other_type> JSONIFIER_INLINE constexpr aligned_allocator(const aligned_allocator<other_type>&) noexcept {
 		}
 
 		JSONIFIER_INLINE static pointer finalize(void* base, allocated_memory_types allocated_memory_type, size_type totalBytes) noexcept {
@@ -131,11 +107,11 @@ namespace jsonifier::internal {
 			return finalize(p, allocated_memory_types::standard, alignedBytes);
 		}
 
-		static consteval size_type maxSize() noexcept {
+		static constexpr size_type maxSize() noexcept {
 			return (static_cast<size_type>(-1) - headerSize - (alignment - 1)) / sizeof(value_type);
 		}
 
-		JSONIFIER_INLINE constexpr bool operator!=(const alloc_wrapper& other) const noexcept {
+		JSONIFIER_INLINE constexpr bool operator!=(const aligned_allocator& other) const noexcept {
 			return !(*this == other);
 		}
 
@@ -184,7 +160,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE constexpr bool operator==(const alloc_wrapper&) const noexcept {
+		JSONIFIER_INLINE constexpr bool operator==(const aligned_allocator&) const noexcept {
 			return true;
 		}
 

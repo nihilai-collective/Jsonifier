@@ -20,15 +20,15 @@ namespace jsonifier::internal {
 	template<typename value_type, typename = void> struct print_impl;
 
 	struct print {
-		template<typename value_type_new> static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth = 0) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			print_impl<value_type>::impl(internal::forward<value_type_new>(value), os, depth);
 		}
 	};
 
 	template<typename derived_type_new> struct json_printer {
-		template<typename value_type_new> static void printJson(value_type_new&& value, basic_stream<>& os, uint64_t depth = 0) noexcept {
-			os << "Printing Json" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type> static void printJson(value_type_new&& value, basic_stream_type& os, uint64_t depth = 0) noexcept {
+			os << "Printing Json" << '\n';
 			print::impl(internal::forward<value_type_new>(value), os, depth);
 		}
 
@@ -41,16 +41,17 @@ namespace jsonifier::internal {
 		inline ~json_printer() noexcept					   = default;
 	};
 
-	inline void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
+	template<basic_stream_types basic_stream_type> inline void printIndent(basic_stream_type& os, uint64_t depth) noexcept {
 		for (uint64_t x{ 0 }; x < depth; ++x) {
 			os << "  ";
 		}
 	}
 
 	template<typename entity_type> struct json_entity_print : public entity_type {
-		template<typename value_type> inline static void processIndex(const value_type& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type, basic_stream_types basic_stream_type>
+		inline static void processIndex(const value_type& value, basic_stream_type& os, uint64_t depth) noexcept {
 			printIndent(os, depth);
-			os << entity_type::name.operator std::string_view() << " (size: " << sizeof(decltype(value.*entity_type::memberPtr)) << "): ";
+			os << entity_type::name.operator string_view() << " (size: " << sizeof(decltype(value.*entity_type::memberPtr)) << "): ";
 			print::impl(value.*entity_type::memberPtr, os, depth + 1);
 		}
 	};
@@ -74,22 +75,22 @@ namespace jsonifier::internal {
 	template<typename value_type> using print_base_t = typename get_print_base<value_type, make_integer_sequence<coreTupleSize<value_type>>>::type;
 
 	template<jsonifier_object_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			static constexpr auto memberCount{ coreTupleSize<value_type> };
 			printIndent(os, depth);
-			os << "object (members: " << memberCount << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
+			os << "object (members: " << memberCount << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << '\n';
 			if constexpr (memberCount > 0) {
 				print_base_t<remove_cvref_t<value_type>>::iterateValues(value, os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "}" << endl;
+			os << "}" << '\n';
 		}
 	};
 
 	template<map_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			printIndent(os, depth);
-			os << "map (entries: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
+			os << "map (entries: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << '\n';
 			for (auto iter{ value.begin() }; iter != value.end(); ++iter) {
 				printIndent(os, depth + 1);
 				os << "key: ";
@@ -99,13 +100,13 @@ namespace jsonifier::internal {
 				print::impl(iter->second, os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "}" << endl;
+			os << "}" << '\n';
 		}
 	};
 
 	template<tuple_types value_type> struct print_impl<value_type> {
-		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new>
-		inline static void printElements(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<uint64_t currentIndex, uint64_t newSize, typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void printElements(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			if constexpr (currentIndex < newSize) {
 				auto& sub{ get<currentIndex>(value) };
 				printIndent(os, depth);
@@ -115,21 +116,21 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			static constexpr auto size{ std::tuple_size_v<remove_cvref_t<value_type>> };
 			printIndent(os, depth);
-			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << endl;
+			os << "tuple (elements: " << size << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") {" << '\n';
 			printElements<0, size>(value, os, depth + 1);
 			printIndent(os, depth);
-			os << "}" << endl;
+			os << "}" << '\n';
 		}
 	};
 
 	template<vector_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			const auto newSize{ value.size() };
 			printIndent(os, depth);
-			os << "vector (elements: " << newSize << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") [" << endl;
+			os << "vector (elements: " << newSize << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ") [" << '\n';
 			auto iter{ getBeginIterVec(value) };
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(newSize); ++index) {
 				printIndent(os, depth + 1);
@@ -137,15 +138,15 @@ namespace jsonifier::internal {
 				print::impl(iter[index], os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "]" << endl;
+			os << "]" << '\n';
 		}
 	};
 
 	template<raw_array_types value_type> struct print_impl<value_type> {
-		template<template<typename, uint64_t> typename value_type_new, typename value_type_internal, uint64_t size>
-		inline static void impl(const value_type_new<value_type_internal, size>& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<template<typename, uint64_t> typename value_type_new, typename value_type_internal, uint64_t size, basic_stream_types basic_stream_type>
+		inline static void impl(const value_type_new<value_type_internal, size>& value, basic_stream_type& os, uint64_t depth) noexcept {
 			printIndent(os, depth);
-			os << "array (elements: " << size << ", size: " << sizeof(value_type_new<value_type_internal, size>) << ") [" << endl;
+			os << "array (elements: " << size << ", size: " << sizeof(value_type_new<value_type_internal, size>) << ") [" << '\n';
 			auto iter{ getBeginIterVec(value) };
 			for (int64_t index{ 0 }; index != static_cast<int64_t>(size); ++index) {
 				printIndent(os, depth + 1);
@@ -153,50 +154,56 @@ namespace jsonifier::internal {
 				print::impl(iter[index], os, depth + 1);
 			}
 			printIndent(os, depth);
-			os << "]" << endl;
+			os << "]" << '\n';
 		}
 	};
 
 	template<string_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
-			os << "\"" << value << "\" (length: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
+			os << "\"" << value << "\" (length: " << value.size() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << '\n';
 		}
 	};
 
 	template<char_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
-			os << "'" << value << "' (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
+			os << "'" << value << "' (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << '\n';
 		}
 	};
 
 	template<any_enum_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
-			os << static_cast<int64_t>(value) << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
+			os << static_cast<int64_t>(value) << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << '\n';
 		}
 	};
 
 	template<number_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
-			os << value << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
+			os << value << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << '\n';
 		}
 	};
 
 	template<bool_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
-			os << (value ? "true" : "false") << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
+			os << (value ? string_view{ "true" } : string_view{ "false" }) << " (size: " << sizeof(remove_cvref_t<value_type_new>) << ")" << '\n';
 		}
 	};
 
 	template<always_null_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&&, basic_stream<>& os, uint64_t) noexcept {
-			os << "null" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&&, basic_stream_type& os, uint64_t) noexcept {
+			os << "null" << '\n';
 		}
 	};
 
 	template<pointer_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, [[maybe_unused]] uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type>
+		inline static void impl(value_type_new&& value, basic_stream_type& os, [[maybe_unused]] uint64_t depth) noexcept {
 			if (!value) {
-				os << "null" << endl;
+				os << "null" << '\n';
 				return;
 			}
 			os << "* -> ";
@@ -205,9 +212,9 @@ namespace jsonifier::internal {
 	};
 
 	template<unique_ptr_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			if (!value) {
-				os << "null" << endl;
+				os << "null" << '\n';
 				return;
 			}
 			os << "unique_ptr -> ";
@@ -216,9 +223,9 @@ namespace jsonifier::internal {
 	};
 
 	template<shared_ptr_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			if (!value) {
-				os << "null" << endl;
+				os << "null" << '\n';
 				return;
 			}
 			os << "shared_ptr -> ";
@@ -227,9 +234,9 @@ namespace jsonifier::internal {
 	};
 
 	template<optional_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			if (!value) {
-				os << "nullopt" << endl;
+				os << "nullopt" << '\n';
 				return;
 			}
 			print::impl(value.value(), os, depth);
@@ -237,24 +244,25 @@ namespace jsonifier::internal {
 	};
 
 	struct print_visit_functor {
-		template<typename value_type> JSONIFIER_INLINE static void impl(value_type&& valueNewer, basic_stream<>& osNew, uint64_t depthNew) noexcept {
+		template<typename value_type, basic_stream_types basic_stream_type>
+		JSONIFIER_INLINE static void impl(value_type&& valueNewer, basic_stream_type& osNew, uint64_t depthNew) noexcept {
 			print::impl(valueNewer, osNew, depthNew);
 		}
 	};
 
 	template<variant_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			os << "variant (active index: " << value.index() << ", size: " << sizeof(remove_cvref_t<value_type_new>) << "): ";
 			internal::visit<print_visit_functor>(value, os, depth);
 		}
 	};
 
 	template<raw_json_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&& value, basic_stream<>& os, uint64_t depth) noexcept {
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&& value, basic_stream_type& os, uint64_t depth) noexcept {
 			switch (static_cast<uint64_t>(value.getType())) {
 				case static_cast<uint64_t>(json_types::object): {
 					const auto& object{ value.getObject() };
-					os << "object (size: " << object.size() << ")" << endl;
+					os << "object (size: " << object.size() << ")" << '\n';
 					for (const auto& [key, entry]: object) {
 						printIndent(os, depth + 1);
 						os << key << ": ";
@@ -264,7 +272,7 @@ namespace jsonifier::internal {
 				}
 				case static_cast<uint64_t>(json_types::array): {
 					const auto& array{ value.getArray() };
-					os << "array (size: " << array.size() << ")" << endl;
+					os << "array (size: " << array.size() << ")" << '\n';
 					for (uint64_t x{ 0 }; x < array.size(); ++x) {
 						printIndent(os, depth + 1);
 						os << "[" << x << "]: ";
@@ -274,30 +282,30 @@ namespace jsonifier::internal {
 				}
 				case static_cast<uint64_t>(json_types::string): {
 					const auto& string{ value.getString() };
-					os << "\"" << string << "\" (length: " << string.size() << ")" << endl;
+					os << "\"" << string << "\" (length: " << string.size() << ")" << '\n';
 					return;
 				}
 				case static_cast<uint64_t>(json_types::number): {
 					printNumber(value.getNumber(), os);
-					os << endl;
+					os << '\n';
 					return;
 				}
 				case static_cast<uint64_t>(json_types::boolean): {
-					os << (value.getBool() ? "true" : "false") << endl;
+					os << (value.getBool() ? string_view{ "true" } : string_view{ "false" }) << '\n';
 					return;
 				}
 				case static_cast<uint64_t>(json_types::null): {
-					os << "null" << endl;
+					os << "null" << '\n';
 					return;
 				}
 				default: {
-					os << "unset" << endl;
+					os << "unset" << '\n';
 					return;
 				}
 			}
 		}
 
-		inline static void printNumber(const json_number& number, basic_stream<>& os) noexcept {
+		template<basic_stream_types basic_stream_type> inline static void printNumber(const json_number& number, basic_stream_type& os) noexcept {
 			switch (static_cast<uint64_t>(number.getType())) {
 				case static_cast<uint64_t>(json_number::number_types::uint64): {
 					os << number.getUint() << " (uint64)";
@@ -318,7 +326,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		inline static void printIndent(basic_stream<>& os, uint64_t depth) noexcept {
+		template<basic_stream_types basic_stream_type> inline static void printIndent(basic_stream_type& os, uint64_t depth) noexcept {
 			for (uint64_t x{ 0 }; x < depth; ++x) {
 				os << "  ";
 			}
@@ -326,8 +334,8 @@ namespace jsonifier::internal {
 	};
 
 	template<skip_types value_type> struct print_impl<value_type> {
-		template<typename value_type_new> inline static void impl(value_type_new&&, basic_stream<>& os, uint64_t) noexcept {
-			os << "skipped" << endl;
+		template<typename value_type_new, basic_stream_types basic_stream_type> inline static void impl(value_type_new&&, basic_stream_type& os, uint64_t) noexcept {
+			os << "skipped" << '\n';
 		}
 	};
 

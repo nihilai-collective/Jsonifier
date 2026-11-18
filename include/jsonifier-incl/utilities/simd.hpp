@@ -222,10 +222,12 @@ namespace jsonifier::internal {
 		uint64_t quotes{};
 	};
 
-	template<uint64_t initialBufferSize>
-	struct simd_string_reader_members : simd::rope_detector<rope_block>, string_block_reader, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, alloc_wrapper<uint32_t> {
+	template<uint64_t initialBufferSize> struct simd_string_reader_members : simd::rope_detector<rope_block>,
+																			 string_block_reader,
+																			 add_tape_values<make_integer_sequence<simdBlocksPerStep>>,
+																			 aligned_allocator<uint32_t> {
 		friend add_tape_values<make_integer_sequence<simdBlocksPerStep>>;
-		using allocator = alloc_wrapper<uint32_t>;
+		using allocator = aligned_allocator<uint32_t>;
 
 		JSONIFIER_INLINE simd_string_reader_members() noexcept {
 			tape	 = allocator::allocate(initialBufferSize);
@@ -412,9 +414,9 @@ namespace jsonifier::internal {
 	};
 
 	template<uint64_t initialBufferSize>
-	struct simd_string_reader_locals : string_block_reader_locals, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, alloc_wrapper<uint32_t> {
+	struct simd_string_reader_locals : string_block_reader_locals, add_tape_values<make_integer_sequence<simdBlocksPerStep>>, aligned_allocator<uint32_t> {
 		friend add_tape_values<make_integer_sequence<simdBlocksPerStep>>;
-		using allocator = alloc_wrapper<uint32_t>;
+		using allocator = aligned_allocator<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
 
 		JSONIFIER_INLINE simd_string_reader_locals() noexcept {
@@ -652,8 +654,8 @@ namespace jsonifier::internal {
 	template<uint64_t initialBufferSize> using simd_string_reader = simd_string_reader_locals<initialBufferSize>;
 #endif
 
-	template<uint64_t initialBufferSize> struct pod_simd_string_reader_members : simd::rope_detector<rope_block>, alloc_wrapper<uint32_t> {
-		using allocator = alloc_wrapper<uint32_t>;
+	template<uint64_t initialBufferSize> struct pod_simd_string_reader_members : simd::rope_detector<rope_block>, aligned_allocator<uint32_t> {
+		using allocator = aligned_allocator<uint32_t>;
 		using rope_type = simd::rope_detector<rope_block>;
 		static constexpr uint64_t stepBytes{ podBytesPerStep };
 
