@@ -159,9 +159,10 @@ namespace jsonifier::internal {
 	};
 
 	template<typename value_type>
-	concept pointer_length_view_types = std::is_trivially_copyable_v<value_type> && std::is_constructible_v<value_type, const char*, uint64_t> && requires(const value_type& value) {
-		{ value.data() } -> std::convertible_to<const char*>;
-		{ value.size() } -> std::convertible_to<uint64_t>;
+	concept pointer_length_view_types =
+		std::is_trivially_copyable_v<value_type> && std::is_constructible_v<value_type, const char*, uint64_t> && requires(const value_type& value) {
+			{ value.data() } -> std::convertible_to<const char*>;
+			{ value.size() } -> std::convertible_to<uint64_t>;
 		};
 
 	template<typename value_type>

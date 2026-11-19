@@ -72,7 +72,7 @@ namespace jsonifier::generic {
 			return truncated;
 		}
 
-		JSONIFIER_INLINE error_codes error() const noexcept {
+		JSONIFIER_INLINE parse_statuses error() const noexcept {
 			return error_code;
 		}
 
@@ -111,7 +111,7 @@ namespace jsonifier::generic {
 				return nullptr;
 			}
 			if (document_state::isCloser(first) || first == internal::uint_c_v<','> || first == internal::uint_c_v<':'>) [[unlikely]] {
-				error_code = error_codes::tape_error;
+				error_code = parse_statuses::unexpected_token;
 				return nullptr;
 			}
 			if (start + 1 == windowTapeEnd && !finalWindow) {
@@ -155,7 +155,7 @@ namespace jsonifier::generic {
 				if (next == windowTapeEnd) {
 					if (finalWindow) {
 						if (pendingSeparator) [[unlikely]] {
-							error_code = error_codes::trailing_content;
+							error_code = parse_statuses::unfinished_input;
 						} else {
 							finished = true;
 						}
@@ -174,7 +174,7 @@ namespace jsonifier::generic {
 					bindDocument(next, documentEnd);
 					return;
 				}
-				if (error_code != error_codes::success) [[unlikely]] {
+				if (error_code != parse_statuses::success) [[unlikely]] {
 					return;
 				}
 				if (finalWindow) {
@@ -183,7 +183,7 @@ namespace jsonifier::generic {
 					return;
 				}
 				if (next == windowTape) [[unlikely]] {
-					error_code = error_codes::capacity;
+					error_code = parse_statuses::capacity;
 					return;
 				}
 				loadWindow(windowStart + *next);
@@ -211,7 +211,7 @@ namespace jsonifier::generic {
 						return;
 					}
 					if (completeEnd == windowTape) [[unlikely]] {
-						error_code = error_codes::capacity;
+						error_code = parse_statuses::capacity;
 						return;
 					}
 					loadWindow(windowStart + (completeEnd == windowTapeEnd ? windowLength : *completeEnd));
@@ -219,7 +219,7 @@ namespace jsonifier::generic {
 					continue;
 				}
 				if (!startsDocument(docState().charAt(next))) [[unlikely]] {
-					error_code = error_codes::tape_error;
+					error_code = parse_statuses::unexpected_token;
 					return;
 				}
 				bindDocument(next, completeEnd);
@@ -248,7 +248,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE string_view source() const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return {};
 			}
 			internal::read_buffer_ptr base{ input + windowStart };
@@ -266,7 +266,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE uint64_t currentIndex() const noexcept {
-			return error_code == error_codes::success ? windowStart + *docBegin : windowStart;
+			return error_code == parse_statuses::success ? windowStart + *docBegin : windowStart;
 		}
 
 		JSONIFIER_INLINE void locate(internal::read_structural_index_ptr next) noexcept {
@@ -310,14 +310,14 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE document current() const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return document{ error_code };
 			}
 			return document{ &docState(), docBegin, 0 };
 		}
 
 		JSONIFIER_INLINE void advance() noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				finished = true;
 				return;
 			}
@@ -340,7 +340,7 @@ namespace jsonifier::generic {
 		parser_type* parser{};
 		uint64_t batchSize{};
 		uint64_t truncated{};
-		error_codes error_code{ error_codes::success };
+		parse_statuses error_code{ parse_statuses::success };
 		bool pendingSeparator{};
 		bool finalWindow{};
 		bool finished{};

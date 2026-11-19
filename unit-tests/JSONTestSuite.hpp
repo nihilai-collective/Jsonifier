@@ -306,9 +306,9 @@ namespace json_test_suite_tests {
 		conformance_tests::runConformanceTest<"n_structure_angle_bracket_null.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 			jsonifier::internal::parse_statuses::missing_object_start>(jsonTests["n_structure_angle_bracket_null.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_trailing_garbage.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_extra_array_close.json", partial, knownOrder, nullTerminated, std::vector<bool>,
-			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_array_with_unclosed_string.json", partial, knownOrder, nullTerminated, std::vector<std::string>,
 			jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["n_structure_array_with_unclosed_string.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_ascii-unicode-identifier.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
@@ -593,6 +593,579 @@ namespace json_test_suite_tests {
 			jsonifier::internal::parse_statuses::success>(jsonTests["y_structure_whitespace_array.json"].fileContents, parser);
 	}
 
+	template<bool nullTerminated> inline void genericJsonTestSuiteYNTestsImpl() {
+		jsonifier::jsonifier_core<> parser{};
+		std::unordered_map<std::string, test_base> jsonTests{};
+		processFilesInFolder(jsonTests, "JSONTestSuite/test_parsing");
+		std::cout << "Generic JSONTestSuite Y/N Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		conformance_tests::runGenericConformanceTest<"n_array_1_true_without_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_1_true_without_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_a_invalid_utf8.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_a_invalid_utf8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_colon_instead_of_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_colon_instead_of_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_comma_after_close.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_array_comma_after_close.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_comma_and_number.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_comma_and_number.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_double_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_double_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_double_extra_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_double_extra_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_extra_close.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_array_extra_close.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_extra_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_extra_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_incomplete_invalid_value.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_incomplete_invalid_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_incomplete.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_incomplete.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_inner_array_no_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_inner_array_no_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_invalid_utf8.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_invalid_utf8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_items_separated_by_semicolon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_items_separated_by_semicolon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_just_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_just_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_just_minus.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_array_just_minus.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_missing_value.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_missing_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_newlines_unclosed.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_newlines_unclosed.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_number_and_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_number_and_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_number_and_several_commas.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_number_and_several_commas.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_spaces_vertical_tab_formfeed.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_array_spaces_vertical_tab_formfeed.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_star_inside.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_array_star_inside.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_unclosed_trailing_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_unclosed_trailing_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_unclosed_with_new_lines.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_unclosed_with_new_lines.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_unclosed_with_object_inside.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_unclosed_with_object_inside.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_array_unclosed.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_array_unclosed.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_incomplete_false.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			jsonTests["n_incomplete_false.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_incomplete_null.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_null_value>(
+			jsonTests["n_incomplete_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_incomplete_true.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			jsonTests["n_incomplete_true.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_multidigit_number_then_00.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_multidigit_number_then_00.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_-01.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_-01.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_-1.0..json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_-1.0..json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_-2..json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_-2..json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_-NaN.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_-NaN.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_.-1.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_.-1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_.2e-3.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_.2e-3.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_++.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_++.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_+1.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_+1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_+Inf.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_+Inf.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0_capital_E.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0_capital_E.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0_capital_E+.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0_capital_E+.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0.1.2.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0.1.2.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0.3e.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0.3e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0.3e+.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0.3e+.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0.e1.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0.e1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0e.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_0e+.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_0e+.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_1_000.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_1_000.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_1.0e-.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_1.0e-.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_1.0e.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_1.0e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_1.0e+.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_1.0e+.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_1eE2.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_1eE2.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_2.e-3.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_2.e-3.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_2.e+3.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_2.e+3.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_2.e3.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_2.e3.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_9.e+.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_9.e+.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_expression.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_expression.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_hex_1_digit.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_hex_1_digit.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_hex_2_digits.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_hex_2_digits.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_Inf.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_Inf.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_infinity.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_infinity.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_invalid-negative-real.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_invalid-negative-real.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_invalid-utf-8-in-bigger-int.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_invalid-utf-8-in-bigger-int.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_invalid-utf-8-in-exponent.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_invalid-utf-8-in-exponent.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_invalid-utf-8-in-int.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_invalid-utf-8-in-int.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_invalid+-.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_invalid+-.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_minus_infinity.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_minus_infinity.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_minus_sign_with_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_minus_sign_with_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_minus_space_1.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_minus_space_1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_NaN.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_NaN.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_neg_int_starting_with_zero.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_neg_int_starting_with_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_neg_real_without_int_part.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_neg_real_without_int_part.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_neg_with_garbage_at_end.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_neg_with_garbage_at_end.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_real_garbage_after_e.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_real_garbage_after_e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_real_with_invalid_utf8_after_e.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_real_with_invalid_utf8_after_e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_real_without_fractional_part.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_real_without_fractional_part.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_starting_with_dot.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_starting_with_dot.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_U+FF11_fullwidth_digit_one.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_number_U+FF11_fullwidth_digit_one.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_with_alpha_char.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_with_alpha_char.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_with_alpha.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_with_alpha.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_number_with_leading_zero.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_number_with_leading_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_bad_value.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			jsonTests["n_object_bad_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_bracket_key.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_bracket_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_comma_instead_of_colon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_comma_instead_of_colon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_double_colon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_double_colon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_emoji.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_emoji.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_garbage_at_end.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_garbage_at_end.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_key_with_single_quotes.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_key_with_single_quotes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_lone_continuation_byte_in_key_and_trailing_comma.json", nullTerminated,
+			jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["n_object_lone_continuation_byte_in_key_and_trailing_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_missing_colon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_missing_colon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_missing_key.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_missing_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_missing_semicolon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_missing_semicolon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_missing_value.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_missing_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_no-colon.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_no-colon.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_non_string_key_but_huge_number_instead.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_non_string_key_but_huge_number_instead.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_non_string_key.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_non_string_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_repeated_null_null.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_repeated_null_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_several_trailing_commas.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_several_trailing_commas.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_single_quote.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_single_quote.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_trailing_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_trailing_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_trailing_comment_open.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_object_trailing_comment_open.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_trailing_comment_slash_open_incomplete.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_object_trailing_comment_slash_open_incomplete.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_trailing_comment_slash_open.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_object_trailing_comment_slash_open.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_trailing_comment.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_object_trailing_comment.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_two_commas_in_a_row.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_two_commas_in_a_row.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_unquoted_key.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_unquoted_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_unterminated-value.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_object_unterminated-value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_with_single_string.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_object_with_single_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_object_with_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_object_with_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_single_space.json", nullTerminated, jsonifier::internal::parse_statuses::no_input>(
+			jsonTests["n_single_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_1_surrogate_then_escape_u.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_1_surrogate_then_escape_u.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_1_surrogate_then_escape_u1.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_1_surrogate_then_escape_u1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_1_surrogate_then_escape_u1x.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_1_surrogate_then_escape_u1x.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_1_surrogate_then_escape.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_1_surrogate_then_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_accentuated_char_no_quotes.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_string_accentuated_char_no_quotes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_backslash_00.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_backslash_00.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_escape_x.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_escape_x.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_escaped_backslash_bad.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_escaped_backslash_bad.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_escaped_ctrl_char_tab.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_escaped_ctrl_char_tab.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_escaped_emoji.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_escaped_emoji.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_incomplete_escape.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_incomplete_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_incomplete_escaped_character.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_incomplete_escaped_character.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_incomplete_surrogate_escape_invalid.json", nullTerminated,
+			jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["n_string_incomplete_surrogate_escape_invalid.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_incomplete_surrogate.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_incomplete_surrogate.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_invalid_backslash_esc.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_invalid_backslash_esc.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_invalid_unicode_escape.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_invalid_unicode_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_invalid_utf8_after_escape.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_invalid_utf8_after_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_invalid-utf-8-in-escape.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_invalid-utf-8-in-escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_leading_uescaped_thinspace.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_string_leading_uescaped_thinspace.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_no_quotes_with_bad_escape.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_string_no_quotes_with_bad_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_single_doublequote.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_single_doublequote.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_single_quote.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_string_single_quote.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_single_string_no_double_quotes.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_string_single_string_no_double_quotes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_start_escape_unclosed.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_start_escape_unclosed.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_unescaped_ctrl_char.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_unescaped_ctrl_char.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_unescaped_newline.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_unescaped_newline.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_unescaped_tab.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_unescaped_tab.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_unicode_CapitalU.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_string_unicode_CapitalU.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_string_with_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_string_with_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_100000_opening_arrays.json", nullTerminated, jsonifier::internal::parse_statuses::exceeded_max_depth>(
+			jsonTests["n_structure_100000_opening_arrays.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_angle_bracket_..json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_angle_bracket_..json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_angle_bracket_null.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_angle_bracket_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_array_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_array_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_array_with_extra_array_close.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_array_with_extra_array_close.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_array_with_unclosed_string.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_structure_array_with_unclosed_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_ascii-unicode-identifier.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_ascii-unicode-identifier.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_capitalized_True.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_capitalized_True.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_close_unopened_array.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_close_unopened_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_comma_instead_of_closing_brace.json", nullTerminated,
+			jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["n_structure_comma_instead_of_closing_brace.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_double_array.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_double_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_end_array.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_end_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_incomplete_UTF8_BOM.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_incomplete_UTF8_BOM.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_lone-invalid-utf-8.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_lone-invalid-utf-8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_lone-open-bracket.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_lone-open-bracket.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_no_data.json", nullTerminated, jsonifier::internal::parse_statuses::no_input>(
+			jsonTests["n_structure_no_data.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_null-byte-outside-string.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_null-byte-outside-string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_number_with_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(
+			jsonTests["n_structure_number_with_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_object_followed_by_closing_object.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_object_followed_by_closing_object.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_object_unclosed_no_value.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_object_unclosed_no_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_object_with_comment.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_object_with_comment.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_object_with_trailing_garbage.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_object_with_trailing_garbage.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_apostrophe.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_array_apostrophe.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_array_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_object.json", nullTerminated, jsonifier::internal::parse_statuses::exceeded_max_depth>(
+			jsonTests["n_structure_open_array_object.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_open_object.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_structure_open_array_open_object.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_open_string.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_structure_open_array_open_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_array_string.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_structure_open_array_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object_close_array.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_object_close_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object_comma.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_object_comma.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object_open_array.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_object_open_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object_open_string.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_object_open_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object_string_with_apostrophes.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_open_object_string_with_apostrophes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_object.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_open_object.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_open_open.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(
+			jsonTests["n_structure_open_open.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_single_eacute.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_single_eacute.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_single_star.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_single_star.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_trailing_#.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(
+			jsonTests["n_structure_trailing_#.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_U+2060_word_joined.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_U+2060_word_joined.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_uescaped_LF_before_string.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_uescaped_LF_before_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unclosed_array_partial_null.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_null_value>(
+			jsonTests["n_structure_unclosed_array_partial_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unclosed_array_unfinished_false.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			jsonTests["n_structure_unclosed_array_unfinished_false.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unclosed_array_unfinished_true.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			jsonTests["n_structure_unclosed_array_unfinished_true.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unclosed_array.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_structure_unclosed_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unclosed_object.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
+			jsonTests["n_structure_unclosed_object.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_unicode-identifier.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_unicode-identifier.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_UTF8_BOM_no_data.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_UTF8_BOM_no_data.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_whitespace_formfeed.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_whitespace_formfeed.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"n_structure_whitespace_U+2060_word_joiner.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(
+			jsonTests["n_structure_whitespace_U+2060_word_joiner.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_arraysWithSpaces.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_arraysWithSpaces.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_empty-string.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_empty-string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_empty.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_empty.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_ending_with_newline.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_ending_with_newline.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_false.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_false.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_heterogeneous.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_heterogeneous.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_null.json", nullTerminated, jsonifier::internal::parse_statuses::success>(jsonTests["y_array_null.json"].fileContents,
+			parser);
+		conformance_tests::runGenericConformanceTest<"y_array_with_1_and_newline.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_with_1_and_newline.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_with_leading_space.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_with_leading_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_with_several_null.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_with_several_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_array_with_trailing_space.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_array_with_trailing_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_0e+1.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_0e+1.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_0e1.json", nullTerminated, jsonifier::internal::parse_statuses::success>(jsonTests["y_number_0e1.json"].fileContents,
+			parser);
+		conformance_tests::runGenericConformanceTest<"y_number_after_space.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_after_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_double_close_to_zero.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_double_close_to_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_int_with_exp.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_int_with_exp.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_minus_zero.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_minus_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_negative_int.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_negative_int.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_negative_one.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_negative_one.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_negative_zero.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_negative_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_capital_e_neg_exp.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_capital_e_neg_exp.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_capital_e_pos_exp.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_capital_e_pos_exp.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_capital_e.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_capital_e.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_exponent.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_exponent.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_fraction_exponent.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_fraction_exponent.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_neg_exp.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_neg_exp.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_real_pos_exponent.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_real_pos_exponent.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_simple_int.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_simple_int.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number_simple_real.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_number_simple_real.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_number.json", nullTerminated, jsonifier::internal::parse_statuses::success>(jsonTests["y_number.json"].fileContents,
+			parser);
+		conformance_tests::runGenericConformanceTest<"y_object_basic.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_basic.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_duplicated_key_and_value.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_duplicated_key_and_value.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_duplicated_key.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_duplicated_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_empty_key.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_empty_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_empty.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_empty.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_escaped_null_in_key.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_escaped_null_in_key.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_extreme_numbers.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_extreme_numbers.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_long_strings.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_long_strings.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_simple.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_simple.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_string_unicode.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_string_unicode.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object_with_newlines.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_object_with_newlines.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_object.json", nullTerminated, jsonifier::internal::parse_statuses::success>(jsonTests["y_object.json"].fileContents,
+			parser);
+		conformance_tests::runGenericConformanceTest<"y_string_1_2_3_bytes_UTF-8_sequences.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_1_2_3_bytes_UTF-8_sequences.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_accepted_surrogate_pair.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_accepted_surrogate_pair.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_accepted_surrogate_pairs.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_accepted_surrogate_pairs.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_allowed_escapes.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_allowed_escapes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_backslash_and_u_escaped_zero.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_backslash_and_u_escaped_zero.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_backslash_doublequotes.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_backslash_doublequotes.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_comments.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_comments.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_double_escape_a.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_double_escape_a.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_double_escape_n.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_double_escape_n.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_escaped_control_character.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_escaped_control_character.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_escaped_noncharacter.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_escaped_noncharacter.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_in_array_with_leading_space.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_in_array_with_leading_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_in_array.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_in_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_last_surrogates_1_and_2.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_last_surrogates_1_and_2.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_nbsp_uescaped.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_nbsp_uescaped.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_nonCharacterInUTF-8_U+10FFFF.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_nonCharacterInUTF-8_U+10FFFF.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_nonCharacterInUTF-8_U+FFFF.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_nonCharacterInUTF-8_U+FFFF.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_null_escape.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_null_escape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_one-byte-utf-8.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_one-byte-utf-8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_pi.json", nullTerminated, jsonifier::internal::parse_statuses::success>(jsonTests["y_string_pi.json"].fileContents,
+			parser);
+		conformance_tests::runGenericConformanceTest<"y_string_reservedCharacterInUTF-8_U+1BFFF.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_reservedCharacterInUTF-8_U+1BFFF.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_simple_ascii.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_simple_ascii.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_space.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_space.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_surrogates_U+1D11E_MUSICAL_SYMBOL_G_CLEF.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_surrogates_U+1D11E_MUSICAL_SYMBOL_G_CLEF.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_three-byte-utf-8.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_three-byte-utf-8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_two-byte-utf-8.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_two-byte-utf-8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_u+2028_line_sep.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_u+2028_line_sep.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_u+2029_par_sep.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_u+2029_par_sep.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_uEscape.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_uEscape.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_uescaped_newline.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_uescaped_newline.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unescaped_char_delete.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unescaped_char_delete.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_2.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_2.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_escaped_double_quote.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_escaped_double_quote.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+10FFFE_nonchar.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+10FFFE_nonchar.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+1FFFE_nonchar.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+1FFFE_nonchar.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+200B_ZERO_WIDTH_SPACE.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+200B_ZERO_WIDTH_SPACE.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+2064_invisible_plus.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+2064_invisible_plus.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+FDD0_nonchar.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+FDD0_nonchar.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode_U+FFFE_nonchar.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode_U+FFFE_nonchar.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicode.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicode.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_unicodeEscapedBackslash.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_unicodeEscapedBackslash.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_utf8.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_utf8.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_string_with_del_character.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_string_with_del_character.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_false.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_false.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_int.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_int.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_negative_real.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_negative_real.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_null.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_null.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_string.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_string.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_lonely_true.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_lonely_true.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_string_empty.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_string_empty.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_trailing_newline.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_trailing_newline.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_true_in_array.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_true_in_array.json"].fileContents, parser);
+		conformance_tests::runGenericConformanceTest<"y_structure_whitespace_array.json", nullTerminated, jsonifier::internal::parse_statuses::success>(
+			jsonTests["y_structure_whitespace_array.json"].fileContents, parser);
+	}
+
 	inline void runTests() {
 		jsonTestSuiteYNTestsImpl<false, false, false>();
 		jsonTestSuiteYNTestsImpl<false, true, false>();
@@ -602,6 +1175,8 @@ namespace json_test_suite_tests {
 		jsonTestSuiteYNTestsImpl<false, true, true>();
 		jsonTestSuiteYNTestsImpl<true, false, true>();
 		jsonTestSuiteYNTestsImpl<true, true, true>();
+		genericJsonTestSuiteYNTestsImpl<false>();
+		genericJsonTestSuiteYNTestsImpl<true>();
 		std::cout << "JSON Test Suite validation tests complete." << std::endl;
 	}
 

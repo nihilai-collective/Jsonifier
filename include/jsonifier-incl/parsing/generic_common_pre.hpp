@@ -13,23 +13,7 @@
 
 namespace jsonifier::generic {
 
-	enum class error_codes : uint8_t {
-		success,
-		empty,
-		tape_error,
-		unclosed_container,
-		trailing_content,
-		incorrect_type,
-		no_such_field,
-		index_out_of_bounds,
-		number_error,
-		string_error,
-		t_atom_error,
-		f_atom_error,
-		n_atom_error,
-		invalid_json_pointer,
-		capacity,
-	};
+	using parse_statuses = internal::parse_statuses;
 
 	template<bool minified> class generic_object;
 	template<bool minified> class generic_array;

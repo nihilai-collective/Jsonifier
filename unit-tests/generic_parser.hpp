@@ -12,10 +12,10 @@ namespace generic_parser_tests {
 
 	template<typename value_type, bool minified> inline value_type extracted(const jsonifier::generic::generic_value<minified>& target) {
 		value_type out{};
-		return target.get(out) == jsonifier::generic::error_codes::success ? out : value_type{};
+		return target.get(out) == jsonifier::generic::parse_statuses::success ? out : value_type{};
 	}
 
-	template<typename value_type, bool minified> inline jsonifier::generic::error_codes extractionError(const jsonifier::generic::generic_value<minified>& target) {
+	template<typename value_type, bool minified> inline jsonifier::generic::parse_statuses extractionError(const jsonifier::generic::generic_value<minified>& target) {
 		value_type out{};
 		return target.get(out);
 	}
@@ -24,7 +24,7 @@ namespace generic_parser_tests {
 	alignas(64) inline constexpr jsonifier::parse_options newLines{ .newLineDelimited = true };
 
 	struct stream_summary {
-		jsonifier::generic::error_codes lastError{ jsonifier::generic::error_codes::success };
+		jsonifier::generic::parse_statuses lastError{ jsonifier::generic::parse_statuses::success };
 
 		bool operator==(const stream_summary&) const = default;
 
@@ -40,7 +40,7 @@ namespace generic_parser_tests {
 		auto stream = parser.template iterateMany<options>(input, batchSize);
 		for (auto iter = stream.begin(); iter != stream.end(); ++iter) {
 			jsonifier::generic::generic_document<false> doc{ *iter };
-			if (doc.error() != jsonifier::generic::error_codes::success) {
+			if (doc.error() != jsonifier::generic::parse_statuses::success) {
 				summary.lastError = doc.error();
 				continue;
 			}
@@ -64,7 +64,7 @@ namespace generic_parser_tests {
 	}
 
 	template<typename parser_type> inline void runStreamTests(parser_type& parser) {
-		using error_codes = jsonifier::generic::error_codes;
+		using parse_statuses = jsonifier::generic::parse_statuses;
 		static_assert(std::input_iterator<typename jsonifier::generic::document_stream<parser_type, comma>::iterator>);
 		static_assert(std::input_iterator<typename jsonifier::generic::document_stream<parser_type, newLines>::iterator>);
 
@@ -72,7 +72,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<streamNdjsonName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream(parser, std::string{ "{\"id\":1}\n{\"id\":2}\n{\"id\":3}\n" });
 			return summary.sources.size() == 3 && summary.idSum == 6 && summary.indices == std::vector<uint64_t>{ 0, 9, 18 } && summary.sources[1] == R"({"id":2})" &&
-				summary.lastError == error_codes::success && summary.truncated == 0;
+				summary.lastError == parse_statuses::success && summary.truncated == 0;
 		});
 
 		static constexpr rt_ut::string_literal streamScalarsName{ "generic_stream_whitespace_scalars" };
@@ -96,25 +96,25 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<streamCommaName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream<comma>(parser, std::string{ "{\"id\":1} , {\"id\":2},[3],4 ,\"five\"" }, jsonifier::parse_options{}.defaultBatchSize);
 			return summary.sources == std::vector<std::string>{ "{\"id\":1}", "{\"id\":2}", "[3]", "4", "\"five\"" } && summary.idSum == 3 &&
-				summary.lastError == error_codes::success;
+				summary.lastError == parse_statuses::success;
 		});
 
 		static constexpr rt_ut::string_literal streamCommaDisallowedName{ "generic_stream_comma_disallowed" };
 		rt_ut::unit_test<streamCommaDisallowedName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream(parser, std::string{ "{\"id\":1},{\"id\":2}" });
-			return summary.sources.size() == 1 && summary.lastError == error_codes::tape_error;
+			return summary.sources.size() == 1 && summary.lastError == parse_statuses::unexpected_token;
 		});
 
 		static constexpr rt_ut::string_literal streamCommaTrailingName{ "generic_stream_comma_trailing" };
 		rt_ut::unit_test<streamCommaTrailingName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream<comma>(parser, std::string{ "1,2, " }, jsonifier::parse_options{}.defaultBatchSize);
-			return summary.sources.size() == 2 && summary.lastError == error_codes::trailing_content;
+			return summary.sources.size() == 2 && summary.lastError == parse_statuses::unfinished_input;
 		});
 
 		static constexpr rt_ut::string_literal streamCommaDoubleName{ "generic_stream_comma_double" };
 		rt_ut::unit_test<streamCommaDoubleName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream<comma>(parser, std::string{ "1,,2" }, jsonifier::parse_options{}.defaultBatchSize);
-			return summary.sources.size() == 1 && summary.lastError == error_codes::tape_error;
+			return summary.sources.size() == 1 && summary.lastError == parse_statuses::unexpected_token;
 		});
 
 		static constexpr rt_ut::string_literal streamBatchedName{ "generic_stream_small_batches" };
@@ -133,7 +133,7 @@ namespace generic_parser_tests {
 			std::string input = makeNdjson(300, ",\n");
 			input.resize(input.size() - 2);
 			const auto whole = summarizeStream<comma>(parser, input, jsonifier::parse_options{}.defaultBatchSize);
-			bool allMatch	 = whole.sources.size() == 300 && whole.idSum == 44850 && whole.lastError == error_codes::success;
+			bool allMatch	 = whole.sources.size() == 300 && whole.idSum == 44850 && whole.lastError == parse_statuses::success;
 			for (uint64_t batch: { 128ull, 151ull, 512ull }) {
 				allMatch = allMatch && summarizeStream<comma>(parser, input, batch) == whole;
 			}
@@ -153,7 +153,7 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal streamTruncatedName{ "generic_stream_truncated" };
 		rt_ut::unit_test<streamTruncatedName, true>::assert_eq(true, [&] {
 			const auto summary = summarizeStream(parser, std::string{ "{\"id\":1}\n{\"id\":" });
-			return summary.sources.size() == 1 && summary.truncated == 6 && summary.lastError == error_codes::success;
+			return summary.sources.size() == 1 && summary.truncated == 6 && summary.lastError == parse_statuses::success;
 		});
 
 		static constexpr rt_ut::string_literal streamTruncatedStringName{ "generic_stream_truncated_string" };
@@ -166,7 +166,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<streamCapacityName, true>::assert_eq(true, [&] {
 			std::string input{ "{\"id\":1}\n{\"big\":\"" + std::string(200, 'x') + "\"}\n{\"id\":2}" };
 			const auto summary = summarizeStream(parser, input, 64);
-			return summary.sources.size() == 1 && summary.lastError == error_codes::capacity;
+			return summary.sources.size() == 1 && summary.lastError == parse_statuses::capacity;
 		});
 
 		static constexpr rt_ut::string_literal streamEmptyName{ "generic_stream_empty" };
@@ -175,7 +175,7 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal streamStrayCloserName{ "generic_stream_stray_closer" };
-		rt_ut::unit_test<streamStrayCloserName, true>::assert_eq(static_cast<uint8_t>(error_codes::tape_error), [&] {
+		rt_ut::unit_test<streamStrayCloserName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::unexpected_token), [&] {
 			return static_cast<uint8_t>(summarizeStream(parser, std::string{ "[1] ] [2]" }).lastError);
 		});
 
@@ -212,13 +212,13 @@ namespace generic_parser_tests {
 	inline void runTests() {
 		std::cout << "generic_parser Tests" << std::endl;
 
-		using error_codes = jsonifier::generic::error_codes;
+		using parse_statuses = jsonifier::generic::parse_statuses;
 
 		jsonifier::jsonifier_core<> parser{};
 		std::string sample{ R"({ "a" : 1, "b": [1, 2.5, -3, true, false, null, "x\ny", "plain"], "c": {"d": {"e": "deep"}}, "e~/": 7, "big": 18446744073709551615 })" };
 
 		static constexpr rt_ut::string_literal iterateSuccessName{ "generic_iterate_success" };
-		rt_ut::unit_test<iterateSuccessName, true>::assert_eq(static_cast<uint8_t>(error_codes::success), [&] {
+		rt_ut::unit_test<iterateSuccessName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::success), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample).error());
 		});
 
@@ -263,7 +263,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<escapedStringIntoStdStringName, true>::assert_eq(true, [&] {
 			std::string out{};
 			const auto errorCode = parser.iterate(sample)["b"][6].getString(out);
-			return errorCode == error_codes::success && out == "x\ny";
+			return errorCode == parse_statuses::success && out == "x\ny";
 		});
 
 		static_assert(!jsonifier::internal::resize_and_overwriteable_types<jsonifier::string> && jsonifier::internal::resize_and_overwriteable_types<std::string>);
@@ -272,21 +272,21 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<escapedStringIntoJsonifierStringName, true>::assert_eq(true, [&] {
 			jsonifier::string out{};
 			const auto errorCode = parser.iterate(sample)["b"][6].getString(out);
-			return errorCode == error_codes::success && std::string_view{ out.data(), out.size() } == "x\ny";
+			return errorCode == parse_statuses::success && std::string_view{ out.data(), out.size() } == "x\ny";
 		});
 
 		static constexpr rt_ut::string_literal plainStringIntoJsonifierStringName{ "generic_plain_string_into_jsonifier_string" };
 		rt_ut::unit_test<plainStringIntoJsonifierStringName, true>::assert_eq(true, [&] {
 			jsonifier::string out{ "a much longer previous value that must be shrunk" };
 			const auto errorCode = parser.iterate(sample)["b"][7].getString(out);
-			return errorCode == error_codes::success && std::string_view{ out.data(), out.size() } == "plain";
+			return errorCode == parse_statuses::success && std::string_view{ out.data(), out.size() } == "plain";
 		});
 
 		static constexpr rt_ut::string_literal plainStringIntoStdStringName{ "generic_plain_string_into_std_string" };
 		rt_ut::unit_test<plainStringIntoStdStringName, true>::assert_eq(true, [&] {
 			std::string out{ "previous contents that are longer" };
 			const auto errorCode = parser.iterate(sample)["b"][7].getString(out);
-			return errorCode == error_codes::success && out == "plain";
+			return errorCode == parse_statuses::success && out == "plain";
 		});
 
 		static constexpr rt_ut::string_literal getDoubleName{ "generic_get_double" };
@@ -331,20 +331,20 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal jsonPointerInvalidName{ "generic_json_pointer_invalid" };
-		rt_ut::unit_test<jsonPointerInvalidName, true>::assert_eq(static_cast<uint8_t>(error_codes::invalid_json_pointer), [&] {
+		rt_ut::unit_test<jsonPointerInvalidName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::invalid_json_pointer), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample).atPointer("c").error());
 		});
 
 		static constexpr rt_ut::string_literal countElementsName{ "generic_count_elements" };
 		rt_ut::unit_test<countElementsName, true>::assert_eq(static_cast<uint64_t>(8), [&] {
 			uint64_t count{};
-			return parser.iterate(sample)["b"].getArray().countElements(count) == error_codes::success ? count : uint64_t{};
+			return parser.iterate(sample)["b"].getArray().countElements(count) == parse_statuses::success ? count : uint64_t{};
 		});
 
 		static constexpr rt_ut::string_literal countFieldsName{ "generic_count_fields" };
 		rt_ut::unit_test<countFieldsName, true>::assert_eq(static_cast<uint64_t>(5), [&] {
 			uint64_t count{};
-			return parser.iterate(sample).getObject().countFields(count) == error_codes::success ? count : uint64_t{};
+			return parser.iterate(sample).getObject().countFields(count) == parse_statuses::success ? count : uint64_t{};
 		});
 
 		static constexpr rt_ut::string_literal fieldKeysInOrderName{ "generic_field_keys_in_order" };
@@ -360,26 +360,26 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal rawJsonContainerName{ "generic_raw_json_container" };
 		rt_ut::unit_test<rawJsonContainerName, true>::assert_eq(true, [&] {
 			jsonifier::string_view raw{};
-			return parser.iterate(sample)["c"].rawJson(raw) == error_codes::success && raw == R"({"d": {"e": "deep"}})";
+			return parser.iterate(sample)["c"].rawJson(raw) == parse_statuses::success && raw == R"({"d": {"e": "deep"}})";
 		});
 
 		static constexpr rt_ut::string_literal noSuchFieldName{ "generic_no_such_field" };
-		rt_ut::unit_test<noSuchFieldName, true>::assert_eq(static_cast<uint8_t>(error_codes::no_such_field), [&] {
+		rt_ut::unit_test<noSuchFieldName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::no_such_field), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample)["zzz"].error());
 		});
 
 		static constexpr rt_ut::string_literal incorrectTypeName{ "generic_incorrect_type" };
-		rt_ut::unit_test<incorrectTypeName, true>::assert_eq(static_cast<uint8_t>(error_codes::incorrect_type), [&] {
+		rt_ut::unit_test<incorrectTypeName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::incorrect_type), [&] {
 			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(sample)["a"]));
 		});
 
 		static constexpr rt_ut::string_literal indexOutOfBoundsName{ "generic_index_out_of_bounds" };
-		rt_ut::unit_test<indexOutOfBoundsName, true>::assert_eq(static_cast<uint8_t>(error_codes::index_out_of_bounds), [&] {
+		rt_ut::unit_test<indexOutOfBoundsName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::index_out_of_bounds), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample)["b"][8].error());
 		});
 
 		static constexpr rt_ut::string_literal unclosedContainerName{ "generic_unclosed_container" };
-		rt_ut::unit_test<unclosedContainerName, true>::assert_eq(static_cast<uint8_t>(error_codes::unclosed_container), [&] {
+		rt_ut::unit_test<unclosedContainerName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::unexpected_end_of_input), [&] {
 			std::string input{ "[1,2" };
 			auto array = parser.iterate(input).getArray();
 			auto iter  = array.begin();
@@ -427,19 +427,19 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<missingThenPresentName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a":1,"b":2,"c":3})" };
 			auto object			= parser.iterate(input).getObject();
-			const bool missing	= object.findFieldUnordered("q").error() == error_codes::no_such_field;
+			const bool missing	= object.findFieldUnordered("q").error() == parse_statuses::no_such_field;
 			const int64_t first = extracted<int64_t>(object.findFieldUnordered("c"));
 			return missing && first == 3 && extracted<int64_t>(object.findFieldUnordered("a")) == 1;
 		});
 
 		static constexpr rt_ut::string_literal emptyInputName{ "generic_empty_input" };
-		rt_ut::unit_test<emptyInputName, true>::assert_eq(static_cast<uint8_t>(error_codes::empty), [&] {
+		rt_ut::unit_test<emptyInputName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::no_input), [&] {
 			std::string input{};
 			return static_cast<uint8_t>(parser.iterate(input).error());
 		});
 
 		static constexpr rt_ut::string_literal missingCommaName{ "generic_missing_comma" };
-		rt_ut::unit_test<missingCommaName, true>::assert_eq(static_cast<uint8_t>(error_codes::tape_error), [&] {
+		rt_ut::unit_test<missingCommaName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::unexpected_token), [&] {
 			std::string input{ "[1 2]" };
 			auto array = parser.iterate(input).getArray();
 			auto iter  = array.begin();
@@ -448,7 +448,7 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal trailingCommaName{ "generic_trailing_comma" };
-		rt_ut::unit_test<trailingCommaName, true>::assert_eq(static_cast<uint8_t>(error_codes::tape_error), [&] {
+		rt_ut::unit_test<trailingCommaName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::unexpected_token), [&] {
 			std::string input{ "[1,]" };
 			auto array = parser.iterate(input).getArray();
 			auto iter  = array.begin();
@@ -457,13 +457,13 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal badAtomName{ "generic_bad_atom" };
-		rt_ut::unit_test<badAtomName, true>::assert_eq(static_cast<uint8_t>(error_codes::t_atom_error), [&] {
+		rt_ut::unit_test<badAtomName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::invalid_bool_value), [&] {
 			std::string input{ "[tru]" };
 			return static_cast<uint8_t>(extractionError<bool>(parser.iterate(input)[0]));
 		});
 
 		static constexpr rt_ut::string_literal missingColonName{ "generic_missing_colon" };
-		rt_ut::unit_test<missingColonName, true>::assert_eq(static_cast<uint8_t>(error_codes::tape_error), [&] {
+		rt_ut::unit_test<missingColonName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::unexpected_token), [&] {
 			std::string input{ R"({"a" 1})" };
 			return static_cast<uint8_t>(parser.iterate(input)["a"].error());
 		});
@@ -487,7 +487,7 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal invalidUtf8StringName{ "generic_invalid_utf8_string" };
-		rt_ut::unit_test<invalidUtf8StringName, true>::assert_eq(static_cast<uint8_t>(error_codes::string_error), [&] {
+		rt_ut::unit_test<invalidUtf8StringName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::invalid_string_characters), [&] {
 			std::string input{ "\"bad\xC3\"" };
 			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(input)));
 		});
@@ -515,7 +515,7 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<rootScalarRawJsonName, true>::assert_eq(true, [&] {
 			std::string input{ "42  " };
 			jsonifier::string_view raw{};
-			return parser.iterate(input).rawJson(raw) == error_codes::success && raw == "42";
+			return parser.iterate(input).rawJson(raw) == parse_statuses::success && raw == "42";
 		});
 
 		static constexpr rt_ut::string_literal nonAsciiZeroCopyName{ "generic_non_ascii_zero_copy" };
@@ -523,17 +523,17 @@ namespace generic_parser_tests {
 			std::string input{ "[\"caf\xC3\xA9 \xE2\x9C\x93 \xF0\x9F\x98\x80 and a longer tail past one simd register\"]" };
 			std::string_view out{};
 			const auto errorCode = parser.iterate(input)[0].getString(out);
-			return errorCode == error_codes::success && out.data() == input.data() + 2 && out == std::string_view{ input }.substr(2, input.size() - 4);
+			return errorCode == parse_statuses::success && out.data() == input.data() + 2 && out == std::string_view{ input }.substr(2, input.size() - 4);
 		});
 
 		static constexpr rt_ut::string_literal overlongUtf8Name{ "generic_overlong_utf8_rejected" };
-		rt_ut::unit_test<overlongUtf8Name, true>::assert_eq(static_cast<uint8_t>(error_codes::string_error), [&] {
+		rt_ut::unit_test<overlongUtf8Name, true>::assert_eq(static_cast<uint8_t>(parse_statuses::invalid_string_characters), [&] {
 			std::string input{ "\"bad \xC0\xAF\"" };
 			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(input)));
 		});
 
 		static constexpr rt_ut::string_literal surrogateUtf8Name{ "generic_surrogate_utf8_rejected" };
-		rt_ut::unit_test<surrogateUtf8Name, true>::assert_eq(static_cast<uint8_t>(error_codes::string_error), [&] {
+		rt_ut::unit_test<surrogateUtf8Name, true>::assert_eq(static_cast<uint8_t>(parse_statuses::invalid_string_characters), [&] {
 			std::string input{ "\"bad \xED\xA0\x80\"" };
 			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(input)));
 		});
@@ -549,7 +549,7 @@ namespace generic_parser_tests {
 			bool stable{ true };
 			for (uint64_t round = 0; round < 5000; ++round) {
 				std::string_view again{};
-				stable = stable && doc[round % 3].getString(again) == error_codes::success;
+				stable = stable && doc[round % 3].getString(again) == parse_statuses::success;
 			}
 			std::string_view third{};
 			static_cast<void>(doc[2].getString(third));
@@ -568,7 +568,7 @@ namespace generic_parser_tests {
 			auto object	   = parser.iterate(input).getObject();
 			const bool hit = extracted<int64_t>(object.findFieldUnordered("c")) == 3;
 			static_cast<void>(object.findFieldUnordered("b").error());
-			const bool miss	 = object.findFieldUnordered("zz").error() == error_codes::no_such_field;
+			const bool miss	 = object.findFieldUnordered("zz").error() == parse_statuses::no_such_field;
 			const bool later = extracted<int64_t>(object.findFieldUnordered("d")) == 4;
 			const jsonifier::generic::generic_value<false> earlier{ object.findFieldUnordered("a") };
 			const bool nested = extracted<int64_t>(earlier["n"]) == 1;
@@ -622,8 +622,8 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<missAfterFullIndexName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a":1,"b":{"n":[1,2,3]},"c":3})" };
 			auto object			  = parser.iterate(input).getObject();
-			const bool firstMiss  = object.findFieldUnordered("q").error() == error_codes::no_such_field;
-			const bool secondMiss = object.findFieldUnordered("r").error() == error_codes::no_such_field;
+			const bool firstMiss  = object.findFieldUnordered("q").error() == parse_statuses::no_such_field;
+			const bool secondMiss = object.findFieldUnordered("r").error() == parse_statuses::no_such_field;
 			const bool c		  = extracted<int64_t>(object.findFieldUnordered("c")) == 3;
 			const bool a		  = extracted<int64_t>(object.findFieldUnordered("a")) == 1;
 			const jsonifier::generic::generic_value<false> nested{ object.findFieldUnordered("b") };
@@ -651,7 +651,7 @@ namespace generic_parser_tests {
 		});
 
 		static constexpr rt_ut::string_literal pointerOverflowName{ "generic_json_pointer_index_overflow" };
-		rt_ut::unit_test<pointerOverflowName, true>::assert_eq(static_cast<uint8_t>(error_codes::index_out_of_bounds), [&] {
+		rt_ut::unit_test<pointerOverflowName, true>::assert_eq(static_cast<uint8_t>(parse_statuses::index_out_of_bounds), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample).atPointer("/b/184467440737095516160").error());
 		});
 

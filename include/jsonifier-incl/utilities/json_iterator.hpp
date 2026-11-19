@@ -348,7 +348,7 @@ namespace jsonifier::internal {
 			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			if (context.endIter - iter < 4) [[unlikely]] {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_bool_value>(iter, context);
 			}
 
 			uint32_t comparison;
@@ -479,7 +479,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool objectStart(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
-			return checkDepth(iter, depth, context) && incrementIfEquals<'{'>(iter, context) ? true : reject<parse_statuses::missing_object_start>(iter, context);
+			return checkDepth(iter, depth, context) && (incrementIfEquals<'{'>(iter, context) || reject<parse_statuses::missing_object_start>(iter, context));
 		}
 
 		template<parse_statuses parse_status, typename context_type> JSONIFIER_INLINE static bool reject(read_buffer_ptr iter, context_type& context) noexcept {
@@ -487,7 +487,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool arrayStart(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
-			return checkDepth(iter, depth, context) && incrementIfEquals<'['>(iter, context) ? true : reject<parse_statuses::missing_array_start>(iter, context);
+			return checkDepth(iter, depth, context) && (incrementIfEquals<'['>(iter, context) || reject<parse_statuses::missing_array_start>(iter, context));
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool checkDepth(read_buffer_ptr iter, uint64_t depth, context_type& context) noexcept {
@@ -529,7 +529,7 @@ namespace jsonifier::internal {
 		template<typename context_type> JSONIFIER_INLINE static bool iterateNull(read_buffer_ptr& iter, context_type& context) noexcept {
 			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
 			if (context.endIter - iter < 4) [[unlikely]] {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_null_value>(iter, context);
 			}
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
@@ -758,7 +758,7 @@ namespace jsonifier::internal {
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			skipWhitespaceScalar(iter, context);
 			if (context.endIter - iter < 4) [[unlikely]] {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_bool_value>(iter, context);
 			}
 
 			uint32_t comparison;
@@ -1054,7 +1054,10 @@ namespace jsonifier::internal {
 
 		template<typename context_type> JSONIFIER_INLINE static bool objectStart(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			skipWhitespaceScalar(iter, context);
-			if (!(checkDepth(iter, depth, context) && incrementIfEqualsNoWs<'{'>(iter, context))) {
+			if (!checkDepth(iter, depth, context)) [[unlikely]] {
+				return false;
+			}
+			if (!incrementIfEqualsNoWs<'{'>(iter, context)) {
 				return reject<parse_statuses::missing_object_start>(iter, context);
 			}
 			skipWhitespacePredicted(iter, depth + 1, context);
@@ -1063,7 +1066,10 @@ namespace jsonifier::internal {
 
 		template<typename context_type> JSONIFIER_INLINE static bool arrayStart(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			skipWhitespaceScalar(iter, context);
-			if (!(checkDepth(iter, depth, context) && incrementIfEqualsNoWs<'['>(iter, context))) {
+			if (!checkDepth(iter, depth, context)) [[unlikely]] {
+				return false;
+			}
+			if (!incrementIfEqualsNoWs<'['>(iter, context)) {
 				return reject<parse_statuses::missing_array_start>(iter, context);
 			}
 			skipWhitespacePredicted(iter, depth + 1, context);
@@ -1156,7 +1162,7 @@ namespace jsonifier::internal {
 			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
 			skipWhitespaceScalar(iter, context);
 			if (context.endIter - iter < 4) [[unlikely]] {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_null_value>(iter, context);
 			}
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, iter);
@@ -1500,7 +1506,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool objectStart(write_structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
-			return checkDepth(iter, depth, context) && incrementIfEquals<'{'>(iter, context) ? true : reject<parse_statuses::missing_object_start>(iter, context);
+			return checkDepth(iter, depth, context) && (incrementIfEquals<'{'>(iter, context) || reject<parse_statuses::missing_object_start>(iter, context));
 		}
 
 		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool checkChar(write_structural_index_ptr iter, context_type& context) noexcept {
@@ -1508,7 +1514,7 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool arrayStart(write_structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
-			return checkDepth(iter, depth, context) && incrementIfEquals<'['>(iter, context) ? true : reject<parse_statuses::missing_array_start>(iter, context);
+			return checkDepth(iter, depth, context) && (incrementIfEquals<'['>(iter, context) || reject<parse_statuses::missing_array_start>(iter, context));
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static bool checkDepth(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
@@ -1543,7 +1549,7 @@ namespace jsonifier::internal {
 			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
 			read_buffer_ptr ptr{ valuePtr(iter, context) };
 			if (context.stringEnd - ptr < 4) {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_null_value>(iter, context);
 			}
 			uint32_t comparison;
 			pow2MemcpyWrapper<4>(&comparison, ptr);
@@ -1686,7 +1692,7 @@ namespace jsonifier::internal {
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			read_buffer_ptr ptr{ valuePtr(iter, context) };
 			if (context.stringEnd - ptr < 4) {
-				return reject<parse_statuses::unexpected_string_end>(iter, context);
+				return reject<parse_statuses::invalid_bool_value>(iter, context);
 			}
 
 			uint32_t comparison;

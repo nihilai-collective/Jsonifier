@@ -405,7 +405,7 @@ namespace jsonifier::internal {
 			}
 			if (const iterator_type iterNew = parse<parseOpts>::impl(object, iter, 0, context); iterNew) [[likely]] {
 				static_cast<void>(cursor::checkIfDone(iterNew, context));
-			} else {
+			} else if (derivedRef.errors.empty()) [[unlikely]] {
 				static_cast<void>(cursor::template reject<parse_statuses::unfinished_input>(iter, context));
 			}
 			return derivedRef.errors.size() == 0;

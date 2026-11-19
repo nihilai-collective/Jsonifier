@@ -132,7 +132,7 @@ Notes from the data:
 ### Safety & Reliability
 Comprehensive error reporting with source location tracking, backed by a compact, purpose-built status-code model: parsing, validation, minification, and prettification each propagate failure immediately on the first error rather than continuing to walk a broken buffer. Configurable maximum nesting depth (`parse_options::maxDepth`, default 1024) guards against malicious or runaway input.
 
-Continuous integration runs AddressSanitizer and UndefinedBehaviorSanitizer on every push across every supported platform and compiler. The conformance test suite covers the full RFC8259 pass/fail battery (both the classic `jsonchecker` corpus and the full JSONTestSuite Y/N corpus), plus dedicated UTF-8 correctness tests including the full Markus Kuhn stress-test set, chunk/block-boundary crossings, unaligned-pointer sweeps, and an mmap page-boundary fault check.
+Continuous integration runs AddressSanitizer and UndefinedBehaviorSanitizer on every push across every supported platform and compiler. The conformance test suite covers the full RFC8259 pass/fail battery (both the classic `jsonchecker` corpus and the full JSONTestSuite Y/N corpus) through both the typed and generic parsers, plus dedicated UTF-8 correctness tests including the full Markus Kuhn stress-test set, chunk/block-boundary crossings, unaligned-pointer sweeps, and an mmap page-boundary fault check.
 
 ---
 

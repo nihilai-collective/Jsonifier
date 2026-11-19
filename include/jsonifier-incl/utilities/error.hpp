@@ -42,6 +42,11 @@ namespace jsonifier::internal {
 		exceeded_max_depth,
 		unexpected_token,
 		illegal_control_character,
+		incorrect_type,
+		no_such_field,
+		index_out_of_bounds,
+		invalid_json_pointer,
+		capacity,
 		count,
 	};
 

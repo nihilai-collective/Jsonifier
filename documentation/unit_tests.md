@@ -96,6 +96,10 @@ Every parsing-family suite runs once for each combination of three parser option
 
 These suites use the matrix: parsing, bounds/truncation, conformance (`jsonchecker` and JSONTestSuite), round trip, float, signed integer, unsigned integer, and string.
 
+### Generic-Parser Legs
+
+The conformance, JSONTestSuite, and bounds suites also run every case through the generic parser. `partialRead` and `knownOrder` do not apply to it, so these legs run once with `nullTerminated` off and once with it on. Each leg walks the whole document with `conformance_tests::generic_walker`, reading every string, number, boolean, and null so that errors the generic parser finds lazily are reported too, then requires `atEnd()` so trailing content counts as `unfinished_input`.
+
 ---
 
 ## Test Fixtures
@@ -120,6 +124,7 @@ The C++ structs for each corpus are defined in `apache_builds.hpp`, `canada.hpp`
 ### Bounds and Truncation (`bounds_test.hpp`)
 - Cuts each of the same 22 corpus files at random lengths, using a seeded generator, and checks that the parser fails cleanly without reading past the end of the input.
 - That is 176 truncation runs across the eight configurations. A failure prints its seed so the run can be replayed.
+- The generic parser gets the same treatment through `genericBoundsTestsImpl`: every corpus file must parse fully, and every truncation must fail, for 44 more runs (22 files, `nullTerminated` off and on).
 
 ### Round Trip (`round_trip.hpp`)
 - 27 documents go through serialize, parse, and compare. They cover primitives, null, empty values, large numbers, special floats, raw pointers, `unique_ptr`, and nested objects.
@@ -137,7 +142,7 @@ About 75 named tests for the user-facing API:
 - **Validation:** valid and invalid documents, strict scalars, truncated literals.
 
 ### Generic Parser (`generic_parser.hpp`)
-75 tests for the schema-free, On Demand-style parser:
+75 tests for the schema-free, On Demand-style parser (the conformance, JSONTestSuite, and bounds suites cover it too; see [Generic-Parser Legs](#generic-parser-legs)):
 - **Streaming and NDJSON:** documents separated by newlines, whitespace, or commas; rules for commas (not allowed, trailing, doubled); small batch sizes; truncated documents and strings; capacity overflow; empty input; stray closing brackets; partial reads.
 - **Navigation:** root type detection, nested access, accessing the same value twice, iterating arrays, `count_elements` and `count_fields`, field keys returned in order, raw JSON containers.
 - **Value extraction:** doubles, bools, nulls, escaped and plain strings into `std::string` and `jsonifier::string`, zero-copy non-ASCII strings, escaped string views that stay valid.
@@ -160,10 +165,12 @@ About 75 named tests for the user-facing API:
 ### jsonchecker (`conformance.hpp`)
 - Runs all 27 `pass*.json` files and 77 of the 79 `fail*` files. Each failure case is checked against the exact `parse_statuses` error it should produce.
 - Runs in all eight configurations.
+- `genericConformanceTestsImpl` runs the same 104 cases through the generic parser with `runGenericConformanceTest`, checking the exact `parse_statuses` the walk returns, with `nullTerminated` off and on.
 
 ### JSONTestSuite (`JSONTestSuite.hpp`)
 - Runs all 95 `y_*` (must accept) and all 188 `n_*` (must reject) cases. They cover malformed arrays, numbers, objects, strings, and structure, plus invalid UTF-8.
 - Runs in all eight configurations.
+- `genericJsonTestSuiteYNTestsImpl` runs all 283 cases through the generic parser as well, with `nullTerminated` off and on.
 
 ### UTF-8 Validation (`utf8_validation.hpp`)
 About 200 tests that check both `jsonifier::validateUtf8` and validation inside string parsing:
@@ -232,6 +239,7 @@ About 200 tests that check both `jsonifier::validateUtf8` and validation inside 
 - **`jsonifier::string` (`string_class.hpp`):** 80 tests: construction from every source, copy and move, append and growth, insert and erase, every `find` variant, `at` throwing on out-of-range indices, a null terminator after every change, conversion to `std::string`/`std::string_view`, and iteration.
 - **`array` (`array.hpp`):** element access, `at` throwing, `fill` and `swap`, equality, the zero-size specialization, and compile-time tag subscripts.
 - **Tuple (`tuple.hpp`):** `get` by index and by type, `tuple_cat`, equality, relational, and three-way comparison, structured bindings, and the empty tuple.
+- **String search (`string_search.hpp`):** a seeded fuzz that checks every `jsonifier::string_view` search (`find`, `rfind`, `findFirstOf`, `findFirstNotOf`, `findLastOf`, `findLastNotOf`, and their single-character forms) against `std::string_view` at random lengths, alphabets, offsets, and start positions, a check that `jsonifier::string` forwards to the view, and a compile-time `static_assert` of the searches.
 - **Iterator (`iterator.hpp`):** everything a contiguous iterator must support (arithmetic, comparisons, subscripting, use with `std::sort` and `std::distance`), the zero-size variant, and `string_view` iteration.
 
 ---

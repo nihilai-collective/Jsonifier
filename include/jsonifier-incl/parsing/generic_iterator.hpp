@@ -16,16 +16,16 @@ namespace jsonifier::internal {
 		static constexpr uint64_t smallDocumentBytes{ simdBytesPerStep };
 
 		template<parse_options options = parse_options{}, typename buffer_type> generic::generic_document<options.minified> iterate(const buffer_type& in) {
-			using generic::error_codes;
+			using generic::parse_statuses;
 			using document = generic::generic_document<options.minified>;
 			read_buffer_ptr rootIter{ std::bit_cast<read_buffer_ptr>(in.data()) };
 			const uint64_t length{ in.size() };
 			if (!rootIter || length == 0) [[unlikely]] {
-				return document{ error_codes::empty };
+				return document{ parse_statuses::no_input };
 			}
 			const uint64_t tapeCount{ indexGenericWindow<options>(rootIter, length) };
 			if (tapeCount == 0) [[unlikely]] {
-				return document{ error_codes::empty };
+				return document{ parse_statuses::no_input };
 			}
 			generic_storage& data{ derivedRef.genericStorage() };
 			document_state& state{ data.stateFor() };
@@ -34,7 +34,7 @@ namespace jsonifier::internal {
 			state.cursor = state.tape;
 			state.depth	 = 0;
 			if (tapeCount > 1 && !document_state::isOpener(rootIter[state.tape[0]])) [[unlikely]] {
-				return document{ error_codes::trailing_content };
+				return document{ parse_statuses::unfinished_input };
 			}
 			data.arena.reset(length);
 			data.fieldIndex.reset();

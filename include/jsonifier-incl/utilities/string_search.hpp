@@ -74,8 +74,8 @@ namespace jsonifier::internal {
 	};
 
 	struct byte_set_matcher {
-		template<uint64_t tierIndex>
-		JSONIFIER_INLINE static typename search_tier<tierIndex>::integer_type impl(const typename search_tier<tierIndex>::simd_type& values, const char* set, uint64_t setLength) noexcept {
+		template<uint64_t tierIndex> JSONIFIER_INLINE static typename search_tier<tierIndex>::integer_type impl(const typename search_tier<tierIndex>::simd_type& values,
+			const char* set, uint64_t setLength) noexcept {
 			using integer_type = typename search_tier<tierIndex>::integer_type;
 			integer_type mask{};
 			for (uint64_t x = 0; x < setLength; ++x) {
@@ -95,8 +95,8 @@ namespace jsonifier::internal {
 	};
 
 	template<typename matcher> struct inverted_matcher {
-		template<uint64_t tierIndex>
-		JSONIFIER_INLINE static typename search_tier<tierIndex>::integer_type impl(const typename search_tier<tierIndex>::simd_type& values, const char* set, uint64_t setLength) noexcept {
+		template<uint64_t tierIndex> JSONIFIER_INLINE static typename search_tier<tierIndex>::integer_type impl(const typename search_tier<tierIndex>::simd_type& values,
+			const char* set, uint64_t setLength) noexcept {
 			using integer_type = typename search_tier<tierIndex>::integer_type;
 			return static_cast<integer_type>(static_cast<integer_type>(~matcher::template impl<tierIndex>(values, set, setLength)) & static_cast<integer_type>(searchMaskLanes));
 		}
@@ -155,10 +155,7 @@ namespace jsonifier::internal {
 					const auto mask1{ matcher::template impl<tierIndex>(tier::load(text + end - vectorSize * 3), set, setLength) };
 					const auto mask0{ matcher::template impl<tierIndex>(tier::load(text + end - vectorSize * 4), set, setLength) };
 					if ((mask0 | mask1 | mask2 | mask3) != 0) {
-						end = mask3 ? hit(end, mask3)
-							: mask2 ? hit(end - vectorSize, mask2)
-							: mask1 ? hit(end - vectorSize * 2, mask1)
-									: hit(end - vectorSize * 3, mask0);
+						end = mask3 ? hit(end, mask3) : mask2 ? hit(end - vectorSize, mask2) : mask1 ? hit(end - vectorSize * 2, mask1) : hit(end - vectorSize * 3, mask0);
 						return false;
 					}
 					end -= vectorSize * 4;
@@ -321,7 +318,8 @@ namespace jsonifier::internal {
 			return searchNpos;
 		}
 
-		template<typename matcher> JSONIFIER_INLINE static constexpr uint64_t findMatching(const char* text, uint64_t length, const char* set, uint64_t setLength, uint64_t index) noexcept {
+		template<typename matcher>
+		JSONIFIER_INLINE static constexpr uint64_t findMatching(const char* text, uint64_t length, const char* set, uint64_t setLength, uint64_t index) noexcept {
 			for (; index < length; ++index) {
 				if (matcher::scalar(text[index], set, setLength)) {
 					return index;
@@ -427,7 +425,8 @@ namespace jsonifier::internal {
 			return search_needle{ nullptr, static_cast<uint64_t>(position), 1, value };
 		}
 
-		template<std::integral position_type = uint64_t> JSONIFIER_INLINE static constexpr search_needle impl(const char* value, position_type position = defaultPosition) noexcept {
+		template<std::integral position_type = uint64_t>
+		JSONIFIER_INLINE static constexpr search_needle impl(const char* value, position_type position = defaultPosition) noexcept {
 			return search_needle{ value, static_cast<uint64_t>(position), value ? std::char_traits<char>::length(value) : 0, {} };
 		}
 

@@ -17,7 +17,7 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE generic_field() noexcept = default;
 
 		JSONIFIER_INLINE generic_field(document_state* docNew, internal::read_structural_index_ptr iterNew, uint64_t depthNew,
-			error_codes errorCodeNew = error_codes::success) noexcept
+			parse_statuses errorCodeNew = parse_statuses::success) noexcept
 			: iter{ iterNew }, doc{ docNew }, depth{ depthNew }, error_code{ errorCodeNew } {
 		}
 
@@ -33,7 +33,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE generic_value<minified> value() const noexcept {
-			return error_code == error_codes::success ? generic_value<minified>{ doc, iter + 2, depth } : generic_value<minified>{ error_code };
+			return error_code == parse_statuses::success ? generic_value<minified>{ doc, iter + 2, depth } : generic_value<minified>{ error_code };
 		}
 
 		JSONIFIER_INLINE string_view key() const noexcept {
@@ -47,7 +47,7 @@ namespace jsonifier::generic {
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
 
-		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE error_codes unescapedKey(string_view_type out) const noexcept {
+		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses unescapedKey(string_view_type out) const noexcept {
 			return generic_value<minified>{ doc, iter, depth }.unescape(iter, out);
 		}
 
@@ -59,7 +59,7 @@ namespace jsonifier::generic {
 			return doc->template rawKey<minified>(iter);
 		}
 
-		JSONIFIER_INLINE error_codes error() const noexcept {
+		JSONIFIER_INLINE parse_statuses error() const noexcept {
 			return error_code;
 		}
 
@@ -67,7 +67,7 @@ namespace jsonifier::generic {
 		internal::read_structural_index_ptr iter{};
 		document_state* doc{};
 		uint64_t depth{};
-		error_codes error_code{ error_codes::success };
+		parse_statuses error_code{ parse_statuses::success };
 	};
 
 }

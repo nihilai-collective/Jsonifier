@@ -23,7 +23,7 @@ namespace jsonifier::generic {
 			: iter{ iterNew }, doc{ docNew }, depth{ depthNew } {
 		}
 
-		JSONIFIER_INLINE generic_value(error_codes errorCodeNew) noexcept : error_code{ errorCodeNew } {
+		JSONIFIER_INLINE generic_value(parse_statuses errorCodeNew) noexcept : error_code{ errorCodeNew } {
 		}
 
 		JSONIFIER_INLINE generic_value& operator=(const generic_value& other) noexcept {
@@ -39,36 +39,36 @@ namespace jsonifier::generic {
 
 		template<internal::string_view_convertible_types key_type> JSONIFIER_INLINE value operator[](key_type&& key) const noexcept;
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes rawJson(string_view& out) const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+		[[nodiscard]] JSONIFIER_INLINE parse_statuses rawJson(string_view& out) const noexcept {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return error_code;
 			}
 			internal::read_buffer_ptr valueStart{ doc->root + *iter };
 			if (document_state::isOpener(*valueStart)) {
 				internal::read_structural_index_ptr afterClose{ doc->skipValue(iter) };
 				if (afterClose == doc->tapeEnd && !document_state::isCloser(doc->charAt(afterClose - 1))) [[unlikely]] {
-					return error_codes::unclosed_container;
+					return parse_statuses::unexpected_end_of_input;
 				}
 				if (doc->cursor == iter) [[likely]] {
 					doc->cursor = afterClose;
 				}
 				out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(doc->root + *(afterClose - 1) + 1 - valueStart) };
-				return error_codes::success;
+				return parse_statuses::success;
 			}
 			internal::read_buffer_ptr valueEnd{ doc->root + *(iter + 1) };
 			while (valueEnd > valueStart && isWhitespace(valueEnd[-1])) {
 				--valueEnd;
 			}
 			out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(valueEnd - valueStart) };
-			return error_codes::success;
+			return parse_statuses::success;
 		}
 
-		template<internal::buffer_like_types string_type> [[nodiscard]] JSONIFIER_INLINE error_codes getString(string_type& out) const {
-			if (error_code != error_codes::success) [[unlikely]] {
+		template<internal::buffer_like_types string_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses getString(string_type& out) const {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return error_code;
 			}
 			if (!doc->template charAt<internal::uint_c_v<'"'>>(iter)) [[unlikely]] {
-				return error_codes::incorrect_type;
+				return parse_statuses::incorrect_type;
 			}
 			consume();
 			internal::read_buffer_ptr stringStart{ doc->root + *iter + 1 };
@@ -79,7 +79,7 @@ namespace jsonifier::generic {
 					out.resize(directLength);
 					internal::plain_string_copy_context{ stringStart }(out.data(), directLength);
 				}
-				return error_codes::success;
+				return parse_statuses::success;
 			}
 			const uint64_t upperBound{ static_cast<uint64_t>(doc->root + *(iter + 1) - stringStart) + 64 };
 			uint64_t outLength{};
@@ -91,18 +91,18 @@ namespace jsonifier::generic {
 				}
 				out.resize(internal::string_parse_context{ stringStart, doc->end, outLength }(out.data(), upperBound));
 			}
-			return outLength == std::numeric_limits<uint64_t>::max() ? error_codes::string_error : error_codes::success;
+			return outLength == std::numeric_limits<uint64_t>::max() ? parse_statuses::invalid_string_characters : parse_statuses::success;
 		}
 
 		[[nodiscard]] JSONIFIER_INLINE bool isNull() const noexcept {
-			if (error_code == error_codes::success && doc->template charAt<internal::uint_c_v<'n'>>(iter) && nullMatches()) {
+			if (error_code == parse_statuses::success && doc->template charAt<internal::uint_c_v<'n'>>(iter) && nullMatches()) {
 				consume();
 				return true;
 			}
 			return false;
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes getUint64(uint64_t& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE parse_statuses getUint64(uint64_t& out) const noexcept {
 			if (!isNumberStart()) [[unlikely]] {
 				return typeError();
 			}
@@ -113,7 +113,7 @@ namespace jsonifier::generic {
 			return finishNumber(parsedEnd, valueEnd);
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes getInt64(int64_t& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE parse_statuses getInt64(int64_t& out) const noexcept {
 			if (!isNumberStart()) [[unlikely]] {
 				return typeError();
 			}
@@ -124,7 +124,7 @@ namespace jsonifier::generic {
 			return finishNumber(parsedEnd, valueEnd);
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes getDouble(double& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE parse_statuses getDouble(double& out) const noexcept {
 			if (!isNumberStart()) [[unlikely]] {
 				return typeError();
 			}
@@ -135,38 +135,38 @@ namespace jsonifier::generic {
 			return finishNumber(parsedEnd, valueEnd);
 		}
 
-		template<typename value_type> [[nodiscard]] JSONIFIER_INLINE error_codes get(value_type& out) const;
+		template<typename value_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses get(value_type& out) const;
 
-		template<typename element_type> [[nodiscard]] JSONIFIER_INLINE error_codes getArray(std::vector<element_type>& out) const;
+		template<typename element_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses getArray(std::vector<element_type>& out) const;
 
-		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE error_codes getString(string_view_type& out) const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses getString(string_view_type& out) const noexcept {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return error_code;
 			}
 			if (!doc->template charAt<internal::uint_c_v<'"'>>(iter)) [[unlikely]] {
-				return error_codes::incorrect_type;
+				return parse_statuses::incorrect_type;
 			}
 			consume();
 			return unescape(iter, out);
 		}
 
-		[[nodiscard]] JSONIFIER_INLINE error_codes getBool(bool& out) const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+		[[nodiscard]] JSONIFIER_INLINE parse_statuses getBool(bool& out) const noexcept {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return error_code;
 			}
 			switch (doc->charAt(iter)) {
 				case internal::uint_c_v<'t'>: {
 					consume();
 					out = true;
-					return trueMatches() ? error_codes::success : error_codes::t_atom_error;
+					return trueMatches() ? parse_statuses::success : parse_statuses::invalid_bool_value;
 				}
 				case internal::uint_c_v<'f'>: {
 					consume();
 					out = false;
-					return falseMatches() ? error_codes::success : error_codes::f_atom_error;
+					return falseMatches() ? parse_statuses::success : parse_statuses::invalid_bool_value;
 				}
 				default: {
-					return error_codes::incorrect_type;
+					return parse_statuses::incorrect_type;
 				}
 			}
 		}
@@ -179,14 +179,14 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE value operator[](uint64_t index) const noexcept;
 
-		JSONIFIER_INLINE error_codes error() const noexcept {
+		JSONIFIER_INLINE parse_statuses error() const noexcept {
 			return error_code;
 		}
 
 		JSONIFIER_INLINE object getObject() const noexcept;
 
 		JSONIFIER_INLINE json_types type() const noexcept {
-			if (error_code != error_codes::success) [[unlikely]] {
+			if (error_code != parse_statuses::success) [[unlikely]] {
 				return json_types::unset;
 			}
 			return internal::typeTable[doc->charAt(iter)];
@@ -218,25 +218,25 @@ namespace jsonifier::generic {
 				source + length, state);
 		}
 
-		template<internal::string_types value_type> JSONIFIER_INLINE error_codes unescape(internal::read_structural_index_ptr stringIter, value_type& result) const noexcept {
+		template<internal::string_types value_type> JSONIFIER_INLINE parse_statuses unescape(internal::read_structural_index_ptr stringIter, value_type& result) const noexcept {
 			internal::read_buffer_ptr stringStart{ doc->root + *stringIter + 1 };
 			if (const uint64_t directLength = zeroCopyLength<true>(stringStart); directLength != noZeroCopy) [[likely]] {
 				result = value_type{ std::bit_cast<const char*>(stringStart), directLength };
-				return error_codes::success;
+				return parse_statuses::success;
 			}
 			char* scratch{ doc->arena->scratch() };
 			const auto parsed{ internal::string_parser::impl(stringStart, doc->end, scratch) };
 			if (parsed.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
-				return error_codes::string_error;
+				return parse_statuses::invalid_string_characters;
 			}
 			if (parsed.outLength == parsed.rawLength) {
 				result = value_type{ std::bit_cast<const char*>(stringStart), parsed.rawLength };
-				return error_codes::success;
+				return parse_statuses::success;
 			}
 			char* slot{ doc->arena->slot(static_cast<uint64_t>(stringStart - doc->root)) };
 			internal::jsonifierMemcpy(slot, scratch, parsed.outLength);
 			result = value_type{ slot, parsed.outLength };
-			return error_codes::success;
+			return parse_statuses::success;
 		}
 
 		JSONIFIER_INLINE static string_stop_masks stringStopMasks(internal::read_buffer_ptr current) noexcept {
@@ -279,11 +279,11 @@ namespace jsonifier::generic {
 			return !sawNonAscii || validUtf8(stringStart, length) ? length : noZeroCopy;
 		}
 
-		JSONIFIER_INLINE static error_codes finishNumber(internal::read_buffer_ptr parsedEnd, internal::read_buffer_ptr valueEnd) noexcept {
+		JSONIFIER_INLINE static parse_statuses finishNumber(internal::read_buffer_ptr parsedEnd, internal::read_buffer_ptr valueEnd) noexcept {
 			if (parsedEnd && (parsedEnd == valueEnd || internal::validPostPrimitiveTable[static_cast<uint64_t>(*parsedEnd)])) [[likely]] {
-				return error_codes::success;
+				return parse_statuses::success;
 			}
-			return error_codes::number_error;
+			return parse_statuses::invalid_number_value;
 		}
 
 		template<uint32_t leadingWord, uint64_t atomSize> JSONIFIER_INLINE bool atomMatches() const noexcept {
@@ -348,12 +348,12 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE static bool unescapePointerToken(string_view& token, string& unescapedToken) noexcept;
 
-		JSONIFIER_INLINE static error_codes parsePointerIndex(string_view token, uint64_t& index) noexcept;
+		JSONIFIER_INLINE static parse_statuses parsePointerIndex(string_view token, uint64_t& index) noexcept;
 
 		JSONIFIER_INLINE value pointerStep(string_view token, string& unescapedToken) const noexcept;
 
 		JSONIFIER_INLINE bool isNumberStart() const noexcept {
-			return error_code == error_codes::success && internal::typeTable[doc->charAt(iter)] == json_types::number;
+			return error_code == parse_statuses::success && internal::typeTable[doc->charAt(iter)] == json_types::number;
 		}
 
 		JSONIFIER_INLINE bool falseMatches() const noexcept {
@@ -371,8 +371,8 @@ namespace jsonifier::generic {
 			return atomMatches<nullVal, 4>();
 		}
 
-		JSONIFIER_INLINE error_codes typeError() const noexcept {
-			return error_code != error_codes::success ? error_code : error_codes::incorrect_type;
+		JSONIFIER_INLINE parse_statuses typeError() const noexcept {
+			return error_code != parse_statuses::success ? error_code : parse_statuses::incorrect_type;
 		}
 
 		JSONIFIER_INLINE static bool isWhitespace(uint8_t c) noexcept {
@@ -388,7 +388,7 @@ namespace jsonifier::generic {
 		internal::read_structural_index_ptr iter{};
 		document_state* doc{};
 		uint64_t depth{};
-		error_codes error_code{ error_codes::success };
+		parse_statuses error_code{ parse_statuses::success };
 	};
 
 }

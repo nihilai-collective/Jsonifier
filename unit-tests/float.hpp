@@ -175,7 +175,7 @@ namespace float_validation_tests {
 				result = false;
 			}
 			std::vector<double> genericValues{};
-			if (const auto errorCode = parser.iterate(text).getArray(genericValues); errorCode != jsonifier::generic::error_codes::success) {
+			if (const auto errorCode = parser.iterate(text).getArray(genericValues); errorCode != jsonifier::generic::parse_statuses::success) {
 				std::cout << "Generic getArray<double> failed with code " << static_cast<uint64_t>(errorCode) << " on " << values.size() << " values." << std::endl;
 				result = false;
 			}

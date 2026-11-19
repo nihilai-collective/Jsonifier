@@ -15,7 +15,7 @@ namespace jsonifier::internal {
 		static constexpr uint8_t reverseEngageScore{ 4 };
 		static constexpr uint8_t reverseMaxScore{ 8 };
 
-		JSONIFIER_INLINE generic::error_codes advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer,
+		JSONIFIER_INLINE generic::parse_statuses advanceChild(read_structural_index_ptr childValue, uint64_t containerDepth, uint8_t closer,
 			read_structural_index_ptr& next) noexcept {
 			const read_buffer_ptr base{ root };
 			read_structural_index_ptr limit{ tapeEnd };
@@ -28,18 +28,18 @@ namespace jsonifier::internal {
 			} else if (currentDepth > containerDepth) {
 				position = finishToDepth(base, position, limit, currentDepth, containerDepth);
 			}
-			generic::error_codes error_code{ generic::error_codes::tape_error };
+			generic::parse_statuses error_code{ generic::parse_statuses::unexpected_token };
 			if (position >= limit) [[unlikely]] {
-				error_code = generic::error_codes::unclosed_container;
+				error_code = generic::parse_statuses::unexpected_end_of_input;
 			} else if (const uint8_t separator = base[*position]; separator == uint_c_v<','>) [[likely]] {
 				++position;
 				next	   = position;
-				error_code = position < limit ? generic::error_codes::success : generic::error_codes::unclosed_container;
+				error_code = position < limit ? generic::parse_statuses::success : generic::parse_statuses::unexpected_end_of_input;
 			} else if (separator == closer) [[likely]] {
 				++position;
 				--currentDepth;
 				next	   = nullptr;
-				error_code = generic::error_codes::success;
+				error_code = generic::parse_statuses::success;
 			}
 			cursor = position;
 			depth  = currentDepth;

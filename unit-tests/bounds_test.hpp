@@ -7,6 +7,7 @@
 #pragma once
 
 #include "parsing_tests.hpp"
+#include "conformance.hpp"
 #include "common.hpp"
 #include <chrono>
 
@@ -113,6 +114,57 @@ namespace bounds_tests {
 			dataToParse);
 	}
 
+	template<rt_ut::string_literal testNameNew, bool prettified, bool nullTerminated> inline void genericBoundsTestsImpl() {
+		static constexpr rt_ut::string_literal testName{ testNameNew };
+		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", Generic, " + testTypeNullTerminated<nullTerminated> };
+		auto dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		jsonifier::jsonifier_core<> parser{};
+		rt_ut::unit_test<testNameRtUt, true>::run(
+			[&](std::string s) {
+				if (const auto status = conformance_tests::genericStatus<nullTerminated, !prettified>(s, parser); status != jsonifier::internal::parse_statuses::success) {
+					std::cout << "FULL GENERIC PARSE FAILURE, status: " << static_cast<uint32_t>(status) << std::endl;
+					return false;
+				}
+				random_die randomDie{};
+				s.pop_back();
+				while (!s.empty()) {
+					if (conformance_tests::genericStatus<nullTerminated, !prettified>(s, parser) == jsonifier::internal::parse_statuses::success) {
+						std::cout << "GENERIC BOUNDS TEST FAILURE, test: " << testNameRtUt.operator std::string() << ", repro seed: " << randomDie.getSeed() << std::endl;
+						return false;
+					}
+					sliceStringBySize(s, randomDie);
+				}
+				return true;
+			},
+			dataToParse);
+	}
+
+	template<bool nullTerminated> inline void genericBoundsTestsImpl() {
+		std::cout << "Starting Generic Bounds-Truncation Test, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		genericBoundsTestsImpl<"Apache Builds Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Apache Builds Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Canada Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Canada Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"CitmCatalog Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"CitmCatalog Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Discord Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Discord Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Github Events Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Github Events Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Google Maps Response Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Google Maps Response Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Instruments Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Instruments Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Marine IK Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Marine IK Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Random Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Random Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Twitter Partial Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Twitter Partial Test (Prettified)", true, nullTerminated>();
+		genericBoundsTestsImpl<"Twitter Test (Minified)", false, nullTerminated>();
+		genericBoundsTestsImpl<"Twitter Test (Prettified)", true, nullTerminated>();
+	}
+
 	template<bool partial, bool knownOrder, bool nullTerminated> inline void boundsTestsImpl() {
 		std::cout << "Starting Bounds-Truncation Test, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": "
 				  << std::endl;
@@ -149,6 +201,8 @@ namespace bounds_tests {
 		boundsTestsImpl<false, true, true>();
 		boundsTestsImpl<true, false, true>();
 		boundsTestsImpl<true, true, true>();
+		genericBoundsTestsImpl<false>();
+		genericBoundsTestsImpl<true>();
 		std::cout << "Bounds truncation validation tests complete." << std::endl;
 	}
 
