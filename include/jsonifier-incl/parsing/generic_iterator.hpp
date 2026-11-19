@@ -13,8 +13,6 @@ namespace jsonifier::internal {
 	template<typename derived_type_new> struct generic_iterator {
 		using derived_type = derived_type_new;
 
-		static constexpr uint64_t smallDocumentBytes{ simdBytesPerStep };
-
 		template<parse_options options = parse_options{}, typename buffer_type> generic::generic_document<options.minified> iterate(const buffer_type& in) {
 			using generic::parse_statuses;
 			using document = generic::generic_document<options.minified>;
@@ -45,12 +43,6 @@ namespace jsonifier::internal {
 
 		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
 			document_state& state{ derivedRef.genericStorage().stateFor() };
-			if (length < smallDocumentBytes) {
-				derivedRef.podSection.template reset<options.minified>(rootIter, length);
-				state.tape	  = derivedRef.podSection.begin();
-				state.tapeEnd = derivedRef.podSection.end();
-				return derivedRef.podSection.getTapeCount();
-			}
 			derivedRef.section.template reset<options.minified>(rootIter, length);
 			state.tape	  = derivedRef.section.begin();
 			state.tapeEnd = derivedRef.section.end();

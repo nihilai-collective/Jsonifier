@@ -419,7 +419,7 @@ namespace jsonifier::internal {
 
 	template<uint64_t bucketSize, typename sequence_type> struct memcpy_runner_impl;
 
-	inline constexpr uint64_t registerWidth{ cpu_properties::getValue(cpu_property_types::alignment) };
+	inline constexpr uint64_t registerWidth{ cpu_properties::getValue(cpu_property_types::simd_alignment) };
 
 	template<uint64_t bucketSize, uint64_t... indices> struct memcpy_runner_impl<bucketSize, integer_sequence<indices...>> {
 		static_assert(std::has_single_bit(bucketSize), "Sorry, but buckets must be a power-of-2 size.");

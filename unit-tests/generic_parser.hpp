@@ -20,6 +20,32 @@ namespace generic_parser_tests {
 		return target.get(out);
 	}
 
+	template<bool minified> inline bool tailObjectParses(jsonifier::jsonifier_core<>& parser, uint64_t padLength) {
+		const std::string pad(padLength, 'x');
+		const std::string input{ minified ? R"({"pad":")" + pad + R"(","k":"a\"b\\","n":-12345,"t":true})"
+										  : "{ \"pad\" : \"" + pad + "\",\n  \"k\" : \"a\\\"b\\\\\" ,\n  \"n\" : -12345 ,\n  \"t\" : true }\n" };
+		auto document{ parser.iterate<jsonifier::parse_options{ .minified = minified }>(input) };
+		return extracted<std::string_view>(document["pad"]) == pad && extracted<std::string_view>(document["k"]) == "a\"b\\" &&
+			extracted<int64_t>(document["n"]) == -12345 && extracted<bool>(document["t"]);
+	}
+
+	template<bool minified> inline bool tailArrayParses(jsonifier::jsonifier_core<>& parser, uint64_t padLength) {
+		const std::string pad(padLength, 'y');
+		const std::string input{ minified ? R"([")" + pad + R"(",1.5e3,"q\\\""])" : "[ \"" + pad + "\" , 1.5e3 ,\n \"q\\\\\\\"\" ]" };
+		auto array{ parser.iterate<jsonifier::parse_options{ .minified = minified }>(input).getArray() };
+		return extracted<std::string_view>(array.at(0)) == pad && extracted<double>(array.at(1)) == 1500.0 && extracted<std::string_view>(array.at(2)) == "q\\\"";
+	}
+
+	template<bool minified> inline bool tailWidthsParse(jsonifier::jsonifier_core<>& parser) {
+		for (uint64_t padLength{ 0 }; padLength < 300; ++padLength) {
+			if (!tailObjectParses<minified>(parser, padLength) || !tailArrayParses<minified>(parser, padLength)) {
+				std::cout << "tail width mismatch at pad length " << padLength << (minified ? " (minified)" : " (prettified)") << std::endl;
+				return false;
+			}
+		}
+		return true;
+	}
+
 	alignas(64) inline constexpr jsonifier::parse_options comma{};
 	alignas(64) inline constexpr jsonifier::parse_options newLines{ .newLineDelimited = true };
 
@@ -578,6 +604,14 @@ namespace generic_parser_tests {
 
 		rt_ut::unit_test<"generic_json_pointer_index_overflow", true>::assert_eq(static_cast<uint8_t>(parse_statuses::index_out_of_bounds), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample).atPointer("/b/184467440737095516160").error());
+		});
+
+		rt_ut::unit_test<"generic_tail_widths_minified", true>::assert_eq(true, [&] {
+			return tailWidthsParse<true>(parser);
+		});
+
+		rt_ut::unit_test<"generic_tail_widths_prettified", true>::assert_eq(true, [&] {
+			return tailWidthsParse<false>(parser);
 		});
 
 		runStreamTests(parser);

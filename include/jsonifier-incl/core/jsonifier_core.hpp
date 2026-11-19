@@ -57,7 +57,6 @@ namespace jsonifier {
 			if (this != &other) [[likely]] {
 				stringBuffer = internal::move(other.stringBuffer);
 				genericData	 = internal::move(other.genericData);
-				podSection	 = internal::move(other.podSection);
 				section		 = internal::move(other.section);
 				errors		 = internal::move(other.errors);
 			}
@@ -65,7 +64,7 @@ namespace jsonifier {
 		}
 
 		inline jsonifier_core(jsonifier_core&& other) noexcept
-			: podSection{ internal::move(other.podSection) }, section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
+			: section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
 			  genericData{ internal::move(other.genericData) }, errors{ internal::move(other.errors) } {
 		}
 
@@ -94,7 +93,6 @@ namespace jsonifier {
 			return genericData;
 		}
 
-		internal::pod_simd_string_reader<internal::simdBytesPerStep> podSection{};
 		internal::simd_string_reader<initialBufferSize> section{};
 		string_base<initialBufferSize> stringBuffer{};
 		internal::generic_storage genericData{};

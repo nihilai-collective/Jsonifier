@@ -184,7 +184,7 @@ namespace jsonifier::internal {
 				}
 				const write_structural_index_ptr tapeIter{ indexStructurals<parseOpts.minified>(rootIter, endIter) };
 				auto* __restrict valueIter = rootIter + *tapeIter;
-				if (tapeIter == derivedRef.podSection.end() || *valueIter != uint_c_v<'"'>) [[unlikely]] {
+				if (tapeIter == derivedRef.section.end() || *valueIter != uint_c_v<'"'>) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::invalid_string_characters>(rootIter, valueIter, endIter));
 					return false;
 				}
@@ -197,7 +197,7 @@ namespace jsonifier::internal {
 					return false;
 				}
 				const write_structural_index_ptr nextTapeIter{ tapeIter + 1 };
-				if (nextTapeIter < derivedRef.podSection.end() && rootIter + *nextTapeIter != endIter) [[unlikely]] {
+				if (nextTapeIter < derivedRef.section.end() && rootIter + *nextTapeIter != endIter) [[unlikely]] {
 					derivedRef.errors.emplace_back(error::constructError<status_classes::parsing, parse_statuses::unfinished_input>(rootIter, rootIter + *nextTapeIter, endIter));
 					return false;
 				}
@@ -267,8 +267,8 @@ namespace jsonifier::internal {
 			static constexpr parse_options parseOpts{ options };
 			auto* __restrict rootIter = getBeginIter(in);
 			auto* __restrict endIter  = getEndIter(in);
-			derivedRef.podSection.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			return derivedRef.podSection.begin();
+			derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			return derivedRef.section.begin();
 		}
 
 		template<parse_options options = parse_options{}, typename comparison_type, typename buffer_type>
@@ -349,8 +349,8 @@ namespace jsonifier::internal {
 		}
 
 		template<bool minified> JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> indexStructurals(auto* rootIter, const auto* endIter) noexcept {
-			derivedRef.podSection.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			return derivedRef.podSection.begin();
+			derivedRef.section.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			return derivedRef.section.begin();
 		}
 
 		template<bool minified> JSONIFIER_INLINE bool finish(auto* rootIter, auto* iterNew, const auto* endIter) {

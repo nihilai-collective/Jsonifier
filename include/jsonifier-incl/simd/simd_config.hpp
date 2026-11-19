@@ -16,21 +16,18 @@ namespace jsonifier::internal {
 	using write_structural_index_ptr = uint32_t* __restrict;
 	using write_buffer_ptr			 = uint8_t* __restrict;
 
-#if JSONIFIER_AVX512
+#if JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t simdBlocksPerStep{ 2 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_MSVC
+	inline constexpr uint64_t simdBlocksPerStep{ 2 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-#elif JSONIFIER_AVX2
+#elif JSONIFIER_NEON && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 	inline constexpr uint64_t simdTapeStep{ 4 };
-	#if JSONIFIER_COMPILER_CLANG
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
-	#else
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-	#endif
-#elif JSONIFIER_NEON
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 #else
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
+	inline constexpr uint64_t simdBlocksPerStep{ 4 };
+	inline constexpr uint64_t simdTapeStep{ 2 };
 #endif
 
 #if JSONIFIER_ANY_AVX
@@ -40,13 +37,13 @@ namespace jsonifier::internal {
 	using jsonifier_simd_int_512 = __m512i;
 
 	#if JSONIFIER_AVX512
-	inline constexpr const char* cpuArchNameInternal{ "AVX512" };
+	inline constexpr const char* cpuArchName{ "AVX512" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_512;
 	#elif JSONIFIER_AVX2
-	inline constexpr const char* cpuArchNameInternal{ "AVX2" };
+	inline constexpr const char* cpuArchName{ "AVX2" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_256;
 	#elif JSONIFIER_AVX
-	inline constexpr const char* cpuArchNameInternal{ "AVX" };
+	inline constexpr const char* cpuArchName{ "AVX" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 	#endif
 
@@ -58,7 +55,7 @@ namespace jsonifier::internal {
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchNameInternal{ "SVE2" };
+	inline constexpr const char* cpuArchName{ "SVE2" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #elif JSONIFIER_NEON
@@ -67,7 +64,7 @@ namespace jsonifier::internal {
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchNameInternal{ "NEON" };
+	inline constexpr const char* cpuArchName{ "NEON" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #else
@@ -76,22 +73,15 @@ namespace jsonifier::internal {
 	using jsonifier_simd_int_256 = uint32_t;
 	using jsonifier_simd_int_512 = uint64_t;
 
-	inline constexpr const char* cpuArchNameInternal{ "FALLBACK" };
+	inline constexpr const char* cpuArchName{ "FALLBACK" };
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 
 #endif
 
-	inline constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::getValue(internal::cpu_property_types::alignment) };
+	inline constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::getValue(internal::cpu_property_types::simd_alignment) };
 	inline constexpr uint64_t simdRegistersPerBlock{ 64 / simdBytesPerRegister };
 	inline constexpr uint64_t simdBytesPerBlock{ 64 };
 	inline constexpr uint64_t simdBytesPerStep{ simdBlocksPerStep * simdBytesPerBlock };
-
-#if JSONIFIER_AVX2 && !JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
-	inline constexpr uint64_t podBlocksPerStep{ 4 };
-#else
-	inline constexpr uint64_t podBlocksPerStep{ simdBlocksPerStep };
-#endif
-	inline constexpr uint64_t podBytesPerStep{ podBlocksPerStep * simdBytesPerBlock };
 
 	static_assert(simdBytesPerRegister == sizeof(jsonifier_simd_int_t),
 		"simdBytesPerRegister disagrees with the actual register width; simdRegistersPerBlock and every bitmask collapse depend on these matching.");
@@ -140,6 +130,6 @@ namespace jsonifier::internal {
 
 namespace jsonifier {
 
-	inline constexpr const char* cpuArchName{ internal::cpuArchNameInternal };
+	inline constexpr const char* cpuArchName{ internal::cpuArchName };
 
 }

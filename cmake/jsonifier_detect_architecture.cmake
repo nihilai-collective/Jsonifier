@@ -37,58 +37,14 @@ file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/jsonifier-incl/simd/jsonifier_cp
  */
 #pragma once
 
-#undef JSONIFIER_SVE2_VECTOR_BITS
 #define JSONIFIER_SVE2_VECTOR_BITS ${JSONIFIER_SELECTED_SVE2_VECTOR_BITS}
-
-#if !defined(JSONIFIER_LZCNT)
-	#define JSONIFIER_LZCNT ${JSONIFIER_LZCNT}
-#endif
-
-#if !defined(JSONIFIER_POPCNT)
-	#define JSONIFIER_POPCNT ${JSONIFIER_POPCNT}
-#endif
-
-#if !defined(JSONIFIER_BMI)
-	#define JSONIFIER_BMI ${JSONIFIER_BMI}
-#endif
-
-#if !defined(JSONIFIER_CLMUL)
-	#define JSONIFIER_CLMUL ${JSONIFIER_CLMUL}
-#endif
-
-#if !defined(JSONIFIER_NEON)
-	#define JSONIFIER_NEON ${JSONIFIER_NEON}
-#endif
-
-#if !defined(JSONIFIER_AVX)
-	#define JSONIFIER_AVX ${JSONIFIER_AVX}
-#endif
-
-#if !defined(JSONIFIER_AVX2)
-	#define JSONIFIER_AVX2 ${JSONIFIER_AVX2}
-#endif
-
-#if !defined(JSONIFIER_AVX512)
-	#define JSONIFIER_AVX512 ${JSONIFIER_AVX512}
-#endif
-
-#if !defined(JSONIFIER_SVE2)
-	#define JSONIFIER_SVE2 ${JSONIFIER_SVE2}
-#endif
-
-#if !defined(JSONIFIER_ANY_AVX)
-	#define JSONIFIER_ANY_AVX (JSONIFIER_AVX || JSONIFIER_AVX2 || JSONIFIER_AVX512)
-#endif
-
-#if !defined(JSONIFIER_ANY_SIMD)
-	#define JSONIFIER_ANY_SIMD (JSONIFIER_AVX || JSONIFIER_AVX2 || JSONIFIER_AVX512 || JSONIFIER_NEON || JSONIFIER_SVE2)
-#endif
-
-#if JSONIFIER_NEON && JSONIFIER_SVE2
-	#error \"JSONIFIER_NEON and JSONIFIER_SVE2 are mutually exclusive backends - every SVE2 part also reports NEON, so exactly one must be selected.\"
-#endif
-
-#if JSONIFIER_SVE2 && JSONIFIER_SVE2_VECTOR_BITS == 0
-	#error \"JSONIFIER_SVE2 is selected but JSONIFIER_SVE2_VECTOR_BITS is 0 - the fixed-length SVE2 typedefs require a measured vector length.\"
-#endif
+#define JSONIFIER_LZCNT_PRE ${JSONIFIER_LZCNT}
+#define JSONIFIER_POPCNT_PRE ${JSONIFIER_POPCNT}
+#define JSONIFIER_BMI_PRE ${JSONIFIER_BMI}
+#define JSONIFIER_CLMUL_PRE ${JSONIFIER_CLMUL}
+#define JSONIFIER_NEON_PRE ${JSONIFIER_NEON}
+#define JSONIFIER_AVX_PRE ${JSONIFIER_AVX}
+#define JSONIFIER_AVX2_PRE ${JSONIFIER_AVX2}
+#define JSONIFIER_AVX512_PRE ${JSONIFIER_AVX512}
+#define JSONIFIER_SVE2_PRE ${JSONIFIER_SVE2}
 ")

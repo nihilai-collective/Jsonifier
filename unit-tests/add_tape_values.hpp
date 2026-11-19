@@ -60,11 +60,14 @@ namespace add_tape_values_tests {
 
 		rt_ut::unit_test<"add_tape_values_spans_multiple_blocks_in_order", true>::assert_eq(true, [] {
 			jsonifier::internal::array<uint64_t, jsonifier::internal::simdBlocksPerStep> bitsArr{};
-			bitsArr[0] = (1ull << 1) | (1ull << 2);
-			bitsArr[1] = (1ull << 0) | (1ull << 5) | (1ull << 30);
-			bitsArr[2] = (1ull << 63);
-			auto tape  = runAddTapeValues(bitsArr, 500);
-			return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 && tape[5] == 500 + 128 + 63;
+			if constexpr (jsonifier::internal::simdBlocksPerStep < 2) {
+				return true;
+			} else {
+				bitsArr[0] = (1ull << 1) | (1ull << 2);
+				bitsArr[1] = (1ull << 0) | (1ull << 5) | (1ull << 30) | (1ull << 63);
+				auto tape  = runAddTapeValues(bitsArr, 500);
+				return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 && tape[5] == 500 + 64 + 63;
+			}
 		});
 
 		rt_ut::unit_test<"add_tape_values_empty_bitmask_produces_no_entries", true>::assert_eq(true, [] {

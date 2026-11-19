@@ -16,6 +16,7 @@
 #include <variant>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 #include <string>
 #include <cctype>
 #include <memory>
@@ -97,76 +98,70 @@
 	#endif
 #endif
 
-#if !defined(JSONIFIER_LZCNT)
-	#if defined(__LZCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__))
-		#define JSONIFIER_LZCNT 1
-	#else
-		#define JSONIFIER_LZCNT 0
-	#endif
+#if defined(__LZCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_LZCNT_PRE
+	#define JSONIFIER_LZCNT 1
+#else
+	#define JSONIFIER_LZCNT 0
 #endif
 
-#if !defined(JSONIFIER_POPCNT)
-	#if defined(__POPCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX__))
-		#define JSONIFIER_POPCNT 1
-	#else
-		#define JSONIFIER_POPCNT 0
-	#endif
+#if defined(__POPCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX__)) || JSONIFIER_POPCNT_PRE
+	#define JSONIFIER_POPCNT 1
+#else
+	#define JSONIFIER_POPCNT 0
 #endif
 
-#if !defined(JSONIFIER_BMI)
-	#if defined(__BMI__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__))
-		#define JSONIFIER_BMI 1
-	#else
-		#define JSONIFIER_BMI 0
-	#endif
+#if defined(__BMI__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_BMI_PRE
+	#define JSONIFIER_BMI 1
+#else
+	#define JSONIFIER_BMI 0
 #endif
 
-#if !defined(JSONIFIER_CLMUL)
-	#if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (JSONIFIER_COMPILER_MSVC && (defined(__AVX2__) || JSONIFIER_ARCH_ARM64))
-		#define JSONIFIER_CLMUL 1
-	#else
-		#define JSONIFIER_CLMUL 0
-	#endif
+#if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (JSONIFIER_COMPILER_MSVC && (defined(__AVX2__) || JSONIFIER_ARCH_ARM64)) || \
+	JSONIFIER_CLMUL_PRE
+	#define JSONIFIER_CLMUL 1
+#else
+	#define JSONIFIER_CLMUL 0
 #endif
 
-#if !defined(JSONIFIER_AVX)
-	#if defined(__AVX__)
-		#define JSONIFIER_AVX 1
-	#else
-		#define JSONIFIER_AVX 0
-	#endif
+#if defined(__AVX__) || JSONIFIER_AVX_PRE
+	#define JSONIFIER_AVX 1
+#else
+	#define JSONIFIER_AVX 0
 #endif
 
-#if !defined(JSONIFIER_AVX2)
-	#if defined(__AVX2__)
-		#define JSONIFIER_AVX2 1
-	#else
-		#define JSONIFIER_AVX2 0
-	#endif
+#if defined(__AVX2__) || JSONIFIER_AVX2_PRE
+	#define JSONIFIER_AVX2 1
+#else
+	#define JSONIFIER_AVX2 0
 #endif
 
-#if !defined(JSONIFIER_AVX512)
-	#if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)
-		#define JSONIFIER_AVX512 1
-	#else
-		#define JSONIFIER_AVX512 0
-	#endif
+#if (defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)) || JSONIFIER_AVX512_PRE
+	#define JSONIFIER_AVX512 1
+#else
+	#define JSONIFIER_AVX512 0
 #endif
 
-#if !defined(JSONIFIER_SVE2)
-	#if defined(__ARM_FEATURE_SVE2)
-		#define JSONIFIER_SVE2 1
-	#else
-		#define JSONIFIER_SVE2 0
-	#endif
+#if defined(__ARM_FEATURE_SVE2) || JSONIFIER_SVE2_PRE
+	#define JSONIFIER_SVE2 1
+#else
+	#define JSONIFIER_SVE2 0
 #endif
 
-#if !defined(JSONIFIER_NEON)
-	#if (defined(__ARM_NEON) || JSONIFIER_ARCH_ARM64) && !JSONIFIER_SVE2
-		#define JSONIFIER_NEON 1
-	#else
-		#define JSONIFIER_NEON 0
-	#endif
+#if ((defined(__ARM_NEON) || JSONIFIER_ARCH_ARM64 || JSONIFIER_NEON_PRE) && !JSONIFIER_SVE2)
+	#define JSONIFIER_NEON 1
+#else
+	#define JSONIFIER_NEON 0
+#endif
+
+#define JSONIFIER_ANY_AVX (JSONIFIER_AVX || JSONIFIER_AVX2 || JSONIFIER_AVX512)
+#define JSONIFIER_ANY_SIMD (JSONIFIER_AVX || JSONIFIER_AVX2 || JSONIFIER_AVX512 || JSONIFIER_NEON || JSONIFIER_SVE2)
+
+#if JSONIFIER_NEON && JSONIFIER_SVE2
+	#error "JSONIFIER_NEON and JSONIFIER_SVE2 are mutually exclusive backends - every SVE2 part also reports NEON, so exactly one must be selected."
+#endif
+
+#if JSONIFIER_SVE2 && JSONIFIER_SVE2_VECTOR_BITS == 0
+	#error "JSONIFIER_SVE2 is selected but JSONIFIER_SVE2_VECTOR_BITS is 0 - the fixed-length SVE2 typedefs require a measured vector length."
 #endif
 
 #if !defined(JSONIFIER_OPTIMIZED)
@@ -304,7 +299,7 @@
 	#define JSONIFIER_ASM(x)
 #endif
 
-#ifdef JSONIFIER_USE_INT128
+#if defined(JSONIFIER_USE_INT128)
 #elif defined(__SIZEOF_INT128__)
 	#define JSONIFIER_USE_INT128 1
 #else
