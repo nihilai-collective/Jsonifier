@@ -47,7 +47,7 @@ namespace jsonifier::generic {
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
 
-		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses unescapedKey(string_view_type out) const noexcept {
+		template<internal::string_view_types string_view_type> [[nodiscard]] JSONIFIER_INLINE parse_statuses unescapedKey(string_view_type& out) const noexcept {
 			return generic_value<minified>{ doc, iter, depth }.unescape(iter, out);
 		}
 

@@ -11,12 +11,14 @@
 namespace conformance_tests {
 
 	struct generic_walker {
+		static constexpr uint64_t maxWalkDepth{ 128 };
+
 		template<bool minified> static jsonifier::internal::parse_statuses impl(const jsonifier::generic::generic_value<minified>& target, uint64_t depth = 0) {
 			using parse_statuses = jsonifier::internal::parse_statuses;
 			if (target.error() != parse_statuses::success) {
 				return target.error();
 			}
-			if (depth >= static_cast<uint64_t>(jsonifier::parse_options{}.maxDepth)) {
+			if (depth >= maxWalkDepth) {
 				return parse_statuses::exceeded_max_depth;
 			}
 			switch (static_cast<uint64_t>(target.type())) {
@@ -325,27 +327,27 @@ namespace conformance_tests {
 			processFilesInFolder(jsonTests, "jsonchecker/fail");
 			std::cout << "Generic Conformance Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
 			runGenericConformanceTest<"fail02.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail02.json"].fileContents, parser);
-			runGenericConformanceTest<"fail03.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail03.json"].fileContents, parser);
-			runGenericConformanceTest<"fail04.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail04.json"].fileContents, parser);
-			runGenericConformanceTest<"fail05.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail05.json"].fileContents, parser);
-			runGenericConformanceTest<"fail06.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail06.json"].fileContents, parser);
+			runGenericConformanceTest<"fail03.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail03.json"].fileContents, parser);
+			runGenericConformanceTest<"fail04.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail04.json"].fileContents, parser);
+			runGenericConformanceTest<"fail05.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail05.json"].fileContents, parser);
+			runGenericConformanceTest<"fail06.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail06.json"].fileContents, parser);
 			runGenericConformanceTest<"fail07.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail07.json"].fileContents, parser);
 			runGenericConformanceTest<"fail08.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail08.json"].fileContents, parser);
-			runGenericConformanceTest<"fail09.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail09.json"].fileContents, parser);
+			runGenericConformanceTest<"fail09.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail09.json"].fileContents, parser);
 			runGenericConformanceTest<"fail10.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail10.json"].fileContents, parser);
-			runGenericConformanceTest<"fail11.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail11.json"].fileContents, parser);
-			runGenericConformanceTest<"fail12.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail12.json"].fileContents, parser);
+			runGenericConformanceTest<"fail11.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail11.json"].fileContents, parser);
+			runGenericConformanceTest<"fail12.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail12.json"].fileContents, parser);
 			runGenericConformanceTest<"fail13.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail13.json"].fileContents, parser);
-			runGenericConformanceTest<"fail14.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail14.json"].fileContents, parser);
+			runGenericConformanceTest<"fail14.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail14.json"].fileContents, parser);
 			runGenericConformanceTest<"fail15.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail15.json"].fileContents, parser);
-			runGenericConformanceTest<"fail16.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail16.json"].fileContents, parser);
+			runGenericConformanceTest<"fail16.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail16.json"].fileContents, parser);
 			runGenericConformanceTest<"fail17.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail17.json"].fileContents, parser);
-			runGenericConformanceTest<"fail19.json", nullTerminated, jsonifier::internal::parse_statuses::missing_colon>(jsonTests["fail19.json"].fileContents, parser);
-			runGenericConformanceTest<"fail20.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail20.json"].fileContents, parser);
-			runGenericConformanceTest<"fail21.json", nullTerminated, jsonifier::internal::parse_statuses::missing_colon>(jsonTests["fail21.json"].fileContents, parser);
-			runGenericConformanceTest<"fail22.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["fail22.json"].fileContents, parser);
-			runGenericConformanceTest<"fail23.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail23.json"].fileContents, parser);
-			runGenericConformanceTest<"fail24.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail24.json"].fileContents, parser);
+			runGenericConformanceTest<"fail19.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail19.json"].fileContents, parser);
+			runGenericConformanceTest<"fail20.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail20.json"].fileContents, parser);
+			runGenericConformanceTest<"fail21.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail21.json"].fileContents, parser);
+			runGenericConformanceTest<"fail22.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail22.json"].fileContents, parser);
+			runGenericConformanceTest<"fail23.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["fail23.json"].fileContents, parser);
+			runGenericConformanceTest<"fail24.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail24.json"].fileContents, parser);
 			runGenericConformanceTest<"fail25.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail25.json"].fileContents, parser);
 			runGenericConformanceTest<"fail26.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail26.json"].fileContents, parser);
 			runGenericConformanceTest<"fail27.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail27.json"].fileContents, parser);
@@ -353,14 +355,14 @@ namespace conformance_tests {
 			runGenericConformanceTest<"fail29.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail29.json"].fileContents, parser);
 			runGenericConformanceTest<"fail30.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail30.json"].fileContents, parser);
 			runGenericConformanceTest<"fail31.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail31.json"].fileContents, parser);
-			runGenericConformanceTest<"fail32.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail32.json"].fileContents, parser);
-			runGenericConformanceTest<"fail33.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail33.json"].fileContents, parser);
+			runGenericConformanceTest<"fail32.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail32.json"].fileContents, parser);
+			runGenericConformanceTest<"fail33.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail33.json"].fileContents, parser);
 			runGenericConformanceTest<"fail34.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail34.json"].fileContents, parser);
-			runGenericConformanceTest<"fail35.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail35.json"].fileContents, parser);
+			runGenericConformanceTest<"fail35.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail35.json"].fileContents, parser);
 			runGenericConformanceTest<"fail36.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail36.json"].fileContents, parser);
-			runGenericConformanceTest<"fail37.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail37.json"].fileContents, parser);
-			runGenericConformanceTest<"fail38.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail38.json"].fileContents, parser);
-			runGenericConformanceTest<"fail42.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail42.json"].fileContents, parser);
+			runGenericConformanceTest<"fail37.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail37.json"].fileContents, parser);
+			runGenericConformanceTest<"fail38.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail38.json"].fileContents, parser);
+			runGenericConformanceTest<"fail42.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail42.json"].fileContents, parser);
 			runGenericConformanceTest<"fail43.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail43.json"].fileContents, parser);
 			runGenericConformanceTest<"fail44.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail44.json"].fileContents, parser);
 			runGenericConformanceTest<"fail45.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail45.json"].fileContents, parser);
@@ -370,11 +372,11 @@ namespace conformance_tests {
 			runGenericConformanceTest<"fail49.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail49.json"].fileContents, parser);
 			runGenericConformanceTest<"fail50.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail50.json"].fileContents, parser);
 			runGenericConformanceTest<"fail51.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail51.json"].fileContents, parser);
-			runGenericConformanceTest<"fail52.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail52.json"].fileContents, parser);
+			runGenericConformanceTest<"fail52.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail52.json"].fileContents, parser);
 			runGenericConformanceTest<"fail53.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail53.json"].fileContents, parser);
-			runGenericConformanceTest<"fail54.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail54.json"].fileContents, parser);
-			runGenericConformanceTest<"fail55.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail55.json"].fileContents, parser);
-			runGenericConformanceTest<"fail56.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail56.json"].fileContents, parser);
+			runGenericConformanceTest<"fail54.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail54.json"].fileContents, parser);
+			runGenericConformanceTest<"fail55.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail55.json"].fileContents, parser);
+			runGenericConformanceTest<"fail56.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_token>(jsonTests["fail56.json"].fileContents, parser);
 			runGenericConformanceTest<"fail57.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail57.json"].fileContents, parser);
 			runGenericConformanceTest<"fail58.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail58.json"].fileContents, parser);
 			runGenericConformanceTest<"fail59.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail59.json"].fileContents, parser);
@@ -384,23 +386,23 @@ namespace conformance_tests {
 			runGenericConformanceTest<"fail63.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail63.json"].fileContents, parser);
 			runGenericConformanceTest<"fail64.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail64.json"].fileContents, parser);
 			runGenericConformanceTest<"fail65.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["fail65.json"].fileContents, parser);
-			runGenericConformanceTest<"fail66.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail66.json"].fileContents, parser);
-			runGenericConformanceTest<"fail67.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail67.json"].fileContents, parser);
-			runGenericConformanceTest<"fail68.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail68.json"].fileContents, parser);
+			runGenericConformanceTest<"fail66.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail66.json"].fileContents, parser);
+			runGenericConformanceTest<"fail67.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail67.json"].fileContents, parser);
+			runGenericConformanceTest<"fail68.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail68.json"].fileContents, parser);
 			runGenericConformanceTest<"fail69.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["fail69.json"].fileContents, parser);
 			runGenericConformanceTest<"fail70.json", nullTerminated, jsonifier::internal::parse_statuses::no_input>(jsonTests["fail70.json"].fileContents, parser);
 			runGenericConformanceTest<"fail71.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail71.json"].fileContents, parser);
 			runGenericConformanceTest<"fail72.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail72.json"].fileContents, parser);
 			runGenericConformanceTest<"fail73.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail73.json"].fileContents, parser);
-			runGenericConformanceTest<"fail74.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail74.json"].fileContents, parser);
+			runGenericConformanceTest<"fail74.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail74.json"].fileContents, parser);
 			runGenericConformanceTest<"fail75.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_bool_value>(jsonTests["fail75.json"].fileContents, parser);
 			runGenericConformanceTest<"fail76.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail76.json"].fileContents, parser);
 			runGenericConformanceTest<"fail77.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail77.json"].fileContents, parser);
-			runGenericConformanceTest<"fail78.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail78.json"].fileContents, parser);
-			runGenericConformanceTest<"fail79.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail79.json"].fileContents, parser);
-			runGenericConformanceTest<"fail80.json", nullTerminated, jsonifier::internal::parse_statuses::missing_comma>(jsonTests["fail80.json"].fileContents, parser);
+			runGenericConformanceTest<"fail78.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail78.json"].fileContents, parser);
+			runGenericConformanceTest<"fail79.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail79.json"].fileContents, parser);
+			runGenericConformanceTest<"fail80.json", nullTerminated, jsonifier::internal::parse_statuses::unexpected_end_of_input>(jsonTests["fail80.json"].fileContents, parser);
 			runGenericConformanceTest<"fail81.json", nullTerminated, jsonifier::internal::parse_statuses::unfinished_input>(jsonTests["fail81.json"].fileContents, parser);
-			runGenericConformanceTest<"fail82.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail82.json"].fileContents, parser);
+			runGenericConformanceTest<"fail82.json", nullTerminated, jsonifier::internal::parse_statuses::invalid_number_value>(jsonTests["fail82.json"].fileContents, parser);
 		}
 		{
 			std::unordered_map<std::string, test_base> jsonTests{};
