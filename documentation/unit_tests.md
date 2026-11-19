@@ -98,7 +98,13 @@ These suites use the matrix: parsing, bounds/truncation, conformance (`jsoncheck
 
 ### Generic-Parser Legs
 
-The conformance, JSONTestSuite, and bounds suites also run every case through the generic parser. `partialRead` and `knownOrder` do not apply to it, so these legs run once with `nullTerminated` off and once with it on. Each leg walks the whole document with `conformance_tests::generic_walker`, reading every string, number, boolean, and null so that errors the generic parser finds lazily are reported too, then requires `atEnd()` so trailing content counts as `unfinished_input`.
+The parsing, bounds, round trip, string, conformance, and JSONTestSuite suites also run every case through the generic parser. `partialRead` and `knownOrder` do not apply to it, so these legs run once with `nullTerminated` off and once with it on. Each leg walks the whole document with `conformance_tests::generic_walker`, reading every string, number, boolean, and null so that errors the generic parser finds lazily are reported too, then requires `atEnd()` so trailing content counts as `unfinished_input`. The walker stops at 128 levels of nesting with `exceeded_max_depth`, well above the deepest valid fixture (19 levels), so a deeply nested invalid file cannot overflow the stack under MSVC and ASan.
+
+- **Parsing:** all 22 corpus files must walk cleanly, with `minified` set to match each file.
+- **Round trip:** all 27 `roundtripNN.json` documents must walk cleanly.
+- **String:** the 35 pass cases decode through `getString` into `std::string` and must match the typed parser's expected output byte for byte; the 30 fail cases must be rejected.
+- **Float:** all 64 edge cases go through `getDouble` and must produce the same bits as the typed parser's expected value, so `-0.0` and `0.0` are told apart.
+- **Integer:** the signed and unsigned pass cases written as plain integers go through `getInt64` or `getUint64` and must match exactly; the cases that rely on the typed parser truncating a fraction or exponent are skipped at compile time. Every fail case must be rejected.
 
 ---
 

@@ -56,10 +56,10 @@ namespace jsonifier::internal {
 	consteval string_view getName() noexcept {
 #if JSONIFIER_COMPILER_MSVC
 		using value_type = remove_member_pointer_t<decltype(p)>;
-		static constexpr auto pNew{ p };
-		static constexpr auto newString{ getNameImpl<value_type, &(external<value_type>.*pNew)>() };
+		constexpr auto pNew{ p };
+		constexpr auto newString{ getNameImpl<value_type, &(external<value_type>.*pNew)>() };
 #else
-		static constexpr auto newString{ getNameImpl<p>() };
+		constexpr auto newString{ getNameImpl<p>() };
 #endif
 		return newString;
 	}

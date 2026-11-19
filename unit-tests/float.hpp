@@ -41,6 +41,12 @@ namespace float_validation_tests {
 		return;
 	}
 
+	template<bool nullTerminated> inline void genericFloatTestsImpl() {
+		std::cout << "Generic Float Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<double, double, inputValues, outputValues, false, false, nullTerminated, generic_number_pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+	}
+
 	inline void zmijSerializationTests() {
 		std::cout << "Zmij Double Serialization Tests: " << std::endl;
 		jsonifier::jsonifier_core<> parser{};
@@ -302,6 +308,8 @@ namespace float_validation_tests {
 		floatTestsImpl<false, true, true>();
 		floatTestsImpl<true, false, true>();
 		floatTestsImpl<true, true, true>();
+		genericFloatTestsImpl<false>();
+		genericFloatTestsImpl<true>();
 		zmijSerializationTests();
 		fastFloatCorpusTests();
 		std::cout << "Float validation tests complete." << std::endl;

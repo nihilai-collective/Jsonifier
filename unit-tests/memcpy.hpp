@@ -132,27 +132,23 @@ namespace memcpy_tests {
 	inline void runTests() {
 		std::cout << "Memcpy Tests" << std::endl;
 
-		static constexpr rt_ut::string_literal memcpyZeroLengthName{ "jsonifier_memcpy_zero_length_writes_nothing" };
-		rt_ut::unit_test<memcpyZeroLengthName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_zero_length_writes_nothing", true>::assert_eq(true, [] {
 			return sweepLength(0, maxOffset, memcpy_copier{});
 		});
 
-		static constexpr rt_ut::string_literal memcpyZeroLengthNullName{ "jsonifier_memcpy_zero_length_null_pointers" };
-		rt_ut::unit_test<memcpyZeroLengthNullName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_zero_length_null_pointers", true>::assert_eq(true, [] {
 			jsonifier::internal::jsonifierMemcpy(nullptr, nullptr, 0);
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpyUpToZeroLengthNullName{ "jsonifier_memcpy_up_to_zero_length_null_pointers" };
-		rt_ut::unit_test<memcpyUpToZeroLengthNullName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_zero_length_null_pointers", true>::assert_eq(true, [] {
 			jsonifier::internal::jsonifierMemcpyUpTo<0>(nullptr, nullptr, 0);
 			jsonifier::internal::jsonifierMemcpyUpTo<64>(nullptr, nullptr, 0);
 			jsonifier::internal::jsonifierMemcpyUpTo<1024>(nullptr, nullptr, 0);
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpySingleByteAllValuesName{ "jsonifier_memcpy_single_byte_all_values" };
-		rt_ut::unit_test<memcpySingleByteAllValuesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_single_byte_all_values", true>::assert_eq(true, [] {
 			for (uint32_t value = 0; value < 256; ++value) {
 				uint8_t src[3]{ 0x11, static_cast<uint8_t>(value), 0x22 };
 				uint8_t dst[3]{ dstFill, dstFill, dstFill };
@@ -165,18 +161,15 @@ namespace memcpy_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpySmallExhaustiveName{ "jsonifier_memcpy_lengths_0_to_256_all_offsets" };
-		rt_ut::unit_test<memcpySmallExhaustiveName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_lengths_0_to_256_all_offsets", true>::assert_eq(true, [] {
 			return sweepLengths(0, 256, maxOffset, memcpy_copier{});
 		});
 
-		static constexpr rt_ut::string_literal memcpyMediumName{ "jsonifier_memcpy_lengths_257_to_1100_sparse_offsets" };
-		rt_ut::unit_test<memcpyMediumName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_lengths_257_to_1100_sparse_offsets", true>::assert_eq(true, [] {
 			return sweepLengths(257, 1100, 9, memcpy_copier{});
 		});
 
-		static constexpr rt_ut::string_literal memcpyBucketBoundariesName{ "jsonifier_memcpy_power_of_two_boundaries_to_1mib" };
-		rt_ut::unit_test<memcpyBucketBoundariesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_power_of_two_boundaries_to_1mib", true>::assert_eq(true, [] {
 			std::vector<uint64_t> lengths;
 			bucketBoundaryLengths(1ULL << 20, lengths);
 			for (uint64_t length: lengths) {
@@ -187,8 +180,7 @@ namespace memcpy_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpyLargeOddName{ "jsonifier_memcpy_large_odd_lengths" };
-		rt_ut::unit_test<memcpyLargeOddName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_large_odd_lengths", true>::assert_eq(true, [] {
 			for (uint64_t length: { 1999ULL, 4097ULL, 65537ULL, 100003ULL, 1048583ULL }) {
 				if (!sweepLength(length, 3, memcpy_copier{})) {
 					return false;
@@ -197,8 +189,7 @@ namespace memcpy_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpyAllZeroAndOnesName{ "jsonifier_memcpy_uniform_patterns" };
-		rt_ut::unit_test<memcpyAllZeroAndOnesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_uniform_patterns", true>::assert_eq(true, [] {
 			for (uint8_t pattern: { uint8_t{ 0x00 }, uint8_t{ 0xFF }, uint8_t{ 0x80 }, uint8_t{ 0x7F } }) {
 				for (uint64_t length = 0; length <= 160; ++length) {
 					std::vector<uint8_t> src(length + 2, pattern);
@@ -219,8 +210,7 @@ namespace memcpy_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal memcpyRepeatedIntoSameBufferName{ "jsonifier_memcpy_sequential_appends" };
-		rt_ut::unit_test<memcpyRepeatedIntoSameBufferName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_sequential_appends", true>::assert_eq(true, [] {
 			std::string expected;
 			std::vector<char> buffer(1 << 16, '\0');
 			uint64_t cursor = 0;
@@ -236,39 +226,32 @@ namespace memcpy_tests {
 			return std::string_view{ buffer.data(), cursor } == expected;
 		});
 
-		static constexpr rt_ut::string_literal upToZeroName{ "jsonifier_memcpy_up_to_max_0" };
-		rt_ut::unit_test<upToZeroName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_max_0", true>::assert_eq(true, [] {
 			return upToExhaustive<0>();
 		});
 
-		static constexpr rt_ut::string_literal upToSmallMaxesName{ "jsonifier_memcpy_up_to_max_1_through_17_exhaustive" };
-		rt_ut::unit_test<upToSmallMaxesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_max_1_through_17_exhaustive", true>::assert_eq(true, [] {
 			return upToExhaustiveAll<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17>();
 		});
 
-		static constexpr rt_ut::string_literal upToBoundaryMaxesName{ "jsonifier_memcpy_up_to_power_of_two_boundary_maxes_exhaustive" };
-		rt_ut::unit_test<upToBoundaryMaxesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_power_of_two_boundary_maxes_exhaustive", true>::assert_eq(true, [] {
 			return upToExhaustiveAll<31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256>();
 		});
 
-		static constexpr rt_ut::string_literal upToLargeMaxName{ "jsonifier_memcpy_up_to_large_max" };
-		rt_ut::unit_test<upToLargeMaxName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_large_max", true>::assert_eq(true, [] {
 			return sweepLengths(0, 1100, 9, memcpy_up_to_copier<4096>{}) && sweepLength(4096, maxOffset, memcpy_up_to_copier<4096>{}) &&
 				sweepLength(65537, 3, memcpy_up_to_copier<1ULL << 20>{});
 		});
 
-		static constexpr rt_ut::string_literal upToSimdBlockMaxesName{ "jsonifier_memcpy_up_to_simd_block_minus_one_maxes" };
-		rt_ut::unit_test<upToSimdBlockMaxesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_simd_block_minus_one_maxes", true>::assert_eq(true, [] {
 			return upToExhaustiveAll<63, 255, 511>();
 		});
 
-		static constexpr rt_ut::string_literal upToMatchesMemcpyName{ "jsonifier_memcpy_up_to_matches_jsonifier_memcpy" };
-		rt_ut::unit_test<upToMatchesMemcpyName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_up_to_matches_jsonifier_memcpy", true>::assert_eq(true, [] {
 			return upToMatchesMemcpyAll<0, 1, 2, 3, 4, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 512>();
 		});
 
-		static constexpr rt_ut::string_literal upToMatchesStdMemcpyName{ "jsonifier_memcpy_and_up_to_match_std_memcpy" };
-		rt_ut::unit_test<upToMatchesStdMemcpyName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"jsonifier_memcpy_and_up_to_match_std_memcpy", true>::assert_eq(true, [] {
 			for (uint64_t length = 0; length <= 300; ++length) {
 				copy_fixture fixture{ length };
 				std::vector<uint8_t> reference(fixture.dst.size(), dstFill);

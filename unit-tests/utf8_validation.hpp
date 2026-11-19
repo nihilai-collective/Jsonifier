@@ -216,15 +216,13 @@ namespace utf8_validation_tests {
 
 		std::cout << "Width-transition accept sweep: " << (acceptCases - acceptFails) << "/" << acceptCases << " passed" << std::endl;
 		std::cout << "Width-transition reject sweep: " << (rejectCases - rejectFails) << "/" << rejectCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal acceptSweepName{ "width_transition_accept_sweep" };
-		static constexpr rt_ut::string_literal rejectSweepName{ "width_transition_reject_sweep" };
-		rt_ut::unit_test<acceptSweepName, true>::assert_eq(
+		rt_ut::unit_test<"width_transition_accept_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
 			},
 			acceptFails);
-		rt_ut::unit_test<rejectSweepName, true>::assert_eq(
+		rt_ut::unit_test<"width_transition_reject_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -257,8 +255,7 @@ namespace utf8_validation_tests {
 		}
 
 		std::cout << "Unaligned pointer sweep: " << (sweepCases - sweepFails) << "/" << sweepCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal unalignedSweepName{ "unaligned_pointer_sweep" };
-		rt_ut::unit_test<unalignedSweepName, true>::assert_eq(
+		rt_ut::unit_test<"unaligned_pointer_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -269,19 +266,17 @@ namespace utf8_validation_tests {
 	inline void runUnalignedInvalidSequenceSweep() {
 		struct named_invalid_seq {
 			const char* label;
-			std::vector<uint8_t> bytes;
+			std::array<uint8_t, 8> bytes;
 		};
 
-		const std::vector<named_invalid_seq> invalidSeqs{
-			{ "overlong_c0_80", { 0x41, 0xC0, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "surrogate_ed_a0_80", { 0x41, 0xED, 0xA0, 0x80, 0x41, 0x41, 0x41, 0x41 } },
-			{ "bad_cont_c2_41", { 0x41, 0xC2, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "dangling_e0_a0", { 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0xE0, 0xA0 } },
-			{ "overlong_2byte_0x7f", { 0x41, 0xC1, 0xBF, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "overlong_4byte_min", { 0x41, 0xF0, 0x80, 0x80, 0x80, 0x41, 0x41, 0x41 } },
-			{ "invalid_5byte_lead", { 0x41, 0xF8, 0x88, 0x80, 0x80, 0x80, 0x41, 0x41 } },
-			{ "valid_then_lone_cont", { 0xC2, 0x80, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-		};
+		static constexpr std::array<named_invalid_seq, 8> invalidSeqs{ { named_invalid_seq{ "overlong_c0_80", { { 0x41, 0xC0, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "surrogate_ed_a0_80", { { 0x41, 0xED, 0xA0, 0x80, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "bad_cont_c2_41", { { 0x41, 0xC2, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "dangling_e0_a0", { { 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0xE0, 0xA0 } } },
+			named_invalid_seq{ "overlong_2byte_0x7f", { { 0x41, 0xC1, 0xBF, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "overlong_4byte_min", { { 0x41, 0xF0, 0x80, 0x80, 0x80, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "invalid_5byte_lead", { { 0x41, 0xF8, 0x88, 0x80, 0x80, 0x80, 0x41, 0x41 } } },
+			named_invalid_seq{ "valid_then_lone_cont", { { 0xC2, 0x80, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } } } } };
 
 		static constexpr uint64_t maxAlignOffset = 96;
 
@@ -308,8 +303,7 @@ namespace utf8_validation_tests {
 		}
 
 		std::cout << "Unaligned invalid-sequence sweep: " << (sweepCases - falseAcceptFails) << "/" << sweepCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal unalignedInvalidSweepName{ "unaligned_invalid_sequence_sweep" };
-		rt_ut::unit_test<unalignedInvalidSweepName, true>::assert_eq(
+		rt_ut::unit_test<"unaligned_invalid_sequence_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -323,10 +317,9 @@ namespace utf8_validation_tests {
 		const uint64_t pageSize	  = systemPageSize > 0 ? static_cast<uint64_t>(systemPageSize) : 4096;
 
 		void* region = mmap(nullptr, pageSize * 2, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		static constexpr rt_ut::string_literal pageBoundaryName{ "page_boundary_fault_check" };
 		if (region == MAP_FAILED) {
 			std::cout << "SKIPPED page_boundary_fault_check: mmap failed" << std::endl;
-			rt_ut::unit_test<pageBoundaryName, true>::assert_eq(true, [] {
+			rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(true, [] {
 				return true;
 			});
 			return;
@@ -335,7 +328,7 @@ namespace utf8_validation_tests {
 		if (mprotect(static_cast<uint8_t*>(region) + pageSize, pageSize, PROT_NONE) != 0) {
 			std::cout << "SKIPPED page_boundary_fault_check: mprotect failed" << std::endl;
 			munmap(region, pageSize * 2);
-			rt_ut::unit_test<pageBoundaryName, true>::assert_eq(true, [] {
+			rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(true, [] {
 				return true;
 			});
 			return;
@@ -352,7 +345,7 @@ namespace utf8_validation_tests {
 
 		munmap(region, pageSize * 2);
 
-		rt_ut::unit_test<pageBoundaryName, true>::assert_eq(
+		rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(
 			true,
 			[](bool r) {
 				return r;

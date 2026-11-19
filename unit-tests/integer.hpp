@@ -29,6 +29,14 @@ namespace int_validation_tests {
 		return;
 	}
 
+	template<bool nullTerminated> inline void genericIntTestsImpl() {
+		std::cout << "Generic Int Pass Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<int64_t, int64_t, inputValues, outputValues, false, false, nullTerminated, generic_number_pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		std::cout << "Generic Int Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		fail_test_runner<int64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+	}
+
 	inline void runTests() {
 		intTestsImpl<false, false, false>();
 		intTestsImpl<false, true, false>();
@@ -38,6 +46,8 @@ namespace int_validation_tests {
 		intTestsImpl<false, true, true>();
 		intTestsImpl<true, false, true>();
 		intTestsImpl<true, true, true>();
+		genericIntTestsImpl<false>();
+		genericIntTestsImpl<true>();
 		std::cout << "Int validation tests complete." << std::endl;
 	}
 }
@@ -62,6 +72,14 @@ namespace uint_validation_tests {
 		return;
 	}
 
+	template<bool nullTerminated> inline void genericUintTestsImpl() {
+		std::cout << "Generic Uint Pass Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<uint64_t, uint64_t, inputValues, outputValues, false, false, nullTerminated, generic_number_pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		std::cout << "Generic Uint Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		fail_test_runner<uint64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+	}
+
 	inline void runTests() {
 		uintTestsImpl<false, false, false>();
 		uintTestsImpl<false, true, false>();
@@ -71,6 +89,8 @@ namespace uint_validation_tests {
 		uintTestsImpl<false, true, true>();
 		uintTestsImpl<true, false, true>();
 		uintTestsImpl<true, true, true>();
+		genericUintTestsImpl<false>();
+		genericUintTestsImpl<true>();
 		std::cout << "Uint validation tests complete." << std::endl;
 	}
 

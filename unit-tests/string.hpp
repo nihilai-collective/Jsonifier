@@ -7,6 +7,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "conformance.hpp"
 
 namespace string_validation_tests {
 
@@ -107,6 +108,42 @@ namespace string_validation_tests {
 		fail_test_runner<std::string, failValues, partial, knownOrder, nullTerminated, fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
 	}
 
+	template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated>
+	struct generic_pass_tests_runner {
+		template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) } + ", Generic, " +
+				testTypeNullTerminated<nullTerminated> };
+			const std::string input{ pass_tests[index].data(), pass_tests[index].size() };
+			value_type_in data{};
+			rt_ut::unit_test<testName, true>::assert_eq(pass_values[index], [&]() {
+				auto doc = parser.iterate<jsonifier::parse_options{ .nullTerminated = nullTerminated }>(input);
+				if (doc.getString(data) != jsonifier::internal::parse_statuses::success || !doc.atEnd()) {
+					data = "<generic parse failure>";
+				}
+				return static_cast<value_type_out>(data);
+			});
+		}
+	};
+
+	template<typename value_type_in, const auto& fail_tests, bool partial, bool knownOrder, bool nullTerminated> struct generic_fail_tests_runner {
+		template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) } + ", Generic, " +
+				testTypeNullTerminated<nullTerminated> };
+			const std::string input{ fail_tests[index].data(), fail_tests[index].size() };
+			rt_ut::unit_test<testName, true>::assert_ne(true, [&]() {
+				return conformance_tests::genericStatus<nullTerminated>(input, parser) == jsonifier::internal::parse_statuses::success;
+			});
+		}
+	};
+
+	template<bool nullTerminated> inline void genericStringTestsImpl() {
+		std::cout << "Generic String Pass Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		pass_test_runner<std::string_view, std::string, inputValues, outputValues, false, false, nullTerminated, generic_pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
+		std::cout << "Generic String Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		fail_test_runner<std::string, failValues, false, false, nullTerminated, generic_fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+	}
+
 	inline void runTests() {
 		stringTestsImpl<false, false, false>();
 		stringTestsImpl<false, true, false>();
@@ -116,6 +153,8 @@ namespace string_validation_tests {
 		stringTestsImpl<false, true, true>();
 		stringTestsImpl<true, false, true>();
 		stringTestsImpl<true, true, true>();
+		genericStringTestsImpl<false>();
+		genericStringTestsImpl<true>();
 		std::cout << "String validation tests complete." << std::endl;
 	}
 

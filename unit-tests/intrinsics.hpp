@@ -29,8 +29,7 @@ namespace intrinsics_tests {
 	inline void runTests() {
 		std::cout << "SIMD Intrinsics Layer Tests (active backend: " << jsonifier::cpuArchName << ", width: " << activeWidth << " bytes)" << std::endl;
 
-		static constexpr rt_ut::string_literal opCmpEqAllMatchName{ "op_cmp_eq_all_match" };
-		rt_ut::unit_test<opCmpEqAllMatchName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_cmp_eq_all_match", true>::assert_eq(true, [] {
 			auto a		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x41));
 			auto b		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x41));
 			auto allMatch = jsonifier::internal::simd::opCmpEq(a, b);
@@ -38,8 +37,7 @@ namespace intrinsics_tests {
 			return allMatch != noMatch && allMatch == jsonifier::internal::simd::opCmpEq(a, b);
 		});
 
-		static constexpr rt_ut::string_literal opCmpEqNoMatchName{ "op_cmp_eq_no_match" };
-		rt_ut::unit_test<opCmpEqNoMatchName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_cmp_eq_no_match", true>::assert_eq(true, [] {
 			auto a		   = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x41));
 			auto b		   = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x3A));
 			auto noMatch   = jsonifier::internal::simd::opCmpEq(a, b);
@@ -47,8 +45,7 @@ namespace intrinsics_tests {
 			return noMatch != selfMatch;
 		});
 
-		static constexpr rt_ut::string_literal opCmpEqSingleBytePositionsName{ "op_cmp_eq_single_byte_positions_distinct" };
-		rt_ut::unit_test<opCmpEqSingleBytePositionsName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_cmp_eq_single_byte_positions_distinct", true>::assert_eq(true, [] {
 			alignas(64) uint8_t buffer[activeWidth];
 			auto needle = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x3A));
 			std::vector<decltype(jsonifier::internal::simd::opCmpEq(jsonifier::internal::simd::gatherValues<active_simd_t>(buffer), needle))> results;
@@ -69,8 +66,7 @@ namespace intrinsics_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal opBitMaskAllZeroName{ "op_bit_mask_all_zero" };
-		rt_ut::unit_test<opBitMaskAllZeroName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_bit_mask_all_zero", true>::assert_eq(true, [] {
 			auto zero	  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x00));
 			auto ones	  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xFF));
 			auto zeroMask = jsonifier::internal::simd::opBitMask(zero);
@@ -78,8 +74,7 @@ namespace intrinsics_tests {
 			return zeroMask != onesMask && zeroMask == jsonifier::internal::simd::opBitMask(zero);
 		});
 
-		static constexpr rt_ut::string_literal opBitMaskAllOnesName{ "op_bit_mask_all_ones" };
-		rt_ut::unit_test<opBitMaskAllOnesName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_bit_mask_all_ones", true>::assert_eq(true, [] {
 			auto ones	  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xFF));
 			auto zero	  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x00));
 			auto onesMask = jsonifier::internal::simd::opBitMask(ones);
@@ -87,8 +82,7 @@ namespace intrinsics_tests {
 			return onesMask != zeroMask && onesMask == jsonifier::internal::simd::opBitMask(ones);
 		});
 
-		static constexpr rt_ut::string_literal opBitMaskSingleBitSweepName{ "op_bit_mask_single_bit_sweep_distinct" };
-		rt_ut::unit_test<opBitMaskSingleBitSweepName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_bit_mask_single_bit_sweep_distinct", true>::assert_eq(true, [] {
 			alignas(64) uint8_t buffer[activeWidth];
 			std::memset(buffer, 0x00, activeWidth);
 			auto baseline	  = jsonifier::internal::simd::gatherValues<active_simd_t>(buffer);
@@ -115,8 +109,7 @@ namespace intrinsics_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal opBitMaskRawStructuralSweepName{ "op_bit_mask_raw_structural_sweep_distinct" };
-		rt_ut::unit_test<opBitMaskRawStructuralSweepName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_bit_mask_raw_structural_sweep_distinct", true>::assert_eq(true, [] {
 			alignas(64) uint8_t buffer[activeWidth];
 			auto needle = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x3A));
 			std::memset(buffer, 0x41, activeWidth);
@@ -146,16 +139,14 @@ namespace intrinsics_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal opAndBasicName{ "op_and_basic" };
-		rt_ut::unit_test<opAndBasicName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_and_basic", true>::assert_eq(true, [] {
 			auto a	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xF0));
 			auto b	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x0F));
 			auto res = jsonifier::internal::simd::opAnd(a, b);
 			return static_cast<bool>(jsonifier::internal::simd::opTest(res));
 		});
 
-		static constexpr rt_ut::string_literal opOrBasicName{ "op_or_basic" };
-		rt_ut::unit_test<opOrBasicName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_or_basic", true>::assert_eq(true, [] {
 			auto a		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0xF0));
 			auto b		  = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x0F));
 			auto res	  = jsonifier::internal::simd::opOr(a, b);
@@ -165,23 +156,20 @@ namespace intrinsics_tests {
 			return match != mismatch;
 		});
 
-		static constexpr rt_ut::string_literal opXorSelfName{ "op_xor_self_is_zero" };
-		rt_ut::unit_test<opXorSelfName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_xor_self_is_zero", true>::assert_eq(true, [] {
 			auto a	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x5A));
 			auto res = jsonifier::internal::simd::opXor(a, a);
 			return static_cast<bool>(jsonifier::internal::simd::opTest(res));
 		});
 
-		static constexpr rt_ut::string_literal opSubsSaturateName{ "op_subs_saturates_at_zero" };
-		rt_ut::unit_test<opSubsSaturateName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_subs_saturates_at_zero", true>::assert_eq(true, [] {
 			auto a	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x05));
 			auto b	 = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x10));
 			auto res = jsonifier::internal::simd::opSubs(a, b);
 			return static_cast<bool>(jsonifier::internal::simd::opTest(res));
 		});
 
-		static constexpr rt_ut::string_literal opSrLiShiftName{ "op_sr_li_shift" };
-		rt_ut::unit_test<opSrLiShiftName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_sr_li_shift", true>::assert_eq(true, [] {
 			alignas(64) uint8_t src[activeWidth];
 			for (uint64_t i = 0; i < activeWidth; ++i) {
 				src[i] = 0x80;
@@ -199,8 +187,7 @@ namespace intrinsics_tests {
 			return true;
 		});
 
-		static constexpr rt_ut::string_literal opAlignRBoundaryName{ "op_align_r_boundary_shift" };
-		rt_ut::unit_test<opAlignRBoundaryName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"op_align_r_boundary_shift", true>::assert_eq(true, [] {
 			alignas(64) uint8_t currentBuf[activeWidth];
 			alignas(64) uint8_t previousBuf[activeWidth];
 			std::memset(currentBuf, 0x41, activeWidth);
@@ -213,20 +200,17 @@ namespace intrinsics_tests {
 			return shiftedOut[0] == 0x42 && shiftedOut[activeWidth - 1] == 0x41;
 		});
 
-		static constexpr rt_ut::string_literal isAsciiTrueName{ "is_ascii_true_for_ascii" };
-		rt_ut::unit_test<isAsciiTrueName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"is_ascii_true_for_ascii", true>::assert_eq(true, [] {
 			auto v = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x41));
 			return jsonifier::internal::simd::isAscii(v);
 		});
 
-		static constexpr rt_ut::string_literal isAsciiFalseName{ "is_ascii_false_for_high_bit" };
-		rt_ut::unit_test<isAsciiFalseName, true>::assert_eq(false, [] {
+		rt_ut::unit_test<"is_ascii_false_for_high_bit", true>::assert_eq(false, [] {
 			auto v = jsonifier::internal::simd::gatherValue<active_simd_t>(static_cast<uint8_t>(0x80));
 			return jsonifier::internal::simd::isAscii(v);
 		});
 
-		static constexpr rt_ut::string_literal storeRoundTripName{ "store_round_trip" };
-		rt_ut::unit_test<storeRoundTripName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"store_round_trip", true>::assert_eq(true, [] {
 			alignas(64) uint8_t src[activeWidth];
 			alignas(64) uint8_t dst[activeWidth];
 			for (uint64_t i = 0; i < activeWidth; ++i) {
@@ -237,8 +221,7 @@ namespace intrinsics_tests {
 			return std::memcmp(src, dst, activeWidth) == 0;
 		});
 
-		static constexpr rt_ut::string_literal storeURoundTripUnalignedName{ "store_u_round_trip_unaligned" };
-		rt_ut::unit_test<storeURoundTripUnalignedName, true>::assert_eq(true, [] {
+		rt_ut::unit_test<"store_u_round_trip_unaligned", true>::assert_eq(true, [] {
 			alignas(64) uint8_t srcBuf[activeWidth * 2];
 			alignas(64) uint8_t dstBuf[activeWidth * 2];
 			for (uint64_t i = 0; i < activeWidth * 2; ++i) {

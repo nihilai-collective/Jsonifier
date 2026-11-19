@@ -187,6 +187,68 @@ template<typename value_type_in, const auto& fail_tests, bool partial, bool know
 	}
 };
 
+struct plain_integer_literal {
+	static constexpr bool impl(std::string_view text) {
+		uint64_t index{ !text.empty() && text[0] == '-' ? 1ull : 0ull };
+		if (index == text.size()) {
+			return false;
+		}
+		for (; index < text.size(); ++index) {
+			if (text[index] < '0' || text[index] > '9') {
+				return false;
+			}
+		}
+		return true;
+	}
+};
+
+struct generic_number_reader {
+	template<typename value_type, bool minified> static jsonifier::generic::parse_statuses impl(const jsonifier::generic::generic_value<minified>& target, value_type& out) {
+		if constexpr (std::is_same_v<value_type, int64_t>) {
+			return target.getInt64(out);
+		} else if constexpr (std::is_same_v<value_type, uint64_t>) {
+			return target.getUint64(out);
+		} else {
+			return target.getDouble(out);
+		}
+	}
+};
+
+template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated>
+struct generic_number_pass_tests_runner {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+		if constexpr (std::is_floating_point_v<value_type_in> || plain_integer_literal::impl(pass_tests[index])) {
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) } +
+				", Generic, " + testTypeNullTerminated<nullTerminated> };
+			const std::string input{ pass_tests[index].data(), pass_tests[index].size() };
+			rt_ut::unit_test<testName, true>::template assert_eq<true>([&]() {
+				auto doc = parser.iterate<jsonifier::parse_options{ .nullTerminated = nullTerminated }>(input);
+				value_type_in data{};
+				const bool parsed{ generic_number_reader::impl(doc, data) == jsonifier::generic::parse_statuses::success && doc.atEnd() };
+				const value_type_in expected{ static_cast<value_type_in>(pass_values[index]) };
+				if (!parsed || std::bit_cast<std::array<uint8_t, sizeof(value_type_in)>>(data) != std::bit_cast<std::array<uint8_t, sizeof(value_type_in)>>(expected)) {
+					std::cout << "Generic value: " << data << ", expected: " << expected << std::endl;
+					return false;
+				}
+				return true;
+			});
+		}
+	}
+};
+
+template<typename value_type_in, const auto& fail_tests, bool partial, bool knownOrder, bool nullTerminated> struct generic_number_fail_tests_runner {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+		static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) } + ", Generic, " +
+			testTypeNullTerminated<nullTerminated> };
+		const std::string input{ fail_tests[index].data(), fail_tests[index].size() };
+		rt_ut::unit_test<testName, true>::assert_ne(true, [&]() {
+			auto doc = parser.iterate<jsonifier::parse_options{ .nullTerminated = nullTerminated }>(input);
+			value_type_in data{};
+			return generic_number_reader::impl(doc, data) == jsonifier::generic::parse_statuses::success && doc.atEnd();
+		});
+	}
+};
+
 template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated,
 	template<typename, typename, const auto&, const auto&, bool, bool, bool> typename functor, typename integer_sequence>
 struct pass_test_runner {
