@@ -153,7 +153,22 @@ namespace jsonifier::internal {
 	concept float32_types = float_types<value_type> && sizeof(remove_cvref_t<value_type>) == 4;
 
 	template<typename value_type>
-	concept string_view_convertible_types = std::convertible_to<base_t<value_type>, std::string_view>;
+	concept string_view_convertible_types = std::convertible_to<base_t<value_type>, const char*> || requires(const base_t<value_type>& value) {
+		{ value.data() } -> std::convertible_to<const char*>;
+		{ value.size() } -> std::convertible_to<uint64_t>;
+	};
+
+	template<typename value_type>
+	concept pointer_length_view_types = std::is_trivially_copyable_v<value_type> && std::is_constructible_v<value_type, const char*, uint64_t> && requires(const value_type& value) {
+		{ value.data() } -> std::convertible_to<const char*>;
+		{ value.size() } -> std::convertible_to<uint64_t>;
+		};
+
+	template<typename value_type>
+	concept search_string_types = requires(const value_type& value) {
+		{ value.data() } -> std::convertible_to<const char*>;
+		{ value.size() } -> std::convertible_to<uint64_t>;
+	};
 
 	template<typename value_type_01, typename value_type_02>
 	concept at_least_one_enum_types = ( enum_types<value_type_01> && uint_types<value_type_02> ) || (uint_types<value_type_01> && enum_types<value_type_02>);

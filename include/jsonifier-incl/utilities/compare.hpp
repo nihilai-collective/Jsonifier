@@ -602,3 +602,5 @@ namespace jsonifier::internal {
 	};
 
 }
+
+#include <jsonifier-incl/utilities/string_search.hpp>

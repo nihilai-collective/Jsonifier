@@ -34,6 +34,7 @@
 #include "round_trip.hpp"
 #include "string.hpp"
 #include "string_class.hpp"
+#include "string_search.hpp"
 #include "string_literal_comparator.hpp"
 #include "tuple.hpp"
 #include "unit_tests.hpp"
@@ -72,6 +73,7 @@ namespace tests {
 		round_trip_tests::runTests();
 		string_validation_tests::runTests();
 		string_class_tests::runTests();
+		string_search_tests::runTests();
 		string_literal_comparator_impl_tests::runTests();
 		tuple_tests::runTests();
 		unit_tests::runTests();

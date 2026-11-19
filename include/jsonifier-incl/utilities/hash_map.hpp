@@ -17,9 +17,9 @@
 
 namespace std {
 
-	template<jsonifier::internal::string_types string_type> struct hash<string_type> : public std::hash<std::string_view> {
+	template<jsonifier::internal::string_types string_type> struct hash<string_type> {
 		inline uint64_t operator()(const string_type& stringNew) const noexcept {
-			return std::hash<std::string_view>::operator()(std::string_view{ stringNew });
+			return jsonifier::internal::rt_key_hasher<0x9E3779B97F4A7C15ull>::hashKeyRt(std::bit_cast<jsonifier::internal::read_buffer_ptr>(stringNew.data()), stringNew.size());
 		}
 	};
 }
@@ -619,7 +619,7 @@ namespace jsonifier::internal {
 	}
 
 	struct hash_map_type_tracker {
-		JSONIFIER_INLINE void addType(const std::string& typeName, hash_map_types hash_map_type) {
+		JSONIFIER_INLINE void addType(const string& typeName, hash_map_types hash_map_type) {
 			types[typeName] = hash_map_type;
 		}
 
@@ -630,7 +630,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		std::unordered_map<std::string, hash_map_types> types{};
+		std::unordered_map<string, hash_map_types> types{};
 	};
 
 #if !defined(NDEBUG)

@@ -10,6 +10,7 @@
 #include <jsonifier-incl/containers/iterator.hpp>
 #include <jsonifier-incl/core/fastio.hpp>
 #include <jsonifier-incl/utilities/compare.hpp>
+#include <jsonifier-incl/utilities/string_search_fwd.hpp>
 
 namespace jsonifier {
 
@@ -275,11 +276,11 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type findFirstNotOf(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().find_first_not_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstNotOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type findLastNotOf(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().find_last_not_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findLastNotOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		static consteval size_type maxSize() noexcept {
@@ -289,11 +290,11 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type findFirstOf(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().find_first_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type findLastOf(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().find_last_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findLastOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		JSONIFIER_INLINE void insert(iterator values, value_type toInsert) noexcept {
@@ -308,11 +309,11 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type rfind(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().rfind(std::forward<arg_types>(args)...);
+			return internal::string_search::rfind(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE size_type find(arg_types&&... args) const noexcept {
-			return operator std::basic_string_view<value_type>().find(std::forward<arg_types>(args)...);
+			return internal::string_search::find(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename string_base_new> JSONIFIER_INLINE void swap(string_base_new&& other) noexcept {
@@ -335,8 +336,10 @@ namespace jsonifier {
 			return dataVal[index];
 		}
 
-		JSONIFIER_INLINE operator std::basic_string_view<value_type>() const noexcept {
-			return { dataVal, sizeVal };
+		template<internal::pointer_length_view_types view_type>
+			requires(!std::same_as<view_type, string_view>)
+		JSONIFIER_INLINE operator view_type() const noexcept {
+			return view_type{ dataVal, sizeVal };
 		}
 
 		JSONIFIER_INLINE void append(const string_base& newSize) noexcept {
@@ -775,19 +778,19 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstNotOf(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.find_first_not_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstNotOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastNotOf(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.find_last_not_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findLastNotOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstOf(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.find_first_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastOf(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.find_last_of(std::forward<arg_types>(args)...);
+			return internal::string_search::findLastOf(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename iterator_type01, typename iterator_type02>
@@ -808,11 +811,11 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type rfind(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.rfind(std::forward<arg_types>(args)...);
+			return internal::string_search::rfind(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type find(arg_types&&... args) const noexcept {
-			return std::basic_string_view<value_type>{ data(), size() }.find(std::forward<arg_types>(args)...);
+			return internal::string_search::find(data(), size(), std::forward<arg_types>(args)...);
 		}
 
 		template<typename string_base_new> JSONIFIER_INLINE constexpr void swap(string_base_new&& other) noexcept {
