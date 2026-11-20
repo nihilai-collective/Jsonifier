@@ -13,7 +13,11 @@ namespace jsonifier::internal {
 	template<typename derived_type_new> struct generic_iterator {
 		using derived_type = derived_type_new;
 
-		static constexpr uint64_t smallDocumentBytes{ simdBytesPerStep };
+#if defined(JSONIFIER_SMALL_DOCUMENT_BYTES)
+		static constexpr uint64_t smallDocumentBytes{ JSONIFIER_SMALL_DOCUMENT_BYTES };
+#else
+		static constexpr uint64_t smallDocumentBytes{ tunedSmallDocumentBytes };
+#endif
 
 		template<parse_options options = parse_options{}, typename buffer_type> generic::generic_document<options.minified> iterate(const buffer_type& in) {
 			using generic::error_codes;
@@ -32,28 +36,30 @@ namespace jsonifier::internal {
 			state.root			  = rootIter;
 			state.end			  = rootIter + length;
 			state.cursor		  = state.tape;
-			state.depth			  = 0;
+			state.depth			  = 1;
 			if (tapeCount > 1 && !document_state::isOpener(rootIter[state.tape[0]])) [[unlikely]] {
 				return document{ error_codes::trailing_content };
 			}
 			data.arena.reset(length);
-			data.fieldIndex.reset();
 			state.arena		 = &data.arena;
-			state.fieldIndex = &data.fieldIndex;
-			return document{ &state, state.tape, 0 };
+			return document{ &state, state.tape, 1 };
 		}
 
 		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {
 			document_state& state = derivedRef.genericStorage().stateFor();
 			if (length < smallDocumentBytes) {
 				derivedRef.podSection.template reset<options.minified>(rootIter, length);
-				state.tape	  = derivedRef.podSection.begin();
-				state.tapeEnd = derivedRef.podSection.end();
+				state.tape			= derivedRef.podSection.begin();
+				state.tapeEnd		= derivedRef.podSection.end();
+				state.closeTapeBase = state.tape;
+				state.closes		= nullptr;
 				return derivedRef.podSection.getTapeCount();
 			}
 			derivedRef.section.template reset<options.minified>(rootIter, length);
-			state.tape	  = derivedRef.section.begin();
-			state.tapeEnd = derivedRef.section.end();
+			state.tape			= derivedRef.section.begin();
+			state.tapeEnd		= derivedRef.section.end();
+			state.closeTapeBase = state.tape;
+			state.closes		= derivedRef.section.closesBegin();
 			return derivedRef.section.getTapeCount();
 		}
 

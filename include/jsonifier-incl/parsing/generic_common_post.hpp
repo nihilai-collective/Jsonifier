@@ -15,7 +15,6 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE generic_storage& operator=(generic_storage&& other) noexcept {
 			if (this != &other) [[likely]] {
-				fieldIndex	= internal::move(other.fieldIndex);
 				arena		= internal::move(other.arena);
 				state		= document_state{};
 				other.state = document_state{};
@@ -23,7 +22,7 @@ namespace jsonifier::internal {
 			return *this;
 		}
 
-		JSONIFIER_INLINE generic_storage(generic_storage&& other) noexcept : fieldIndex{ internal::move(other.fieldIndex) }, arena{ internal::move(other.arena) } {
+		JSONIFIER_INLINE generic_storage(generic_storage&& other) noexcept : arena{ internal::move(other.arena) } {
 			other.state = document_state{};
 		}
 
@@ -34,7 +33,6 @@ namespace jsonifier::internal {
 			return state;
 		}
 
-		field_index_map fieldIndex{};
 		document_state state{};
 		string_arena arena{};
 	};
@@ -51,8 +49,8 @@ namespace jsonifier::generic {
 			return object{ error_codes::incorrect_type };
 		}
 		doc->cursor = iter + 1;
-		doc->depth	= depth + 1;
-		return object{ doc, iter, depth + 1 };
+		doc->depth	= depth;
+		return object{ doc, iter, depth };
 	}
 
 	template<bool minified> JSONIFIER_INLINE generic_array<minified> generic_value<minified>::getArray() const noexcept {
@@ -63,13 +61,8 @@ namespace jsonifier::generic {
 			return array{ error_codes::incorrect_type };
 		}
 		doc->cursor = iter + 1;
-		doc->depth	= depth + 1;
-		return array{ doc, iter, depth + 1 };
-	}
-
-	template<bool minified> template<internal::string_view_convertible_types key_type>
-	JSONIFIER_INLINE generic_value<minified> generic_value<minified>::operator[](key_type&& key) const noexcept {
-		return getObject().findFieldUnordered(static_cast<string_view>(key));
+		doc->depth	= depth;
+		return array{ doc, iter, depth };
 	}
 
 	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::operator[](uint64_t index) const noexcept {
@@ -93,10 +86,6 @@ namespace jsonifier::generic {
 		}
 		token = unescapedToken;
 		return true;
-	}
-
-	template<bool minified> JSONIFIER_INLINE generic_value<minified> generic_value<minified>::findFieldUnordered(string_view key) const noexcept {
-		return getObject().findFieldUnordered(key);
 	}
 
 	template<bool minified> JSONIFIER_INLINE error_codes generic_value<minified>::parsePointerIndex(string_view token, uint64_t& index) noexcept {

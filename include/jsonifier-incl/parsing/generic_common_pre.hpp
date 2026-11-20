@@ -181,14 +181,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	struct key_matcher {
-		template<bool minified, typename state_type, typename key_type> JSONIFIER_INLINE static bool impl(state_type&& state, key_type&& key, uint32_t keyIndex) noexcept {
-			return state->template keyMatches<minified>(state->tape + keyIndex, key);
-		}
-	};
-
 	struct document_state;
-	class field_index_map;
 
 	struct plain_string_copy_context {
 		plain_string_copy_context() noexcept = delete;

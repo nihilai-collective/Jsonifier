@@ -16,21 +16,62 @@ namespace jsonifier::internal {
 	using write_structural_index_ptr = uint32_t* __restrict;
 	using write_buffer_ptr			 = uint8_t* __restrict;
 
-#if JSONIFIER_AVX512
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-#elif JSONIFIER_AVX2
-	inline constexpr uint64_t simdTapeStep{ 4 };
-	#if JSONIFIER_COMPILER_CLANG
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
-	#else
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-	#endif
-#elif JSONIFIER_NEON
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
+#if JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 512 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 8 };
+	inline constexpr uint64_t tunedTapeStep{ 4 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_MSVC
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 512 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 8 };
+	inline constexpr uint64_t tunedTapeStep{ 4 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_WINDOWS
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 65536 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 8 };
+	inline constexpr uint64_t tunedTapeStep{ 4 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 0 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 2 };
+	inline constexpr uint64_t tunedTapeStep{ 4 };
+#elif JSONIFIER_NEON && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 4096 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 8 };
+#elif JSONIFIER_NEON && JSONIFIER_COMPILER_CLANG
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 512 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
+#elif JSONIFIER_AVX2 && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 512 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
+#elif JSONIFIER_AVX2 && JSONIFIER_COMPILER_MSVC
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 128 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 2 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
+#elif JSONIFIER_AVX2 && JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_WINDOWS
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 0 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
+#elif JSONIFIER_AVX2 && JSONIFIER_COMPILER_CLANG
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 65536 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
 #else
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
+	inline constexpr uint64_t tunedSmallDocumentBytes{ 256 };
+	inline constexpr uint64_t tunedBlocksPerStep{ 4 };
+	inline constexpr uint64_t tunedTapeStep{ 2 };
+#endif
+
+#if defined(JSONIFIER_SIMD_BLOCKS_PER_STEP)
+	inline constexpr uint64_t simdBlocksPerStep{ JSONIFIER_SIMD_BLOCKS_PER_STEP };
+#else
+	inline constexpr uint64_t simdBlocksPerStep{ tunedBlocksPerStep };
+#endif
+
+#if defined(JSONIFIER_SIMD_TAPE_STEP)
+	inline constexpr uint64_t simdTapeStep{ JSONIFIER_SIMD_TAPE_STEP };
+#else
+	inline constexpr uint64_t simdTapeStep{ tunedTapeStep };
 #endif
 
 #if JSONIFIER_ANY_AVX
@@ -84,14 +125,14 @@ namespace jsonifier::internal {
 	inline constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::getValue(internal::cpu_property_types::alignment) };
 	inline constexpr uint64_t simdRegistersPerBlock{ 64 / simdBytesPerRegister };
 	inline constexpr uint64_t simdBytesPerBlock{ 64 };
-	inline constexpr uint64_t simdBytesPerStep = simdBlocksPerStep * simdBytesPerBlock;
+	inline constexpr uint64_t simdBytesPerStep{ simdBlocksPerStep * simdBytesPerBlock };
 
 #if JSONIFIER_AVX2 && !JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
 	inline constexpr uint64_t podBlocksPerStep{ 4 };
 #else
 	inline constexpr uint64_t podBlocksPerStep{ simdBlocksPerStep };
 #endif
-	inline constexpr uint64_t podBytesPerStep = podBlocksPerStep * simdBytesPerBlock;
+	inline constexpr uint64_t podBytesPerStep{ podBlocksPerStep * simdBytesPerBlock };
 
 	static_assert(simdBytesPerRegister == sizeof(jsonifier_simd_int_t),
 		"simdBytesPerRegister disagrees with the actual register width; simdRegistersPerBlock and every bitmask collapse depend on these matching.");

@@ -113,6 +113,21 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
+	struct bracket_candidate_collector {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01, const uint8x16_t bracketBits) noexcept {
+			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
+			const uint8x16_t match0 = vandq_u8(vceqq_u8(vandq_u8(in01.template get<0>(), bracketBits), bracketBits), bitMask);
+			const uint8x16_t match1 = vandq_u8(vceqq_u8(vandq_u8(in01.template get<1>(), bracketBits), bracketBits), bitMask);
+			const uint8x16_t match2 = vandq_u8(vceqq_u8(vandq_u8(in01.template get<2>(), bracketBits), bracketBits), bitMask);
+			const uint8x16_t match3 = vandq_u8(vceqq_u8(vandq_u8(in01.template get<3>(), bracketBits), bracketBits), bitMask);
+			uint8x16_t sum0			= vpaddq_u8(match0, match1);
+			const uint8x16_t sum1	= vpaddq_u8(match2, match3);
+			sum0					= vpaddq_u8(sum0, sum1);
+			sum0					= vpaddq_u8(sum0, sum0);
+			return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
+		}
+	};
+
 	struct ws_op_collector {
 		JSONIFIER_INLINE static uint64x2_t impl(const simd_array_t in01, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t,
 			const jsonifier_simd_int_t whitespaceTableLocal) noexcept {

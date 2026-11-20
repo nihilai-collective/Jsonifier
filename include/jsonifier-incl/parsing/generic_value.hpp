@@ -37,8 +37,6 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE generic_value(const generic_value& other) noexcept : iter{ other.iter }, doc{ other.doc }, depth{ other.depth }, error_code{ other.error_code } {
 		}
 
-		template<internal::string_view_convertible_types key_type> JSONIFIER_INLINE value operator[](key_type&& key) const noexcept;
-
 		[[nodiscard]] JSONIFIER_INLINE error_codes rawJson(string_view& out) const noexcept {
 			if (error_code != error_codes::success) [[unlikely]] {
 				return error_code;
@@ -51,6 +49,7 @@ namespace jsonifier::generic {
 				}
 				if (doc->cursor == iter) [[likely]] {
 					doc->cursor = afterClose;
+					doc->depth	= depth - 1;
 				}
 				out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(doc->root + *(afterClose - 1) + 1 - valueStart) };
 				return error_codes::success;
@@ -170,8 +169,6 @@ namespace jsonifier::generic {
 				}
 			}
 		}
-
-		JSONIFIER_INLINE value findFieldUnordered(string_view key) const noexcept;
 
 		JSONIFIER_INLINE value atPointer(string_view pointer) const noexcept;
 
@@ -382,6 +379,7 @@ namespace jsonifier::generic {
 		JSONIFIER_INLINE void consume() const noexcept {
 			if (doc->cursor == iter) [[likely]] {
 				doc->cursor = iter + 1;
+				doc->depth	= depth - 1;
 			}
 		}
 
