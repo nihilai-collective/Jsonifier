@@ -106,6 +106,21 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
+	struct bracket_candidate_collector {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in01, const jsonifier_simd_int_t bracketBits) noexcept {
+			simd_array_t masked;
+			masked.set<0>(opAnd(in01.get<0>(), bracketBits));
+			if constexpr (simdRegistersPerBlock > 1) {
+				masked.set<1>(opAnd(in01.get<1>(), bracketBits));
+				if constexpr (simdRegistersPerBlock > 2) {
+					masked.set<2>(opAnd(in01.get<2>(), bracketBits));
+					masked.set<3>(opAnd(in01.get<3>(), bracketBits));
+				}
+			}
+			return cmp_eq_op::impl(masked, bracketBits);
+		}
+	};
+
 	template<typename rope_block> struct rope_detector : rope_block {
 		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
 			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;

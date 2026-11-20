@@ -33,7 +33,7 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE generic_value<minified> value() const noexcept {
-			return error_code == error_codes::success ? generic_value<minified>{ doc, iter + 2, depth } : generic_value<minified>{ error_code };
+			return error_code == error_codes::success ? generic_value<minified>{ doc, iter + 2, depth + 1 } : generic_value<minified>{ error_code };
 		}
 
 		JSONIFIER_INLINE string_view key() const noexcept {
@@ -57,6 +57,14 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE string_view rawKey() const noexcept {
 			return doc->template rawKey<minified>(iter);
+		}
+
+		JSONIFIER_INLINE uint64_t keyTag() const noexcept {
+			return doc->template keyTag<minified>(iter);
+		}
+
+		static consteval uint64_t keyTagOf(std::string_view key) noexcept {
+			return document_state::keyTagOf(key);
 		}
 
 		JSONIFIER_INLINE error_codes error() const noexcept {
