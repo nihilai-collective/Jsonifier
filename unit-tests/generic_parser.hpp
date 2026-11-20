@@ -47,7 +47,7 @@ namespace generic_parser_tests {
 			summary.sources.emplace_back(iter.source());
 			summary.indices.emplace_back(iter.currentIndex());
 			if (doc.type() == jsonifier::json_types::object) {
-				summary.idSum += extracted<int64_t>(doc.getObject().findFieldUnordered("id"));
+				summary.idSum += extracted<int64_t>(doc.getObject().findField("id"));
 			}
 		}
 		summary.truncated = stream.truncatedBytes();
@@ -86,8 +86,8 @@ namespace generic_parser_tests {
 			std::string input{ "{\"a\":[1,2,3],\"b\":\"x\"} {\"b\":\"y\",\"a\":[4]}" };
 			std::string out{};
 			for (jsonifier::generic::generic_document<false> doc: parser.iterateMany(input)) {
-				out += extracted<std::string_view>(doc.getObject().findFieldUnordered("b"));
-				out += std::to_string(extracted<int64_t>(doc["a"][0]));
+				out += extracted<std::string_view>(doc.findField("b"));
+				out += std::to_string(extracted<int64_t>(doc.findField("a").getArray().at(0)));
 			}
 			return out == "x1y4";
 		});
@@ -195,9 +195,9 @@ namespace generic_parser_tests {
 					++documents;
 					if (doc.type() == jsonifier::json_types::object) {
 						auto object = doc.getObject();
-						idSum += static_cast<uint64_t>(extracted<int64_t>(object.findFieldUnordered("id")));
-						auto nested = object.findFieldUnordered("nested");
-						auto deep	= nested["deep"];
+						idSum += static_cast<uint64_t>(extracted<int64_t>(object.findField("id")));
+						auto nested = object.findField("nested");
+						auto deep	= nested.findField("deep");
 						deepSum += static_cast<uint64_t>(extracted<int64_t>(deep[0]));
 					} else if (doc.type() == jsonifier::json_types::array) {
 						idSum += static_cast<uint64_t>(extracted<int64_t>(doc[0]));
@@ -207,6 +207,32 @@ namespace generic_parser_tests {
 			}
 			return allMatch;
 		});
+	}
+
+	template<bool minified> inline bool tailObjectParses(jsonifier::jsonifier_core& parser, uint64_t padLength) {
+		const std::string pad(padLength, 'x');
+		const std::string input{ minified ? R"({"pad":")" + pad + R"(","k":"a\"b\\","n":-12345,"t":true})"
+										  : "{ \"pad\" : \"" + pad + "\",\n  \"k\" : \"a\\\"b\\\\\" ,\n  \"n\" : -12345 ,\n  \"t\" : true }\n" };
+		auto document{ parser.iterate<jsonifier::parse_options{ .minified = minified }>(input) };
+		return extracted<std::string_view>(document.findField("pad")) == pad && extracted<std::string_view>(document.findField("k")) == "a\"b\\" &&
+			extracted<int64_t>(document.findField("n")) == -12345 && extracted<bool>(document.findField("t"));
+	}
+
+	template<bool minified> inline bool tailArrayParses(jsonifier::jsonifier_core& parser, uint64_t padLength) {
+		const std::string pad(padLength, 'y');
+		const std::string input{ minified ? R"([")" + pad + R"(",1.5e3,"q\\\""])" : "[ \"" + pad + "\" , 1.5e3 ,\n \"q\\\\\\\"\" ]" };
+		auto array{ parser.iterate<jsonifier::parse_options{ .minified = minified }>(input).getArray() };
+		return extracted<std::string_view>(array.at(0)) == pad && extracted<double>(array.at(1)) == 1500.0 && extracted<std::string_view>(array.at(2)) == "q\\\"";
+	}
+
+	template<bool minified> inline bool tailWidthsParse(jsonifier::jsonifier_core& parser) {
+		for (uint64_t padLength{ 0 }; padLength < 300; ++padLength) {
+			if (!tailObjectParses<minified>(parser, padLength) || !tailArrayParses<minified>(parser, padLength)) {
+				std::cout << "tail width mismatch at pad length " << padLength << (minified ? " (minified)" : " (prettified)") << std::endl;
+				return false;
+			}
+		}
+		return true;
 	}
 
 	inline void runTests() {
@@ -229,26 +255,26 @@ namespace generic_parser_tests {
 
 		static constexpr rt_ut::string_literal findInt64Name{ "generic_find_int64" };
 		rt_ut::unit_test<findInt64Name, true>::assert_eq(static_cast<int64_t>(1), [&] {
-			return extracted<int64_t>(parser.iterate(sample)["a"]);
+			return extracted<int64_t>(parser.iterate(sample).findField("a"));
 		});
 
 		static constexpr rt_ut::string_literal nestedStringName{ "generic_nested_string" };
 		rt_ut::unit_test<nestedStringName, true>::assert_eq(true, [&] {
-			return extracted<std::string_view>(parser.iterate(sample)["c"]["d"]["e"]) == "deep";
+			return extracted<std::string_view>(parser.iterate(sample).findField("c").findField("d").findField("e")) == "deep";
 		});
 
 		static constexpr rt_ut::string_literal reAccessName{ "generic_re_access" };
 		rt_ut::unit_test<reAccessName, true>::assert_eq(true, [&] {
 			auto doc			= parser.iterate(sample);
-			const int64_t first = extracted<int64_t>(doc["a"]);
-			const auto nested	= extracted<std::string_view>(doc["c"]["d"]["e"]);
-			return first == 1 && nested == "deep" && extracted<int64_t>(doc["a"]) == 1;
+			const int64_t first = extracted<int64_t>(doc.findField("a"));
+			const auto nested	= extracted<std::string_view>(doc.findField("c").findField("d").findField("e"));
+			return first == 1 && nested == "deep" && extracted<int64_t>(doc.findField("a")) == 1;
 		});
 
 		static constexpr rt_ut::string_literal arrayIterationTypesName{ "generic_array_iteration_types" };
 		rt_ut::unit_test<arrayIterationTypesName, true>::assert_eq(true, [&] {
 			std::string types{};
-			for (jsonifier::generic::generic_value<false> element: parser.iterate(sample)["b"].getArray()) {
+			for (jsonifier::generic::generic_value<false> element: parser.iterate(sample).findField("b").getArray()) {
 				types += static_cast<char>('0' + static_cast<uint8_t>(element.type()));
 			}
 			return types == "33344522";
@@ -256,61 +282,61 @@ namespace generic_parser_tests {
 
 		static constexpr rt_ut::string_literal escapedStringName{ "generic_escaped_string" };
 		rt_ut::unit_test<escapedStringName, true>::assert_eq(true, [&] {
-			return extracted<std::string_view>(parser.iterate(sample)["b"][6]) == "x\ny";
+			return extracted<std::string_view>(parser.iterate(sample).findField("b").getArray().at(6)) == "x\ny";
 		});
 
 		static constexpr rt_ut::string_literal escapedStringIntoStdStringName{ "generic_escaped_string_into_std_string" };
 		rt_ut::unit_test<escapedStringIntoStdStringName, true>::assert_eq(true, [&] {
 			std::string out{};
-			const auto errorCode = parser.iterate(sample)["b"][6].getString(out);
+			const auto errorCode = parser.iterate(sample).findField("b").getArray().at(6).getString(out);
 			return errorCode == error_codes::success && out == "x\ny";
 		});
 
 		static constexpr rt_ut::string_literal escapedStringIntoJsonifierStringName{ "generic_escaped_string_into_jsonifier_string" };
 		rt_ut::unit_test<escapedStringIntoJsonifierStringName, true>::assert_eq(true, [&] {
 			jsonifier::string out{};
-			const auto errorCode = parser.iterate(sample)["b"][6].getString(out);
+			const auto errorCode = parser.iterate(sample).findField("b").getArray().at(6).getString(out);
 			return errorCode == error_codes::success && std::string_view{ out.data(), static_cast<size_t>(out.size()) } == "x\ny";
 		});
 
 		static constexpr rt_ut::string_literal plainStringIntoJsonifierStringName{ "generic_plain_string_into_jsonifier_string" };
 		rt_ut::unit_test<plainStringIntoJsonifierStringName, true>::assert_eq(true, [&] {
 			jsonifier::string out{ "a much longer previous value that must be shrunk" };
-			const auto errorCode = parser.iterate(sample)["b"][7].getString(out);
+			const auto errorCode = parser.iterate(sample).findField("b").getArray().at(7).getString(out);
 			return errorCode == error_codes::success && std::string_view{ out.data(), static_cast<size_t>(out.size()) } == "plain";
 		});
 
 		static constexpr rt_ut::string_literal plainStringIntoStdStringName{ "generic_plain_string_into_std_string" };
 		rt_ut::unit_test<plainStringIntoStdStringName, true>::assert_eq(true, [&] {
 			std::string out{ "previous contents that are longer" };
-			const auto errorCode = parser.iterate(sample)["b"][7].getString(out);
+			const auto errorCode = parser.iterate(sample).findField("b").getArray().at(7).getString(out);
 			return errorCode == error_codes::success && out == "plain";
 		});
 
 		static constexpr rt_ut::string_literal getDoubleName{ "generic_get_double" };
 		rt_ut::unit_test<getDoubleName, true>::assert_eq(true, [&] {
-			return std::bit_cast<uint64_t>(extracted<double>(parser.iterate(sample)["b"][1])) == std::bit_cast<uint64_t>(2.5);
+			return std::bit_cast<uint64_t>(extracted<double>(parser.iterate(sample).findField("b").getArray().at(1))) == std::bit_cast<uint64_t>(2.5);
 		});
 
 		static constexpr rt_ut::string_literal getNegativeInt64Name{ "generic_get_negative_int64" };
 		rt_ut::unit_test<getNegativeInt64Name, true>::assert_eq(static_cast<int64_t>(-3), [&] {
-			return extracted<int64_t>(parser.iterate(sample)["b"][2]);
+			return extracted<int64_t>(parser.iterate(sample).findField("b").getArray().at(2));
 		});
 
 		static constexpr rt_ut::string_literal getBoolName{ "generic_get_bool" };
 		rt_ut::unit_test<getBoolName, true>::assert_eq(true, [&] {
 			auto doc = parser.iterate(sample);
-			return extracted<bool>(doc["b"][3]) && !extracted<bool>(doc["b"][4]);
+			return extracted<bool>(doc.findField("b").getArray().at(3)) && !extracted<bool>(doc.findField("b").getArray().at(4));
 		});
 
 		static constexpr rt_ut::string_literal isNullName{ "generic_is_null" };
 		rt_ut::unit_test<isNullName, true>::assert_eq(true, [&] {
-			return parser.iterate(sample)["b"][5].isNull();
+			return parser.iterate(sample).findField("b").getArray().at(5).isNull();
 		});
 
 		static constexpr rt_ut::string_literal uint64MaxName{ "generic_uint64_max" };
 		rt_ut::unit_test<uint64MaxName, true>::assert_eq(static_cast<uint64_t>(18446744073709551615ULL), [&] {
-			return extracted<uint64_t>(parser.iterate(sample)["big"]);
+			return extracted<uint64_t>(parser.iterate(sample).findField("big"));
 		});
 
 		static constexpr rt_ut::string_literal jsonPointerNestedName{ "generic_json_pointer_nested" };
@@ -336,7 +362,7 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal countElementsName{ "generic_count_elements" };
 		rt_ut::unit_test<countElementsName, true>::assert_eq(static_cast<uint64_t>(8), [&] {
 			uint64_t count{};
-			return parser.iterate(sample)["b"].getArray().countElements(count) == error_codes::success ? count : uint64_t{};
+			return parser.iterate(sample).findField("b").getArray().countElements(count) == error_codes::success ? count : uint64_t{};
 		});
 
 		static constexpr rt_ut::string_literal countFieldsName{ "generic_count_fields" };
@@ -360,22 +386,22 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal rawJsonContainerName{ "generic_raw_json_container" };
 		rt_ut::unit_test<rawJsonContainerName, true>::assert_eq(true, [&] {
 			jsonifier::string_view raw{};
-			return parser.iterate(sample)["c"].rawJson(raw) == error_codes::success && raw == R"({"d": {"e": "deep"}})";
+			return parser.iterate(sample).findField("c").rawJson(raw) == error_codes::success && raw == R"({"d": {"e": "deep"}})";
 		});
 
 		static constexpr rt_ut::string_literal noSuchFieldName{ "generic_no_such_field" };
 		rt_ut::unit_test<noSuchFieldName, true>::assert_eq(static_cast<uint8_t>(error_codes::no_such_field), [&] {
-			return static_cast<uint8_t>(parser.iterate(sample)["zzz"].error());
+			return static_cast<uint8_t>(parser.iterate(sample).findField("zzz").error());
 		});
 
 		static constexpr rt_ut::string_literal incorrectTypeName{ "generic_incorrect_type" };
 		rt_ut::unit_test<incorrectTypeName, true>::assert_eq(static_cast<uint8_t>(error_codes::incorrect_type), [&] {
-			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(sample)["a"]));
+			return static_cast<uint8_t>(extractionError<std::string_view>(parser.iterate(sample).findField("a")));
 		});
 
 		static constexpr rt_ut::string_literal indexOutOfBoundsName{ "generic_index_out_of_bounds" };
 		rt_ut::unit_test<indexOutOfBoundsName, true>::assert_eq(static_cast<uint8_t>(error_codes::index_out_of_bounds), [&] {
-			return static_cast<uint8_t>(parser.iterate(sample)["b"][8].error());
+			return static_cast<uint8_t>(parser.iterate(sample).findField("b").getArray().at(8).error());
 		});
 
 		static constexpr rt_ut::string_literal unclosedContainerName{ "generic_unclosed_container" };
@@ -419,17 +445,17 @@ namespace generic_parser_tests {
 		rt_ut::unit_test<partialNestedName, true>::assert_eq(static_cast<int64_t>(5), [&] {
 			std::string input{ R"({"a":{"x":[1,{"y":2}],"z":3},"b":[4,5]})" };
 			auto object = parser.iterate(input).getObject();
-			static_cast<void>(object.findFieldUnordered("a").getObject().findFieldUnordered("x"));
-			return extracted<int64_t>(object.findFieldUnordered("b").getArray().at(1));
+			static_cast<void>(object.findField("a").getObject().findField("x"));
+			return extracted<int64_t>(object.findField("b").getArray().at(1));
 		});
 
 		static constexpr rt_ut::string_literal missingThenPresentName{ "generic_missing_then_present_field" };
 		rt_ut::unit_test<missingThenPresentName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a":1,"b":2,"c":3})" };
 			auto object			= parser.iterate(input).getObject();
-			const bool missing	= object.findFieldUnordered("q").error() == error_codes::no_such_field;
-			const int64_t first = extracted<int64_t>(object.findFieldUnordered("c"));
-			return missing && first == 3 && extracted<int64_t>(object.findFieldUnordered("a")) == 1;
+			const bool missing	= object.findField("q").error() == error_codes::no_such_field;
+			const int64_t first = extracted<int64_t>(object.findField("a"));
+			return missing && first == 1 && extracted<int64_t>(object.findField("c")) == 3;
 		});
 
 		static constexpr rt_ut::string_literal emptyInputName{ "generic_empty_input" };
@@ -465,7 +491,7 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal missingColonName{ "generic_missing_colon" };
 		rt_ut::unit_test<missingColonName, true>::assert_eq(static_cast<uint8_t>(error_codes::tape_error), [&] {
 			std::string input{ R"({"a" 1})" };
-			return static_cast<uint8_t>(parser.iterate(input)["a"].error());
+			return static_cast<uint8_t>(parser.iterate(input).findField("a").error());
 		});
 
 		static constexpr rt_ut::string_literal rootNumberName{ "generic_root_number" };
@@ -502,7 +528,7 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal minifiedOptionName{ "generic_minified_option" };
 		rt_ut::unit_test<minifiedOptionName, true>::assert_eq(static_cast<int64_t>(3), [&] {
 			std::string input{ R"({"a":[1,2,3]})" };
-			return extracted<int64_t>(parser.iterate<jsonifier::parse_options{ .minified = true }>(input)["a"][2]);
+			return extracted<int64_t>(parser.iterate<jsonifier::parse_options{ .minified = true }>(input).findField("a").getArray().at(2));
 		});
 
 		static constexpr rt_ut::string_literal rootScalarDoubleName{ "generic_root_scalar_double" };
@@ -559,24 +585,23 @@ namespace generic_parser_tests {
 		static constexpr rt_ut::string_literal escapedKeyName{ "generic_escaped_key_matches" };
 		rt_ut::unit_test<escapedKeyName, true>::assert_eq(static_cast<int64_t>(7), [&] {
 			std::string input{ R"({"x":1,"a\u0062":7})" };
-			return extracted<int64_t>(parser.iterate(input)["ab"]);
+			return extracted<int64_t>(parser.iterate(input).findField("ab"));
 		});
 
-		static constexpr rt_ut::string_literal wrapScanMissName{ "generic_unordered_wrap_miss_keeps_position" };
-		rt_ut::unit_test<wrapScanMissName, true>::assert_eq(true, [&] {
+		static constexpr rt_ut::string_literal inOrderMissName{ "generic_in_order_miss_keeps_position" };
+		rt_ut::unit_test<inOrderMissName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a":{"n":1},"b":[1,2],"c":3,"d":4})" };
-			auto object	   = parser.iterate(input).getObject();
-			const bool hit = extracted<int64_t>(object.findFieldUnordered("c")) == 3;
-			static_cast<void>(object.findFieldUnordered("b").error());
-			const bool miss	 = object.findFieldUnordered("zz").error() == error_codes::no_such_field;
-			const bool later = extracted<int64_t>(object.findFieldUnordered("d")) == 4;
-			const jsonifier::generic::generic_value<false> earlier{ object.findFieldUnordered("a") };
-			const bool nested = extracted<int64_t>(earlier["n"]) == 1;
-			return hit && miss && later && nested;
+			auto object = parser.iterate(input).getObject();
+			const jsonifier::generic::generic_value<false> first{ object.findField("a") };
+			const bool nested = extracted<int64_t>(first.findField("n")) == 1;
+			const bool miss	  = object.findField("zz").error() == error_codes::no_such_field;
+			const bool hit	  = extracted<int64_t>(object.findField("c")) == 3;
+			const bool later  = extracted<int64_t>(object.findField("d")) == 4;
+			return nested && miss && hit && later;
 		});
 
-		static constexpr rt_ut::string_literal reverseLargeObjectName{ "generic_reverse_order_large_object" };
-		rt_ut::unit_test<reverseLargeObjectName, true>::assert_eq(true, [&] {
+		static constexpr rt_ut::string_literal largeObjectName{ "generic_in_order_large_object" };
+		rt_ut::unit_test<largeObjectName, true>::assert_eq(true, [&] {
 			std::string input{ "{" };
 			for (uint64_t index = 0; index < 300; ++index) {
 				input += (index ? ",\"field_" : "\"field_") + std::to_string(index) + "\":" + std::to_string(index * 3);
@@ -584,8 +609,8 @@ namespace generic_parser_tests {
 			input += "}";
 			auto object = parser.iterate(input).getObject();
 			bool allMatch{ true };
-			for (uint64_t index = 300; index-- > 0;) {
-				allMatch = allMatch && extracted<int64_t>(object.findFieldUnordered("field_" + std::to_string(index))) == static_cast<int64_t>(index * 3);
+			for (uint64_t index = 0; index < 300; ++index) {
+				allMatch = allMatch && extracted<int64_t>(object.findField("field_" + std::to_string(index))) == static_cast<int64_t>(index * 3);
 			}
 			return allMatch;
 		});
@@ -595,64 +620,58 @@ namespace generic_parser_tests {
 			std::string input{ R"([{"a":1,"b":2,"c":3},{"a":10,"b":20,"c":30}])" };
 			auto array	  = parser.iterate(input).getArray();
 			auto first	  = array.at(0).getObject();
-			const bool c  = extracted<int64_t>(first.findFieldUnordered("c")) == 3;
-			const bool a  = extracted<int64_t>(first.findFieldUnordered("a")) == 1;
+			const bool a  = extracted<int64_t>(first.findField("a")) == 1;
+			const bool c  = extracted<int64_t>(first.findField("c")) == 3;
 			auto second	  = array.at(1).getObject();
-			const bool c2 = extracted<int64_t>(second.findFieldUnordered("c")) == 30;
-			const bool a2 = extracted<int64_t>(second.findFieldUnordered("a")) == 10;
-			const bool b2 = extracted<int64_t>(second.findFieldUnordered("b")) == 20;
-			return c && a && c2 && a2 && b2;
+			const bool a2 = extracted<int64_t>(second.findField("a")) == 10;
+			const bool b2 = extracted<int64_t>(second.findField("b")) == 20;
+			const bool c2 = extracted<int64_t>(second.findField("c")) == 30;
+			return a && c && a2 && b2 && c2;
 		});
 
-		static constexpr rt_ut::string_literal indexReusedAcrossDocumentsName{ "generic_field_index_reset_between_documents" };
-		rt_ut::unit_test<indexReusedAcrossDocumentsName, true>::assert_eq(true, [&] {
-			std::string firstInput{ R"({"x":1,"y":2,"z":3})" };
-			auto firstObject = parser.iterate(firstInput).getObject();
-			const bool z	 = extracted<int64_t>(firstObject.findFieldUnordered("z")) == 3;
-			const bool x	 = extracted<int64_t>(firstObject.findFieldUnordered("x")) == 1;
-			std::string secondInput{ R"({"y":7,"x":8,"z":9})" };
-			auto secondObject = parser.iterate(secondInput).getObject();
-			const bool z2	  = extracted<int64_t>(secondObject.findFieldUnordered("z")) == 9;
-			const bool x2	  = extracted<int64_t>(secondObject.findFieldUnordered("x")) == 8;
-			const bool y2	  = extracted<int64_t>(secondObject.findFieldUnordered("y")) == 7;
-			return z && x && z2 && x2 && y2;
-		});
-
-		static constexpr rt_ut::string_literal missAfterFullIndexName{ "generic_miss_after_full_index" };
-		rt_ut::unit_test<missAfterFullIndexName, true>::assert_eq(true, [&] {
+		static constexpr rt_ut::string_literal repeatedMissName{ "generic_repeated_misses_keep_position" };
+		rt_ut::unit_test<repeatedMissName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a":1,"b":{"n":[1,2,3]},"c":3})" };
 			auto object			  = parser.iterate(input).getObject();
-			const bool firstMiss  = object.findFieldUnordered("q").error() == error_codes::no_such_field;
-			const bool secondMiss = object.findFieldUnordered("r").error() == error_codes::no_such_field;
-			const bool c		  = extracted<int64_t>(object.findFieldUnordered("c")) == 3;
-			const bool a		  = extracted<int64_t>(object.findFieldUnordered("a")) == 1;
-			const jsonifier::generic::generic_value<false> nested{ object.findFieldUnordered("b") };
-			return firstMiss && secondMiss && c && a && extracted<int64_t>(nested["n"][2]) == 3;
+			const bool firstMiss  = object.findField("q").error() == error_codes::no_such_field;
+			const bool secondMiss = object.findField("r").error() == error_codes::no_such_field;
+			const bool a		  = extracted<int64_t>(object.findField("a")) == 1;
+			const jsonifier::generic::generic_value<false> nested{ object.findField("b") };
+			const bool n		  = extracted<int64_t>(nested.findField("n").getArray().at(2)) == 3;
+			return firstMiss && secondMiss && a && n && extracted<int64_t>(object.findField("c")) == 3;
 		});
 
-		static constexpr rt_ut::string_literal longKeysReverseName{ "generic_reverse_order_long_keys" };
+		static constexpr rt_ut::string_literal longKeysReverseName{ "generic_in_order_long_keys" };
 		rt_ut::unit_test<longKeysReverseName, true>::assert_eq(true, [&] {
 			std::string input{ R"({"a_rather_long_key_name_number_one":1,"a_rather_long_key_name_number_two":2,"a_rather_long_key_name_number_three":3})" };
 			auto object		 = parser.iterate(input).getObject();
-			const bool three = extracted<int64_t>(object.findFieldUnordered("a_rather_long_key_name_number_three")) == 3;
-			const bool two	 = extracted<int64_t>(object.findFieldUnordered("a_rather_long_key_name_number_two")) == 2;
-			const bool one	 = extracted<int64_t>(object.findFieldUnordered("a_rather_long_key_name_number_one")) == 1;
+			const bool one	 = extracted<int64_t>(object.findField("a_rather_long_key_name_number_one")) == 1;
+			const bool two	 = extracted<int64_t>(object.findField("a_rather_long_key_name_number_two")) == 2;
+			const bool three = extracted<int64_t>(object.findField("a_rather_long_key_name_number_three")) == 3;
 			return three && two && one;
 		});
 
-		static constexpr rt_ut::string_literal prettifiedReverseName{ "generic_reverse_order_prettified" };
+		static constexpr rt_ut::string_literal prettifiedReverseName{ "generic_in_order_prettified" };
 		rt_ut::unit_test<prettifiedReverseName, true>::assert_eq(true, [&] {
 			std::string input{ "{\n  \"alpha\" : 1,\n  \"beta\"  : 2,\n  \"gamma\" : 3\n}" };
 			auto object		 = parser.iterate(input).getObject();
-			const bool gamma = extracted<int64_t>(object.findFieldUnordered("gamma")) == 3;
-			const bool alpha = extracted<int64_t>(object.findFieldUnordered("alpha")) == 1;
-			const bool beta	 = extracted<int64_t>(object.findFieldUnordered("beta")) == 2;
+			const bool alpha = extracted<int64_t>(object.findField("alpha")) == 1;
+			const bool beta	 = extracted<int64_t>(object.findField("beta")) == 2;
+			const bool gamma = extracted<int64_t>(object.findField("gamma")) == 3;
 			return gamma && alpha && beta;
 		});
 
 		static constexpr rt_ut::string_literal pointerOverflowName{ "generic_json_pointer_index_overflow" };
 		rt_ut::unit_test<pointerOverflowName, true>::assert_eq(static_cast<uint8_t>(error_codes::index_out_of_bounds), [&] {
 			return static_cast<uint8_t>(parser.iterate(sample).atPointer("/b/184467440737095516160").error());
+		});
+
+		rt_ut::unit_test<"generic_tail_widths_minified", true>::assert_eq(true, [&] {
+			return tailWidthsParse<true>(parser);
+		});
+
+		rt_ut::unit_test<"generic_tail_widths_prettified", true>::assert_eq(true, [&] {
+			return tailWidthsParse<false>(parser);
 		});
 
 		runStreamTests(parser);

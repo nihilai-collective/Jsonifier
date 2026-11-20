@@ -68,7 +68,7 @@ namespace jsonifier::generic {
 			}
 
 			JSONIFIER_INLINE value operator*() const noexcept {
-				return error_code == error_codes::success ? value{ doc, iter, depth } : value{ error_code };
+				return error_code == error_codes::success ? value{ doc, iter, depth + 1 } : value{ error_code };
 			}
 
 			JSONIFIER_INLINE bool operator==(const iterator& other) const noexcept {
@@ -80,7 +80,10 @@ namespace jsonifier::generic {
 					iter = nullptr;
 					return *this;
 				}
-				error_code = doc->advanceChild(iter, depth, internal::uint_c_v<']'>, iter);
+				error_code = doc->nextElement(depth, iter);
+				if (error_code != error_codes::success) [[unlikely]] {
+					iter = doc->cursor;
+				}
 				validateElementStart();
 				return *this;
 			}
@@ -144,8 +147,9 @@ namespace jsonifier::generic {
 				return iterator{};
 			}
 			state->cursor = position;
-			state->depth  = depth;
+			state->depth  = depth + 1;
 			if (position >= state->tapeEnd) [[unlikely]] {
+				state->depth = depth;
 				return iterator{};
 			}
 			return iterator{ state, position, depth };
@@ -177,11 +181,11 @@ namespace jsonifier::generic {
 		}
 
 		[[nodiscard]] JSONIFIER_INLINE error_codes rawJson(string_view& out) const noexcept {
-			return value{ doc, open, depth - 1 }.rawJson(out);
+			return value{ doc, open, depth }.rawJson(out);
 		}
 
 		JSONIFIER_INLINE value atPointer(string_view pointer) const noexcept {
-			return value{ doc, open, depth - 1 }.atPointer(pointer);
+			return value{ doc, open, depth }.atPointer(pointer);
 		}
 
 		JSONIFIER_INLINE value operator[](uint64_t index) const noexcept {

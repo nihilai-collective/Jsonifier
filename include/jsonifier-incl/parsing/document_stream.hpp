@@ -128,8 +128,7 @@ namespace jsonifier::generic {
 			state.tape			  = begin;
 			state.tapeEnd		  = end;
 			state.cursor		  = begin;
-			state.depth			  = 0;
-			storage().fieldIndex.reset();
+			state.depth			  = 1;
 		}
 
 		JSONIFIER_INLINE internal::unrestrict_t<internal::read_structural_index_ptr> lastDocumentStart() const noexcept {
@@ -193,14 +192,13 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE internal::unrestrict_t<internal::read_structural_index_ptr> consumedEnd() const noexcept {
 			document_state& state = docState();
-			if (state.depth > 0) {
-				state.finishToDepth(0);
-				return state.cursor;
+			if (state.cursor == docBegin && state.depth == 1) {
+				return state.skipValue(docBegin);
 			}
-			if (state.cursor > docBegin) {
-				return state.cursor;
+			if (state.skipChild(0) != error_codes::success) [[unlikely]] {
+				return state.tapeEnd;
 			}
-			return state.skipValue(docBegin);
+			return state.cursor;
 		}
 
 		JSONIFIER_INLINE void locateWhitespace(internal::read_structural_index_ptr next) noexcept {
@@ -291,7 +289,6 @@ namespace jsonifier::generic {
 			state.end						= windowRoot + windowLength;
 			data.arena.reset(windowLength);
 			state.arena		 = &data.arena;
-			state.fieldIndex = &data.fieldIndex;
 			if constexpr (options.newLineDelimited) {
 				findCompleteEnd();
 			}
@@ -313,7 +310,7 @@ namespace jsonifier::generic {
 			if (error_code != error_codes::success) [[unlikely]] {
 				return document{ error_code };
 			}
-			return document{ &docState(), docBegin, 0 };
+			return document{ &docState(), docBegin, 1 };
 		}
 
 		JSONIFIER_INLINE void advance() noexcept {
