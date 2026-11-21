@@ -238,6 +238,18 @@
 	#endif
 #endif
 
+#if !defined(JSONIFIER_INLINE_EXCEPT_GCC)
+	#if JSONIFIER_OPTIMIZED && !JSONIFIER_COMPILER_GCC
+		#if JSONIFIER_COMPILER_MSVC
+			#define JSONIFIER_INLINE_EXCEPT_GCC [[msvc::forceinline]] inline
+		#else
+			#define JSONIFIER_INLINE_EXCEPT_GCC inline __attribute__((always_inline))
+		#endif
+	#else
+		#define JSONIFIER_INLINE_EXCEPT_GCC inline
+	#endif
+#endif
+
 #if JSONIFIER_PLATFORM_WINDOWS && !defined(NOMINMAX)
 	#define NOMINMAX
 #endif

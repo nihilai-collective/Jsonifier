@@ -171,7 +171,7 @@ namespace jsonifier::internal {
 		static constexpr int32_t expBias{ static_cast<int32_t>((1U << (numExpBits - 1)) - 1U) };
 		static constexpr int32_t expOffset{ expBias + numSigBits };
 		static constexpr int32_t minFixedDecExp{ -4 };
-		static constexpr int32_t maxFixedDecExp{ computeDecExp(float_traits::digits + 1) - 1 };
+		static constexpr int32_t maxFixedDecExp{ numBits == 64 ? 14 : computeDecExp(float_traits::digits + 1) - 1 };
 		using sig_type = std::conditional_t<numBits == 64, uint64_t, uint32_t>;
 		static constexpr sig_type implicitBit{ static_cast<sig_type>(1) << numSigBits };
 
@@ -416,7 +416,7 @@ namespace jsonifier::internal {
 				for (int32_t n{ 1 }; n <= traits::max_digits10; ++n) {
 					int32_t endPos{ n };
 					if (decExp >= 0) {
-						endPos = n > decExp + 1 ? n + 1 : decExp + 1;
+						endPos = n > decExp + 1 ? n + 1 : decExp + 3;
 					}
 					e.endPos[n - 1] = static_cast<uint8_t>(endPos);
 				}
@@ -842,8 +842,8 @@ namespace jsonifier::internal {
 					return buffer + 3;
 				}
 				if (binSig == 0ULL) {
-					pow2MemcpyWrapper<2>(buffer, "0");
-					return buffer + 1;
+					pow2MemcpyWrapper<4>(buffer, "0.0");
+					return buffer + 3;
 				}
 				dec = toDecimal<value_type>(binSig, 1LL, true);
 				int64_t decSig{ dec.sig * 10LL + static_cast<int64_t>(-static_cast<int32_t>(dec.hasLastDigit) & dec.lastDigit) };

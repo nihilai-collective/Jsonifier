@@ -659,7 +659,7 @@ namespace jsonifier::internal {
 			return escapeLane<bitsPerByte>(string1Start, string1End, string2, escapeMask);
 		}
 
-		template<uint64_t bitsPerByte, typename basic_iterator01, typename basic_iterator02, typename integer_type> JSONIFIER_INLINE static basic_iterator02 escapeLane(
+		template<uint64_t bitsPerByte, typename basic_iterator01, typename basic_iterator02, typename integer_type> JSONIFIER_NOINLINE static basic_iterator02 escapeLane(
 			basic_iterator01& string1Start, const basic_iterator01 laneEnd, basic_iterator02 string2, integer_type escapeMask) noexcept {
 			while (escapeMask != 0) {
 				const uint64_t runLength{ simd::postCmpTzcntUnsafe(escapeMask) };
@@ -874,10 +874,7 @@ namespace jsonifier::internal {
 				if ((std::bit_cast<uint64_t>(&*string1Start) & (pageSize - 1)) <= pageSize - 16) [[likely]] {
 					return pageSafeShortImpl(string1Start, lengthNew, string2);
 				}
-				if (lengthNew < 8) {
-					return smallImpl(string1Start, lengthNew, string2);
-				}
-				return swarFinish(string1Start, string1Start + lengthNew, string2);
+				return pageCrossingImpl(string1Start, lengthNew, string2);
 			}
 			if (lengthNew <= 64 && mediumImpl(string1Start, string2, lengthNew)) [[likely]] {
 				return string2 + lengthNew;
@@ -885,6 +882,14 @@ namespace jsonifier::internal {
 			const basic_iterator01 string1End{ string1Start + lengthNew };
 			string_parse_executor<string_serialize_step, make_ascending_range<startIndex, listSize>>::impl(string1Start, string1End, string2);
 			return overlappedFinish(string1Start, string1End, string2);
+		}
+
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_NOINLINE static basic_iterator02 pageCrossingImpl(basic_iterator01 string1Start, const uint64_t length, basic_iterator02 string2) noexcept {
+			if (length < 8) {
+				return smallImpl(string1Start, length, string2);
+			}
+			return swarFinish(string1Start, string1Start + length, string2);
 		}
 
 		template<typename basic_iterator01, typename basic_iterator02>

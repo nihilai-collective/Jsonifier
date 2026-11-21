@@ -60,9 +60,9 @@ namespace float_validation_tests {
 			return buffer;
 		};
 
-		rt_ut::unit_test<"zmij_zero", true>::assert_eq(std::string{ "0" }, serialize, 0.0);
-		rt_ut::unit_test<"zmij_negative_zero", true>::assert_eq(std::string{ "-0" }, serialize, -0.0);
-		rt_ut::unit_test<"zmij_whole_number_no_trailing_point", true>::assert_eq(std::string{ "100" }, serialize, 100.0);
+		rt_ut::unit_test<"zmij_zero", true>::assert_eq(std::string{ "0.0" }, serialize, 0.0);
+		rt_ut::unit_test<"zmij_negative_zero", true>::assert_eq(std::string{ "-0.0" }, serialize, -0.0);
+		rt_ut::unit_test<"zmij_whole_number_trailing_point_zero", true>::assert_eq(std::string{ "100.0" }, serialize, 100.0);
 		rt_ut::unit_test<"zmij_simple_fraction", true>::assert_eq(std::string{ "1.5" }, serialize, 1.5);
 		rt_ut::unit_test<"zmij_leading_zero_fraction", true>::assert_eq(std::string{ "0.5" }, serialize, 0.5);
 		rt_ut::unit_test<"zmij_negative_fraction", true>::assert_eq(std::string{ "-10.5" }, serialize, -10.5);
@@ -77,7 +77,7 @@ namespace float_validation_tests {
 		rt_ut::unit_test<"zmij_max_double", true>::assert_eq(std::string{ "1.7976931348623157e+308" }, serialize, std::numeric_limits<double>::max());
 		rt_ut::unit_test<"zmij_min_normal_double", true>::assert_eq(std::string{ "2.2250738585072014e-308" }, serialize, std::numeric_limits<double>::min());
 		rt_ut::unit_test<"zmij_smallest_denormal", true>::assert_eq(std::string{ "5e-324" }, serialize, std::numeric_limits<double>::denorm_min());
-		rt_ut::unit_test<"zmij_unrepresentable_value_rounds_down", true>::assert_eq(std::string{ "9007199254740992" }, serialize, 9007199254740993.0);
+		rt_ut::unit_test<"zmij_unrepresentable_value_rounds_down", true>::assert_eq(std::string{ "9.007199254740992e+15" }, serialize, 9007199254740993.0);
 		rt_ut::unit_test<"zmij_large_integer_switches_to_scientific", true>::assert_eq(std::string{ "1.2345678901234568e+17" }, serialize, 123456789012345680.0);
 
 		for (uint64_t i = 0; i < outputValues.size(); ++i) {
