@@ -21,7 +21,7 @@ namespace jsonifier::internal {
 			if (!rootIter || length == 0) [[unlikely]] {
 				return document{ parse_statuses::no_input };
 			}
-			const uint64_t tapeCount{ indexGenericWindow<options>(rootIter, length) };
+			const uint64_t tapeCount{ indexGenericDocument<options>(rootIter, length) };
 			if (tapeCount == 0) [[unlikely]] {
 				return document{ parse_statuses::no_input };
 			}
@@ -39,6 +39,16 @@ namespace jsonifier::internal {
 			state.arena		 = &data.arena;
 			state.fieldIndex = &data.fieldIndex;
 			return document{ &state, state.tape, 0 };
+		}
+
+		template<parse_options options> JSONIFIER_INLINE uint64_t indexGenericDocument(read_buffer_ptr rootIter, uint64_t length) noexcept {
+			if (!derivedRef.section.template tryResetLoneValue<options.minified>(rootIter, length)) {
+				return indexGenericWindow<options>(rootIter, length);
+			}
+			document_state& state{ derivedRef.genericStorage().stateFor() };
+			state.tape	  = derivedRef.section.begin();
+			state.tapeEnd = derivedRef.section.end();
+			return 1;
 		}
 
 		template<parse_options options> inline uint64_t indexGenericWindow(read_buffer_ptr rootIter, uint64_t length) noexcept {

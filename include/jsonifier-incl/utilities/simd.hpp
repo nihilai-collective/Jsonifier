@@ -87,6 +87,73 @@ namespace jsonifier::internal {
 		}
 	};
 
+	enum class lone_value_classes : uint8_t {
+		scalar,
+		whitespace,
+		structural,
+	};
+
+	consteval array<lone_value_classes, 256> generateLoneValueClasses() noexcept {
+		array<lone_value_classes, 256> returnValues{};
+		for (uint64_t x{ 0 }; x < 256; ++x) {
+			returnValues[x] = lone_value_classes::scalar;
+		}
+		returnValues[uint_c_v<' '>]	 = lone_value_classes::whitespace;
+		returnValues[uint_c_v<'\t'>] = lone_value_classes::whitespace;
+		returnValues[uint_c_v<'\n'>] = lone_value_classes::whitespace;
+		returnValues[uint_c_v<'\r'>] = lone_value_classes::whitespace;
+		returnValues[uint_c_v<'"'>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<','>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<':'>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<'['>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<']'>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<'{'>]	 = lone_value_classes::structural;
+		returnValues[uint_c_v<'}'>]	 = lone_value_classes::structural;
+		return returnValues;
+	}
+
+	inline constexpr array<lone_value_classes, 256> loneValueClasses{ generateLoneValueClasses() };
+
+	template<bool minified, bool acceptStrings> struct lone_value_scanner {
+		static constexpr uint64_t noLoneValue{ std::numeric_limits<uint64_t>::max() };
+
+		JSONIFIER_INLINE static uint64_t impl(read_buffer_ptr rootIter, uint64_t length) noexcept {
+			uint64_t index{};
+			if constexpr (!minified) {
+				while (index < length && loneValueClasses[rootIter[index]] == lone_value_classes::whitespace) {
+					++index;
+				}
+			}
+			if (index == length) [[unlikely]] {
+				return noLoneValue;
+			}
+			const uint64_t valueStart{ index };
+			if (rootIter[index] == uint_c_v<'"'>) {
+				if constexpr (!acceptStrings) {
+					return noLoneValue;
+				}
+				++index;
+				while (index < length && rootIter[index] != uint_c_v<'"'>) {
+					index += rootIter[index] == uint_c_v<'\\'> ? 2 : 1;
+				}
+				if (index >= length) [[unlikely]] {
+					return noLoneValue;
+				}
+				++index;
+			} else {
+				while (index < length && loneValueClasses[rootIter[index]] == lone_value_classes::scalar) {
+					++index;
+				}
+			}
+			if constexpr (!minified) {
+				while (index < length && loneValueClasses[rootIter[index]] == lone_value_classes::whitespace) {
+					++index;
+				}
+			}
+			return index == length ? valueStart : noLoneValue;
+		}
+	};
+
 	struct string_block_reader {
 		JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getRemainder(uint64_t paddedBytes) noexcept {
 			tail_block_builder::impl(+block, inString + index, length - index, paddedBytes);
@@ -255,6 +322,17 @@ namespace jsonifier::internal {
 				const jsonifier_simd_int_t whitespaceTableLocal{ simd::gatherValues<jsonifier_simd_int_t>(simd::whitespaceArray<simdBytesPerRegister>.data()) };
 				resetImpl<minified>(bsRegister, quoteRegister, opTable, spaceMask, whitespaceTableLocal);
 			}
+		}
+
+		template<bool minified, bool acceptStrings = true> JSONIFIER_INLINE bool tryResetLoneValue(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
+			const uint64_t valueStart{ lone_value_scanner<minified, acceptStrings>::impl(rootIter, stringLength) };
+			if (valueStart == lone_value_scanner<minified, acceptStrings>::noLoneValue) {
+				return false;
+			}
+			string_block_reader::reset(rootIter, stringLength);
+			tape[0]	  = static_cast<uint32_t>(valueStart);
+			tapeCount = 1;
+			return true;
 		}
 
 		JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> begin() noexcept {
@@ -621,6 +699,17 @@ namespace jsonifier::internal {
 			const uint64_t follows{ rope.followsNonquoteScalar(scalar) };
 			const uint64_t scalarStart{ scalar & ~follows };
 			return op | quotes | scalarStart;
+		}
+
+		template<bool minified, bool acceptStrings = true> JSONIFIER_INLINE bool tryResetLoneValue(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
+			const uint64_t valueStart{ lone_value_scanner<minified, acceptStrings>::impl(rootIter, stringLength) };
+			if (valueStart == lone_value_scanner<minified, acceptStrings>::noLoneValue) {
+				return false;
+			}
+			string_block_reader_locals::reset(rootIter, stringLength);
+			tape[0]	  = static_cast<uint32_t>(valueStart);
+			tapeCount = 1;
+			return true;
 		}
 
 		JSONIFIER_INLINE unrestrict_t<write_structural_index_ptr> begin() noexcept {
