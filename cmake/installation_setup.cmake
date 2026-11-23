@@ -39,7 +39,7 @@ install(
 )
 
 install(
-	TARGETS ${PROJECT_NAME}
+	TARGETS ${PROJECT_NAME} voided_hw_jsonifier_cpu
 	EXPORT ${EXPORTED_TARGETS_NAME}
 )
 

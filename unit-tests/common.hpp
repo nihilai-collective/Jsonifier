@@ -9,12 +9,17 @@
 #include <jsonifier>
 #include <filesystem>
 #include <iostream>
+#include <charconv>
 #include <fstream>
+#include <cstdlib>
+#include <iomanip>
 #include <numeric>
+#include <sstream>
 #include <random>
 #include <array>
 #include <rt-ut>
 #include <map>
+#include <bit>
 
 struct abc_in_order_partial_test_struct {
 	std::string test_string;
@@ -36,18 +41,19 @@ template<> struct jsonifier::core<abc_in_order_partial_test> {
 	static constexpr auto parseValue = createValue<&value_type::a, &value_type::m, &value_type::z>();
 };
 
-constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
+inline constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
 
 class test_base {
   public:
-	test_base() noexcept = default;
-
 	test_base(const std::string& fileContentsNew) : fileContents{ fileContentsNew } {
 	}
+
+	test_base() noexcept = default;
+
 	std::string fileContents{};
 };
 
-inline static bool processFilesInFolder(std::unordered_map<std::string, test_base>& resultFileContents, const std::string& testType) noexcept {
+inline bool processFilesInFolder(std::unordered_map<std::string, test_base>& resultFileContents, const std::string& testType) {
 	try {
 		for (const auto& entry: std::filesystem::directory_iterator(std::string{ basePath.operator std::string() } + testType)) {
 			if (entry.is_regular_file()) {
@@ -77,30 +83,6 @@ inline static bool processFilesInFolder(std::unordered_map<std::string, test_bas
 
 class file_handler {
   public:
-	static void save_file(const std::string& data, const std::string& path) {
-		std::error_code errorCode{};
-		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
-		if (errorCode) {
-			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
-			return;
-		}
-		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
-		if (errorCode) {
-			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
-			return;
-		}
-		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
-		if (!stream.is_open()) {
-			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
-			return;
-		}
-		stream << data;
-		stream.flush();
-		const bool ok = stream.good();
-		stream.close();
-		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
-	}
-
 	static std::string get(const std::string& path) {
 		std::error_code errorCode{};
 		std::string contents{};
@@ -132,9 +114,33 @@ class file_handler {
 		}
 		return contents;
 	}
+
+	static void save_file(const std::string& data, const std::string& path) {
+		std::error_code errorCode{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
+		if (errorCode) {
+			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+			return;
+		}
+		stream << data;
+		stream.flush();
+		const bool ok = stream.good();
+		stream.close();
+		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
+	}
 };
 
-template<bool partialRead> static constexpr rt_ut::string_literal testTypePartial{ [] {
+template<bool partialRead> inline constexpr rt_ut::string_literal testTypePartial{ [] {
 	if constexpr (partialRead) {
 		return rt_ut::string_literal{ "Partial-Reading: Enabled, " };
 	} else {
@@ -142,7 +148,7 @@ template<bool partialRead> static constexpr rt_ut::string_literal testTypePartia
 	}
 }() };
 
-template<bool knownOrder> static constexpr rt_ut::string_literal testTypeKnownOrder{ [] {
+template<bool knownOrder> inline constexpr rt_ut::string_literal testTypeKnownOrder{ [] {
 	if constexpr (knownOrder) {
 		return rt_ut::string_literal{ "Known-Order: Enabled, " };
 	} else {
@@ -150,7 +156,7 @@ template<bool knownOrder> static constexpr rt_ut::string_literal testTypeKnownOr
 	}
 }() };
 
-template<bool nullTerminated> static constexpr rt_ut::string_literal testTypeNullTerminated{ [] {
+template<bool nullTerminated> inline constexpr rt_ut::string_literal testTypeNullTerminated{ [] {
 	if constexpr (nullTerminated) {
 		return rt_ut::string_literal{ "Null-Terminated: Enabled" };
 	} else {
@@ -177,6 +183,68 @@ template<typename value_type_in, const auto& fail_tests, bool partial, bool know
 		value_type_in data{};
 		rt_ut::unit_test<rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) }, true>::assert_ne(true, [&]() {
 			return parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder }>(data, fail_tests[index]);
+		});
+	}
+};
+
+struct plain_integer_literal {
+	static constexpr bool impl(std::string_view text) {
+		uint64_t index{ !text.empty() && text[0] == '-' ? 1ull : 0ull };
+		if (index == text.size()) {
+			return false;
+		}
+		for (; index < text.size(); ++index) {
+			if (text[index] < '0' || text[index] > '9') {
+				return false;
+			}
+		}
+		return true;
+	}
+};
+
+struct generic_number_reader {
+	template<typename value_type, bool minified> static jsonifier::generic::parse_statuses impl(const jsonifier::generic::generic_value<minified>& target, value_type& out) {
+		if constexpr (std::is_same_v<value_type, int64_t>) {
+			return target.getInt64(out);
+		} else if constexpr (std::is_same_v<value_type, uint64_t>) {
+			return target.getUint64(out);
+		} else {
+			return target.getDouble(out);
+		}
+	}
+};
+
+template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated>
+struct generic_number_pass_tests_runner {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+		if constexpr (std::is_floating_point_v<value_type_in> || plain_integer_literal::impl(pass_tests[index])) {
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) } +
+				", Generic, " + testTypeNullTerminated<nullTerminated> };
+			const std::string input{ pass_tests[index].data(), pass_tests[index].size() };
+			rt_ut::unit_test<testName, true>::template assert_eq<true>([&]() {
+				auto doc = parser.iterate<jsonifier::parse_options{ .nullTerminated = nullTerminated }>(input);
+				value_type_in data{};
+				const bool parsed{ generic_number_reader::impl(doc, data) == jsonifier::generic::parse_statuses::success && doc.atEnd() };
+				const value_type_in expected{ static_cast<value_type_in>(pass_values[index]) };
+				if (!parsed || std::bit_cast<std::array<uint8_t, sizeof(value_type_in)>>(data) != std::bit_cast<std::array<uint8_t, sizeof(value_type_in)>>(expected)) {
+					std::cout << "Generic value: " << data << ", expected: " << expected << std::endl;
+					return false;
+				}
+				return true;
+			});
+		}
+	}
+};
+
+template<typename value_type_in, const auto& fail_tests, bool partial, bool knownOrder, bool nullTerminated> struct generic_number_fail_tests_runner {
+	template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
+		static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) } + ", Generic, " +
+			testTypeNullTerminated<nullTerminated> };
+		const std::string input{ fail_tests[index].data(), fail_tests[index].size() };
+		rt_ut::unit_test<testName, true>::assert_ne(true, [&]() {
+			auto doc = parser.iterate<jsonifier::parse_options{ .nullTerminated = nullTerminated }>(input);
+			value_type_in data{};
+			return generic_number_reader::impl(doc, data) == jsonifier::generic::parse_statuses::success && doc.atEnd();
 		});
 	}
 };

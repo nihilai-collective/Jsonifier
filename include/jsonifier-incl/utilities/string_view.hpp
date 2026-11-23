@@ -6,12 +6,13 @@
  */
 #pragma once
 
-#include <jsonifier-incl/core/fastio.hpp>
+#include <jsonifier-incl/utilities/compare.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
+#include <jsonifier-incl/utilities/string_search_fwd.hpp>
 
 namespace jsonifier {
 
-	class string_view_base {
+	class string_view {
 	  public:
 		using value_type			 = char;
 		using const_pointer			 = const value_type*;
@@ -22,83 +23,123 @@ namespace jsonifier {
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 		using size_type				 = uint64_t;
 		using traits_type			 = std::char_traits<value_type>;
-
 		static constexpr size_type npos{ std::numeric_limits<size_type>::max() };
 
-		JSONIFIER_INLINE constexpr string_view_base() noexcept : dataVal(), sizeVal(0) {
+		JSONIFIER_INLINE constexpr string_view() noexcept : dataVal{}, sizeVal{ 0 } {
 		}
 
-		template<uint64_t size> JSONIFIER_INLINE constexpr string_view_base& operator=(const string_base<size>& stringNew) noexcept {
+		template<typename value_type_newer, internal::same_character_size_types<value_type>> JSONIFIER_INLINE constexpr string_view(const value_type_newer& stringNew) noexcept {
+			*this = stringNew;
+		}
+
+		JSONIFIER_INLINE constexpr string_view(const_pointer pointerNew) noexcept : dataVal(pointerNew), sizeVal(std::char_traits<value_type>::length(pointerNew)) {
+		}
+
+		template<internal::string_types value_type_newer> JSONIFIER_INLINE constexpr string_view(value_type_newer&& stringNew) noexcept {
+			*this = stringNew;
+		}
+
+		JSONIFIER_INLINE constexpr string_view(const_pointer pointerNew, const size_type countNew) noexcept : dataVal(pointerNew), sizeVal(countNew) {
+		}
+
+		template<uint64_t size> JSONIFIER_INLINE constexpr string_view(const string_base<size>& stringNew) noexcept {
+			*this = stringNew;
+		}
+
+		template<internal::string_types value_type_newer> JSONIFIER_INLINE friend bool operator==(const string_view& lhs, const value_type_newer& rhs) noexcept {
+			if (lhs.size() == rhs.size()) {
+				if (lhs.size() > 0) {
+					return internal::comparison::compare(lhs.data(), rhs.data(), rhs.size());
+				}
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		template<internal::pointer_length_view_types view_type>
+			requires(!std::same_as<view_type, string_view>)
+		JSONIFIER_INLINE constexpr explicit operator view_type() const noexcept {
+			return view_type{ data(), size() };
+		}
+
+		template<internal::string_types value_type_newer> JSONIFIER_INLINE constexpr string_view& operator=(value_type_newer&& stringNew) noexcept {
 			dataVal = stringNew.data();
 			sizeVal = stringNew.size();
 			return *this;
 		}
 
-		template<uint64_t size> JSONIFIER_INLINE constexpr string_view_base(const string_base<size>& stringNew) noexcept {
-			*this = stringNew;
-		}
-
-		template<internal::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base& operator=(value_type_newer&& stringNew) noexcept {
-			dataVal = stringNew.data();
-			sizeVal = stringNew.size();
-			return *this;
-		}
-
-		template<internal::string_t value_type_newer> JSONIFIER_INLINE constexpr string_view_base(value_type_newer&& stringNew) noexcept {
-			*this = stringNew;
-		}
-
-		template<typename value_type_newer, internal::same_character_size<value_type>>
-		JSONIFIER_INLINE constexpr string_view_base& operator=(const value_type_newer& stringNew) noexcept {
-			dataVal = stringNew.data();
-			sizeVal = stringNew.size();
-			return *this;
-		}
-
-		template<typename value_type_newer, internal::same_character_size<value_type>> JSONIFIER_INLINE constexpr string_view_base(const value_type_newer& stringNew) noexcept {
-			*this = stringNew;
-		}
-
-		JSONIFIER_INLINE constexpr string_view_base(const_pointer pointerNew, const size_type countNew) noexcept : dataVal(pointerNew), sizeVal(countNew) {
-		}
-
-		JSONIFIER_INLINE constexpr string_view_base(const_pointer pointerNew) noexcept : dataVal(pointerNew), sizeVal(std::char_traits<value_type>::length(pointerNew)) {
-		}
-
-		JSONIFIER_INLINE constexpr const_iterator begin() const noexcept {
-			return const_iterator{ dataVal };
-		}
-
-		JSONIFIER_INLINE constexpr const_iterator end() const noexcept {
-			return const_iterator{ dataVal + sizeVal };
-		}
-
-		JSONIFIER_INLINE constexpr const_reverse_iterator rbegin() const noexcept {
-			return const_reverse_iterator{ end() };
-		}
-
-		JSONIFIER_INLINE constexpr const_reverse_iterator rend() const noexcept {
-			return const_reverse_iterator{ begin() };
-		}
-
-		JSONIFIER_INLINE constexpr size_type size() const noexcept {
-			return sizeVal;
-		}
-
-		JSONIFIER_INLINE constexpr size_type length() const noexcept {
-			return sizeVal;
-		}
-
-		JSONIFIER_INLINE constexpr bool empty() const noexcept {
-			return sizeVal == 0;
-		}
-
-		JSONIFIER_INLINE constexpr const_pointer data() const noexcept {
-			return dataVal;
+		template<typename value_type_newer = value_type> JSONIFIER_INLINE constexpr explicit operator std::basic_string<value_type_newer>() const {
+			std::basic_string<value_type_newer> returnValue{};
+			returnValue.resize(sizeVal);
+			if (sizeVal > 0 && dataVal) [[likely]] {
+				internal::jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
+			}
+			return returnValue;
 		}
 
 		JSONIFIER_INLINE constexpr size_type maxSize() const noexcept {
 			return internal::min(static_cast<uint64_t>(std::numeric_limits<std::ptrdiff_t>::max()), static_cast<uint64_t>(-1) / sizeof(value_type));
+		}
+
+		template<uint64_t size> JSONIFIER_INLINE friend bool operator==(const string_view& lhs, const char (&rhs)[size]) noexcept {
+			auto rhsLength{ traits_type::length(rhs) };
+			return rhsLength == lhs.size() && internal::comparison::compare(lhs.data(), rhs, rhsLength);
+		}
+
+		template<uint64_t size> JSONIFIER_INLINE constexpr string_view& operator=(const string_base<size>& stringNew) noexcept {
+			dataVal = stringNew.data();
+			sizeVal = stringNew.size();
+			return *this;
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstNotOf(arg_types&&... args) const noexcept {
+			return internal::string_search::findFirstNotOf(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastNotOf(arg_types&&... args) const noexcept {
+			return internal::string_search::findLastNotOf(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstOf(arg_types&&... args) const noexcept {
+			return internal::string_search::findFirstOf(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastOf(arg_types&&... args) const noexcept {
+			return internal::string_search::findLastOf(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		JSONIFIER_INLINE constexpr string_view substr(const size_type offsetNew = 0, size_type countNew = npos) const {
+			if (offsetNew > sizeVal) [[unlikely]] {
+				throw std::out_of_range("Substring position is out of range.");
+			}
+
+			countNew = internal::min(countNew, sizeVal - offsetNew);
+			return string_view(dataVal + offsetNew, countNew);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type rfind(arg_types&&... args) const noexcept {
+			return internal::string_search::rfind(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type find(arg_types&&... args) const noexcept {
+			return internal::string_search::find(data(), size(), std::forward<arg_types>(args)...);
+		}
+
+		template<uint64_t size> JSONIFIER_INLINE constexpr explicit operator string_base<size>() const noexcept {
+			string_base<size> returnValue{};
+			returnValue.resize(sizeVal);
+			if (sizeVal > 0 && dataVal) [[likely]] {
+				jsonifierMemcpy(returnValue.data(), data(), returnValue.size());
+			}
+			return returnValue;
+		}
+
+		template<typename value_type_newer, internal::same_character_size_types<value_type>>
+		JSONIFIER_INLINE constexpr string_view& operator=(const value_type_newer& stringNew) noexcept {
+			dataVal = stringNew.data();
+			sizeVal = stringNew.size();
+			return *this;
 		}
 
 		JSONIFIER_INLINE constexpr const_reference at(const size_type offsetNew) const noexcept(false) {
@@ -112,100 +153,53 @@ namespace jsonifier {
 			return dataVal[offsetNew];
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type rfind(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().rfind(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr const_reverse_iterator rbegin() const noexcept {
+			return const_reverse_iterator{ end() };
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type find(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().find(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr const_reverse_iterator rend() const noexcept {
+			return const_reverse_iterator{ begin() };
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstOf(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().find_first_of(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr void swap(string_view& other) noexcept {
+			internal::swap(dataVal, other.dataVal);
+			internal::swap(sizeVal, other.sizeVal);
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastOf(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().find_last_of(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr const_iterator begin() const noexcept {
+			return const_iterator{ dataVal };
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstNotOf(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().find_first_not_of(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr const_iterator end() const noexcept {
+			return const_iterator{ dataVal + sizeVal };
 		}
 
-		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastNotOf(arg_types&&... args) const noexcept {
-			return this->operator std::basic_string_view<value_type>().find_last_not_of(std::forward<arg_types>(args)...);
+		JSONIFIER_INLINE constexpr const_pointer data() const noexcept {
+			return dataVal;
 		}
 
-		JSONIFIER_INLINE constexpr void swap(string_view_base& other) noexcept {
-			std::swap(dataVal, other.dataVal);
-			std::swap(sizeVal, other.sizeVal);
+		JSONIFIER_INLINE constexpr size_type length() const noexcept {
+			return sizeVal;
 		}
 
-		JSONIFIER_INLINE constexpr string_view_base substr(const size_type offsetNew = 0, size_type countNew = npos) const {
-			if (offsetNew > sizeVal) [[unlikely]] {
-				throw std::out_of_range("Substring position is out of range.");
-			}
-
-			countNew = internal::min(countNew, sizeVal - offsetNew);
-			return string_view_base(dataVal + offsetNew, countNew);
+		JSONIFIER_INLINE constexpr size_type size() const noexcept {
+			return sizeVal;
 		}
 
-		template<uint64_t size> JSONIFIER_INLINE constexpr explicit operator string_base<size>() const noexcept {
-			string_base<size> returnValue{};
-			returnValue.resize(sizeVal);
-			if (sizeVal > 0 && dataVal) [[likely]] {
-				memcpy_wrapper(returnValue.data(), data(), returnValue.size());
-			}
-			return returnValue;
-		}
-
-		template<typename value_type_newer = value_type> JSONIFIER_INLINE constexpr explicit operator std::basic_string<value_type_newer>() const noexcept {
-			std::basic_string<value_type_newer> returnValue{};
-			returnValue.resize(sizeVal);
-			if (sizeVal > 0 && dataVal) [[likely]] {
-				memcpy_wrapper(returnValue.data(), data(), returnValue.size());
-			}
-			return returnValue;
-		}
-
-		template<typename value_type_newer = value_type> JSONIFIER_INLINE constexpr explicit operator std::basic_string_view<value_type_newer>() const noexcept {
-			return { data(), size() };
-		}
-
-		template<uint64_t size> JSONIFIER_INLINE friend bool operator==(const string_view_base& lhs, const char (&rhs)[size]) noexcept {
-			auto rhsLength = traits_type::length(rhs);
-			return rhsLength == lhs.size() && internal::comparison::compare(lhs.data(), rhs, rhsLength);
-		}
-
-		template<internal::string_t value_type_newer> JSONIFIER_INLINE friend bool operator==(const string_view_base& lhs, const value_type_newer& rhs) noexcept {
-			if (lhs.size() == rhs.size()) {
-				if (lhs.size() > 0) {
-					return internal::comparison::compare(lhs.data(), rhs.data(), rhs.size());
-				}
-				return true;
-			} else {
-				return false;
-			}
+		JSONIFIER_INLINE constexpr bool empty() const noexcept {
+			return sizeVal == 0;
 		}
 
 		const_pointer dataVal{};
 		size_type sizeVal{};
 	};
 
-	using string_view = string_view_base;
-
-	template<size_t buffer_size>
-	JSONIFIER_INLINE static internal::basic_stream<buffer_size>& operator<<(internal::basic_stream<buffer_size>& os, const string_view& input) noexcept {
-		os << std::basic_string_view<char>{ input.data(), input.size() };
+	template<internal::ostream_types ostream_type> JSONIFIER_INLINE ostream_type& operator<<(ostream_type& os, const string_view& input) noexcept {
+		os.write(input.data(), static_cast<int64_t>(input.size()));
 		return os;
 	}
 
-	JSONIFIER_INLINE static std::ostream& operator<<(std::ostream& os, const string_view& input) noexcept {
-		os << std::basic_string_view<char>{ input.data(), input.size() };
-		return os;
-	}
-
-	JSONIFIER_INLINE constexpr string_view operator""_sv(read_buffer_ptr stringNew, size_t lengthNew) noexcept {
+	JSONIFIER_INLINE constexpr string_view operator""_sv(const char* stringNew, size_t lengthNew) noexcept {
 		return string_view(stringNew, lengthNew);
 	}
 

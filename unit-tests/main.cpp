@@ -9,12 +9,9 @@
 
 int32_t main() {
 	try {
-		std::cout << "Current active CPU backend: " << jsonifier::cpu_arch_name << std::endl;
+		std::cout << "Current active CPU backend: " << jsonifier::cpuArchName << std::endl;
 		tests::testFunction();
 	} catch (const std::runtime_error& e) {
-		std::cout << "Error: " << e.what() << std::endl;
-		return 1;
-	} catch (const rt_ut::rt_ut_exception& e) {
 		std::cout << "Error: " << e.what() << std::endl;
 		return 1;
 	}

@@ -11,116 +11,124 @@
 #include <jsonifier-incl/utilities/utility.hpp>
 #include <jsonifier-incl/utilities/compare.hpp>
 
-namespace jsonifier {
-
-	struct prettify_options {
-		uint64_t indentSize{ 3 };
-		char indentChar{ ' ' };
-	};
-
-}
-
 namespace jsonifier::internal {
 
 	struct prettify_status {
-		uint64_t object_depth{};
-		uint64_t array_depth{};
+		uint64_t objectDepth{};
+		uint64_t arrayDepth{};
 		uint64_t newSize{};
 		uint64_t index{};
 		int64_t indent{};
 	};
 
-	template<typename derived_type_new> struct prettifier {
-	  public:
-		using derived_type = derived_type_new;
+	template<prettify_options options, typename prettifier_type> struct prettify_context_ro {
+		prettify_context_ro() noexcept = delete;
 
-		template<prettify_options options = prettify_options{}, string_t string_type> inline base_t<string_type> prettifyJson(string_type&& in) noexcept {
-			if (derivedRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
-				derivedRef.stringBuffer.resize(in.size() * 5);
-			}
-			static constexpr prettify_options optionsFinal{ options };
-			const auto* dataPtr = in.data();
-			derivedRef.errors.clear();
-			read_buffer_ptr rootIter = dataPtr;
-			read_buffer_ptr endIter	 = dataPtr + in.size();
-			derivedRef.section.template reset<true>(dataPtr, in.size());
-			structural_index_ptr iter{ derivedRef.section.begin() };
-			auto* endStructural = derivedRef.section.end();
-			base_t<string_type> newString{};
-			if (iter == endStructural) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
-			} else {
-				auto index = impl<optionsFinal>(iter, endStructural, dataPtr, derivedRef.stringBuffer, rootIter, endIter);
-				if (index != std::numeric_limits<uint64_t>::max()) [[likely]] {
-					newString.resize(index);
-					memcpy_wrapper(newString.data(), derivedRef.stringBuffer.data(), index);
-				}
-			}
-			return newString;
+		JSONIFIER_INLINE prettify_context_ro(prettifier_type& prettifierNew, write_structural_index_ptr iterNew, write_structural_index_ptr endStructuralNew,
+			read_buffer_ptr dataPtrNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
+			: endStructural{ endStructuralNew }, iter{ iterNew }, prettifier{ prettifierNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
 		}
 
-		template<prettify_options options = prettify_options{}, string_t input_string_type, string_t output_buffer_type>
-		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
-			if (derivedRef.stringBuffer.size() < in.size() * 5) [[unlikely]] {
-				derivedRef.stringBuffer.resize(in.size() * 5);
-			}
+		prettify_context_ro& operator=(prettify_context_ro&&) noexcept		= delete;
+		prettify_context_ro(prettify_context_ro&&) noexcept					= delete;
+		prettify_context_ro& operator=(const prettify_context_ro&) noexcept = delete;
+		prettify_context_ro(const prettify_context_ro&) noexcept			= delete;
+
+		JSONIFIER_INLINE_EXCEPT_GCC uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
+			const auto index{ prettifier.template impl<options>(iter, endStructural, dataPtr, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter) };
+			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
+		}
+
+		write_structural_index_ptr endStructural{};
+		write_structural_index_ptr iter{};
+		prettifier_type& prettifier;
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr dataPtr{};
+		read_buffer_ptr endIter{};
+	};
+
+	template<typename derived_type_new> struct prettifier {
+		using derived_type = derived_type_new;
+		template<prettify_options options, typename prettifier_type> friend struct prettify_context_ro;
+
+		template<prettify_options options = prettify_options{}, string_types input_string_type, string_types output_buffer_type>
+		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
-			const auto* dataPtr		 = in.data();
-			read_buffer_ptr rootIter = dataPtr;
-			read_buffer_ptr endIter	 = dataPtr + in.size();
+			read_buffer_ptr dataPtr{ std::bit_cast<read_buffer_ptr>(in.data()) };
+			read_buffer_ptr rootIter{ dataPtr };
+			read_buffer_ptr endIter{ dataPtr + in.size() };
 			derivedRef.section.template reset<true>(dataPtr, in.size());
-			structural_index_ptr iter{ derivedRef.section.begin() };
-			auto* endStructural = derivedRef.section.end();
+			write_structural_index_ptr iter{ derivedRef.section.begin() };
+			auto* endStructural{ derivedRef.section.end() };
 			if (iter == endStructural) [[unlikely]] {
-				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, &rootIter[*iter], endIter));
+				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, rootIter, endIter));
 				return false;
 			}
-			auto index = impl<optionsFinal>(iter, endStructural, dataPtr, derivedRef.stringBuffer, rootIter, endIter);
-			if (index != std::numeric_limits<uint64_t>::max()) [[likely]] {
-				if (buffer.size() != index) [[likely]] {
-					buffer.resize(index);
+			uint64_t depth{};
+			uint64_t maxDepth{};
+			for (auto* structural{ iter }; structural != endStructural; ++structural) {
+				switch (dataPtr[*structural]) {
+					case uint_c_v<'['>:
+					case uint_c_v<'{'>: {
+						++depth;
+						maxDepth = depth > maxDepth ? depth : maxDepth;
+						break;
+					}
+					case uint_c_v<']'>:
+					case uint_c_v<'}'>: {
+						depth -= depth > 0;
+						break;
+					}
+					default: {
+						break;
+					}
 				}
-				memcpy_wrapper(buffer.data(), derivedRef.stringBuffer.data(), index);
-				return true;
-			} else {
-				return false;
 			}
+			const uint64_t structuralCount{ static_cast<uint64_t>(endStructural - iter) };
+			const uint64_t requiredSize{ in.size() + structuralCount * (maxDepth * optionsFinal.indentSize + 2) };
+			using context_type = prettify_context_ro<optionsFinal, remove_reference_t<decltype(*this)>>;
+			if constexpr (resize_and_overwriteable_types<remove_cvref_t<output_buffer_type>>) {
+				buffer.resize_and_overwrite(requiredSize, context_type{ *this, iter, endStructural, dataPtr, rootIter, endIter });
+			} else {
+				if (buffer.size() < requiredSize) {
+					buffer.resize(requiredSize);
+				}
+				context_type context{ *this, iter, endStructural, dataPtr, rootIter, endIter };
+				buffer.resize(context(buffer.data(), requiredSize));
+			}
+			return !buffer.empty();
 		}
 
 	  protected:
-		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
-
-		prettifier() noexcept						   = default;
-		prettifier& operator=(const prettifier& other) = delete;
-		prettifier(const prettifier& other)			   = delete;
+		inline prettifier() noexcept				   = default;
 		prettifier& operator=(prettifier&& other)	   = delete;
 		prettifier(prettifier&& other)				   = delete;
-		~prettifier() noexcept						   = default;
+		prettifier& operator=(const prettifier& other) = delete;
+		prettifier(const prettifier& other)			   = delete;
 
-		template<prettify_options options, string_t string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
-			iterator_end* __restrict endStructural, read_buffer_ptr __restrict stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter,
-			read_buffer_ptr endIter) noexcept {
+		template<prettify_options options, prettify_buffer_types string_type, typename iterator, typename iterator_end> inline uint64_t impl(iterator* __restrict& iter,
+			iterator_end* __restrict endStructural, read_buffer_ptr stringRootIter, string_type&& outBuffer, read_buffer_ptr rootIter, read_buffer_ptr endIter) {
 			using comma_indent = indent_table<",\n", options.indentChar, options.indentSize>;
 			using open_indent  = indent_table<"\n", options.indentChar, options.indentSize>;
 			using close_indent = indent_table<"\n", options.indentChar, options.indentSize>;
-			using enum json_structural_type;
+			using enum json_structural_types;
 			read_buffer_ptr newPtr{};
 			prettify_status status{};
 			while (iter < endStructural) {
-				switch (static_cast<uint64_t>(jsonTypes[static_cast<uint8_t>(stringRootIter[*iter])])) {
+				switch (static_cast<uint64_t>(jsonTypes[static_cast<uint64_t>(stringRootIter[*iter])])) {
 					case static_cast<uint64_t>(string): {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpy_wrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}
 					case static_cast<uint64_t>(comma): {
-						write_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr{ outBuffer + status.index };
 						comma_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
-						status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
+						status.index = static_cast<uint64_t>(outPtr - outBuffer);
 						++iter;
 						break;
 					}
@@ -128,14 +136,14 @@ namespace jsonifier::internal {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpy_wrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}
 					case static_cast<uint64_t>(colon): {
 						static constexpr char valuesNew[3]{ ':', options.indentChar };
-						alignas(64) static constexpr uint16_t colonIndentChar{ pack_values<string_literal{ valuesNew }>::value };
-						pow2_memcpy_wrapper<2>(&outBuffer[status.index], &colonIndentChar);
+						static constexpr uint16_t colonIndentChar{ pack_values<string_literal{ valuesNew }>::value };
+						pow2MemcpyWrapper<2>(&outBuffer[status.index], &colonIndentChar);
 						status.index += 2;
 						++iter;
 						break;
@@ -144,21 +152,20 @@ namespace jsonifier::internal {
 						outBuffer[status.index] = '[';
 						++status.index;
 						++iter;
-						++status.array_depth;
+						++status.arrayDepth;
 						status.indent += options.indentSize;
-						if (stringRootIter[*iter] != ']') [[likely]] {
-							write_buffer_ptr outPtr = outBuffer.data() + status.index;
+						if (stringRootIter[*iter] != uint_c_v<']'>) [[likely]] {
+							write_buffer_ptr outPtr{ outBuffer + status.index };
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
-							status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
+							status.index = static_cast<uint64_t>(outPtr - outBuffer);
 						} else {
-							--status.array_depth;
+							--status.arrayDepth;
 							status.indent -= options.indentSize;
 							outBuffer[status.index] = ']';
 							++status.index;
 							if (status.indent < 0) {
-								derivedRef.errors.emplace_back(
-									jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter,
-										&rootIter[*iter], endIter));
+								derivedRef.errors.emplace_back(internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter,
+									&rootIter[*iter], endIter));
 								return std::numeric_limits<uint64_t>::max();
 							}
 							++iter;
@@ -167,15 +174,15 @@ namespace jsonifier::internal {
 					}
 					case static_cast<uint64_t>(array_end): {
 						status.indent -= options.indentSize;
-						--status.array_depth;
+						--status.arrayDepth;
 						if (status.indent < 0) {
-							derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-								rootIter, &rootIter[*iter], endIter));
+							derivedRef.errors.emplace_back(
+								internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
-						write_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr{ outBuffer + status.index };
 						close_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
-						status.index			= static_cast<uint64_t>(outPtr - outBuffer.data());
+						status.index			= static_cast<uint64_t>(outPtr - outBuffer);
 						outBuffer[status.index] = ']';
 						++status.index;
 						++iter;
@@ -183,20 +190,20 @@ namespace jsonifier::internal {
 					}
 					case static_cast<uint64_t>(null): {
 						static constexpr uint32_t nullV{ pack_values<string_literal{ "null" }>::value };
-						pow2_memcpy_wrapper<4>(&outBuffer[status.index], &nullV);
+						pow2MemcpyWrapper<4>(&outBuffer[status.index], &nullV);
 						status.index += 4;
 						++iter;
 						break;
 					}
 					case static_cast<uint64_t>(boolean): {
-						if (stringRootIter[*iter] == 'f') {
+						if (stringRootIter[*iter] == uint_c_v<'f'>) {
 							static constexpr uint64_t falseV{ pack_values<string_literal{ "false" }>::value };
-							pow2_memcpy_wrapper<8>(&outBuffer[status.index], &falseV);
+							pow2MemcpyWrapper<8>(&outBuffer[status.index], &falseV);
 							status.index += 5;
 							++iter;
 						} else {
 							static constexpr uint32_t trueV{ pack_values<string_literal{ "true" }>::value };
-							pow2_memcpy_wrapper<4>(&outBuffer[status.index], &trueV);
+							pow2MemcpyWrapper<4>(&outBuffer[status.index], &trueV);
 							status.index += 4;
 							++iter;
 						}
@@ -204,16 +211,16 @@ namespace jsonifier::internal {
 					}
 					case static_cast<uint64_t>(object_start): {
 						outBuffer[status.index] = '{';
-						++status.object_depth;
+						++status.objectDepth;
 						++status.index;
 						++iter;
 						status.indent += options.indentSize;
-						if (stringRootIter[*iter] != '}') {
-							write_buffer_ptr outPtr = outBuffer.data() + status.index;
+						if (stringRootIter[*iter] != uint_c_v<'}'>) {
+							write_buffer_ptr outPtr{ outBuffer + status.index };
 							open_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
-							status.index = static_cast<uint64_t>(outPtr - outBuffer.data());
+							status.index = static_cast<uint64_t>(outPtr - outBuffer);
 						} else {
-							--status.object_depth;
+							--status.objectDepth;
 							status.indent -= options.indentSize;
 							outBuffer[status.index] = '}';
 							++status.index;
@@ -223,15 +230,15 @@ namespace jsonifier::internal {
 					}
 					case static_cast<uint64_t>(object_end): {
 						status.indent -= options.indentSize;
-						--status.object_depth;
+						--status.objectDepth;
 						if (status.indent < 0) {
-							derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-								rootIter, &rootIter[*iter], endIter));
+							derivedRef.errors.emplace_back(
+								internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 							return std::numeric_limits<uint64_t>::max();
 						}
-						write_buffer_ptr outPtr = outBuffer.data() + status.index;
+						write_buffer_ptr outPtr{ outBuffer + status.index };
 						close_indent::blitWithOverflow(outPtr, static_cast<uint64_t>(status.indent));
-						status.index			= static_cast<uint64_t>(outPtr - outBuffer.data());
+						status.index			= static_cast<uint64_t>(outPtr - outBuffer);
 						outBuffer[status.index] = '}';
 						++status.index;
 						++iter;
@@ -242,25 +249,29 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(error):
 						[[fallthrough]];
 					default: {
-						derivedRef.errors.emplace_back(jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(
-							rootIter, &rootIter[*iter], endIter));
+						derivedRef.errors.emplace_back(
+							internal::error::constructError<status_classes::prettifying, prettify_statuses::incorrect_structural_index>(rootIter, &rootIter[*iter], endIter));
 						return std::numeric_limits<uint64_t>::max();
 					}
 				}
 			}
-			if (status.array_depth > 0 || status.object_depth > 0) {
-				if (status.array_depth > 0) {
+			if (status.arrayDepth > 0 || status.objectDepth > 0) {
+				if (status.arrayDepth > 0) {
 					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_array>(rootIter, &rootIter[*iter], endIter));
-				} else if (status.object_depth > 0) {
+						internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_array>(rootIter, &rootIter[*iter], endIter));
+				} else if (status.objectDepth > 0) {
 					derivedRef.errors.emplace_back(
-						jsonifier::internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_object>(rootIter, &rootIter[*iter], endIter));
+						internal::error::constructError<status_classes::prettifying, prettify_statuses::unclosed_object>(rootIter, &rootIter[*iter], endIter));
 				}
 				status.index = 0;
 				return std::numeric_limits<uint64_t>::max();
 			}
 			return status.index;
 		}
+
+		inline ~prettifier() noexcept = default;
+
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};
 
-}// namespace internal
+}

@@ -10,7 +10,7 @@
 
 namespace string_class_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "String-Class Tests" << std::endl;
 
 		rt_ut::unit_test<"string_default_construct_is_empty", true>::assert_eq(true, [] {
@@ -29,13 +29,13 @@ namespace string_class_tests {
 		});
 
 		rt_ut::unit_test<"string_construct_from_pointer_and_size", true>::assert_eq(true, [] {
-			jsonifier::read_buffer_ptr raw = "hello world";
+			const char* raw = "hello world";
 			jsonifier::string s{ raw, 5 };
 			return s.size() == 5 && s == "hello";
 		});
 
 		rt_ut::unit_test<"string_construct_from_nullptr_pointer", true>::assert_eq(true, [] {
-			jsonifier::read_buffer_ptr raw = nullptr;
+			const char* raw = nullptr;
 			jsonifier::string s{ raw };
 			return s.empty() && s.size() == 0;
 		});
@@ -68,14 +68,14 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_move_constructor_transfers_data", true>::assert_eq(true, [] {
 			jsonifier::string original{ "move me" };
-			jsonifier::string moved{ std::move(original) };
+			jsonifier::string moved{ jsonifier::internal::move(original) };
 			return moved == "move me" && moved.size() == 7;
 		});
 
 		rt_ut::unit_test<"string_move_assignment_transfers_data", true>::assert_eq(true, [] {
 			jsonifier::string original{ "move assign" };
 			jsonifier::string target{};
-			target = std::move(original);
+			target = jsonifier::internal::move(original);
 			return target == "move assign" && target.size() == 11;
 		});
 
@@ -89,7 +89,7 @@ namespace string_class_tests {
 		rt_ut::unit_test<"string_self_move_assignment_is_safe", true>::assert_eq(true, [] {
 			jsonifier::string s{ "selfmove" };
 			jsonifier::string& selfRef2 = s;
-			s							= std::move(selfRef2);
+			s							= jsonifier::internal::move(selfRef2);
 			return s.size() == 8;
 		});
 
@@ -162,7 +162,7 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_append_repeatedly_forces_growth", true>::assert_eq(true, [] {
 			jsonifier::string s{};
-			for (int i = 0; i < 1000; ++i) {
+			for (int32_t i = 0; i < 1000; ++i) {
 				s += 'a';
 			}
 			bool allCorrect = s.size() == 1000;
@@ -193,7 +193,7 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_data_null_terminated_after_emplace_back", true>::assert_eq(true, [] {
 			jsonifier::string s{};
-			for (int i = 0; i < 50; ++i) {
+			for (int32_t i = 0; i < 50; ++i) {
 				s.emplace_back('q');
 			}
 			return s.data()[s.size()] == '\0' && s.size() == 50;
@@ -412,7 +412,7 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_append_pointer_and_size", true>::assert_eq(true, [] {
 			jsonifier::string s{ "start" };
-			jsonifier::read_buffer_ptr extra = "-more";
+			const char* extra = "-more";
 			s.append(extra, 5);
 			return s == "start-more" && s.size() == 10;
 		});
@@ -515,7 +515,7 @@ namespace string_class_tests {
 
 		rt_ut::unit_test<"string_repeated_grow_shrink_cycle_preserves_correctness", true>::assert_eq(true, [] {
 			jsonifier::string s{ "x" };
-			for (int i = 0; i < 20; ++i) {
+			for (int32_t i = 0; i < 20; ++i) {
 				s += "yyyyyyyyyy";
 				s.resize(s.size() > 5 ? s.size() - 3 : s.size());
 			}

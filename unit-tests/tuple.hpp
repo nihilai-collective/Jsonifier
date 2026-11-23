@@ -10,12 +10,12 @@
 
 namespace tuple_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Tuple Tests" << std::endl;
 
 		rt_ut::unit_test<"tuple_make_tuple_and_get_by_type", true>::assert_eq(true, [] {
 			auto t = jsonifier::internal::makeTuple(42, 3.5, std::string{ "hi" });
-			return jsonifier::internal::get<int>(t) == 42 && std::equal_to<double>{}(jsonifier::internal::get<double>(t), 3.5) &&
+			return jsonifier::internal::get<int32_t>(t) == 42 && std::equal_to<double>{}(jsonifier::internal::get<double>(t), 3.5) &&
 				jsonifier::internal::get<std::string>(t) == std::string{ "hi" };
 		});
 

@@ -42,6 +42,11 @@ namespace jsonifier::internal {
 		exceeded_max_depth,
 		unexpected_token,
 		illegal_control_character,
+		incorrect_type,
+		no_such_field,
+		index_out_of_bounds,
+		invalid_json_pointer,
+		capacity,
 		count,
 	};
 
@@ -51,6 +56,8 @@ namespace jsonifier::internal {
 		invalid_string_length,
 		invalid_number_value,
 		incorrect_structural_index,
+		unclosed_object,
+		unclosed_array,
 		count,
 	};
 
@@ -82,13 +89,7 @@ namespace jsonifier::internal {
 		count,
 	};
 
-	inline void appendUnsigned(string& stream, uint64_t value) {
-		char buffer[24];
-		auto* end = to_chars<uint64_t>::impl(buffer, value);
-		stream.append(buffer, static_cast<size_t>(end - buffer));
-	}
-
-	inline void appendErrorType(status_classes status_class, string& stream, uint64_t value) {
+	inline void appendErrorType(status_classes status_class, string& stream, uint64_t value) noexcept {
 		switch (static_cast<uint64_t>(status_class)) {
 			case static_cast<uint64_t>(status_classes::parsing): {
 				stream += getName(static_cast<parse_statuses>(value));
@@ -112,7 +113,13 @@ namespace jsonifier::internal {
 		}
 	}
 
-	inline void appendEscapedByte(string& stream, char b) {
+	inline void appendUnsigned(string& stream, uint64_t value) noexcept {
+		uint8_t buffer[24];
+		auto* end{ to_chars<uint64_t>::impl(buffer, value) };
+		stream.append(std::bit_cast<const char*>(+buffer), static_cast<uint64_t>(end - buffer));
+	}
+
+	inline void appendEscapedByte(string& stream, char b) noexcept {
 		switch (b) {
 			case '\a':
 				stream += "\\a";
@@ -155,13 +162,13 @@ namespace jsonifier::internal {
 					static constexpr char hexDigits[]{ "0123456789abcdef" };
 					stream += "\\x";
 					stream += hexDigits[(static_cast<uint8_t>(b) >> 4U) & 0xFU];
-					stream += hexDigits[static_cast<uint8_t>(b) & 0xFU];
+					stream += hexDigits[static_cast<uint64_t>(b) & 0xFU];
 					return;
 				}
 		}
 	}
 
-	enum class json_structural_type : int8_t {
+	enum class json_structural_types : int8_t {
 		error		 = -1,
 		unset		 = 0,
 		string		 = '"',
@@ -176,59 +183,40 @@ namespace jsonifier::internal {
 		object_end	 = '}',
 	};
 
-	alignas(64) static constexpr array<bool, 256> boolTable{ []() constexpr {
-		array<bool, 256> returnValues{};
-		returnValues['t'] = true;
-		returnValues['f'] = true;
+	consteval array<bool, 256ULL> genBoolTable() noexcept {
+		array<bool, 256ULL> returnValues{};
+		returnValues[uint_c_v<'t'>] = true;
+		returnValues[uint_c_v<'f'>] = true;
 		return returnValues;
-	}() };
+	}
 
-	class error {
-	  public:
-		template<parse_options parseOpts, typename iterator_type, typename string_buffer_type> friend struct json_iterator;
+	alignas(64) inline constexpr auto boolTableRaw{ genBoolTable() };
 
+	inline constexpr const bool* __restrict boolTable{ boolTableRaw.data() };
+
+	struct error {
 		inline error() noexcept = default;
 
-		template<typename error_class> inline error(std::source_location sourceLocationNew, status_classes errorClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
+		template<typename error_class> error(std::source_location sourceLocationNew, status_classes statusClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
 			read_buffer_ptr endIterNew, error_class typeNew) noexcept
-			: sourceLocation{ sourceLocationNew }, errorClass{ errorClassNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
-			  errorType{ static_cast<uint64_t>(typeNew) } {
+			: sourceLocation{ sourceLocationNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew }, errorType{ static_cast<uint64_t>(typeNew) },
+			  status_class{ statusClassNew } {
 			formatReport();
 		}
 
-		template<status_classes errorClassNew, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
+		template<status_classes status_class, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
 			read_buffer_ptr endIter, const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
+			return { sourceLocation, status_class, rootIter, errorPos, endIter, typeNew };
 		}
 
-		template<status_classes errorClassNew, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
+		template<status_classes status_class, auto typeNew> inline static error constructError(read_buffer_ptr rootIter, read_buffer_ptr errorPos, read_buffer_ptr endIter,
 			const std::source_location& sourceLocation = std::source_location::current()) noexcept {
-			return { sourceLocation, errorClassNew, rootIter, errorPos, endIter, typeNew };
-		}
-
-		template<typename error_class> inline operator error_class() const noexcept {
-			return static_cast<error_class>(errorType);
+			return { sourceLocation, status_class, rootIter, errorPos, endIter, typeNew };
 		}
 
 		inline bool operator==(const error& rhs) const noexcept {
-			return errorClass == rhs.errorClass && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
+			return status_class == rhs.status_class && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
 		}
-
-		inline std::string_view reportError() const noexcept {
-			return reportString.operator std::basic_string_view<char>();
-		}
-
-	  protected:
-		std::source_location sourceLocation{};
-		status_classes errorClass{};
-		read_buffer_ptr rootIter{};
-		read_buffer_ptr errorPos{};
-		read_buffer_ptr endIter{};
-		uint64_t localIndex{};
-		string reportString{};
-		uint64_t errorIndex{};
-		uint64_t errorType{};
-		uint64_t line{};
 
 		inline void formatReport() noexcept {
 			line	   = 0;
@@ -240,8 +228,8 @@ namespace jsonifier::internal {
 
 				line = static_cast<uint64_t>(std::count(rootIter, errorPos, '\n') + 1);
 
-				read_buffer_ptr scan		   = errorPos;
-				uint64_t distanceFromLineStart = 0;
+				read_buffer_ptr scan{ errorPos };
+				uint64_t distanceFromLineStart{ 0 };
 				while (scan > rootIter && *(scan - 1) != '\n') {
 					--scan;
 					++distanceFromLineStart;
@@ -249,8 +237,8 @@ namespace jsonifier::internal {
 				localIndex = distanceFromLineStart;
 
 				if (errorPos < endIter) {
-					uint64_t errorLength = std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos));
-					string_view view{ errorPos, errorLength };
+					uint64_t errorLength{ std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos)) };
+					string_view view{ std::bit_cast<const char*>(errorPos), errorLength };
 					context = string{ std::begin(view), static_cast<uint64_t>(view.size()) };
 					for (auto& c: context) {
 						if (c == '\t') {
@@ -261,9 +249,9 @@ namespace jsonifier::internal {
 			}
 			string stream{};
 			stream += "Error of Class: ";
-			stream += getName(errorClass);
+			stream += getName(status_class);
 			stream += ", of Type: ";
-			appendErrorType(errorClass, stream, errorType);
+			appendErrorType(status_class, stream, errorType);
 			stream += ", at global index: ";
 			appendUnsigned(stream, errorIndex);
 			stream += ", on line: ";
@@ -284,23 +272,38 @@ namespace jsonifier::internal {
 			reportString = stream;
 		}
 
-		inline static void collectValues(string& stream, const string& inputValues) {
-			for (uint64_t i = 0; i < 32 && i < inputValues.size(); ++i) {
+		inline static void collectValues(string& stream, const string& inputValues) noexcept {
+			for (uint64_t i{ 0 }; i < 32 && i < inputValues.size(); ++i) {
 				stream += "'";
 				appendEscapedByte(stream, inputValues[i]);
 				stream += "' ";
 			}
 			return;
 		}
+
+		template<typename error_class> inline operator error_class() const noexcept {
+			return static_cast<error_class>(errorType);
+		}
+
+		inline string_view reportError() const noexcept {
+			return static_cast<string_view>(reportString);
+		}
+
+		std::source_location sourceLocation{};
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr errorPos{};
+		read_buffer_ptr endIter{};
+		string reportString{};
+		uint64_t localIndex{};
+		uint64_t errorIndex{};
+		uint64_t errorType{};
+		uint64_t line{};
+		status_classes status_class{};
 	};
 
-	template<size_t buffer_size> inline static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, const error& errorNew) noexcept {
-		os << errorNew.reportError();
-		return os;
-	}
-
-	inline static std::ostream& operator<<(std::ostream& os, const error& errorNew) noexcept {
-		os << errorNew.reportError();
+	template<internal::ostream_types ostream_type> inline ostream_type& operator<<(ostream_type& os, const error& errorNew) noexcept {
+		string_view value{ errorNew.reportError() };
+		os.write(value.data(), static_cast<int64_t>(value.size()));
 		return os;
 	}
 

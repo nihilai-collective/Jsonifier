@@ -24,3 +24,7 @@
 #if defined(memcpy)
 	#undef memcpy
 #endif
+
+#if defined(memmove)
+	#undef memmove
+#endif

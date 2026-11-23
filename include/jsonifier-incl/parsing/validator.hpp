@@ -12,84 +12,297 @@
 
 namespace jsonifier::internal {
 
-	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type value) noexcept {
-		return value + strLen(value);
-	}
-
-	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type value) noexcept {
+	template<pointer_types value_type> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getBeginIter(value_type value) noexcept {
 		return std::bit_cast<read_buffer_ptr>(value);
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type& value) noexcept {
-		return value.data() + value.size();
+	template<data_accessible_types value_type> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getBeginIter(value_type& value) noexcept {
+		return std::bit_cast<read_buffer_ptr>(value.data());
 	}
 
-	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type& value) noexcept {
-		return value.data();
+	template<pointer_types value_type> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getEndIter(value_type value) noexcept {
+		return std::bit_cast<read_buffer_ptr>(value + strLen(value));
 	}
 
-	template<json_structural_type typeNew, typename derived_type> struct validate_impl;
+	template<data_accessible_types value_type> JSONIFIER_INLINE unrestrict_t<read_buffer_ptr> getEndIter(value_type& value) noexcept {
+		return std::bit_cast<read_buffer_ptr>(value.data() + value.size());
+	}
 
 	template<typename derived_type_new> struct validator {
-	  public:
 		using derived_type = derived_type_new;
 
-		template<json_structural_type, typename derived_type_newer> friend struct validate_impl;
+		static constexpr parse_options optionsVal{};
 
-		template<string_t string_type> inline bool validateJson(string_type&& in) noexcept {
-			static constexpr parse_options validateOpts{};
-			auto rootIter = getBeginIter(in);
-			auto endIter  = getEndIter(in);
-			derivedRef.section.template reset<validateOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-			json_iterator<validateOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
-				derivedRef.section.begin(), derivedRef.section.end(), derivedRef.section.begin(), rootIter, endIter };
-			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
+		using cursor = json_cursor<optionsVal, unrestrict_t<write_structural_index_ptr>>;
+
+		template<string_types string_type> inline bool validateJson(string_type&& in) noexcept {
+			auto rootIter{ getBeginIter(in) };
+			auto endIter{ getEndIter(in) };
+			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
+			parse_context<optionsVal, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
+				&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
+			auto newSize{ static_cast<uint64_t>(endIter - rootIter) / 2 };
 			if (derivedRef.stringBuffer.size() < newSize) {
 				derivedRef.stringBuffer.resize(newSize);
 			}
 			derivedRef.errors.clear();
-			if (context.anyInput()) {
-				if (!impl(context)) {
-					return false;
-				}
-				context.checkIfDone();
-				return derivedRef.errors.size() == 0;
-			} else {
+			const write_structural_index_ptr iter{ derivedRef.section.begin() };
+			if (!cursor::anyInput(iter, context)) {
 				return false;
 			}
+			if (!validateUtf8(rootIter, static_cast<uint64_t>(endIter - rootIter))) [[unlikely]] {
+				return false;
+			}
+			const write_structural_index_ptr iterNew{ impl(iter, 0, context) };
+			if (!iterNew) {
+				return false;
+			}
+			static_cast<void>(cursor::checkIfDone(iterNew, context));
+			return derivedRef.errors.size() == 0;
 		}
 
 	  protected:
-		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
-
-		validator() noexcept						 = default;
-		validator& operator=(const validator& other) = delete;
-		validator(const validator& other)			 = delete;
+		inline validator() noexcept					 = default;
 		validator& operator=(validator&& other)		 = delete;
 		validator(validator&& other)				 = delete;
-		~validator() noexcept						 = default;
+		validator& operator=(const validator& other) = delete;
+		validator(const validator& other)			 = delete;
 
-		template<typename context_type> inline static bool impl(context_type& context) noexcept {
-			if (!context.notAtEndPre()) {
-				return false;
+		template<typename context_type>
+		inline static unrestrict_t<write_structural_index_ptr> impl(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!cursor::notAtEnd(iter, context)) {
+				return nullptr;
 			}
-			const auto c = *context.currentPtr();
-			if (c == '{') {
-				return validate_impl<json_structural_type::object_start, derived_type>::impl(context);
-			} else if (c == '[') {
-				return validate_impl<json_structural_type::array_start, derived_type>::impl(context);
-			} else if (c == '"') {
-				return validate_impl<json_structural_type::string, derived_type>::impl(context);
-			} else if (numberTable[static_cast<uint8_t>(c)]) {
-				return validate_impl<json_structural_type::number, derived_type>::impl(context);
-			} else if (boolTable[static_cast<uint8_t>(c)]) {
-				return validate_impl<json_structural_type::boolean, derived_type>::impl(context);
-			} else if (c == 'n') {
-				return validate_impl<json_structural_type::null, derived_type>::impl(context);
+			const auto c{ *cursor::valuePtr(iter, context) };
+			if (c == uint_c_v<'{'>) {
+				return validateObject(iter, depth, context);
+			} else if (c == uint_c_v<'['>) {
+				return validateArray(iter, depth, context);
+			} else if (c == uint_c_v<'"'>) {
+				return validateString(iter, context);
+			} else if (numberTable[static_cast<uint64_t>(c)]) {
+				return validateNumber(iter, context);
+			} else if (boolTable[static_cast<uint64_t>(c)]) {
+				return validateBool(iter, context);
+			} else if (c == uint_c_v<'n'>) {
+				return validateNull(iter, context);
 			} else {
-				return false;
+				return nullptr;
 			}
 		}
+
+		template<typename context_type> JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> scalarBound(write_structural_index_ptr nextIter, context_type& context) noexcept {
+			return cursor::notAtEnd(nextIter, context) ? cursor::valuePtr(nextIter, context) : context.stringEnd;
+		}
+
+		template<typename context_type>
+		inline static unrestrict_t<write_structural_index_ptr> validateObject(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'{'>(iter, context))) [[unlikely]] {
+				return nullptr;
+			}
+			++iter;
+			if (cursor::template checkChar<'}'>(iter, context)) [[unlikely]] {
+				return ++iter;
+			}
+			while (cursor::notAtEnd(iter, context)) {
+				iter = validateString(iter, context);
+				if (!iter) [[unlikely]] {
+					return nullptr;
+				}
+				if (!cursor::template checkChar<':'>(iter, context)) [[unlikely]] {
+					return nullptr;
+				}
+				++iter;
+				iter = validator<derived_type_new>::impl(iter, depth + 1, context);
+				if (!iter) [[unlikely]] {
+					return nullptr;
+				}
+				if (cursor::template checkChar<','>(iter, context)) [[likely]] {
+					++iter;
+				} else if (cursor::template checkChar<'}'>(iter, context)) {
+					return ++iter;
+				} else {
+					return nullptr;
+				}
+			}
+			return nullptr;
+		}
+
+		template<typename context_type>
+		inline static unrestrict_t<write_structural_index_ptr> validateArray(write_structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'['>(iter, context))) [[unlikely]] {
+				return nullptr;
+			}
+			++iter;
+			if (cursor::template checkChar<']'>(iter, context)) [[unlikely]] {
+				return ++iter;
+			}
+			while (cursor::notAtEnd(iter, context)) {
+				iter = validator<derived_type_new>::impl(iter, depth + 1, context);
+				if (!iter) [[unlikely]] {
+					return nullptr;
+				}
+				if (cursor::template checkChar<','>(iter, context)) [[likely]] {
+					++iter;
+				} else if (cursor::template checkChar<']'>(iter, context)) {
+					return ++iter;
+				} else {
+					return nullptr;
+				}
+			}
+			return nullptr;
+		}
+
+		template<typename context_type>
+		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateString(write_structural_index_ptr iter, context_type& context) noexcept {
+			if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
+				return nullptr;
+			}
+			const auto contentPtr{ cursor::valuePtr(iter, context) + 1 };
+			++iter;
+			const auto bound{ scalarBound(iter, context) };
+			auto ptr{ contentPtr };
+			bool found{ false };
+			if constexpr (std::endian::native == std::endian::little) {
+				while (bound - ptr >= 8) {
+					uint64_t chunk;
+					pow2MemcpyWrapper<sizeof(chunk)>(&chunk, ptr);
+					const uint64_t quotes{ chunk ^ 0x2222222222222222ull };
+					const uint64_t backslashes{ chunk ^ 0x5C5C5C5C5C5C5C5Cull };
+					const uint64_t flagged{ (((quotes - 0x0101010101010101ull) & ~quotes) | ((backslashes - 0x0101010101010101ull) & ~backslashes) |
+												((chunk - 0x2020202020202020ull) & ~chunk)) &
+						0x8080808080808080ull };
+					if (flagged != 0) {
+						ptr += static_cast<uint64_t>(simd::countrZeroUnsafe(flagged)) >> 3;
+						found = true;
+						break;
+					}
+					ptr += 8;
+				}
+			}
+			if (!found) {
+				while (ptr < bound && *ptr != uint_c_v<'"'> && *ptr != uint_c_v<'\\'> && *ptr >= 0x20) {
+					++ptr;
+				}
+				if (ptr >= bound) [[unlikely]] {
+					return nullptr;
+				}
+			}
+			if (*ptr == uint_c_v<'"'>) [[likely]] {
+				return onlyWhitespace(ptr + 1, bound) ? iter : nullptr;
+			}
+			if (*ptr < 0x20) [[unlikely]] {
+				return nullptr;
+			}
+
+			auto& scratch{ context.getStringBuffer() };
+			const auto needed{ static_cast<uint64_t>(bound - contentPtr) + cascadeWidestBytes };
+			if (scratch.size() < needed) [[unlikely]] {
+				scratch.resize(needed);
+			}
+			const auto result{ string_cascade::open(contentPtr, bound, scratch.data()) };
+			if (result.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
+				return nullptr;
+			}
+			return onlyWhitespace(contentPtr + result.rawLength + 1, bound) ? iter : nullptr;
+		}
+
+		template<typename context_type>
+		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateNumber(write_structural_index_ptr iter, context_type& context) noexcept {
+			auto newPtr{ cursor::valuePtr(iter, context) };
+			++iter;
+			const auto bound{ scalarBound(iter, context) };
+			const auto readEnd{ context.stringEnd };
+			consumeChar(uint_c_v<'-'>, newPtr, bound);
+			if (consumeChar(uint_c_v<'0'>, newPtr, bound)) {
+				if (newPtr < bound && isDigit(static_cast<uint8_t>(*newPtr))) [[unlikely]] {
+					return nullptr;
+				}
+			} else if (!consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
+				return nullptr;
+			}
+			if (consumeChar(uint_c_v<'.'>, newPtr, bound) && !consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
+				return nullptr;
+			}
+			if (consumeChar(uint_c_v<'e'>, newPtr, bound) || consumeChar(uint_c_v<'E'>, newPtr, bound)) {
+				if (!consumeChar(uint_c_v<'-'>, newPtr, bound)) {
+					consumeChar(uint_c_v<'+'>, newPtr, bound);
+				}
+				if (!consumeDigits(newPtr, bound, readEnd)) [[unlikely]] {
+					return nullptr;
+				}
+			}
+			return onlyWhitespace(newPtr, bound) ? iter : nullptr;
+		}
+
+		template<typename context_type>
+		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateBool(write_structural_index_ptr iter, context_type& context) noexcept {
+			const auto newPtr{ cursor::valuePtr(iter, context) };
+			if (!internal::validateBool(newPtr, context.stringEnd)) [[unlikely]] {
+				return nullptr;
+			}
+			++iter;
+			return onlyWhitespace(newPtr + (*newPtr == uint_c_v<'t'> ? 4 : 5), scalarBound(iter, context)) ? iter : nullptr;
+		}
+
+		template<typename context_type>
+		JSONIFIER_INLINE static unrestrict_t<write_structural_index_ptr> validateNull(write_structural_index_ptr iter, context_type& context) noexcept {
+			const auto newPtr{ cursor::valuePtr(iter, context) };
+			if (!internal::validateNull(newPtr, context.stringEnd)) [[unlikely]] {
+				return nullptr;
+			}
+			++iter;
+			return onlyWhitespace(newPtr + 4, scalarBound(iter, context)) ? iter : nullptr;
+		}
+
+		JSONIFIER_INLINE static bool consumeDigits(read_buffer_ptr& newerPtr, read_buffer_ptr bound, read_buffer_ptr readEnd) noexcept {
+			const auto start{ newerPtr };
+			if constexpr (std::endian::native == std::endian::little) {
+				while (readEnd - newerPtr >= 8) {
+					uint64_t chunk;
+					pow2MemcpyWrapper<sizeof(chunk)>(&chunk, newerPtr);
+					chunk ^= 0x3030303030303030ull;
+					uint64_t nonDigits{ ((chunk + 0x7676767676767676ull) | chunk) & 0x8080808080808080ull };
+					const auto remaining{ bound - newerPtr };
+					if (remaining < 8) {
+						nonDigits |= 0x80ull << (remaining * 8);
+					}
+					if (nonDigits != 0) {
+						newerPtr += static_cast<uint64_t>(simd::countrZeroUnsafe(nonDigits)) >> 3;
+						return newerPtr != start;
+					}
+					newerPtr += 8;
+				}
+			}
+			while (newerPtr < bound && isDigit(static_cast<uint8_t>(*newerPtr))) {
+				++newerPtr;
+			}
+			return newerPtr != start;
+		}
+
+		JSONIFIER_INLINE static bool consumeChar(uint8_t expected, read_buffer_ptr& newerPtr, read_buffer_ptr bound) noexcept {
+			if (newerPtr < bound && *newerPtr == expected) {
+				++newerPtr;
+				return true;
+			}
+			return false;
+		}
+
+		JSONIFIER_INLINE static bool onlyWhitespace(read_buffer_ptr ptr, read_buffer_ptr bound) noexcept {
+			if (ptr == bound) [[likely]] {
+				return true;
+			}
+			for (; ptr < bound; ++ptr) {
+				if (*ptr != uint_c_v<' '> && *ptr != uint_c_v<'\t'> && *ptr != uint_c_v<'\n'> && *ptr != uint_c_v<'\r'>) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		inline ~validator() noexcept = default;
+
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 	};
 
-}// namespace internal
+}

@@ -7,7 +7,7 @@
 #pragma once
 
 #include "add_tape_values.hpp"
-#include "allocator.hpp"
+#include "aligned_allocator.hpp"
 #include "array.hpp"
 #include "bounds_test.hpp"
 #include "compare.hpp"
@@ -15,6 +15,7 @@
 #include "jsonifier_core.hpp"
 #include "error.hpp"
 #include "fastio.hpp"
+#include "generic_parser.hpp"
 #include "float.hpp"
 #include "get_enum_name.hpp"
 #include "hash.hpp"
@@ -22,6 +23,7 @@
 #include "integer.hpp"
 #include "intrinsics.hpp"
 #include "iterator.hpp"
+#include "memcpy.hpp"
 #include "JSONTestSuite.hpp"
 #include "minifier.hpp"
 #include "parsing_tests.hpp"
@@ -32,6 +34,7 @@
 #include "round_trip.hpp"
 #include "string.hpp"
 #include "string_class.hpp"
+#include "string_search.hpp"
 #include "string_literal_comparator.hpp"
 #include "tuple.hpp"
 #include "unit_tests.hpp"
@@ -39,7 +42,7 @@
 
 namespace tests {
 
-	inline static void testFunction() {
+	inline void testFunction() {
 		add_tape_values_tests::runTests();
 		allocator_tests::runTests();
 		array_tests::runTests();
@@ -50,6 +53,7 @@ namespace tests {
 		error_tests::runTests();
 		fastio_tests::runTests();
 		float_validation_tests::runTests();
+		generic_parser_tests::runTests();
 		enum_name_tests::runTests();
 		hash_validation_tests::runTests();
 		hash_map_tests::runTests();
@@ -58,6 +62,7 @@ namespace tests {
 		i_to_str_tests::runTests();
 		intrinsics_tests::runTests();
 		iterator_tests::runTests();
+		memcpy_tests::runTests();
 		json_test_suite_tests::runTests();
 		minifier_tests::runTests();
 		parsing_tests::runTests();
@@ -68,6 +73,7 @@ namespace tests {
 		round_trip_tests::runTests();
 		string_validation_tests::runTests();
 		string_class_tests::runTests();
+		string_search_tests::runTests();
 		string_literal_comparator_impl_tests::runTests();
 		tuple_tests::runTests();
 		unit_tests::runTests();

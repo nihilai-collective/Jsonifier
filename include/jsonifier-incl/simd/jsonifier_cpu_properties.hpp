@@ -11,24 +11,17 @@
 
 namespace jsonifier::internal {
 
-	struct alignas(64) uint64_aligner {
-		alignas(64) uint64_t value{};
-		JSONIFIER_INLINE consteval operator const uint64_t&() const {
-			return value;
-		}
-	};
-
 	enum class cpu_property_types : uint64_t {
-		alignment,
+		simd_alignment,
 		arg_alignment,
 	};
 
 	struct cpu_properties {
 	  public:
-		static constexpr uint64_aligner values[]{ { 32ULL }, { 64ULL } };
+		static constexpr uint64_t values[]{ 32ULL, 64ULL };
 
-		JSONIFIER_INLINE static consteval const uint64_t& get_value(cpu_property_types index) {
-			return values[static_cast<uint64_t>(index)].value;
+		static consteval uint64_t getValue(cpu_property_types index) {
+			return values[static_cast<uint64_t>(index)];
 		}
 	};
 

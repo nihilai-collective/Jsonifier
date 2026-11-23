@@ -10,7 +10,7 @@
 
 namespace compare_tests {
 
-	template<uint64_t length> inline static bool memcharFindsNeedleAtEveryPosition() {
+	template<uint64_t length> inline bool memcharFindsNeedleAtEveryPosition() {
 		for (uint64_t pos = 0; pos < length; ++pos) {
 			std::string buffer(length, 'x');
 			buffer[pos]		   = '"';
@@ -23,7 +23,7 @@ namespace compare_tests {
 		return true;
 	}
 
-	template<uint64_t length> inline static bool memcharReturnsNullWhenAbsent() {
+	template<uint64_t length> inline bool memcharReturnsNullWhenAbsent() {
 		std::string buffer(length, 'x');
 		const auto* result = jsonifier::internal::char_comparison<'"', char>::memchar(buffer.data(), length);
 		if (result != nullptr) {
@@ -33,19 +33,19 @@ namespace compare_tests {
 		return true;
 	}
 
-	template<rt_ut::string_literal testName, uint64_t length> inline static void runMemcharLengthTest() {
+	template<rt_ut::string_literal testName, uint64_t length> inline void runMemcharLengthTest() {
 		rt_ut::unit_test<testName, true>::assert_eq(true, [] {
 			return memcharFindsNeedleAtEveryPosition<length>() && memcharReturnsNullWhenAbsent<length>();
 		});
 	}
 
-	template<uint64_t length> inline static bool compareMatchesIdenticalBuffers() {
+	template<uint64_t length> inline bool compareMatchesIdenticalBuffers() {
 		std::string a(length, 'z');
 		std::string b(length, 'z');
 		return jsonifier::internal::comparison::compare(a.data(), b.data(), length);
 	}
 
-	template<uint64_t length> inline static bool compareDetectsMismatchAtEveryPosition() {
+	template<uint64_t length> inline bool compareDetectsMismatchAtEveryPosition() {
 		for (uint64_t pos = 0; pos < length; ++pos) {
 			std::string a(length, 'z');
 			std::string b(length, 'z');
@@ -58,13 +58,13 @@ namespace compare_tests {
 		return true;
 	}
 
-	template<rt_ut::string_literal testName, uint64_t length> inline static void runCompareLengthTest() {
+	template<rt_ut::string_literal testName, uint64_t length> inline void runCompareLengthTest() {
 		rt_ut::unit_test<testName, true>::assert_eq(true, [] {
 			return compareMatchesIdenticalBuffers<length>() && compareDetectsMismatchAtEveryPosition<length>();
 		});
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "compare.hpp Tests" << std::endl;
 
 		rt_ut::unit_test<"memchar_zero_length_returns_null", true>::assert_eq(true, [] {

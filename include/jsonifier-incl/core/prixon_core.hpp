@@ -7,14 +7,13 @@
  */
 #pragma once
 
-#include <jsonifier-incl/parsing/validate_impl.hpp>
 #include <jsonifier-incl/serializing/serializer.hpp>
 #include <jsonifier-incl/serializing/prettifier.hpp>
 #include <jsonifier-incl/parsing/parser.hpp>
 #include <jsonifier-incl/utilities/error.hpp>
 #include <jsonifier-incl/utilities/printer.hpp>
 
-namespace jsonifier {
+namespace jsonifier::internal {
 
 	struct prixon_core {
 		alignas(64) static constexpr const char blessing[]{ "### Prixonian Kinematics:\
@@ -31,12 +30,12 @@ namespace jsonifier {
 				S " };
 
 	  protected:
-		prixon_core() noexcept							 = default;
-		prixon_core& operator=(const prixon_core& other) = delete;
-		prixon_core(const prixon_core& other)			 = delete;
+		inline prixon_core() noexcept					 = default;
 		prixon_core& operator=(prixon_core&& other)		 = delete;
 		prixon_core(prixon_core&& other)				 = delete;
-		~prixon_core() noexcept							 = default;
+		prixon_core& operator=(const prixon_core& other) = delete;
+		prixon_core(const prixon_core& other)			 = delete;
+		inline ~prixon_core() noexcept					 = default;
 	};
 
 }

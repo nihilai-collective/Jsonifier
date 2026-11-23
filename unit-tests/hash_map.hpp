@@ -17,14 +17,14 @@ namespace hash_map_tests {
 	};
 
 	struct hm_pair {
-		int32_t id{};
 		std::string label{};
+		int32_t id{};
 	};
 
 	struct hm_five {
+		int32_t charlie{};
 		int32_t alpha{};
 		int32_t bravo{};
-		int32_t charlie{};
 		int32_t delta{};
 		int32_t echo{};
 	};
@@ -99,12 +99,13 @@ template<> struct jsonifier::core<hash_map_tests::hm_wide_binary_keys> {
 
 namespace hash_map_tests {
 
-	template<typename value_type> inline static uint64_t lookupKey(const std::string& key) {
+	template<typename value_type> inline uint64_t lookupKey(const std::string& key) {
 		std::string buffer = key + "\":0}";
-		return jsonifier::internal::hash_map<value_type, jsonifier::read_buffer_ptr>::findIndex(buffer.data(), buffer.data() + buffer.size());
+		return jsonifier::internal::hash_map<value_type, jsonifier::internal::read_buffer_ptr>::findIndex(std::bit_cast<jsonifier::internal::read_buffer_ptr>(buffer.data()),
+			std::bit_cast<jsonifier::internal::read_buffer_ptr>(buffer.data()) + buffer.size());
 	}
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "hash_map Tests" << std::endl;
 
 		rt_ut::unit_test<"hash_map_empty_struct_never_matches", true>::assert_eq(true, [] {
@@ -140,8 +141,8 @@ namespace hash_map_tests {
 		});
 
 		rt_ut::unit_test<"hash_map_wide_binary_keys_resolve_correct_indices", true>::assert_eq(true, [] {
-			static constexpr std::array<jsonifier::read_buffer_ptr, 20> keys{ { "00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111", "01000", "01001", "01010",
-				"01011", "01100", "01101", "01110", "01111", "10000", "10001", "10010", "10011" } };
+			static constexpr std::array<const char*, 20> keys{ { "00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111", "01000", "01001", "01010", "01011",
+				"01100", "01101", "01110", "01111", "10000", "10001", "10010", "10011" } };
 			bool allMatch = true;
 			for (uint64_t i = 0; i < 20 && allMatch; ++i) {
 				allMatch = lookupKey<hm_wide_binary_keys>(keys[i]) == i;

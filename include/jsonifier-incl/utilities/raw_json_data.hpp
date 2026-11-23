@@ -6,89 +6,70 @@
  */
 #pragma once
 
+#include <jsonifier-incl/core/defines.hpp>
+
 #include <jsonifier-incl/utilities/hash_map.hpp>
 #include <jsonifier-incl/utilities/string.hpp>
 
 namespace jsonifier {
 
+	namespace internal {
+		template<typename value_type, typename context_type, parse_options options> struct parse_impl;
+	}
+
 	class json_number {
 	  public:
 		enum class number_types : uint8_t { uint64, int64, double64 };
 
-		JSONIFIER_INLINE json_number() noexcept : uint_val(0), number_type(number_types::uint64) {
+		JSONIFIER_INLINE json_number() noexcept : uintVal{ 0 }, number_type{ number_types::uint64 } {
 		}
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			read_buffer_ptr first = sv.data();
-			read_buffer_ptr last  = sv.data() + sv.size();
+			internal::read_buffer_ptr first{ std::bit_cast<internal::read_buffer_ptr>(sv.data()) };
+			internal::read_buffer_ptr last{ std::bit_cast<internal::read_buffer_ptr>(sv.data() + sv.size()) };
 
 			if (sv.empty()) {
-				uint_val	= 0;
+				uintVal		= 0;
 				number_type = number_types::uint64;
 				return;
 			}
 
-			if (sv[0] == '-') {
-				int64_t ival = 0;
-				auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
-				if (ptr == last) {
-					int_val		= ival;
-					number_type = number_types::int64;
-					return;
+			bool isFloat{ false };
+			for (auto c{ first }; c != last; ++c) {
+				if (*c == '.' || *c == 'e' || *c == 'E') {
+					isFloat = true;
+					break;
 				}
-			} else {
-				bool isFloat = false;
-				for (auto c = first; c != last; ++c) {
-					if (*c == '.' || *c == 'e' || *c == 'E') {
-						isFloat = true;
-						break;
-					}
-				}
-				if (!isFloat) {
-					uint64_t uval = 0;
-					auto ptr	  = internal::integer_parser<uint64_t>::parseInt(uval, first, last);
+			}
+			if (!isFloat) {
+				if (sv[0] == '-') {
+					int64_t ival{ 0 };
+					auto ptr{ internal::integer_parser<int64_t>::parseInt(ival, first, last) };
 					if (ptr == last) {
-						uint_val	= uval;
+						intVal		= ival;
+						number_type = number_types::int64;
+						return;
+					}
+				} else {
+					uint64_t uval{ 0 };
+					auto ptr{ internal::integer_parser<uint64_t>::parseInt(uval, first, last) };
+					if (ptr == last) {
+						uintVal		= uval;
 						number_type = number_types::uint64;
 						return;
 					}
 				}
 			}
 
-			double dval = 0.0;
-			auto ptr	= internal::float_parser<double>::parseFloat(dval, first, last);
+			double dval{ 0.0 };
+			auto ptr{ internal::float_parser<double>::parseFloat(dval, first, last) };
 			if (ptr == last) {
-				double_val	= dval;
+				doubleVal	= dval;
 				number_type = number_types::double64;
 			} else {
-				uint_val	= 0;
+				uintVal		= 0;
 				number_type = number_types::uint64;
 			}
-		}
-
-		JSONIFIER_INLINE uint64_t getUint() const noexcept {
-			return number_type == number_types::uint64 ? uint_val : 0;
-		}
-
-		JSONIFIER_INLINE int64_t getInt() const noexcept {
-			switch (static_cast<uint64_t>(number_type)) {
-				case static_cast<uint64_t>(number_types::uint64): {
-					return static_cast<int64_t>(uint_val);
-				}
-				case static_cast<uint64_t>(number_types::int64): {
-					return int_val;
-				}
-				case static_cast<uint64_t>(number_types::double64): {
-					return static_cast<int64_t>(double_val);
-				}
-				default: {
-					return 0;
-				}
-			}
-		}
-
-		JSONIFIER_INLINE double getDouble() const noexcept {
-			return number_type == number_types::double64 ? double_val : 0.0;
 		}
 
 		JSONIFIER_INLINE bool friend operator==(const json_number& lhs, const json_number& rhs) {
@@ -112,16 +93,42 @@ namespace jsonifier {
 			}
 		}
 
-		JSONIFIER_INLINE number_types getType() const {
+		JSONIFIER_INLINE double getDouble() const noexcept {
+			return number_type == number_types::double64 ? doubleVal : 0.0;
+		}
+
+		JSONIFIER_INLINE uint64_t getUint() const noexcept {
+			return number_type == number_types::uint64 ? uintVal : 0;
+		}
+
+		JSONIFIER_INLINE number_types getType() const noexcept {
 			return number_type;
+		}
+
+		JSONIFIER_INLINE int64_t getInt() const noexcept {
+			switch (static_cast<uint64_t>(number_type)) {
+				case static_cast<uint64_t>(number_types::uint64): {
+					return static_cast<int64_t>(uintVal);
+				}
+				case static_cast<uint64_t>(number_types::int64): {
+					return intVal;
+				}
+				case static_cast<uint64_t>(number_types::double64): {
+					return static_cast<int64_t>(doubleVal);
+				}
+				default: {
+					return 0;
+				}
+			}
 		}
 
 	  protected:
 		union {
-			uint64_t uint_val;
-			double double_val;
-			int64_t int_val;
+			uint64_t uintVal;
+			double doubleVal;
+			int64_t intVal;
 		};
+
 		number_types number_type;
 	};
 
@@ -140,112 +147,65 @@ namespace jsonifier {
 			value.emplace<null_type>();
 		}
 
-		template<typename iterator_type> JSONIFIER_INLINE raw_json_data(iterator_type& iterator, const string& jsonDataNew) noexcept {
-			internal::json_iterator<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localIterator{ &iterator.getStringBuffer(), &iterator.getErrors(),
-				jsonDataNew.data(), jsonDataNew.data() + jsonDataNew.size() };
-			constructValueFromRawJsonData(localIterator, jsonDataNew);
+		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
+			internal::parse_context<parse_options{}, internal::unrestrict_t<internal::read_buffer_ptr>, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(),
+				&context.getErrors(), std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()),
+				std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
+			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
 
-		JSONIFIER_INLINE json_type getType() const noexcept {
-			if (std::holds_alternative<object_type>(value)) {
-				return json_type::object;
-			} else if (std::holds_alternative<array_type>(value)) {
-				return json_type::array;
-			} else if (std::holds_alternative<string_type>(value)) {
-				return json_type::string;
-			} else if (std::holds_alternative<number_type>(value)) {
-				return json_type::number;
-			} else if (std::holds_alternative<bool_type>(value)) {
-				return json_type::boolean;
-			} else if (std::holds_alternative<null_type>(value)) {
-				return json_type::null;
-			} else {
-				return json_type::unset;
-			}
-		}
-
-		JSONIFIER_INLINE const object_type& getObject() const noexcept {
-			return std::get<object_type>(value);
-		}
-
-		JSONIFIER_INLINE object_type& getObject() noexcept {
-			return std::get<object_type>(value);
-		}
-
-		JSONIFIER_INLINE const array_type& getArray() const noexcept {
-			return std::get<array_type>(value);
-		}
-
-		JSONIFIER_INLINE array_type& getArray() noexcept {
-			return std::get<array_type>(value);
-		}
-
-		JSONIFIER_INLINE const string_type& getString() const noexcept {
-			return std::get<string_type>(value);
-		}
-
-		JSONIFIER_INLINE string_type& getString() noexcept {
-			return std::get<string_type>(value);
-		}
-
-		JSONIFIER_INLINE const number_type& getNumber() const noexcept {
-			return std::get<number_type>(value);
-		}
-
-		JSONIFIER_INLINE number_type& getNumber() noexcept {
-			return std::get<number_type>(value);
-		}
-
-		JSONIFIER_INLINE double getDouble() const noexcept {
-			return std::get<number_type>(value).getDouble();
-		}
-
-		JSONIFIER_INLINE int64_t getInt() const noexcept {
-			return std::get<number_type>(value).getInt();
-		}
-
-		JSONIFIER_INLINE uint64_t getUint() const noexcept {
-			return std::get<number_type>(value).getUint();
-		}
-
-		JSONIFIER_INLINE const bool_type& getBool() const noexcept {
-			return std::get<bool_type>(value);
-		}
-
-		JSONIFIER_INLINE bool_type& getBool() noexcept {
-			return std::get<bool_type>(value);
-		}
-
-		template<internal::uint_types index_type> JSONIFIER_INLINE raw_json_data& operator[](index_type&& index) noexcept {
-			return (std::get<array_type>(value))[index];
-		}
-
-		template<internal::uint_types index_type> JSONIFIER_INLINE const raw_json_data& operator[](index_type&& index) const noexcept {
-			return (std::get<array_type>(value))[index];
-		}
-
-		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE raw_json_data& operator[](key_type&& key) noexcept {
-			if (std::holds_alternative<null_type>(value)) {
-				value = object_type{};
-			}
-			auto& object		 = std::get<object_type>(value);
-			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
-			return object[static_cast<key_type_local>(key)];
-		}
-
-		template<std::convertible_to<const string_view> key_type> JSONIFIER_INLINE const raw_json_data& operator[](key_type&& key) const noexcept {
-			const auto& object	 = std::get<object_type>(value);
+		template<std::convertible_to<const string_view> key_type> JSONIFIER_INLINE const raw_json_data& operator[](key_type&& key) const {
+			const auto& object{ std::get<object_type>(value) };
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object.at(static_cast<key_type_local>(key));
 		}
 
-		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE bool contains(key_type&& key) const noexcept {
+		template<internal::uint_types index_type> JSONIFIER_INLINE const raw_json_data& operator[](index_type&& index) const {
+			return (std::get<array_type>(value))[index];
+		}
+
+		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE raw_json_data& operator[](key_type&& key) {
+			if (std::holds_alternative<null_type>(value)) {
+				value = object_type{};
+			}
+			auto& object{ std::get<object_type>(value) };
+			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
+			return object[static_cast<key_type_local>(key)];
+		}
+
+		template<std::convertible_to<string_view> key_type> JSONIFIER_INLINE bool contains(key_type&& key) const {
 			if (!std::holds_alternative<object_type>(value)) {
 				return false;
 			}
-			const auto& object	 = std::get<object_type>(value);
+			const auto& object{ std::get<object_type>(value) };
 			using key_type_local = typename internal::base_t<decltype(object)>::key_type;
 			return object.contains(static_cast<key_type_local>(key));
+		}
+
+		template<internal::uint_types index_type> JSONIFIER_INLINE raw_json_data& operator[](index_type&& index) {
+			return (std::get<array_type>(value))[index];
+		}
+
+		JSONIFIER_INLINE bool operator==(const raw_json_data& other) const noexcept {
+			return value == other.value;
+		}
+
+		JSONIFIER_INLINE json_types getType() const noexcept {
+			if (std::holds_alternative<object_type>(value)) {
+				return json_types::object;
+			} else if (std::holds_alternative<array_type>(value)) {
+				return json_types::array;
+			} else if (std::holds_alternative<string_type>(value)) {
+				return json_types::string;
+			} else if (std::holds_alternative<number_type>(value)) {
+				return json_types::number;
+			} else if (std::holds_alternative<bool_type>(value)) {
+				return json_types::boolean;
+			} else if (std::holds_alternative<null_type>(value)) {
+				return json_types::null;
+			} else {
+				return json_types::unset;
+			}
 		}
 
 		JSONIFIER_INLINE uint64_t size() const noexcept {
@@ -260,83 +220,144 @@ namespace jsonifier {
 			}
 		}
 
-		JSONIFIER_INLINE bool operator==(const raw_json_data& other) const noexcept {
-			return value == other.value;
+		JSONIFIER_INLINE const object_type& getObject() const {
+			return std::get<object_type>(value);
+		}
+
+		JSONIFIER_INLINE const string_type& getString() const {
+			return std::get<string_type>(value);
+		}
+
+		JSONIFIER_INLINE const number_type& getNumber() const {
+			return std::get<number_type>(value);
+		}
+
+		JSONIFIER_INLINE const array_type& getArray() const {
+			return std::get<array_type>(value);
+		}
+
+		JSONIFIER_INLINE const bool_type& getBool() const {
+			return std::get<bool_type>(value);
+		}
+
+		JSONIFIER_INLINE double getDouble() const {
+			return std::get<number_type>(value).getDouble();
+		}
+
+		JSONIFIER_INLINE uint64_t getUint() const {
+			return std::get<number_type>(value).getUint();
+		}
+
+		JSONIFIER_INLINE int64_t getInt() const {
+			return std::get<number_type>(value).getInt();
+		}
+
+		JSONIFIER_INLINE object_type& getObject() {
+			return std::get<object_type>(value);
+		}
+
+		JSONIFIER_INLINE string_type& getString() {
+			return std::get<string_type>(value);
+		}
+
+		JSONIFIER_INLINE number_type& getNumber() {
+			return std::get<number_type>(value);
+		}
+
+		JSONIFIER_INLINE array_type& getArray() {
+			return std::get<array_type>(value);
+		}
+
+		JSONIFIER_INLINE bool_type& getBool() {
+			return std::get<bool_type>(value);
 		}
 
 	  protected:
-		value_type value{};
+		template<typename value_type_new, typename context_type, parse_options options> friend struct internal::parse_impl;
 
-		template<typename json_iterator_type> JSONIFIER_INLINE void constructValueFromRawJsonData(json_iterator_type& iterator, const string& jsonDataNew) noexcept {
+		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
+			const internal::read_buffer_ptr iter{ std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()) };
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {
-						internal::parse_impl<object_type, json_iterator_type, optionsNew>::impl(value.emplace<object_type>(), iterator);
-						if (iterator.getErrors().size() != 0) {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<object_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '[': {
-						internal::parse_impl<array_type, json_iterator_type, optionsNew>::impl(value.emplace<array_type>(), iterator);
-						if (iterator.getErrors().size() != 0) {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<array_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '"': {
-						internal::parse_impl<string_type, json_iterator_type, optionsNew>::impl(value.emplace<string_type>(), iterator);
-						if (iterator.getErrors().size() != 0) {
+						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<string_type>(), iter, 0, context));
+						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case 't':
-						value.emplace<bool_type>(true);
+						value.template emplace<bool_type>(true);
 						return;
 					case 'f': {
-						value.emplace<bool_type>(false);
+						value.template emplace<bool_type>(false);
 						return;
 					}
 					case 'n': {
-						value.emplace<null_type>();
+						value.template emplace<null_type>();
 						return;
 					}
-					case '0':
+					case '0': {
 						[[fallthrough]];
-					case '1':
+					}
+					case '1': {
 						[[fallthrough]];
-					case '2':
+					}
+					case '2': {
 						[[fallthrough]];
-					case '3':
+					}
+					case '3': {
 						[[fallthrough]];
-					case '4':
+					}
+					case '4': {
 						[[fallthrough]];
-					case '5':
+					}
+					case '5': {
 						[[fallthrough]];
-					case '6':
+					}
+					case '6': {
 						[[fallthrough]];
-					case '7':
+					}
+					case '7': {
 						[[fallthrough]];
-					case '8':
+					}
+					case '8': {
 						[[fallthrough]];
-					case '9':
+					}
+					case '9': {
 						[[fallthrough]];
+					}
 					case '-': {
-						value.emplace<number_type>(jsonDataNew);
+						value.template emplace<number_type>(jsonDataNew);
 						return;
 					}
 					default: {
-						value.emplace<null_type>();
+						value.template emplace<null_type>();
 						return;
 					}
 				}
 			} else {
-				value.emplace<null_type>();
+				value.template emplace<null_type>();
 				return;
 			}
 		}
+
+		value_type value{};
 	};
 
 }

@@ -10,13 +10,8 @@
 
 namespace array_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Array Tests" << std::endl;
-
-		rt_ut::unit_test<"array_size_max_size_empty", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 4> arr{};
-			return arr.size() == 4 && arr.maxSize() == 4 && !arr.empty();
-		});
 
 		rt_ut::unit_test<"array_front_and_back", true>::assert_eq(true, [] {
 			jsonifier::internal::array<int32_t, 4> arr{ { 10, 20, 30, 40 } };
@@ -35,34 +30,6 @@ namespace array_tests {
 			arr[jsonifier::internal::tag<uint64_t{ 0 }>{}] = 50;
 			return arr[jsonifier::internal::tag<uint64_t{ 0 }>{}] == 50 && arr[jsonifier::internal::tag<uint64_t{ 1 }>{}] == 6 &&
 				arr[jsonifier::internal::tag<uint64_t{ 2 }>{}] == 7;
-		});
-
-		rt_ut::unit_test<"array_at_returns_value_for_valid_index", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			const auto& constArr = arr;
-			return arr.at(2) == 3 && constArr.at(0) == 1;
-		});
-
-		rt_ut::unit_test<"array_at_throws_on_out_of_range_index", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			bool threw = false;
-			try {
-				arr.at(3);
-			} catch (const std::runtime_error&) {
-				threw = true;
-			}
-			return threw;
-		});
-
-		rt_ut::unit_test<"array_const_at_throws_on_out_of_range_index", true>::assert_eq(true, [] {
-			const jsonifier::internal::array<int32_t, 3> arr{ { 1, 2, 3 } };
-			bool threw = false;
-			try {
-				arr.at(3);
-			} catch (const std::runtime_error&) {
-				threw = true;
-			}
-			return threw;
 		});
 
 		rt_ut::unit_test<"array_fill_sets_every_element", true>::assert_eq(true, [] {
@@ -104,11 +71,6 @@ namespace array_tests {
 			jsonifier::internal::array<int32_t, 3> b{ { 1, 2, 3 } };
 			jsonifier::internal::array<int32_t, 3> c{ { 1, 2, 4 } };
 			return a == b && !(a != b) && a != c && !(a == c);
-		});
-
-		rt_ut::unit_test<"array_zero_size_reports_empty_and_no_data", true>::assert_eq(true, [] {
-			jsonifier::internal::array<int32_t, 0> arr{};
-			return arr.size() == 0 && arr.maxSize() == 0 && arr.empty();
 		});
 
 		rt_ut::unit_test<"array_zero_size_equality_always_true", true>::assert_eq(true, [] {

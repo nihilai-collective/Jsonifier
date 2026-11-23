@@ -7,15 +7,15 @@
 #pragma once
 
 #include <jsonifier-incl/core/config.hpp>
-#include <jsonifier-incl/simd/simd_types.hpp>
+#include <jsonifier-incl/simd/simd_config.hpp>
 
 namespace jsonifier::internal {
 
 	// from
 	// https://stackoverflow.com/questions/16337610/how-to-know-if-a-type-is-a-specialization-of-stdvector
-	template<typename, template<typename...> typename> constexpr bool is_specialization_v = false;
+	template<typename, template<typename...> typename> inline constexpr bool isSpecialization{ false };
 
-	template<template<typename...> typename value_type, typename... arg_types> constexpr bool is_specialization_v<value_type<arg_types...>, value_type> = true;
+	template<template<typename...> typename value_type, typename... arg_types> inline constexpr bool isSpecialization<value_type<arg_types...>, value_type> = true;
 
 	template<typename value_type> struct remove_const {
 		using type = value_type;
@@ -95,23 +95,33 @@ namespace jsonifier::internal {
 
 	template<typename derived_type_new> struct parser;
 
-	enum class avx_type { m128 = 0, m256 = 1, m512 = 2 };
+	enum class avx_types : uint8_t { m128 = 0, m256 = 1, m512 = 2 };
 
-	template<avx_type type> struct simd_type_wrapper;
+	template<avx_types type> struct simd_type_wrapper;
 
-	template<> struct simd_type_wrapper<avx_type::m128> {
-		static constexpr auto simd_type = avx_type::m128;
-		using type						= jsonifier_simd_int_128;
+	template<> struct simd_type_wrapper<avx_types::m128> {
+		static constexpr auto avx_type{ avx_types::m128 };
+		using type = jsonifier_simd_int_128;
 	};
 
-	template<> struct simd_type_wrapper<avx_type::m256> {
-		static constexpr auto simd_type = avx_type::m256;
-		using type						= jsonifier_simd_int_256;
+	template<> struct simd_type_wrapper<avx_types::m256> {
+		static constexpr auto avx_type{ avx_types::m256 };
+		using type = jsonifier_simd_int_256;
 	};
 
-	template<> struct simd_type_wrapper<avx_type::m512> {
-		static constexpr auto simd_type = avx_type::m512;
-		using type						= jsonifier_simd_int_512;
+	template<> struct simd_type_wrapper<avx_types::m512> {
+		static constexpr auto avx_type{ avx_types::m512 };
+		using type = jsonifier_simd_int_512;
 	};
+
+	template<typename value_type> struct unrestricter {
+		using type = value_type;
+	};
+
+	template<typename value_type> struct unrestricter<value_type* __restrict> {
+		using type = value_type*;
+	};
+
+	template<typename value_type> using unrestrict_t = typename unrestricter<value_type>::type;
 
 }

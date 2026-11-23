@@ -6,15 +6,17 @@
  */
 #pragma once
 
+#include "apache_builds.hpp"
 #include "canada.hpp"
 #include "citm_catalog.hpp"
 #include "discord.hpp"
+#include "github_events.hpp"
 #include "google_maps_response.hpp"
 #include "instruments.hpp"
 #include "marine_ik.hpp"
-#include "mesh.hpp"
 #include "random.hpp"
 #include "twitter.hpp"
+#include "conformance.hpp"
 
 namespace parsing_tests {
 
@@ -24,7 +26,7 @@ namespace parsing_tests {
 		validate,
 	};
 
-	template<test_types test_type, rt_ut::string_literal testNameNew, typename value_type> inline static void utilityTests(jsonifier::jsonifier_core<>& parser) {
+	template<test_types test_type, rt_ut::string_literal testNameNew, typename value_type> inline void utilityTests(jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		value_type jsonifier_value;
@@ -48,14 +50,14 @@ namespace parsing_tests {
 	};
 
 	template<rt_ut::string_literal testNameNew, typename value_type, bool prettified, bool partial, bool knownOrder, bool nullTerminated>
-	inline static void parsingTests(jsonifier::jsonifier_core<>& parser) {
+	inline void parsingTests(jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
 		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		std::string serializedJson{};
 		value_type jsonifier_value;
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(jsonifier_value,
+		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(jsonifier_value,
 			dataToParse);
 		parser.template serializeJson<jsonifier::serialize_options{ .prettify = prettified }>(jsonifier_value, serializedJson);
 		rt_ut::unit_test<testNameRtUt, true>::run([&]() {
@@ -70,22 +72,24 @@ namespace parsing_tests {
 		});
 	};
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void parsingTestsImpl([[maybe_unused]] jsonifier::jsonifier_core<>& parser) {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void parsingTestsImpl([[maybe_unused]] jsonifier::jsonifier_core<>& parser) {
 		std::cout << "Parsing Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		parsingTests<"Apache Builds Test (Minified)", apache_builds_message, false, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Apache Builds Test (Prettified)", apache_builds_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Canada Test (Minified)", canada_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Canada Test (Prettified)", canada_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"CitmCatalog Test (Minified)", citm_catalog_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"CitmCatalog Test (Prettified)", citm_catalog_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Discord Test (Minified)", discord_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Discord Test (Prettified)", discord_message, true, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Github Events Test (Minified)", github_events_message, false, partial, knownOrder, nullTerminated>(parser);
+		parsingTests<"Github Events Test (Prettified)", github_events_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Google Maps Response Test (Minified)", google_maps_response_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Google Maps Response Test (Prettified)", google_maps_response_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Instruments Test (Minified)", instruments_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Instruments Test (Prettified)", instruments_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Marine IK Test (Minified)", marine_ik, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Marine IK Test (Prettified)", marine_ik, true, partial, knownOrder, nullTerminated>(parser);
-		parsingTests<"Mesh Test (Minified)", mesh_message, false, partial, knownOrder, nullTerminated>(parser);
-		parsingTests<"Mesh Test (Prettified)", mesh_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Random Test (Minified)", random_message, false, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Random Test (Prettified)", random_message, true, partial, knownOrder, nullTerminated>(parser);
 		parsingTests<"Twitter Partial Test (Minified)", twitter_partial_message, false, partial, knownOrder, nullTerminated>(parser);
@@ -94,7 +98,42 @@ namespace parsing_tests {
 		parsingTests<"Twitter Test (Prettified)", twitter_message, true, partial, knownOrder, nullTerminated>(parser);
 	}
 
-	inline static void runTests() {
+	template<rt_ut::string_literal testNameNew, bool prettified, bool nullTerminated> inline void genericParsingTests(jsonifier::jsonifier_core<>& parser) {
+		static constexpr rt_ut::string_literal testName{ testNameNew };
+		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", Generic, " + testTypeNullTerminated<nullTerminated> };
+		std::string dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		rt_ut::unit_test<testNameRtUt, true>::template assert_eq<jsonifier::internal::parse_statuses::success>([&]() {
+			return conformance_tests::genericStatus<nullTerminated, !prettified>(dataToParse, parser);
+		});
+	}
+
+	template<bool nullTerminated> inline void genericParsingTestsImpl(jsonifier::jsonifier_core<>& parser) {
+		std::cout << "Generic Parsing Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		genericParsingTests<"Apache Builds Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Apache Builds Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Canada Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Canada Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"CitmCatalog Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"CitmCatalog Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Discord Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Discord Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Github Events Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Github Events Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Google Maps Response Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Google Maps Response Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Instruments Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Instruments Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Marine IK Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Marine IK Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Random Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Random Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Twitter Partial Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Twitter Partial Test (Prettified)", true, nullTerminated>(parser);
+		genericParsingTests<"Twitter Test (Minified)", false, nullTerminated>(parser);
+		genericParsingTests<"Twitter Test (Prettified)", true, nullTerminated>(parser);
+	}
+
+	inline void runTests() {
 		jsonifier::jsonifier_core<> parser{};
 		parsingTestsImpl<false, false, false>(parser);
 		parsingTestsImpl<false, true, false>(parser);
@@ -104,6 +143,8 @@ namespace parsing_tests {
 		parsingTestsImpl<false, true, true>(parser);
 		parsingTestsImpl<true, false, true>(parser);
 		parsingTestsImpl<true, true, true>(parser);
+		genericParsingTestsImpl<false>(parser);
+		genericParsingTestsImpl<true>(parser);
 		utilityTests<test_types::minify, "Minify Test", std::string>(parser);
 		utilityTests<test_types::prettify, "Prettify Test", std::string>(parser);
 		utilityTests<test_types::validate, "Validate Test", std::string>(parser);

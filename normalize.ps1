@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Nihilai Collective Corp
+# https://github.com/nihilai-collective/jsonifier
+# normalize.ps1
+
 <#
 .SYNOPSIS
     Recursively normalizes all line endings to LF (\n) inside a ./vcpkg folder.

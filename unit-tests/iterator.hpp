@@ -10,7 +10,7 @@
 
 namespace iterator_tests {
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "Iterator Tests" << std::endl;
 
 		rt_ut::unit_test<"iterator_dereference_and_arrow", true>::assert_eq(true, [] {

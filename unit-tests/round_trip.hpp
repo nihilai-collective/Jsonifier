@@ -7,6 +7,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "conformance.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -19,11 +20,15 @@ namespace round_trip_tests {
 	};
 
 	struct Obj3 {
-		Obj3()						 = default;
 		Obj3& operator=(const Obj3&) = delete;
-		Obj3(const Obj3&)			 = delete;
-		std::unique_ptr<int32_t> a;
+
 		std::unique_ptr<std::string> foo;
+
+		Obj3(const Obj3&) = delete;
+
+		std::unique_ptr<int32_t> a;
+
+		Obj3() = default;
 	};
 }
 
@@ -40,11 +45,11 @@ template<> struct jsonifier::core<round_trip_tests::Obj3> {
 namespace round_trip_tests {
 
 	template<rt_ut::string_literal testNameNew, typename test_type, bool partial, bool knownOrder, bool nullTerminated>
-	inline static void runRoundTripTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
+	inline void runRoundTripTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		test_type valueNew{};
 		std::string newString{};
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
-		parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .nullTerminated = nullTerminated }>(valueNew, dataToParse);
+		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
 		for (auto& value: parser.getErrors()) {
 			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}
@@ -58,7 +63,7 @@ namespace round_trip_tests {
 		return;
 	}
 
-	template<bool partial, bool knownOrder, bool nullTerminated> inline static void roundTripTestsImpl() {
+	template<bool partial, bool knownOrder, bool nullTerminated> inline void roundTripTestsImpl() {
 		jsonifier::jsonifier_core<> parser{};
 		std::unordered_map<std::string, test_base> jsonTests{};
 		processFilesInFolder(jsonTests, "/round_trip");
@@ -93,7 +98,48 @@ namespace round_trip_tests {
 		return;
 	}
 
-	inline static void runTests() {
+	template<rt_ut::string_literal testNameNew, bool nullTerminated> inline void runGenericRoundTripTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
+		static constexpr rt_ut::string_literal testName{ testNameNew + ", Generic, " + testTypeNullTerminated<nullTerminated> };
+		rt_ut::unit_test<testName, true>::template assert_eq<jsonifier::internal::parse_statuses::success>([&]() {
+			return conformance_tests::genericStatus<nullTerminated>(dataToParse, parser);
+		});
+	}
+
+	template<bool nullTerminated> inline void genericRoundTripTestsImpl() {
+		jsonifier::jsonifier_core<> parser{};
+		std::unordered_map<std::string, test_base> jsonTests{};
+		processFilesInFolder(jsonTests, "/round_trip");
+		std::cout << "Generic Round Trip Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
+		runGenericRoundTripTest<"roundtrip01.json", nullTerminated>(jsonTests["roundtrip01.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip02.json", nullTerminated>(jsonTests["roundtrip02.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip03.json", nullTerminated>(jsonTests["roundtrip03.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip04.json", nullTerminated>(jsonTests["roundtrip04.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip05.json", nullTerminated>(jsonTests["roundtrip05.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip06.json", nullTerminated>(jsonTests["roundtrip06.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip07.json", nullTerminated>(jsonTests["roundtrip07.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip08.json", nullTerminated>(jsonTests["roundtrip08.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip09.json", nullTerminated>(jsonTests["roundtrip09.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip10.json", nullTerminated>(jsonTests["roundtrip10.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip11.json", nullTerminated>(jsonTests["roundtrip11.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip12.json", nullTerminated>(jsonTests["roundtrip12.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip13.json", nullTerminated>(jsonTests["roundtrip13.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip14.json", nullTerminated>(jsonTests["roundtrip14.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip15.json", nullTerminated>(jsonTests["roundtrip15.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip16.json", nullTerminated>(jsonTests["roundtrip16.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip17.json", nullTerminated>(jsonTests["roundtrip17.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip18.json", nullTerminated>(jsonTests["roundtrip18.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip19.json", nullTerminated>(jsonTests["roundtrip19.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip20.json", nullTerminated>(jsonTests["roundtrip20.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip21.json", nullTerminated>(jsonTests["roundtrip21.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip22.json", nullTerminated>(jsonTests["roundtrip22.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip23.json", nullTerminated>(jsonTests["roundtrip23.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip24.json", nullTerminated>(jsonTests["roundtrip24.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip25.json", nullTerminated>(jsonTests["roundtrip25.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip26.json", nullTerminated>(jsonTests["roundtrip26.json"].fileContents, parser);
+		runGenericRoundTripTest<"roundtrip27.json", nullTerminated>(jsonTests["roundtrip27.json"].fileContents, parser);
+	}
+
+	inline void runTests() {
 		roundTripTestsImpl<false, false, false>();
 		roundTripTestsImpl<false, true, false>();
 		roundTripTestsImpl<true, false, false>();
@@ -102,6 +148,8 @@ namespace round_trip_tests {
 		roundTripTestsImpl<false, true, true>();
 		roundTripTestsImpl<true, false, true>();
 		roundTripTestsImpl<true, true, true>();
+		genericRoundTripTestsImpl<false>();
+		genericRoundTripTestsImpl<true>();
 		std::cout << "Round trip validation tests complete." << std::endl;
 	}
 }

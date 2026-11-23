@@ -11,28 +11,29 @@
 
 namespace jsonifier::internal {
 
-	template<printable_enum_types auto current_index> JSONIFIER_INLINE consteval string_view getEnumName() {
-		string_view str = std::source_location::current().function_name();
-#if JSONIFIER_COMPILER_GCC
-		str			   = str.substr(str.find("=") + 2);
-		uint64_t end   = str.find(';');
-		str			   = str.substr(0, end);
-		uint64_t start = str.findLastOf(':') + 1;
-		return str.substr(start);
-#else
-	#if JSONIFIER_COMPILER_MSVC
-		constexpr read_buffer_ptr prettyFunctionTailLocal{ ">(void)" };
-	#elif JSONIFIER_COMPILER_CLANG
-		constexpr read_buffer_ptr prettyFunctionTailLocal{ "]" };
-	#endif
-		str			   = str.substr(str.find("=") + 2);
-		uint64_t start = str.findLastOf(':') + 1;
-		uint64_t end   = str.find(prettyFunctionTailLocal);
-		return str.substr(start, end - start);
+#if JSONIFIER_COMPILER_CLANG
+	inline constexpr auto prettyFunctionTail{ "]" };
+#elif JSONIFIER_COMPILER_GCC
+	inline constexpr auto prettyFunctionTail{ ";]" };
 #endif
-	}
 
-	JSONIFIER_INLINE consteval bool isValidEnumName(string_view name) noexcept {
+#if JSONIFIER_COMPILER_MSVC
+	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
+		string_view str{ std::source_location::current().function_name() };
+		str = str.substr(str.find("getEnumName<") + 12);
+		str = str.substr(0, str.find(">(void)"));
+		return str.substr(str.findLastOf(':') + 1);
+	}
+#else
+	template<printable_enum_types auto currentIndex> consteval string_view getEnumName() noexcept {
+		string_view str{ std::source_location::current().function_name() };
+		str = str.substr(str.find("= ") + 2);
+		str = str.substr(0, str.findFirstOf(prettyFunctionTail));
+		return str.substr(str.findLastOf(':') + 1);
+	}
+#endif
+
+	consteval bool isValidEnumName(string_view name) noexcept {
 		if (name.empty()) {
 			return false;
 		}
@@ -48,24 +49,24 @@ namespace jsonifier::internal {
 	template<typename integer_sequence, printable_enum_types current_type> struct enum_entry_getter;
 
 	template<uint64_types auto... indices, printable_enum_types current_type> struct enum_entry_getter<integer_sequence<indices...>, current_type> {
-		JSONIFIER_INLINE static consteval uint64_t countValid() noexcept {
+		template<uint64_t n> struct entries {
+			array<current_type, n> values{};
+			array<string_view, n> names{};
+		};
+
+		static consteval uint64_t countValid() noexcept {
 			uint64_t total{};
 			((isValidEnumName(getEnumName<static_cast<current_type>(indices)>()) ? ++total : total), ...);
 			return total;
 		}
 
-		template<uint64_t n> struct entries {
-			array<string_view, n> names{};
-			array<current_type, n> values{};
-		};
-
-		template<uint64_t n> JSONIFIER_INLINE static consteval entries<n> buildEntries() noexcept {
+		template<uint64_t n> static consteval entries<n> buildEntries() noexcept {
 			entries<n> result{};
 			uint64_t pos{};
 			(
 				[&] {
-					constexpr auto value	   = static_cast<current_type>(indices);
-					constexpr string_view name = getEnumName<value>();
+					static constexpr auto value{ static_cast<current_type>(indices) };
+					static constexpr string_view name{ getEnumName<value>() };
 					if constexpr (isValidEnumName(name)) {
 						result.names[pos]  = name;
 						result.values[pos] = value;
@@ -77,15 +78,15 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<printable_enum_types current_type, uint64_t probe_range = static_cast<uint64_t>(current_type::count)> struct enum_data {
-		using entry_getter = enum_entry_getter<make_integer_sequence<probe_range>, current_type>;
+	template<printable_enum_types current_type, uint64_t probeRange = static_cast<uint64_t>(current_type::count)> struct enum_data {
+		using entry_getter = enum_entry_getter<make_integer_sequence<probeRange>, current_type>;
 		static constexpr uint64_t validCount{ entry_getter::countValid() };
 		static constexpr auto value{ entry_getter::template buildEntries<validCount>() };
 	};
 
 	template<printable_enum_types enum_type> JSONIFIER_INLINE constexpr string_view getName(enum_type type) noexcept {
-		constexpr auto& entries{ enum_data<enum_type>::value };
-		for (uint64_t i = 0; i < entries.values.size(); ++i) {
+		static constexpr auto& entries{ enum_data<enum_type>::value };
+		for (uint64_t i{ 0 }; i < entries.values.size(); ++i) {
 			if (entries.values[i] == type) {
 				return entries.names[i];
 			}
@@ -93,14 +94,15 @@ namespace jsonifier::internal {
 		return "Unknown Type";
 	}
 
-	template<printable_enum_types enum_type, size_t buffer_size>
-	JSONIFIER_INLINE static basic_stream<buffer_size>& operator<<(basic_stream<buffer_size>& os, enum_type type) noexcept {
-		os << getName(type).operator std::basic_string_view<char>();
+	template<basic_stream_types basic_stream_type, printable_enum_types enum_type> JSONIFIER_INLINE basic_stream_type& operator<<(basic_stream_type& os, enum_type type) noexcept {
+		string_view input{ getName(type) };
+		os.write(input.data(), input.size());
 		return os;
 	}
 
-	template<printable_enum_types enum_type> JSONIFIER_INLINE static std::ostream& operator<<(std::ostream& os, enum_type type) noexcept {
-		os << getName(type).operator std::basic_string_view<char>();
+	template<ostream_types ostream_type, printable_enum_types enum_type> JSONIFIER_INLINE ostream_type& operator<<(ostream_type& os, enum_type type) noexcept {
+		string_view value{ getName(type) };
+		os.write(value.data(), static_cast<int64_t>(value.size()));
 		return os;
 	}
 

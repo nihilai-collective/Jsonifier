@@ -23,14 +23,14 @@ namespace utf8_validation_tests {
 		bool expected;
 	};
 
-	inline std::vector<uint8_t> repeated(uint8_t value, size_t count) {
+	inline std::vector<uint8_t> repeated(uint8_t value, uint64_t count) {
 		return std::vector<uint8_t>(count, value);
 	}
 
-	inline std::vector<uint8_t> repeatedSeq(std::vector<uint8_t> seq, size_t times) {
+	inline std::vector<uint8_t> repeatedSeq(std::vector<uint8_t> seq, uint64_t times) {
 		std::vector<uint8_t> v;
 		v.reserve(seq.size() * times);
-		for (size_t i = 0; i < times; ++i) {
+		for (uint64_t i = 0; i < times; ++i) {
 			v.insert(v.end(), seq.begin(), seq.end());
 		}
 		return v;
@@ -44,36 +44,35 @@ namespace utf8_validation_tests {
 		return v;
 	}
 
-	inline std::vector<uint8_t> paddedWithTrailing(size_t leadingAsciiCount, std::vector<uint8_t> trailer) {
+	inline std::vector<uint8_t> paddedWithTrailing(uint64_t leadingAsciiCount, std::vector<uint8_t> trailer) {
 		std::vector<uint8_t> v(leadingAsciiCount, 0x41);
 		v.insert(v.end(), trailer.begin(), trailer.end());
 		return v;
 	}
 
-	inline std::vector<uint8_t> asciiThenSeq(size_t asciiCount, std::vector<uint8_t> seq) {
+	inline std::vector<uint8_t> asciiThenSeq(uint64_t asciiCount, std::vector<uint8_t> seq) {
 		std::vector<uint8_t> v(asciiCount, 0x41);
 		v.insert(v.end(), seq.begin(), seq.end());
 		return v;
 	}
 
-	inline std::vector<uint8_t> asciiWrapped(size_t leadCount, std::vector<uint8_t> seq, size_t trailCount) {
+	inline std::vector<uint8_t> asciiWrapped(uint64_t leadCount, std::vector<uint8_t> seq, uint64_t trailCount) {
 		std::vector<uint8_t> v(leadCount, 0x41);
 		v.insert(v.end(), seq.begin(), seq.end());
 		v.insert(v.end(), trailCount, 0x41);
 		return v;
 	}
 
-	inline std::vector<uint8_t> asciiWithSeqAt(size_t totalLength, size_t seqOffset, std::vector<uint8_t> seq) {
+	inline std::vector<uint8_t> asciiWithSeqAt(uint64_t totalLength, uint64_t seqOffset, std::vector<uint8_t> seq) {
 		std::vector<uint8_t> v(totalLength, 0x41);
-		for (size_t i = 0; i < seq.size(); ++i) {
+		for (uint64_t i = 0; i < seq.size(); ++i) {
 			v[seqOffset + i] = seq[i];
 		}
 		return v;
 	}
 
-	class reusable_ascii_buffer {
-	  public:
-		void resetTo(size_t totalLength) {
+	struct reusable_ascii_buffer {
+		void resetTo(uint64_t totalLength) {
 			static constexpr uint8_t asciiFill = 0x41;
 			if (buffer.size() < totalLength) {
 				buffer.assign(totalLength, asciiFill);
@@ -83,50 +82,46 @@ namespace utf8_validation_tests {
 			}
 		}
 
-		void placeSeqAt(size_t seqOffset, const std::vector<uint8_t>& seq) {
-			for (size_t i = 0; i < seq.size(); ++i) {
+		void placeSeqAt(uint64_t seqOffset, const std::vector<uint8_t>& seq) noexcept {
+			for (uint64_t i = 0; i < seq.size(); ++i) {
 				buffer[seqOffset + i] = seq[i];
 			}
 		}
 
-		void clearSeqAt(size_t seqOffset, size_t seqLength) {
-			for (size_t i = 0; i < seqLength; ++i) {
+		void clearSeqAt(uint64_t seqOffset, uint64_t seqLength) noexcept {
+			for (uint64_t i = 0; i < seqLength; ++i) {
 				buffer[seqOffset + i] = 0x41;
 			}
 		}
 
-		const std::vector<uint8_t>& data() const {
+		const std::vector<uint8_t>& data() const noexcept {
 			return buffer;
 		}
 
-	  protected:
 		std::vector<uint8_t> buffer;
 	};
 
-	template<rt_ut::string_literal testNameNew> inline static void utf8ValidationTest(std::vector<uint8_t> bytes, bool expected) {
+	template<rt_ut::string_literal testNameNew> inline void utf8ValidationTest(std::vector<uint8_t> bytes, bool expected) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		rt_ut::unit_test<testName, true>::assert_eq(expected, jsonifier::validateUtf8, bytes.data(), bytes.size());
 	}
 
-	static constexpr jsonifier::parse_options utf8ValidatedOpts{};
-
-	inline static bool runValidatedStringParseWithScratch(const std::vector<uint8_t>& contentBytes, std::vector<uint8_t>& sourceScratch, std::vector<char>& destScratch) {
+	inline bool runValidatedStringParseWithScratch(const std::vector<uint8_t>& contentBytes, std::vector<uint8_t>& sourceScratch, std::vector<char>& destScratch) {
 		sourceScratch.clear();
 		sourceScratch.reserve(contentBytes.size() + 1);
 		sourceScratch.insert(sourceScratch.end(), contentBytes.begin(), contentBytes.end());
 		sourceScratch.push_back(static_cast<uint8_t>('"'));
-		const size_t neededDestSize = sourceScratch.size() + 256;
+		const uint64_t neededDestSize = sourceScratch.size() + 256;
 		if (destScratch.size() < neededDestSize) {
 			destScratch.assign(neededDestSize, 0);
 		}
-		jsonifier::read_buffer_ptr string1Start = std::bit_cast<jsonifier::read_buffer_ptr>(sourceScratch.data());
-		jsonifier::write_buffer_ptr string2		= destScratch.data();
-		using scanner_type						= jsonifier::internal::string_scanner<utf8ValidatedOpts>;
-		const auto res							= scanner_type::impl(string1Start, string1Start + sourceScratch.size(), string2);
+		jsonifier::internal::read_buffer_ptr string1Start = std::bit_cast<jsonifier::internal::read_buffer_ptr>(sourceScratch.data());
+		jsonifier::internal::write_buffer_ptr string2	  = std::bit_cast<jsonifier::internal::write_buffer_ptr>(destScratch.data());
+		const auto res									  = jsonifier::internal::string_cascade::open(string1Start, string1Start + sourceScratch.size(), string2);
 		return res.outLength != std::numeric_limits<uint64_t>::max();
 	}
 
-	inline static bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {
+	inline bool runValidatedStringParse(const std::vector<uint8_t>& contentBytes) {
 #if JSONIFIER_COMPILER_CLANG
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wexit-time-destructors"
@@ -139,15 +134,15 @@ namespace utf8_validation_tests {
 		return runValidatedStringParseWithScratch(contentBytes, sourceScratch, destScratch);
 	}
 
-	template<rt_ut::string_literal testNameNew> inline static void utf8StringParseTest(std::vector<uint8_t> bytes, bool expected) {
+	template<rt_ut::string_literal testNameNew> inline void utf8StringParseTest(std::vector<uint8_t> bytes, bool expected) {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		rt_ut::unit_test<testName, true>::assert_eq(expected, runValidatedStringParse, bytes);
 	}
 
-	inline static void runUtf8WidthTransitionSweep() {
-		static constexpr size_t sweepLengthMin	= 24;
-		static constexpr size_t sweepLengthMax	= 224;
-		static constexpr size_t asciiTailLength = 20;
+	inline void runUtf8WidthTransitionSweep() {
+		static constexpr uint64_t sweepLengthMin  = 24;
+		static constexpr uint64_t sweepLengthMax  = 224;
+		static constexpr uint64_t asciiTailLength = 20;
 
 		const std::vector<std::vector<uint8_t>> completeSequences{
 			{ 0xC3, 0xA9 },
@@ -173,15 +168,15 @@ namespace utf8_validation_tests {
 		std::vector<uint8_t> sourceScratch;
 		std::vector<char> destScratch;
 
-		for (size_t bodyLength = sweepLengthMin; bodyLength <= sweepLengthMax; ++bodyLength) {
-			const size_t totalLength = bodyLength + asciiTailLength;
+		for (uint64_t bodyLength = sweepLengthMin; bodyLength <= sweepLengthMax; ++bodyLength) {
+			const uint64_t totalLength = bodyLength + asciiTailLength;
 
 			for (const auto& seq: completeSequences) {
 				if (seq.size() > bodyLength) {
 					continue;
 				}
 				contentBuffer.resetTo(totalLength);
-				for (size_t offset = 0; offset + seq.size() <= bodyLength; ++offset) {
+				for (uint64_t offset = 0; offset + seq.size() <= bodyLength; ++offset) {
 					contentBuffer.placeSeqAt(offset, seq);
 					++acceptCases;
 					if (!runValidatedStringParseWithScratch(contentBuffer.data(), sourceScratch, destScratch)) {
@@ -200,7 +195,7 @@ namespace utf8_validation_tests {
 					continue;
 				}
 				contentBuffer.resetTo(totalLength);
-				for (size_t offset = 0; offset + seq.size() <= bodyLength; ++offset) {
+				for (uint64_t offset = 0; offset + seq.size() <= bodyLength; ++offset) {
 					contentBuffer.placeSeqAt(offset, seq);
 					++rejectCases;
 					if (runValidatedStringParseWithScratch(contentBuffer.data(), sourceScratch, destScratch)) {
@@ -218,15 +213,13 @@ namespace utf8_validation_tests {
 
 		std::cout << "Width-transition accept sweep: " << (acceptCases - acceptFails) << "/" << acceptCases << " passed" << std::endl;
 		std::cout << "Width-transition reject sweep: " << (rejectCases - rejectFails) << "/" << rejectCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal acceptSweepName{ "width_transition_accept_sweep" };
-		static constexpr rt_ut::string_literal rejectSweepName{ "width_transition_reject_sweep" };
-		rt_ut::unit_test<acceptSweepName, true>::assert_eq(
+		rt_ut::unit_test<"width_transition_accept_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
 			},
 			acceptFails);
-		rt_ut::unit_test<rejectSweepName, true>::assert_eq(
+		rt_ut::unit_test<"width_transition_reject_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -234,18 +227,18 @@ namespace utf8_validation_tests {
 			rejectFails);
 	}
 
-	inline static void runUnalignedPointerSweep() {
+	inline void runUnalignedPointerSweep() {
 		static constexpr jsonifier::internal::array<uint8_t, 11> validSeq{ { 0x41, 0xC3, 0xA9, 0xE0, 0xA0, 0x80, 0xF0, 0x90, 0x80, 0x80, 0x41 } };
-		static constexpr size_t maxAlignOffset = 64;
+		static constexpr uint64_t maxAlignOffset = 64;
 
 		uint64_t sweepCases = 0;
 		uint64_t sweepFails = 0;
 
 		std::vector<uint8_t> paddedBuffer(validSeq.size() + maxAlignOffset + 32, 0x41);
 
-		for (size_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
+		for (uint64_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
 			std::copy(validSeq.begin(), validSeq.end(), paddedBuffer.begin() + static_cast<std::ptrdiff_t>(alignOffset));
-			const uint8_t* slicePtr = paddedBuffer.data() + alignOffset;
+			jsonifier::internal::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
 			++sweepCases;
 			if (!jsonifier::validateUtf8(slicePtr, validSeq.size())) {
 				++sweepFails;
@@ -259,8 +252,7 @@ namespace utf8_validation_tests {
 		}
 
 		std::cout << "Unaligned pointer sweep: " << (sweepCases - sweepFails) << "/" << sweepCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal unalignedSweepName{ "unaligned_pointer_sweep" };
-		rt_ut::unit_test<unalignedSweepName, true>::assert_eq(
+		rt_ut::unit_test<"unaligned_pointer_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -268,24 +260,22 @@ namespace utf8_validation_tests {
 			sweepFails);
 	}
 
-	inline static void runUnalignedInvalidSequenceSweep() {
+	inline void runUnalignedInvalidSequenceSweep() {
 		struct named_invalid_seq {
-			jsonifier::read_buffer_ptr label;
-			std::vector<uint8_t> bytes;
+			const char* label;
+			std::array<uint8_t, 8> bytes;
 		};
 
-		const std::vector<named_invalid_seq> invalidSeqs{
-			{ "overlong_c0_80", { 0x41, 0xC0, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "surrogate_ed_a0_80", { 0x41, 0xED, 0xA0, 0x80, 0x41, 0x41, 0x41, 0x41 } },
-			{ "bad_cont_c2_41", { 0x41, 0xC2, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "dangling_e0_a0", { 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0xE0, 0xA0 } },
-			{ "overlong_2byte_0x7f", { 0x41, 0xC1, 0xBF, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-			{ "overlong_4byte_min", { 0x41, 0xF0, 0x80, 0x80, 0x80, 0x41, 0x41, 0x41 } },
-			{ "invalid_5byte_lead", { 0x41, 0xF8, 0x88, 0x80, 0x80, 0x80, 0x41, 0x41 } },
-			{ "valid_then_lone_cont", { 0xC2, 0x80, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } },
-		};
+		static constexpr std::array<named_invalid_seq, 8> invalidSeqs{ { named_invalid_seq{ "overlong_c0_80", { { 0x41, 0xC0, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "surrogate_ed_a0_80", { { 0x41, 0xED, 0xA0, 0x80, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "bad_cont_c2_41", { { 0x41, 0xC2, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "dangling_e0_a0", { { 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0xE0, 0xA0 } } },
+			named_invalid_seq{ "overlong_2byte_0x7f", { { 0x41, 0xC1, 0xBF, 0x41, 0x41, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "overlong_4byte_min", { { 0x41, 0xF0, 0x80, 0x80, 0x80, 0x41, 0x41, 0x41 } } },
+			named_invalid_seq{ "invalid_5byte_lead", { { 0x41, 0xF8, 0x88, 0x80, 0x80, 0x80, 0x41, 0x41 } } },
+			named_invalid_seq{ "valid_then_lone_cont", { { 0xC2, 0x80, 0x80, 0x41, 0x41, 0x41, 0x41, 0x41 } } } } };
 
-		static constexpr size_t maxAlignOffset = 96;
+		static constexpr uint64_t maxAlignOffset = 96;
 
 		uint64_t sweepCases		  = 0;
 		uint64_t falseAcceptFails = 0;
@@ -293,9 +283,9 @@ namespace utf8_validation_tests {
 		for (const auto& namedSeq: invalidSeqs) {
 			std::vector<uint8_t> paddedBuffer(namedSeq.bytes.size() + maxAlignOffset + 32, 0x41);
 
-			for (size_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
+			for (uint64_t alignOffset = 0; alignOffset < maxAlignOffset; ++alignOffset) {
 				std::copy(namedSeq.bytes.begin(), namedSeq.bytes.end(), paddedBuffer.begin() + static_cast<std::ptrdiff_t>(alignOffset));
-				const uint8_t* slicePtr = paddedBuffer.data() + alignOffset;
+				jsonifier::internal::read_buffer_ptr slicePtr = paddedBuffer.data() + alignOffset;
 				++sweepCases;
 				if (jsonifier::validateUtf8(slicePtr, namedSeq.bytes.size())) {
 					++falseAcceptFails;
@@ -310,8 +300,7 @@ namespace utf8_validation_tests {
 		}
 
 		std::cout << "Unaligned invalid-sequence sweep: " << (sweepCases - falseAcceptFails) << "/" << sweepCases << " passed" << std::endl;
-		static constexpr rt_ut::string_literal unalignedInvalidSweepName{ "unaligned_invalid_sequence_sweep" };
-		rt_ut::unit_test<unalignedInvalidSweepName, true>::assert_eq(
+		rt_ut::unit_test<"unaligned_invalid_sequence_sweep", true>::assert_eq(
 			uint64_t{ 0 },
 			[](uint64_t fails) {
 				return fails;
@@ -320,15 +309,14 @@ namespace utf8_validation_tests {
 	}
 
 #if JSONIFIER_HAS_MMAP
-	inline static void runPageBoundaryFaultTest() {
+	inline void runPageBoundaryFaultTest() {
 		const long systemPageSize = sysconf(_SC_PAGESIZE);
-		const size_t pageSize	  = systemPageSize > 0 ? static_cast<size_t>(systemPageSize) : 4096;
+		const uint64_t pageSize	  = systemPageSize > 0 ? static_cast<uint64_t>(systemPageSize) : 4096;
 
 		void* region = mmap(nullptr, pageSize * 2, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		static constexpr rt_ut::string_literal pageBoundaryName{ "page_boundary_fault_check" };
 		if (region == MAP_FAILED) {
 			std::cout << "SKIPPED page_boundary_fault_check: mmap failed" << std::endl;
-			rt_ut::unit_test<pageBoundaryName, true>::assert_eq(true, [] {
+			rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(true, [] {
 				return true;
 			});
 			return;
@@ -337,7 +325,7 @@ namespace utf8_validation_tests {
 		if (mprotect(static_cast<uint8_t*>(region) + pageSize, pageSize, PROT_NONE) != 0) {
 			std::cout << "SKIPPED page_boundary_fault_check: mprotect failed" << std::endl;
 			munmap(region, pageSize * 2);
-			rt_ut::unit_test<pageBoundaryName, true>::assert_eq(true, [] {
+			rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(true, [] {
 				return true;
 			});
 			return;
@@ -354,7 +342,7 @@ namespace utf8_validation_tests {
 
 		munmap(region, pageSize * 2);
 
-		rt_ut::unit_test<pageBoundaryName, true>::assert_eq(
+		rt_ut::unit_test<"page_boundary_fault_check", true>::assert_eq(
 			true,
 			[](bool r) {
 				return r;
@@ -363,7 +351,7 @@ namespace utf8_validation_tests {
 	}
 #endif
 
-	inline static void runTests() {
+	inline void runTests() {
 		std::cout << "UTF8 Validation Tests" << std::endl;
 		utf8ValidationTest<"empty">({}, true);
 		utf8ValidationTest<"single_ascii">({ 0x41 }, true);
