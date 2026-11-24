@@ -15,6 +15,29 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(rt-ut)
 
+FetchContent_Declare(
+  jsonifier-data
+  GIT_REPOSITORY https://github.com/nihilai-collective/Jsonifier-Data.git
+  GIT_TAG main
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(jsonifier-data)
+
+set(JSONIFIER_TEST_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/test-data")
+file(REMOVE_RECURSE "${JSONIFIER_TEST_DATA_DIR}")
+file(COPY "${jsonifier-data_SOURCE_DIR}/unit-tests/" DESTINATION "${JSONIFIER_TEST_DATA_DIR}")
+
+file(READ "${jsonifier-data_SOURCE_DIR}/aliases.json" JSONIFIER_DATA_ALIASES)
+string(JSON JSONIFIER_DATA_ALIAS_COUNT LENGTH "${JSONIFIER_DATA_ALIASES}")
+math(EXPR JSONIFIER_DATA_ALIAS_LAST "${JSONIFIER_DATA_ALIAS_COUNT} - 1")
+foreach(JSONIFIER_DATA_ALIAS_INDEX RANGE ${JSONIFIER_DATA_ALIAS_LAST})
+    string(JSON JSONIFIER_DATA_ALIAS_NAME MEMBER "${JSONIFIER_DATA_ALIASES}" ${JSONIFIER_DATA_ALIAS_INDEX})
+    string(JSON JSONIFIER_DATA_ALIAS_TARGET GET "${JSONIFIER_DATA_ALIASES}" "${JSONIFIER_DATA_ALIAS_NAME}")
+    if(JSONIFIER_DATA_ALIAS_NAME MATCHES "^unit-tests/(.*)$")
+        file(COPY_FILE "${jsonifier-data_SOURCE_DIR}/${JSONIFIER_DATA_ALIAS_TARGET}" "${JSONIFIER_TEST_DATA_DIR}/${CMAKE_MATCH_1}")
+    endif()
+endforeach()
+
 target_link_libraries(jsonifier-unit-tests
     PUBLIC
         Jsonifier::Jsonifier rt-ut::rt-ut 
@@ -23,7 +46,7 @@ target_link_libraries(jsonifier-unit-tests
 option(JSONIFIER_ASAN  "Enable AddressSanitizer"            OFF)
 option(JSONIFIER_UBSAN "Enable UndefinedBehaviorSanitizer"  OFF)
 
-set(JSONIFIER_TEST_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/" CACHE STRING "Root path the unit tests resolve their JSON data against")
+set(JSONIFIER_TEST_BASE_PATH "${JSONIFIER_TEST_DATA_DIR}/")
 set(JSONIFIER_ASAN_EFFECTIVE  ${JSONIFIER_ASAN})
 set(JSONIFIER_UBSAN_EFFECTIVE ${JSONIFIER_UBSAN})
 

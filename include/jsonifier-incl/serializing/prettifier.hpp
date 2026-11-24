@@ -65,25 +65,29 @@ namespace jsonifier::internal {
 				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::no_input>(rootIter, rootIter, endIter));
 				return false;
 			}
-			uint64_t depth{};
+			int64_t depth{};
 			uint64_t maxDepth{};
 			for (auto* structural{ iter }; structural != endStructural; ++structural) {
 				switch (dataPtr[*structural]) {
 					case uint_c_v<'['>:
 					case uint_c_v<'{'>: {
 						++depth;
-						maxDepth = depth > maxDepth ? depth : maxDepth;
+						maxDepth = depth > static_cast<int64_t>(maxDepth) ? static_cast<uint64_t>(depth) : maxDepth;
 						break;
 					}
 					case uint_c_v<']'>:
 					case uint_c_v<'}'>: {
-						depth -= depth > 0;
+						--depth;
 						break;
 					}
 					default: {
 						break;
 					}
 				}
+			}
+			if (depth < 0) {
+				derivedRef.errors.emplace_back(error::constructError<status_classes::prettifying, prettify_statuses::imbalanced_braces>(rootIter, rootIter, endIter));
+				return false;
 			}
 			const uint64_t structuralCount{ static_cast<uint64_t>(endStructural - iter) };
 			const uint64_t requiredSize{ in.size() + structuralCount * (maxDepth * optionsFinal.indentSize + 2) };

@@ -10,7 +10,7 @@
 
 Since Langdale and Lemire's 2019 paper *Parsing Gigabytes of JSON per Second*, the two-stage SIMD parsing model, a vectorized structural-indexing pass (stage 1) followed by a tape-driven materialization pass (stage 2), has been treated as the canonical architecture for high-performance JSON processing. simdjson, the reference implementation, routes every document through stage 1 unconditionally.
 
-Jsonifier takes a different position: **two-stage parsing is a specialized tool, not a mandatory front door.** When parsing a full document into concrete, reflection-registered C++ types, every structural fact the tape would record is rediscovered anyway during value materialization, so building the tape means touching every byte twice for information used once. Jsonifier therefore parses full documents in a single fused pass, and reserves its stage-1 + stage-2 machinery for the workloads where a structural index genuinely pays for itself: partial/unordered reading, prettifying, and minifying. Measured with both paths compiled into one binary across 245 tests on five builds, skipping the tape wins on all 25 POD-type tests and on 105 of the 110 minified documents (the tape takes three, two of them under MSVC, and two are ties), the tape is faster on 64 of the 66 prettified documents on x86, and on the Apple M2 Pro the fused path wins 33 of the 44 prettified documents, the tape 5 and 6 are ties. Three AVX-512 builds show the same split: the fused path wins 64 of their 66 minified documents and the tape 64 of their 66 prettified ones.
+Jsonifier takes a different position: **two-stage parsing is a specialized tool, not a mandatory front door.** When parsing a full document into concrete, reflection-registered C++ types, every structural fact the tape would record is rediscovered anyway during value materialization, so building the tape means touching every byte twice for information used once. Jsonifier therefore parses full documents in a single fused pass, and reserves its stage-1 + stage-2 machinery for the workloads where a structural index genuinely pays for itself: partial/unordered reading, prettifying, and minifying. Measured with both paths compiled into one binary across the 220 corpus tests of five builds, skipping the tape wins all 110 minified documents and 91 of the 110 prettified ones, with 5 ties; the tape's 14 wins come almost entirely from the float-heavy Marine IK documents on x86. Three AVX-512 builds show the same shape: the fused path wins 64 of their 66 minified documents and 45 of their 66 prettified ones.
 
 This paper describes both halves of that architecture: the single-pass primary path, and Jsonifier's stage-1 implementation, including its per-compiler-tuned step geometry, its fold-expression drain architecture for bitmask-to-index extraction, and its distributed UTF-8 validation strategy. Throughout, it compares both directly with simdjson's current design.
 
@@ -34,7 +34,7 @@ Consider what the structural tape provides: the positions of every brace, bracke
 
 (We scope the double-load claim deliberately: a two-stage consumer that *skips* content, such as simdjson's On Demand API skipping unrequested fields, does not reload the skipped bytes in its second pass. That is exactly the workload where the tape earns its keep, and exactly why Jsonifier retains the two-stage machinery for partial reading. The accounting above describes the full-materialization case, where nothing is skipped and the tape's information is fully redundant with the walk.)
 
-For full-document parsing into known types, the tape is overhead in principle, and in practice whether skipping it is faster comes down to two questions: is the input indented, and is the machine x86? §2.1 through §2.4 measure both paths in one binary on five platform/compiler builds.
+For full-document parsing into known types, the tape is overhead in principle, and in practice skipping it is faster on nearly every document measured, indented or not, with the float-heavy exceptions §2.4 names. §2.1 through §2.4 measure both paths in one binary on five platform/compiler builds.
 
 **The routing rule is simple: the two-stage machinery is engaged for partial reading, prettifying, and minifying: workloads where the caller does *not* want every value, or wants pure structural transformation. Full-document parsing takes the single-pass path.** §2.4 shows where the measurements say that rule should be refined.
 
@@ -42,79 +42,77 @@ One objection is that Jsonifier's requirement of ahead-of-time registration (`js
 
 ### 2.1 Method: both paths in one binary
 
-Every comparison in this section comes from the [Json-Performance](https://github.com/nihilai-collective/Json-Performance) sweep [5] published November 17, 2026, with Jsonifier [79b3e67](https://github.com/nihilai-collective/jsonifier/commit/79b3e67), Glaze [a53ddd5](https://github.com/stephenberry/glaze/commit/a53ddd59), simdjson [36c5b3c](https://github.com/simdjson/simdjson/commit/36c5b3cfc) and BenchmarkSuite [71afc62](https://github.com/nihilai-collective/benchmarksuite/commit/71afc62) on every build. The harness registers both Jsonifier paths in the same binary. "jsonifier" is the default fused single-pass path, which the harness calls scalar structural iteration. "jsonifier (two-stage)" makes exactly the same `parseJson` call with `partialRead` set, which routes it through stage 1 and then stage 2. "simdjson (ondemand)" is the reference for §2.2 to §2.4. Glaze runs in the same sweep and appears here only in the validation test of §2.7, and `simdjson (reflection)`, simdjson 5's C++26 static-reflection reader, gets its own comparison in §2.5. Because the two Jsonifier paths are compiled together, run back to back on each test, and ranked against each other by the same statistics, the only thing that differs between them is the path.
+Every comparison in this section comes from the [Json-Performance](https://github.com/nihilai-collective/Json-Performance) sweep [5] published November 23, 2026, with Jsonifier [4f52e70](https://github.com/nihilai-collective/jsonifier/commit/4f52e70), Glaze [fc0b48a](https://github.com/stephenberry/glaze/commit/fc0b48a0), simdjson [3448984](https://github.com/simdjson/simdjson/commit/344898409) and BenchmarkSuite [71afc62](https://github.com/nihilai-collective/benchmarksuite/commit/71afc62) on every build. The harness registers both Jsonifier paths in the same binary. "jsonifier" is the default fused single-pass path, which the harness calls scalar structural iteration. "jsonifier (two-stage)" makes exactly the same `parseJson` call with `partialRead` set, which routes it through stage 1 and then stage 2. The sweep registers the two-stage path on the 44 corpus tests of each build but not on the five POD-type tests, so the fused-against-two-stage comparisons below cover corpus documents only. "simdjson (ondemand)" is the reference for §2.2 to §2.4. Glaze runs in the same sweep and appears here only in the validation test of §2.7, and `simdjson (reflection)`, simdjson 5's C++26 static-reflection reader, gets its own comparison in §2.5. Because the two Jsonifier paths are compiled together, run back to back on each test, and ranked against each other by the same statistics, the only thing that differs between them is the path.
 
 All libraries parse fully into the target data structures and perform UTF-8 validation. Every test runs twice. In the freshly allocated run, every iteration constructs a new object to parse into and destroys it again inside the timed region, so allocation and deallocation are part of each measurement. In the reused run, labelled "(Reused)" in the sweep, the object is created once and held across iterations; it is cleared, keeping its capacity, outside the timed region before each iteration, so only the parse itself is measured. Parser instances are reused in both. §2.2, §2.3, §2.5 and §2.6 give both runs; the discussion in §2.4 quotes the freshly allocated run unless it says otherwise. Each build runs 49 full-parse tests: five POD-type tests (arrays of a single value type: Bool, Double, Int64, String, Uint64), eleven corpus documents in minified and prettified form, and "Small" cut-down copies of the same eleven documents (at most 5 KiB minified) in both forms, which weigh per-call overhead more heavily than the full-size documents. Two of the documents, "Marine IK Reverse" and its Small copy, request every key in the reverse of its document order; in every other test, all libraries receive keys in document order. The sweep also runs a partial-reading test on the Twitter document and its Small copy, which §2.6 covers, and a validation-only test, which §2.7 covers.
 
-Sampling is adaptive. Iterations start at 100 and double each epoch, and sampling does not stop early: epochs continue until 5 seconds have elapsed or the iteration cap of 100,000 is reached. Every epoch after the first is scored by its relative standard error plus its epoch-over-epoch mean shift, and the lowest-scoring epoch is kept as the result. A result counts as converged only if that epoch has RSE below 5% and mean shift below 2.5% on the three x86 builds (10% and 5% on the virtualized M2 Pro), and non-converged results stay in the rankings and tallies, marked n/c in the tables. Seven freshly allocated full-parse rows contain non-converged results (two on macOS/GCC and five on macOS/Clang), as do five reused rows (three on macOS/GCC and two on macOS/Clang); every x86 row converged. Ties are declared by Welch's t-test on the kept epoch (two-sided, p < 0.05), and every verdict in this paper is a pairwise test between the two libraries or paths named in its column. Keeping the quietest epoch raises absolute throughput somewhat, identically for every library, and resolves small differences as wins or losses more often than a first-to-converge rule would, which is why ties are rare.
+Sampling is adaptive. Iterations start at 100 and double each epoch, and sampling does not stop early: epochs continue until 5 seconds have elapsed or the iteration cap of 100,000 is reached. Every epoch after the first is scored by its relative standard error plus its epoch-over-epoch mean shift, and the lowest-scoring epoch is kept as the result. A result counts as converged only if that epoch has RSE below 5% and mean shift below 2.5% on the three x86 builds (10% and 5% on the virtualized M2 Pro), and non-converged results stay in the rankings and tallies, marked n/c in the tables. Two freshly allocated full-parse rows contain non-converged results, both on macOS/Clang, as does one reused row, also on macOS/Clang; every x86 row converged. Ties are declared by Welch's t-test on the kept epoch (two-sided, p < 0.05), and every verdict in this paper is a pairwise test between the two libraries or paths named in its column. Keeping the quietest epoch raises absolute throughput somewhat, identically for every library, and resolves small differences as wins or losses more often than a first-to-converge rule would, which is why ties are rare.
 
 ### 2.2 Fused against two-stage
 
-Ranked head to head, the fused path wins 165 tests, 8 are statistical ties, and the two-stage path wins 72. The split is a matter of platform and indentation:
+Ranked head to head on the 220 corpus tests, the fused path wins 201, 5 are statistical ties, and the two-stage path wins 14:
 
 | Platform / Compiler | Fused faster | Tie | Two-stage faster | Tests converged |
 |---|---|---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 26 | 0 | 23 | 49 of 49 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 26 | 0 | 23 | 49 of 49 |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | 28 | 0 | 21 | 49 of 49 |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 42 | 4 | 3 | 47 of 49 |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 43 | 4 | 2 | 44 of 49 |
-| **Aggregate** | **165** | **8** | **72** | **238 of 245** |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 38 | 2 | 4 | 44 of 44 |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 40 | 0 | 4 | 44 of 44 |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | 40 | 0 | 4 | 44 of 44 |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 42 | 1 | 1 | 44 of 44 |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 41 | 2 | 1 | 42 of 44 |
+| **Aggregate** | **201** | **5** | **14** | **218 of 220** |
 
 Split by input shape (fused / tie / two-stage):
 
 | Input shape | Windows / MSVC | Linux (Clang + GCC) | macOS (GCC + Clang) |
 |---|---|---|---|
-| POD-type tests | 5 / 0 / 0 | 10 / 0 / 0 | 10 / 0 / 0 |
-| Minified corpus documents | 10 / 0 / 1 | 21 / 0 / 1 | 22 / 0 / 0 |
-| Prettified corpus documents | 1 / 0 / 10 | 1 / 0 / 21 | 18 / 3 / 1 |
-| Small minified documents | 10 / 0 / 1 | 22 / 0 / 0 | 20 / 2 / 0 |
-| Small prettified documents | 0 / 0 / 11 | 0 / 0 / 22 | 15 / 3 / 4 |
+| Minified corpus documents | 11 / 0 / 0 | 22 / 0 / 0 | 22 / 0 / 0 |
+| Prettified corpus documents | 8 / 2 / 1 | 18 / 0 / 4 | 21 / 1 / 0 |
+| Small minified documents | 11 / 0 / 0 | 22 / 0 / 0 | 22 / 0 / 0 |
+| Small prettified documents | 8 / 0 / 3 | 18 / 0 / 4 | 18 / 2 / 2 |
 
 Against simdjson, counting a test for Jsonifier by the verdict of whichever of its two paths has the higher throughput against simdjson On Demand:
 
 | Platform / Compiler | Best Jsonifier path (W / T / L) | Fused path alone (W / T / L) |
 |---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 48 / 0 / 1 | 48 / 0 / 1 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 49 / 0 / 0 | 47 / 0 / 2 |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | 49 / 0 / 0 | 48 / 0 / 1 |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 47 / 0 / 2 | 47 / 0 / 2 |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 49 / 0 / 0 | 49 / 0 / 0 |
 | macOS / Clang 23.1 (Apple M2 Pro, NEON) | 49 / 0 / 0 | 49 / 0 / 0 |
-| **Aggregate** | **242 / 0 / 3** | **239 / 0 / 6** |
+| **Aggregate** | **245 / 0 / 0** | **245 / 0 / 0** |
 
 **Reused objects.** With the target object held across iterations:
 
 | Platform / Compiler | Fused faster | Tie | Two-stage faster | Tests converged |
 |---|---|---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 26 | 0 | 23 | 49 of 49 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 27 | 0 | 22 | 49 of 49 |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | 28 | 0 | 21 | 49 of 49 |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 42 | 3 | 4 | 46 of 49 |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 45 | 0 | 4 | 47 of 49 |
-| **Aggregate** | **168** | **3** | **74** | **240 of 245** |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 39 | 1 | 4 | 44 of 44 |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 40 | 0 | 4 | 44 of 44 |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | 40 | 0 | 4 | 44 of 44 |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 41 | 2 | 1 | 44 of 44 |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 40 | 2 | 2 | 43 of 44 |
+| **Aggregate** | **200** | **5** | **15** | **219 of 220** |
 
 Split by input shape (fused / tie / two-stage):
 
 | Input shape | Windows / MSVC | Linux (Clang + GCC) | macOS (GCC + Clang) |
 |---|---|---|---|
-| POD-type tests | 5 / 0 / 0 | 10 / 0 / 0 | 10 / 0 / 0 |
-| Minified corpus documents | 10 / 0 / 1 | 22 / 0 / 0 | 22 / 0 / 0 |
-| Prettified corpus documents | 0 / 0 / 11 | 1 / 0 / 21 | 19 / 1 / 2 |
-| Small minified documents | 11 / 0 / 0 | 22 / 0 / 0 | 22 / 0 / 0 |
-| Small prettified documents | 0 / 0 / 11 | 0 / 0 / 22 | 14 / 2 / 6 |
+| Minified corpus documents | 11 / 0 / 0 | 22 / 0 / 0 | 22 / 0 / 0 |
+| Prettified corpus documents | 9 / 1 / 1 | 18 / 0 / 4 | 21 / 1 / 0 |
+| Small minified documents | 11 / 0 / 0 | 22 / 0 / 0 | 20 / 2 / 0 |
+| Small prettified documents | 8 / 0 / 3 | 18 / 0 / 4 | 18 / 1 / 3 |
 
 Against simdjson, counting a test for Jsonifier by the verdict of whichever of its two paths has the higher throughput against simdjson On Demand:
 
 | Platform / Compiler | Best Jsonifier path (W / T / L) | Fused path alone (W / T / L) |
 |---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 49 / 0 / 0 | 48 / 0 / 1 |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 49 / 0 / 0 | 47 / 0 / 2 |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | 49 / 0 / 0 | 46 / 0 / 3 |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | 49 / 0 / 0 | 49 / 0 / 0 |
 | macOS / GCC 16.2 (Apple M2 Pro, NEON) | 49 / 0 / 0 | 49 / 0 / 0 |
 | macOS / Clang 23.1 (Apple M2 Pro, NEON) | 49 / 0 / 0 | 49 / 0 / 0 |
-| **Aggregate** | **245 / 0 / 0** | **239 / 0 / 6** |
+| **Aggregate** | **245 / 0 / 0** | **245 / 0 / 0** |
 
-With objects reused, across 245 tests the fused path wins 168, ties 3 and loses 74 to the two-stage path, and the x86 split holds: the tape wins 32 of the 33 full-size prettified documents (the fused path takes Canada on Linux/GCC) and all 33 Small prettified ones, and the fused path wins 65 of the 66 minified documents, the tape taking Canada under MSVC. On the M2 Pro the fused path wins all 44 minified documents and 33 of the 44 prettified ones, with 8 tape wins and 3 ties. Against simdjson, the faster Jsonifier path wins all 245, and the fused path alone wins 239, ties none and loses 6.
+With objects reused, across the 220 corpus tests the fused path wins 200, ties 5 and loses 15 to the two-stage path. On x86 the fused path wins all 66 minified documents and 53 of the 66 prettified ones, with 1 tie; the tape's 12 wins are the Marine IK family plus prettified Canada Small under MSVC. On the M2 Pro the fused path wins 42 of the 44 minified documents (2 ties) and 39 of the 44 prettified ones, with 2 ties and 3 tape wins. Against simdjson, the faster Jsonifier path wins all 245, and the fused path alone wins all 245 too.
 
 ### 2.3 Per-test results
 
@@ -126,271 +124,271 @@ Throughput is in MB/s. "Faster Jsonifier path" is the Welch's t-test verdict bet
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 612 | 261 | 122 | 2.34× | Fused | Win |
-| Double (POD) | 793 | 542 | 260 | 1.46× | Fused | Win |
-| Int64 (POD) | 1,589 | 890 | 565 | 1.79× | Fused | Win |
-| String (POD) | 834 | 701 | 672 | 1.19× | Fused | Win |
-| Uint64 (POD) | 1,671 | 914 | 560 | 1.83× | Fused | Win |
-| Apache Builds (minified) | 816 | 770 | 641 | 1.06× | Fused | Win |
-| Canada (minified) | 544 | 562 | 373 | 0.97× | Two-stage | Win |
-| Apache Builds (prettified) | 993 | 1,013 | 840 | 0.98× | Two-stage | Win |
-| Canada (prettified) | 1,149 | 1,249 | 862 | 0.92× | Two-stage | Win |
-| CitmCatalog (minified) | 1,520 | 1,250 | 541 | 1.22× | Fused | Win |
-| CitmCatalog (prettified) | 2,329 | 2,572 | 1,198 | 0.91× | Two-stage | Win |
-| Discord (minified) | 1,188 | 968 | 701 | 1.23× | Fused | Win |
-| Discord (prettified) | 1,330 | 1,426 | 1,032 | 0.93× | Two-stage | Win |
-| Github Events (minified) | 955 | 859 | 668 | 1.11× | Fused | Win |
-| Google Maps Response (minified) | 1,336 | 1,167 | 562 | 1.14× | Fused | Win |
-| Github Events (prettified) | 1,002 | 1,023 | 808 | 0.98× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,205 | 2,317 | 1,143 | 0.95× | Two-stage | Win |
-| Instruments (minified) | 1,997 | 1,454 | 836 | 1.37× | Fused | Win |
-| Instruments (prettified) | 2,096 | 2,251 | 1,364 | 0.93× | Two-stage | Win |
-| Marine IK Reverse (minified) | 601 | 551 | 181 | 1.09× | Fused | Win |
-| Marine IK Reverse (prettified) | 1,889 | 1,964 | 648 | 0.96× | Two-stage | Win |
-| Marine IK (minified) | 617 | 559 | 302 | 1.10× | Fused | Win |
-| Marine IK (prettified) | 1,955 | 1,933 | 1,113 | 1.01× | Fused | Win |
-| Random (minified) | 718 | 655 | 503 | 1.10× | Fused | Win |
-| Random (prettified) | 931 | 1,018 | 769 | 0.92× | Two-stage | Win |
-| Twitter (minified) | 1,124 | 987 | 845 | 1.14× | Fused | Win |
-| Twitter (prettified) | 1,324 | 1,400 | 1,184 | 0.95× | Two-stage | Win |
-| Apache Builds Small (minified) | 1,119 | 1,159 | 665 | 0.97× | Two-stage | Win |
-| Canada Small (minified) | 505 | 503 | 309 | 1.00× | Fused | Win |
-| Apache Builds Small (prettified) | 1,194 | 1,393 | 837 | 0.86× | Two-stage | Win |
-| Canada Small (prettified) | 1,115 | 1,189 | 748 | 0.94× | Two-stage | Win |
-| CitmCatalog Small (minified) | 817 | 687 | 483 | 1.19× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,096 | 1,199 | 848 | 0.91× | Two-stage | Win |
-| Discord Small (minified) | 1,050 | 804 | 651 | 1.31× | Fused | Win |
-| Discord Small (prettified) | 1,109 | 1,170 | 894 | 0.95× | Two-stage | Win |
-| Github Events Small (minified) | 1,083 | 923 | 680 | 1.17× | Fused | Win |
-| Google Maps Response Small (minified) | 1,173 | 1,013 | 543 | 1.16× | Fused | Win |
-| Github Events Small (prettified) | 977 | 1,177 | 797 | 0.83× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 1,904 | 2,028 | 1,110 | 0.94× | Two-stage | Win |
-| Instruments Small (minified) | 2,053 | 1,435 | 805 | 1.43× | Fused | Win |
-| Instruments Small (prettified) | 1,972 | 2,180 | 1,305 | 0.90× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 413 | 406 | 144 | 1.02× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,241 | 1,478 | 554 | 0.84× | Two-stage | Win |
-| Marine IK Small (minified) | 472 | 436 | 260 | 1.08× | Fused | Win |
-| Marine IK Small (prettified) | 1,417 | 1,571 | 986 | 0.90× | Two-stage | Win |
-| Random Small (minified) | 820 | 733 | 478 | 1.12× | Fused | Win |
-| Random Small (prettified) | 1,032 | 1,132 | 739 | 0.91× | Two-stage | Win |
-| Twitter Small (minified) | 1,676 | 1,339 | 1,281 | 1.25× | Fused | Win |
-| Twitter Small (prettified) | 1,525 | 1,634 | 1,658 | 0.93× | Two-stage | Loss |
+| Bool (POD) | 620 | n/a | 177 | n/a | n/a | Win |
+| Double (POD) | 827 | n/a | 343 | n/a | n/a | Win |
+| Int64 (POD) | 1,011 | n/a | 323 | n/a | n/a | Win |
+| String (POD) | 729 | n/a | 487 | n/a | n/a | Win |
+| Uint64 (POD) | 985 | n/a | 282 | n/a | n/a | Win |
+| Apache Builds (minified) | 934 | 846 | 724 | 1.10× | Fused | Win |
+| Canada (minified) | 654 | 627 | 398 | 1.04× | Fused | Win |
+| Apache Builds (prettified) | 1,140 | 1,073 | 933 | 1.06× | Fused | Win |
+| Canada (prettified) | 1,422 | 1,404 | 950 | 1.01× | Tie | Win |
+| CitmCatalog (minified) | 1,617 | 1,287 | 625 | 1.26× | Fused | Win |
+| CitmCatalog (prettified) | 2,716 | 2,653 | 1,418 | 1.02× | Fused | Win |
+| Discord (minified) | 1,345 | 1,052 | 769 | 1.28× | Fused | Win |
+| Discord (prettified) | 1,712 | 1,377 | 1,116 | 1.24× | Fused | Win |
+| Github Events (minified) | 1,087 | 944 | 734 | 1.15× | Fused | Win |
+| Google Maps Response (minified) | 1,296 | 1,126 | 598 | 1.15× | Fused | Win |
+| Github Events (prettified) | 1,210 | 1,137 | 889 | 1.06× | Fused | Win |
+| Google Maps Response (prettified) | 2,292 | 2,099 | 1,209 | 1.09× | Fused | Win |
+| Instruments (minified) | 2,119 | 1,447 | 899 | 1.46× | Fused | Win |
+| Instruments (prettified) | 2,679 | 2,339 | 1,451 | 1.15× | Fused | Win |
+| Marine IK Reverse (minified) | 675 | 585 | 199 | 1.15× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,086 | 2,102 | 687 | 0.99× | Two-stage | Win |
+| Marine IK (minified) | 699 | 591 | 367 | 1.18× | Fused | Win |
+| Marine IK (prettified) | 2,137 | 2,128 | 1,355 | 1.00× | Tie | Win |
+| Random (minified) | 928 | 760 | 580 | 1.22× | Fused | Win |
+| Random (prettified) | 1,275 | 1,138 | 882 | 1.12× | Fused | Win |
+| Twitter (minified) | 1,466 | 1,128 | 977 | 1.30× | Fused | Win |
+| Twitter (prettified) | 1,635 | 1,410 | 1,264 | 1.16× | Fused | Win |
+| Apache Builds Small (minified) | 1,294 | 1,130 | 772 | 1.14× | Fused | Win |
+| Canada Small (minified) | 601 | 570 | 348 | 1.05× | Fused | Win |
+| Apache Builds Small (prettified) | 1,438 | 1,380 | 961 | 1.04× | Fused | Win |
+| Canada Small (prettified) | 1,294 | 1,329 | 800 | 0.97× | Two-stage | Win |
+| CitmCatalog Small (minified) | 872 | 737 | 554 | 1.18× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,255 | 1,247 | 954 | 1.01× | Fused | Win |
+| Discord Small (minified) | 1,267 | 993 | 699 | 1.28× | Fused | Win |
+| Discord Small (prettified) | 1,444 | 1,239 | 992 | 1.17× | Fused | Win |
+| Github Events Small (minified) | 1,091 | 879 | 688 | 1.24× | Fused | Win |
+| Google Maps Response Small (minified) | 1,129 | 981 | 589 | 1.15× | Fused | Win |
+| Github Events Small (prettified) | 1,187 | 1,094 | 875 | 1.09× | Fused | Win |
+| Google Maps Response Small (prettified) | 2,050 | 1,854 | 1,145 | 1.11× | Fused | Win |
+| Instruments Small (minified) | 2,142 | 1,446 | 906 | 1.48× | Fused | Win |
+| Instruments Small (prettified) | 2,621 | 2,311 | 1,454 | 1.13× | Fused | Win |
+| Marine IK Reverse Small (minified) | 469 | 440 | 162 | 1.07× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,385 | 1,600 | 613 | 0.87× | Two-stage | Win |
+| Marine IK Small (minified) | 530 | 473 | 315 | 1.12× | Fused | Win |
+| Marine IK Small (prettified) | 1,554 | 1,696 | 1,166 | 0.92× | Two-stage | Win |
+| Random Small (minified) | 1,029 | 846 | 558 | 1.22× | Fused | Win |
+| Random Small (prettified) | 1,383 | 1,266 | 847 | 1.09× | Fused | Win |
+| Twitter Small (minified) | 1,898 | 1,380 | 1,388 | 1.38× | Fused | Win |
+| Twitter Small (prettified) | 1,956 | 1,737 | 1,800 | 1.13× | Fused | Win |
 
 **Linux / Clang 24.0 (i9-14900KF, AVX2)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,045 | 633 | 287 | 3.23× | Fused | Win |
-| Double (POD) | 1,292 | 736 | 360 | 1.76× | Fused | Win |
-| Int64 (POD) | 3,141 | 1,678 | 789 | 1.87× | Fused | Win |
-| String (POD) | 1,846 | 1,368 | 1,421 | 1.35× | Fused | Win |
-| Uint64 (POD) | 3,268 | 1,626 | 739 | 2.01× | Fused | Win |
-| Apache Builds (minified) | 1,716 | 1,495 | 1,222 | 1.15× | Fused | Win |
-| Canada (minified) | 950 | 866 | 795 | 1.10× | Fused | Win |
-| Apache Builds (prettified) | 1,756 | 1,902 | 1,573 | 0.92× | Two-stage | Win |
-| Canada (prettified) | 1,771 | 1,863 | 1,801 | 0.95× | Two-stage | Win |
-| CitmCatalog (minified) | 2,256 | 1,665 | 1,129 | 1.35× | Fused | Win |
-| CitmCatalog (prettified) | 2,900 | 3,449 | 2,387 | 0.84× | Two-stage | Win |
-| Discord (minified) | 2,221 | 1,723 | 965 | 1.29× | Fused | Win |
-| Discord (prettified) | 1,739 | 2,543 | 1,396 | 0.68× | Two-stage | Win |
-| Github Events (minified) | 1,600 | 1,789 | 975 | 0.89× | Two-stage | Win |
-| Google Maps Response (minified) | 2,482 | 1,825 | 1,054 | 1.36× | Fused | Win |
-| Github Events (prettified) | 1,537 | 1,909 | 1,277 | 0.81× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,867 | 3,429 | 2,147 | 0.84× | Two-stage | Win |
-| Instruments (minified) | 2,434 | 1,910 | 761 | 1.27× | Fused | Win |
-| Instruments (prettified) | 2,168 | 2,816 | 1,259 | 0.77× | Two-stage | Win |
-| Marine IK Reverse (minified) | 845 | 722 | 579 | 1.17× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,446 | 2,507 | 2,126 | 0.98× | Two-stage | Win |
-| Marine IK (minified) | 856 | 734 | 579 | 1.17× | Fused | Win |
-| Marine IK (prettified) | 2,487 | 2,543 | 2,098 | 0.98× | Two-stage | Win |
-| Random (minified) | 1,270 | 1,100 | 828 | 1.15× | Fused | Win |
-| Random (prettified) | 1,415 | 1,687 | 1,254 | 0.84× | Two-stage | Win |
-| Twitter (minified) | 1,890 | 1,756 | 934 | 1.08× | Fused | Win |
-| Twitter (prettified) | 1,576 | 2,194 | 1,221 | 0.72× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,525 | 2,171 | 1,370 | 1.16× | Fused | Win |
-| Canada Small (minified) | 861 | 780 | 772 | 1.10× | Fused | Win |
-| Apache Builds Small (prettified) | 2,165 | 2,626 | 1,752 | 0.82× | Two-stage | Win |
-| Canada Small (prettified) | 1,632 | 1,782 | 1,740 | 0.92× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,632 | 1,373 | 984 | 1.19× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,774 | 2,331 | 1,723 | 0.76× | Two-stage | Win |
-| Discord Small (minified) | 1,952 | 1,744 | 765 | 1.12× | Fused | Win |
-| Discord Small (prettified) | 1,612 | 2,299 | 1,043 | 0.70× | Two-stage | Win |
-| Github Events Small (minified) | 2,044 | 1,793 | 1,359 | 1.14× | Fused | Win |
-| Google Maps Response Small (minified) | 2,221 | 1,681 | 1,065 | 1.32× | Fused | Win |
-| Github Events Small (prettified) | 1,806 | 2,202 | 1,721 | 0.82× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,601 | 3,189 | 2,157 | 0.82× | Two-stage | Win |
-| Instruments Small (minified) | 2,493 | 1,865 | 662 | 1.34× | Fused | Win |
-| Instruments Small (prettified) | 2,098 | 2,832 | 1,097 | 0.74× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 756 | 663 | 508 | 1.14× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,044 | 2,360 | 1,866 | 0.87× | Two-stage | Win |
-| Marine IK Small (minified) | 837 | 728 | 512 | 1.15× | Fused | Win |
-| Marine IK Small (prettified) | 2,147 | 2,525 | 1,889 | 0.85× | Two-stage | Win |
-| Random Small (minified) | 1,715 | 1,530 | 843 | 1.12× | Fused | Win |
-| Random Small (prettified) | 1,672 | 2,309 | 1,291 | 0.72× | Two-stage | Win |
-| Twitter Small (minified) | 2,374 | 2,152 | 1,005 | 1.10× | Fused | Win |
-| Twitter Small (prettified) | 1,790 | 2,639 | 1,303 | 0.68× | Two-stage | Win |
+| Bool (POD) | 1,968 | n/a | 488 | n/a | n/a | Win |
+| Double (POD) | 1,248 | n/a | 424 | n/a | n/a | Win |
+| Int64 (POD) | 1,522 | n/a | 373 | n/a | n/a | Win |
+| String (POD) | 1,283 | n/a | 933 | n/a | n/a | Win |
+| Uint64 (POD) | 1,741 | n/a | 363 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,822 | 1,397 | 1,226 | 1.30× | Fused | Win |
+| Canada (minified) | 913 | 839 | 802 | 1.09× | Fused | Win |
+| Apache Builds (prettified) | 2,120 | 1,645 | 1,581 | 1.29× | Fused | Win |
+| Canada (prettified) | 1,906 | 1,894 | 1,806 | 1.01× | Fused | Win |
+| CitmCatalog (minified) | 2,294 | 1,668 | 1,102 | 1.38× | Fused | Win |
+| CitmCatalog (prettified) | 3,755 | 3,456 | 2,331 | 1.09× | Fused | Win |
+| Discord (minified) | 2,426 | 1,694 | 933 | 1.43× | Fused | Win |
+| Discord (prettified) | 2,935 | 2,389 | 1,366 | 1.23× | Fused | Win |
+| Github Events (minified) | 1,801 | 1,720 | 948 | 1.05× | Fused | Win |
+| Google Maps Response (minified) | 2,525 | 1,689 | 1,079 | 1.49× | Fused | Win |
+| Github Events (prettified) | 2,095 | 1,772 | 1,147 | 1.18× | Fused | Win |
+| Google Maps Response (prettified) | 3,685 | 2,922 | 2,158 | 1.26× | Fused | Win |
+| Instruments (minified) | 2,401 | 1,885 | 709 | 1.27× | Fused | Win |
+| Instruments (prettified) | 3,606 | 2,965 | 1,164 | 1.22× | Fused | Win |
+| Marine IK Reverse (minified) | 811 | 703 | 600 | 1.15× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,451 | 2,551 | 2,181 | 0.96× | Two-stage | Win |
+| Marine IK (minified) | 820 | 714 | 590 | 1.15× | Fused | Win |
+| Marine IK (prettified) | 2,478 | 2,555 | 2,150 | 0.97× | Two-stage | Win |
+| Random (minified) | 1,624 | 1,148 | 829 | 1.41× | Fused | Win |
+| Random (prettified) | 2,196 | 1,658 | 1,271 | 1.32× | Fused | Win |
+| Twitter (minified) | 1,991 | 1,628 | 923 | 1.22× | Fused | Win |
+| Twitter (prettified) | 2,533 | 2,016 | 1,225 | 1.26× | Fused | Win |
+| Apache Builds Small (minified) | 2,925 | 2,031 | 1,377 | 1.44× | Fused | Win |
+| Canada Small (minified) | 811 | 778 | 755 | 1.04× | Fused | Win |
+| Apache Builds Small (prettified) | 3,065 | 2,381 | 1,660 | 1.29× | Fused | Win |
+| Canada Small (prettified) | 1,806 | 1,785 | 1,790 | 1.01× | Fused | Win |
+| CitmCatalog Small (minified) | 1,740 | 1,328 | 956 | 1.31× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,450 | 2,284 | 1,699 | 1.07× | Fused | Win |
+| Discord Small (minified) | 2,112 | 1,571 | 781 | 1.34× | Fused | Win |
+| Discord Small (prettified) | 2,543 | 2,112 | 1,067 | 1.20× | Fused | Win |
+| Github Events Small (minified) | 2,276 | 1,771 | 1,343 | 1.29× | Fused | Win |
+| Google Maps Response Small (minified) | 2,340 | 1,571 | 1,078 | 1.49× | Fused | Win |
+| Github Events Small (prettified) | 2,462 | 2,048 | 1,667 | 1.20× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,514 | 2,857 | 2,201 | 1.23× | Fused | Win |
+| Instruments Small (minified) | 2,462 | 1,869 | 649 | 1.32× | Fused | Win |
+| Instruments Small (prettified) | 3,495 | 2,971 | 1,084 | 1.18× | Fused | Win |
+| Marine IK Reverse Small (minified) | 763 | 658 | 512 | 1.16× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,087 | 2,382 | 1,875 | 0.88× | Two-stage | Win |
+| Marine IK Small (minified) | 815 | 714 | 510 | 1.14× | Fused | Win |
+| Marine IK Small (prettified) | 2,262 | 2,534 | 1,881 | 0.89× | Two-stage | Win |
+| Random Small (minified) | 1,953 | 1,401 | 862 | 1.39× | Fused | Win |
+| Random Small (prettified) | 2,705 | 2,153 | 1,321 | 1.26× | Fused | Win |
+| Twitter Small (minified) | 2,596 | 2,142 | 1,025 | 1.21× | Fused | Win |
+| Twitter Small (prettified) | 3,090 | 2,627 | 1,332 | 1.18× | Fused | Win |
 
 **Linux / GCC 16.2 (i9-14900KF, AVX2)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,219 | 616 | 229 | 3.60× | Fused | Win |
-| Double (POD) | 1,263 | 711 | 302 | 1.78× | Fused | Win |
-| Int64 (POD) | 3,383 | 1,635 | 733 | 2.07× | Fused | Win |
-| String (POD) | 1,808 | 1,316 | 1,299 | 1.37× | Fused | Win |
-| Uint64 (POD) | 3,528 | 1,623 | 724 | 2.17× | Fused | Win |
-| Apache Builds (minified) | 1,665 | 1,446 | 1,362 | 1.15× | Fused | Win |
-| Canada (minified) | 939 | 800 | 775 | 1.17× | Fused | Win |
-| Apache Builds (prettified) | 1,791 | 1,833 | 1,807 | 0.98× | Two-stage | Win |
-| Canada (prettified) | 1,913 | 1,879 | 1,736 | 1.02× | Fused | Win |
-| CitmCatalog (minified) | 2,359 | 1,812 | 1,452 | 1.30× | Fused | Win |
-| CitmCatalog (prettified) | 3,322 | 3,622 | 3,009 | 0.92× | Two-stage | Win |
-| Discord (minified) | 2,297 | 1,827 | 1,326 | 1.26× | Fused | Win |
-| Discord (prettified) | 2,234 | 2,542 | 1,905 | 0.88× | Two-stage | Win |
-| Github Events (minified) | 1,671 | 1,533 | 1,423 | 1.09× | Fused | Win |
-| Google Maps Response (minified) | 2,505 | 1,772 | 1,104 | 1.41× | Fused | Win |
-| Github Events (prettified) | 1,731 | 1,858 | 1,596 | 0.93× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,282 | 3,319 | 2,234 | 0.99× | Two-stage | Win |
-| Instruments (minified) | 3,210 | 2,160 | 1,441 | 1.49× | Fused | Win |
-| Instruments (prettified) | 2,939 | 3,368 | 2,329 | 0.87× | Two-stage | Win |
-| Marine IK Reverse (minified) | 836 | 715 | 531 | 1.17× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,424 | 2,542 | 1,958 | 0.95× | Two-stage | Win |
-| Marine IK (minified) | 845 | 720 | 535 | 1.17× | Fused | Win |
-| Marine IK (prettified) | 2,480 | 2,558 | 1,961 | 0.97× | Two-stage | Win |
-| Random (minified) | 1,197 | 1,090 | 977 | 1.10× | Fused | Win |
-| Random (prettified) | 1,500 | 1,629 | 1,473 | 0.92× | Two-stage | Win |
-| Twitter (minified) | 2,019 | 1,707 | 1,142 | 1.18× | Fused | Win |
-| Twitter (prettified) | 1,929 | 2,203 | 1,510 | 0.88× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,409 | 2,054 | 1,635 | 1.17× | Fused | Win |
-| Canada Small (minified) | 930 | 799 | 678 | 1.16× | Fused | Win |
-| Apache Builds Small (prettified) | 2,306 | 2,500 | 2,041 | 0.92× | Two-stage | Win |
-| Canada Small (prettified) | 1,857 | 1,905 | 1,626 | 0.97× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,668 | 1,452 | 1,181 | 1.15× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,086 | 2,384 | 2,027 | 0.87× | Two-stage | Win |
-| Discord Small (minified) | 1,993 | 1,667 | 1,225 | 1.20× | Fused | Win |
-| Discord Small (prettified) | 1,925 | 2,173 | 1,620 | 0.89× | Two-stage | Win |
-| Github Events Small (minified) | 2,100 | 1,750 | 1,559 | 1.20× | Fused | Win |
-| Google Maps Response Small (minified) | 2,223 | 1,630 | 1,081 | 1.36× | Fused | Win |
-| Github Events Small (prettified) | 1,992 | 2,133 | 1,945 | 0.93× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,990 | 3,111 | 2,224 | 0.96× | Two-stage | Win |
-| Instruments Small (minified) | 3,234 | 2,113 | 1,301 | 1.53× | Fused | Win |
-| Instruments Small (prettified) | 2,827 | 3,345 | 2,112 | 0.85× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 849 | 741 | 500 | 1.15× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,175 | 2,494 | 1,794 | 0.87× | Two-stage | Win |
-| Marine IK Small (minified) | 924 | 773 | 492 | 1.20× | Fused | Win |
-| Marine IK Small (prettified) | 2,321 | 2,665 | 1,830 | 0.87× | Two-stage | Win |
-| Random Small (minified) | 1,558 | 1,471 | 1,042 | 1.06× | Fused | Win |
-| Random Small (prettified) | 1,910 | 2,211 | 1,592 | 0.86× | Two-stage | Win |
-| Twitter Small (minified) | 2,870 | 2,255 | 1,359 | 1.27× | Fused | Win |
-| Twitter Small (prettified) | 2,442 | 2,853 | 1,766 | 0.86× | Two-stage | Win |
+| Bool (POD) | 2,417 | n/a | 467 | n/a | n/a | Win |
+| Double (POD) | 1,269 | n/a | 394 | n/a | n/a | Win |
+| Int64 (POD) | 1,891 | n/a | 397 | n/a | n/a | Win |
+| String (POD) | 1,393 | n/a | 905 | n/a | n/a | Win |
+| Uint64 (POD) | 1,810 | n/a | 364 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,877 | 1,351 | 1,394 | 1.39× | Fused | Win |
+| Canada (minified) | 940 | 811 | 764 | 1.16× | Fused | Win |
+| Apache Builds (prettified) | 2,186 | 1,666 | 1,788 | 1.31× | Fused | Win |
+| Canada (prettified) | 1,991 | 1,892 | 1,719 | 1.05× | Fused | Win |
+| CitmCatalog (minified) | 2,535 | 1,891 | 1,504 | 1.34× | Fused | Win |
+| CitmCatalog (prettified) | 3,941 | 3,637 | 3,019 | 1.08× | Fused | Win |
+| Discord (minified) | 2,524 | 1,814 | 1,360 | 1.39× | Fused | Win |
+| Discord (prettified) | 3,116 | 2,603 | 1,938 | 1.20× | Fused | Win |
+| Github Events (minified) | 1,882 | 1,463 | 1,363 | 1.29× | Fused | Win |
+| Google Maps Response (minified) | 2,641 | 1,674 | 1,197 | 1.58× | Fused | Win |
+| Github Events (prettified) | 2,361 | 1,781 | 1,679 | 1.33× | Fused | Win |
+| Google Maps Response (prettified) | 3,975 | 3,203 | 2,417 | 1.24× | Fused | Win |
+| Instruments (minified) | 3,175 | 2,186 | 1,533 | 1.45× | Fused | Win |
+| Instruments (prettified) | 3,991 | 3,423 | 2,456 | 1.17× | Fused | Win |
+| Marine IK Reverse (minified) | 860 | 730 | 553 | 1.18× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,441 | 2,550 | 2,003 | 0.96× | Two-stage | Win |
+| Marine IK (minified) | 843 | 719 | 557 | 1.17× | Fused | Win |
+| Marine IK (prettified) | 2,573 | 2,583 | 2,041 | 1.00× | Two-stage | Win |
+| Random (minified) | 1,605 | 1,136 | 1,000 | 1.41× | Fused | Win |
+| Random (prettified) | 2,202 | 1,675 | 1,520 | 1.31× | Fused | Win |
+| Twitter (minified) | 2,346 | 1,637 | 1,153 | 1.43× | Fused | Win |
+| Twitter (prettified) | 2,581 | 2,037 | 1,499 | 1.27× | Fused | Win |
+| Apache Builds Small (minified) | 2,899 | 2,020 | 1,699 | 1.44× | Fused | Win |
+| Canada Small (minified) | 928 | 774 | 663 | 1.20× | Fused | Win |
+| Apache Builds Small (prettified) | 3,010 | 2,375 | 2,137 | 1.27× | Fused | Win |
+| Canada Small (prettified) | 1,948 | 1,895 | 1,590 | 1.03× | Fused | Win |
+| CitmCatalog Small (minified) | 1,917 | 1,451 | 1,207 | 1.32× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,575 | 2,356 | 2,098 | 1.09× | Fused | Win |
+| Discord Small (minified) | 2,333 | 1,661 | 1,333 | 1.40× | Fused | Win |
+| Discord Small (prettified) | 2,584 | 2,131 | 1,778 | 1.21× | Fused | Win |
+| Github Events Small (minified) | 2,213 | 1,682 | 1,547 | 1.32× | Fused | Win |
+| Google Maps Response Small (minified) | 2,415 | 1,593 | 1,170 | 1.52× | Fused | Win |
+| Github Events Small (prettified) | 2,486 | 1,999 | 1,939 | 1.24× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,736 | 2,994 | 2,365 | 1.25× | Fused | Win |
+| Instruments Small (minified) | 3,150 | 2,101 | 1,358 | 1.50× | Fused | Win |
+| Instruments Small (prettified) | 3,791 | 3,192 | 2,212 | 1.19× | Fused | Win |
+| Marine IK Reverse Small (minified) | 797 | 709 | 503 | 1.12× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,247 | 2,553 | 1,846 | 0.88× | Two-stage | Win |
+| Marine IK Small (minified) | 937 | 779 | 507 | 1.20× | Fused | Win |
+| Marine IK Small (prettified) | 2,473 | 2,752 | 1,895 | 0.90× | Two-stage | Win |
+| Random Small (minified) | 2,113 | 1,509 | 1,078 | 1.40× | Fused | Win |
+| Random Small (prettified) | 2,728 | 2,181 | 1,664 | 1.25× | Fused | Win |
+| Twitter Small (minified) | 3,326 | 2,257 | 1,363 | 1.47× | Fused | Win |
+| Twitter Small (prettified) | 3,337 | 2,772 | 1,802 | 1.20× | Fused | Win |
 
 **macOS / GCC 16.2 (Apple M2 Pro, NEON)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,778 | 355 | 153 | 5.00× | Fused | Win |
-| Double (POD) | 816 | 399 | 133 | 2.04× | Fused | Win |
-| Int64 (POD) | 2,128 | 801 | 410 | 2.66× | Fused | Win |
-| String (POD) | 1,176 | 663 | 687 | 1.77× | Fused | Win |
-| Uint64 (POD) | 2,042 | 803 | 396 | 2.54× | Fused | Win |
-| Apache Builds (minified) | 1,079 | 844 | 643 | 1.28× | Fused | Win |
-| Canada (minified) | 701 | 503 | 542 | 1.39× | Fused | Win |
-| Apache Builds (prettified) | 1,150 | 1,160 | 901 | 0.99× | Tie | Win |
-| Canada (prettified) | 1,099 (n/c) | 1,101 | 1,147 | 1.00× | Tie | Loss |
-| CitmCatalog (minified) | 1,853 | 1,335 | 1,024 | 1.39× | Fused | Win |
-| CitmCatalog (prettified) | 2,841 | 2,422 | 1,698 | 1.17× | Fused | Win |
-| Discord (minified) | 1,862 | 1,026 | 1,008 | 1.82× | Fused | Win |
-| Discord (prettified) | 1,685 | 1,614 | 1,251 | 1.04× | Fused | Win |
-| Github Events (minified) | 1,427 | 1,332 | 950 | 1.07× | Fused | Win |
-| Google Maps Response (minified) | 1,820 | 1,167 | 707 | 1.56× | Fused | Win |
-| Github Events (prettified) | 1,542 | 1,450 | 1,082 | 1.06× | Fused | Win |
-| Google Maps Response (prettified) | 2,308 | 2,141 | 1,241 | 1.08× | Fused | Win |
-| Instruments (minified) | 2,594 | 1,610 | 1,139 | 1.61× | Fused | Win |
-| Instruments (prettified) | 2,882 | 2,455 | 1,734 | 1.17× | Fused | Win |
-| Marine IK Reverse (minified) | 659 | 530 | 468 | 1.24× | Fused | Win |
-| Marine IK Reverse (prettified) | 1,822 | 1,664 | 1,399 | 1.10× | Fused | Win |
-| Marine IK (minified) | 606 | 475 | 390 | 1.28× | Fused | Win |
-| Marine IK (prettified) | 1,888 | 1,760 | 1,461 | 1.07× | Fused | Win |
-| Random (minified) | 963 | 893 | 650 | 1.08× | Fused | Win |
-| Random (prettified) | 1,287 | 1,135 | 975 | 1.13× | Fused | Win |
-| Twitter (minified) | 1,886 | 1,548 | 857 | 1.22× | Fused | Win |
-| Twitter (prettified) | 1,568 | 1,520 | 1,128 | 1.03× | Fused | Win |
-| Apache Builds Small (minified) | 1,390 | 1,368 | 812 | 1.02× | Tie | Win |
-| Canada Small (minified) | 662 | 590 | 439 | 1.12× | Fused | Win |
-| Apache Builds Small (prettified) | 1,424 | 1,681 (n/c) | 1,055 | 0.85× | Two-stage | Win |
-| Canada Small (prettified) | 1,345 | 1,301 | 972 | 1.03× | Fused | Win |
-| CitmCatalog Small (minified) | 1,158 | 965 | 796 | 1.20× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,797 | 1,655 | 1,436 | 1.09× | Fused | Win |
-| Discord Small (minified) | 1,560 | 1,199 | 836 | 1.30× | Fused | Win |
-| Discord Small (prettified) | 1,430 | 1,221 | 923 | 1.17× | Fused | Win |
-| Github Events Small (minified) | 1,434 | 944 | 1,160 | 1.52× | Fused | Win |
-| Google Maps Response Small (minified) | 1,737 | 1,115 | 616 | 1.56× | Fused | Win |
-| Github Events Small (prettified) | 1,328 | 1,193 | 1,360 | 1.11× | Fused | Loss |
-| Google Maps Response Small (prettified) | 2,552 | 2,209 | 1,412 | 1.16× | Fused | Win |
-| Instruments Small (minified) | 2,413 | 1,708 | 941 | 1.41× | Fused | Win |
-| Instruments Small (prettified) | 2,272 | 1,844 | 1,419 | 1.23× | Fused | Win |
-| Marine IK Reverse Small (minified) | 572 | 470 | 360 | 1.22× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,463 | 1,642 | 1,326 | 0.89× | Two-stage | Win |
-| Marine IK Small (minified) | 663 | 476 | 341 | 1.39× | Fused | Win |
-| Marine IK Small (prettified) | 1,626 | 1,715 | 1,237 | 0.95× | Two-stage | Win |
-| Random Small (minified) | 1,106 | 1,046 | 635 | 1.06× | Fused | Win |
-| Random Small (prettified) | 1,506 | 1,284 | 1,028 | 1.17× | Fused | Win |
-| Twitter Small (minified) | 2,227 | 1,775 | 1,086 | 1.25× | Fused | Win |
-| Twitter Small (prettified) | 2,187 | 2,150 | 1,372 | 1.02× | Tie | Win |
+| Bool (POD) | 1,758 | n/a | 438 | n/a | n/a | Win |
+| Double (POD) | 878 | n/a | 309 | n/a | n/a | Win |
+| Int64 (POD) | 1,218 | n/a | 278 | n/a | n/a | Win |
+| String (POD) | 1,010 | n/a | 541 | n/a | n/a | Win |
+| Uint64 (POD) | 1,267 | n/a | 293 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,157 | 1,054 | 760 | 1.10× | Fused | Win |
+| Canada (minified) | 764 | 625 | 588 | 1.22× | Fused | Win |
+| Apache Builds (prettified) | 1,356 | 1,253 | 974 | 1.08× | Fused | Win |
+| Canada (prettified) | 1,482 | 1,372 | 1,285 | 1.08× | Fused | Win |
+| CitmCatalog (minified) | 2,081 | 1,399 | 1,161 | 1.49× | Fused | Win |
+| CitmCatalog (prettified) | 3,166 | 2,689 | 2,235 | 1.18× | Fused | Win |
+| Discord (minified) | 1,833 | 1,349 | 1,013 | 1.36× | Fused | Win |
+| Discord (prettified) | 2,060 | 1,834 | 1,404 | 1.12× | Fused | Win |
+| Github Events (minified) | 1,665 | 1,449 | 1,045 | 1.15× | Fused | Win |
+| Google Maps Response (minified) | 1,782 | 1,320 | 766 | 1.35× | Fused | Win |
+| Github Events (prettified) | 1,766 | 1,654 | 1,242 | 1.07× | Fused | Win |
+| Google Maps Response (prettified) | 2,623 | 2,328 | 1,459 | 1.13× | Fused | Win |
+| Instruments (minified) | 2,661 | 1,667 | 1,216 | 1.60× | Fused | Win |
+| Instruments (prettified) | 2,951 | 2,436 | 1,850 | 1.21× | Fused | Win |
+| Marine IK Reverse (minified) | 686 | 546 | 478 | 1.26× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,006 | 1,905 | 1,658 | 1.05× | Fused | Win |
+| Marine IK (minified) | 673 | 534 | 442 | 1.26× | Fused | Win |
+| Marine IK (prettified) | 1,931 | 1,853 | 1,540 | 1.04× | Fused | Win |
+| Random (minified) | 1,173 | 962 | 705 | 1.22× | Fused | Win |
+| Random (prettified) | 1,550 | 1,362 | 1,061 | 1.14× | Fused | Win |
+| Twitter (minified) | 2,083 | 1,674 | 1,046 | 1.24× | Fused | Win |
+| Twitter (prettified) | 2,166 | 2,028 | 1,350 | 1.07× | Fused | Win |
+| Apache Builds Small (minified) | 1,574 | 1,435 | 883 | 1.10× | Fused | Win |
+| Canada Small (minified) | 738 | 612 | 479 | 1.21× | Fused | Win |
+| Apache Builds Small (prettified) | 1,699 | 1,673 | 1,103 | 1.02× | Fused | Win |
+| Canada Small (prettified) | 1,521 | 1,390 | 1,101 | 1.09× | Fused | Win |
+| CitmCatalog Small (minified) | 1,317 | 1,026 | 848 | 1.28× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,886 | 1,691 | 1,429 | 1.11× | Fused | Win |
+| Discord Small (minified) | 1,704 | 1,373 | 940 | 1.24× | Fused | Win |
+| Discord Small (prettified) | 1,963 | 1,713 | 1,239 | 1.15× | Fused | Win |
+| Github Events Small (minified) | 1,448 | 1,275 | 1,197 | 1.14× | Fused | Win |
+| Google Maps Response Small (minified) | 1,640 | 1,228 | 771 | 1.34× | Fused | Win |
+| Github Events Small (prettified) | 1,648 | 1,471 | 1,493 | 1.12× | Fused | Win |
+| Google Maps Response Small (prettified) | 2,433 | 2,187 | 1,483 | 1.11× | Fused | Win |
+| Instruments Small (minified) | 2,720 | 1,691 | 1,128 | 1.61× | Fused | Win |
+| Instruments Small (prettified) | 2,848 | 2,484 | 1,769 | 1.15× | Fused | Win |
+| Marine IK Reverse Small (minified) | 640 | 534 | 386 | 1.20× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,752 | 1,873 | 1,373 | 0.94× | Two-stage | Win |
+| Marine IK Small (minified) | 693 | 559 | 376 | 1.24× | Fused | Win |
+| Marine IK Small (prettified) | 1,979 | 1,948 | 1,318 | 1.02× | Fused | Win |
+| Random Small (minified) | 1,341 | 1,117 | 729 | 1.20× | Fused | Win |
+| Random Small (prettified) | 1,785 | 1,612 | 1,088 | 1.11× | Fused | Win |
+| Twitter Small (minified) | 2,367 | 1,838 | 1,146 | 1.29× | Fused | Win |
+| Twitter Small (prettified) | 2,231 | 2,211 | 1,457 | 1.01× | Tie | Win |
 
 **macOS / Clang 23.1 (Apple M2 Pro, NEON)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,173 | 291 | 163 | 4.04× | Fused | Win |
-| Double (POD) | 729 | 301 | 198 | 2.42× | Fused | Win |
-| Int64 (POD) | 2,055 | 821 | 429 | 2.50× | Fused | Win |
-| String (POD) | 1,298 | 612 | 782 | 2.12× | Fused | Win |
-| Uint64 (POD) | 2,155 | 769 | 476 | 2.80× | Fused | Win |
-| Apache Builds (minified) | 1,557 | 1,099 | 789 | 1.42× | Fused | Win |
-| Canada (minified) | 637 | 502 (n/c) | 506 (n/c) | 1.27× | Fused | Win |
-| Apache Builds (prettified) | 1,627 | 1,391 | 1,114 | 1.17× | Fused | Win |
-| Canada (prettified) | 1,259 | 1,152 | 962 | 1.09× | Fused | Win |
-| CitmCatalog (minified) | 2,031 | 1,365 | 802 | 1.49× | Fused | Win |
-| CitmCatalog (prettified) | 2,480 | 2,217 | 1,545 | 1.12× | Fused | Win |
-| Discord (minified) | 2,180 | 1,026 | 658 | 2.12× | Fused | Win |
-| Discord (prettified) | 2,017 | 1,526 | 946 | 1.32× | Fused | Win |
-| Github Events (minified) | 1,592 | 1,486 | 882 | 1.07× | Fused | Win |
-| Google Maps Response (minified) | 2,167 | 1,197 | 641 | 1.81× | Fused | Win |
-| Github Events (prettified) | 1,582 (n/c) | 1,634 | 1,055 | 0.97× | Tie | Win |
-| Google Maps Response (prettified) | 2,548 | 1,794 | 1,486 | 1.42× | Fused | Win |
-| Instruments (minified) | 2,415 | 1,418 | 619 | 1.70× | Fused | Win |
-| Instruments (prettified) | 2,708 | 2,382 | 999 | 1.14× | Fused | Win |
-| Marine IK Reverse (minified) | 624 | 538 | 390 | 1.16× | Fused | Win |
-| Marine IK Reverse (prettified) | 1,939 | 1,795 (n/c) | 1,235 (n/c) | 1.08× | Fused | Win |
-| Marine IK (minified) | 656 | 581 | 390 (n/c) | 1.13× | Fused | Win |
-| Marine IK (prettified) | 2,005 | 1,819 | 1,323 | 1.10× | Fused | Win |
-| Random (minified) | 984 | 833 | 576 | 1.18× | Fused | Win |
-| Random (prettified) | 1,625 | 1,248 | 992 | 1.30× | Fused | Win |
-| Twitter (minified) | 1,777 | 1,637 | 811 | 1.09× | Fused | Win |
-| Twitter (prettified) | 1,838 | 2,047 (n/c) | 955 | 0.90× | Two-stage | Win |
-| Apache Builds Small (minified) | 1,327 | 1,026 | 749 | 1.29× | Fused | Win |
-| Canada Small (minified) | 585 | 588 | 410 | 1.00× | Tie | Win |
-| Apache Builds Small (prettified) | 1,530 | 1,367 | 991 | 1.12× | Fused | Win |
-| Canada Small (prettified) | 1,158 | 1,091 | 831 | 1.06× | Fused | Win |
-| CitmCatalog Small (minified) | 1,074 | 894 | 658 | 1.20× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,448 | 1,246 | 1,129 | 1.16× | Fused | Win |
-| Discord Small (minified) | 2,075 | 1,159 | 620 | 1.79× | Fused | Win |
-| Discord Small (prettified) | 2,116 | 1,641 | 871 | 1.29× | Fused | Win |
-| Github Events Small (minified) | 1,655 | 1,210 | 890 | 1.37× | Fused | Win |
-| Google Maps Response Small (minified) | 1,994 | 1,145 | 718 | 1.74× | Fused | Win |
-| Github Events Small (prettified) | 1,646 | 1,467 | 1,285 | 1.12× | Fused | Win |
-| Google Maps Response Small (prettified) | 2,467 | 1,882 | 1,230 | 1.31× | Fused | Win |
-| Instruments Small (minified) | 2,712 | 1,381 | 508 | 1.96× | Fused | Win |
-| Instruments Small (prettified) | 2,848 | 2,498 | 821 | 1.14× | Fused | Win |
-| Marine IK Reverse Small (minified) | 493 | 440 | 315 | 1.12× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,483 | 1,435 | 1,081 | 1.03× | Tie | Win |
-| Marine IK Small (minified) | 676 | 441 | 289 | 1.53× | Fused | Win |
-| Marine IK Small (prettified) | 1,682 | 1,662 | 1,072 | 1.01× | Fused | Win |
-| Random Small (minified) | 1,148 | 1,036 | 639 | 1.11× | Fused | Win |
-| Random Small (prettified) | 1,317 | 1,329 | 966 | 0.99× | Tie | Win |
-| Twitter Small (minified) | 2,139 | 1,581 | 793 | 1.35× | Fused | Win |
-| Twitter Small (prettified) | 1,807 | 2,168 | 1,058 | 0.83× | Two-stage | Win |
+| Bool (POD) | 1,200 | n/a | 294 | n/a | n/a | Win |
+| Double (POD) | 852 | n/a | 306 | n/a | n/a | Win |
+| Int64 (POD) | 967 | n/a | 282 | n/a | n/a | Win |
+| String (POD) | 955 | n/a | 581 | n/a | n/a | Win |
+| Uint64 (POD) | 1,009 | n/a | 233 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,203 | 1,122 | 793 | 1.07× | Fused | Win |
+| Canada (minified) | 616 | 516 | 454 | 1.19× | Fused | Win |
+| Apache Builds (prettified) | 1,253 | 1,144 | 927 | 1.10× | Fused | Win |
+| Canada (prettified) | 1,183 | 1,131 | 900 | 1.05× | Fused | Win |
+| CitmCatalog (minified) | 1,829 | 1,182 | 647 | 1.55× | Fused | Win |
+| CitmCatalog (prettified) | 2,586 | 2,137 | 1,355 | 1.21× | Fused | Win |
+| Discord (minified) | 1,797 | 1,308 | 587 | 1.37× | Fused | Win |
+| Discord (prettified) | 1,861 | 1,617 | 830 | 1.15× | Fused | Win |
+| Github Events (minified) | 1,314 | 1,205 | 653 | 1.09× | Fused | Win |
+| Google Maps Response (minified) | 1,672 | 1,036 | 597 | 1.61× | Fused | Win |
+| Github Events (prettified) | 1,469 | 1,235 | 802 | 1.19× | Fused | Win |
+| Google Maps Response (prettified) | 2,530 | 1,790 | 1,321 | 1.41× | Fused | Win |
+| Instruments (minified) | 2,084 | 1,329 | 603 | 1.57× | Fused | Win |
+| Instruments (prettified) | 2,285 | 2,193 | 1,115 | 1.04× | Fused | Win |
+| Marine IK Reverse (minified) | 577 | 467 | 350 (n/c) | 1.24× | Fused | Win |
+| Marine IK Reverse (prettified) | 1,565 | 1,538 | 1,141 | 1.02× | Tie | Win |
+| Marine IK (minified) | 581 | 503 | 378 | 1.16× | Fused | Win |
+| Marine IK (prettified) | 1,800 | 1,674 | 1,304 | 1.08× | Fused | Win |
+| Random (minified) | 1,237 | 944 | 599 | 1.31× | Fused | Win |
+| Random (prettified) | 1,611 | 1,262 | 840 | 1.28× | Fused | Win |
+| Twitter (minified) | 1,888 | 1,424 (n/c) | 665 | 1.33× | Fused | Win |
+| Twitter (prettified) | 2,176 | 1,962 | 1,123 | 1.11× | Fused | Win |
+| Apache Builds Small (minified) | 1,317 | 1,291 | 727 | 1.02× | Fused | Win |
+| Canada Small (minified) | 610 | 564 | 386 | 1.08× | Fused | Win |
+| Apache Builds Small (prettified) | 1,445 | 1,496 | 948 | 0.97× | Two-stage | Win |
+| Canada Small (prettified) | 1,375 | 1,288 | 994 | 1.07× | Fused | Win |
+| CitmCatalog Small (minified) | 1,250 | 1,022 | 695 | 1.22× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,796 | 1,683 | 1,192 | 1.07× | Fused | Win |
+| Discord Small (minified) | 2,173 | 1,596 | 620 | 1.36× | Fused | Win |
+| Discord Small (prettified) | 2,083 | 1,602 | 810 | 1.30× | Fused | Win |
+| Github Events Small (minified) | 1,194 | 1,107 | 967 | 1.08× | Fused | Win |
+| Google Maps Response Small (minified) | 1,820 | 1,095 | 644 | 1.66× | Fused | Win |
+| Github Events Small (prettified) | 1,394 | 1,380 | 946 | 1.01× | Tie | Win |
+| Google Maps Response Small (prettified) | 2,651 | 2,237 | 1,263 | 1.19× | Fused | Win |
+| Instruments Small (minified) | 2,265 | 1,678 | 590 | 1.35× | Fused | Win |
+| Instruments Small (prettified) | 2,773 | 2,481 | 873 | 1.12× | Fused | Win |
+| Marine IK Reverse Small (minified) | 577 | 548 | 333 | 1.05× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,808 | 1,769 | 1,110 | 1.02× | Fused | Win |
+| Marine IK Small (minified) | 598 | 482 | 264 | 1.24× | Fused | Win |
+| Marine IK Small (prettified) | 1,594 | 1,440 | 999 | 1.11× | Fused | Win |
+| Random Small (minified) | 1,119 | 914 | 533 | 1.22× | Fused | Win |
+| Random Small (prettified) | 1,557 | 1,289 | 770 | 1.21× | Fused | Win |
+| Twitter Small (minified) | 1,649 | 1,504 | 696 | 1.10× | Fused | Win |
+| Twitter Small (prettified) | 2,084 | 1,925 | 915 | 1.08× | Fused | Win |
 
 #### Reused objects
 
@@ -398,293 +396,293 @@ Throughput is in MB/s. "Faster Jsonifier path" is the Welch's t-test verdict bet
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 752 | 278 | 127 | 2.71× | Fused | Win |
-| Double (POD) | 1,011 | 636 | 282 | 1.59× | Fused | Win |
-| Int64 (POD) | 1,954 | 988 | 618 | 1.98× | Fused | Win |
-| String (POD) | 1,299 | 986 | 950 | 1.32× | Fused | Win |
-| Uint64 (POD) | 1,894 | 1,028 | 598 | 1.84× | Fused | Win |
-| Apache Builds (minified) | 1,253 | 1,134 | 867 | 1.11× | Fused | Win |
-| Canada (minified) | 628 | 653 | 412 | 0.96× | Two-stage | Win |
-| Apache Builds (prettified) | 1,426 | 1,451 | 1,126 | 0.98× | Two-stage | Win |
-| Canada (prettified) | 1,321 | 1,427 | 940 | 0.93× | Two-stage | Win |
-| CitmCatalog (minified) | 1,788 | 1,440 | 607 | 1.24× | Fused | Win |
-| CitmCatalog (prettified) | 2,617 | 2,920 | 1,324 | 0.90× | Two-stage | Win |
-| Discord (minified) | 1,776 | 1,351 | 901 | 1.31× | Fused | Win |
-| Discord (prettified) | 1,776 | 1,941 | 1,306 | 0.91× | Two-stage | Win |
-| Github Events (minified) | 1,382 | 1,222 | 846 | 1.13× | Fused | Win |
-| Google Maps Response (minified) | 1,547 | 1,316 | 614 | 1.18× | Fused | Win |
-| Github Events (prettified) | 1,373 | 1,444 | 1,028 | 0.95× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,445 | 2,597 | 1,248 | 0.94× | Two-stage | Win |
-| Instruments (minified) | 2,624 | 1,755 | 945 | 1.50× | Fused | Win |
-| Instruments (prettified) | 2,441 | 2,630 | 1,540 | 0.93× | Two-stage | Win |
-| Marine IK Reverse (minified) | 679 | 593 | 187 | 1.15× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,042 | 2,097 | 658 | 0.97× | Two-stage | Win |
-| Marine IK (minified) | 681 | 610 | 323 | 1.12× | Fused | Win |
-| Marine IK (prettified) | 2,116 | 2,158 | 1,221 | 0.98× | Two-stage | Win |
-| Random (minified) | 967 | 862 | 614 | 1.12× | Fused | Win |
-| Random (prettified) | 1,180 | 1,327 | 933 | 0.89× | Two-stage | Win |
-| Twitter (minified) | 1,938 | 1,532 | 1,167 | 1.27× | Fused | Win |
-| Twitter (prettified) | 1,785 | 1,932 | 1,505 | 0.92× | Two-stage | Win |
-| Apache Builds Small (minified) | 1,491 | 1,454 | 1,042 | 1.03× | Fused | Win |
-| Canada Small (minified) | 613 | 605 | 344 | 1.01× | Fused | Win |
-| Apache Builds Small (prettified) | 1,538 | 1,757 | 1,298 | 0.88× | Two-stage | Win |
-| Canada Small (prettified) | 1,275 | 1,400 | 821 | 0.91× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,076 | 864 | 595 | 1.24× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,362 | 1,499 | 1,054 | 0.91× | Two-stage | Win |
-| Discord Small (minified) | 1,550 | 1,081 | 931 | 1.43× | Fused | Win |
-| Discord Small (prettified) | 1,476 | 1,577 | 1,254 | 0.94× | Two-stage | Win |
-| Github Events Small (minified) | 1,468 | 1,197 | 754 | 1.23× | Fused | Win |
-| Google Maps Response Small (minified) | 1,399 | 1,175 | 613 | 1.19× | Fused | Win |
-| Github Events Small (prettified) | 1,252 | 1,473 | 1,032 | 0.85× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,182 | 2,337 | 1,261 | 0.93× | Two-stage | Win |
-| Instruments Small (minified) | 2,339 | 1,573 | 915 | 1.49× | Fused | Win |
-| Instruments Small (prettified) | 2,173 | 2,415 | 1,483 | 0.90× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 514 | 475 | 152 | 1.08× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,443 | 1,740 | 586 | 0.83× | Two-stage | Win |
-| Marine IK Small (minified) | 607 | 522 | 293 | 1.16× | Fused | Win |
-| Marine IK Small (prettified) | 1,672 | 1,879 | 1,109 | 0.89× | Two-stage | Win |
-| Random Small (minified) | 994 | 867 | 579 | 1.15× | Fused | Win |
-| Random Small (prettified) | 1,188 | 1,343 | 888 | 0.88× | Two-stage | Win |
-| Twitter Small (minified) | 2,085 | 1,508 | 1,426 | 1.38× | Fused | Win |
-| Twitter Small (prettified) | 1,779 | 1,955 | 1,848 | 0.91× | Two-stage | Win |
+| Bool (POD) | 702 | n/a | 183 | n/a | n/a | Win |
+| Double (POD) | 1,029 | n/a | 373 | n/a | n/a | Win |
+| Int64 (POD) | 1,515 | n/a | 371 | n/a | n/a | Win |
+| String (POD) | 1,260 | n/a | 713 | n/a | n/a | Win |
+| Uint64 (POD) | 1,495 | n/a | 321 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,467 | 1,252 | 1,054 | 1.17× | Fused | Win |
+| Canada (minified) | 782 | 736 | 480 | 1.06× | Fused | Win |
+| Apache Builds (prettified) | 1,682 | 1,566 | 1,355 | 1.07× | Fused | Win |
+| Canada (prettified) | 1,672 | 1,646 | 1,077 | 1.02× | Tie | Win |
+| CitmCatalog (minified) | 1,936 | 1,490 | 729 | 1.30× | Fused | Win |
+| CitmCatalog (prettified) | 3,090 | 3,009 | 1,541 | 1.03× | Fused | Win |
+| Discord (minified) | 2,083 | 1,464 | 1,019 | 1.42× | Fused | Win |
+| Discord (prettified) | 2,449 | 1,803 | 1,461 | 1.36× | Fused | Win |
+| Github Events (minified) | 1,703 | 1,385 | 964 | 1.23× | Fused | Win |
+| Google Maps Response (minified) | 1,492 | 1,259 | 634 | 1.18× | Fused | Win |
+| Github Events (prettified) | 1,799 | 1,638 | 1,165 | 1.10× | Fused | Win |
+| Google Maps Response (prettified) | 2,540 | 2,365 | 1,286 | 1.07× | Fused | Win |
+| Instruments (minified) | 2,769 | 1,712 | 1,008 | 1.62× | Fused | Win |
+| Instruments (prettified) | 3,242 | 2,740 | 1,663 | 1.18× | Fused | Win |
+| Marine IK Reverse (minified) | 764 | 649 | 210 | 1.18× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,194 | 2,267 | 722 | 0.97× | Two-stage | Win |
+| Marine IK (minified) | 795 | 651 | 396 | 1.22× | Fused | Win |
+| Marine IK (prettified) | 2,372 | 2,295 | 1,455 | 1.03× | Fused | Win |
+| Random (minified) | 1,356 | 1,039 | 733 | 1.30× | Fused | Win |
+| Random (prettified) | 1,799 | 1,538 | 1,103 | 1.17× | Fused | Win |
+| Twitter (minified) | 2,287 | 1,568 | 1,290 | 1.46× | Fused | Win |
+| Twitter (prettified) | 2,383 | 1,957 | 1,681 | 1.22× | Fused | Win |
+| Apache Builds Small (minified) | 1,741 | 1,450 | 1,251 | 1.20× | Fused | Win |
+| Canada Small (minified) | 747 | 713 | 397 | 1.05× | Fused | Win |
+| Apache Builds Small (prettified) | 1,884 | 1,736 | 1,542 | 1.09× | Fused | Win |
+| Canada Small (prettified) | 1,586 | 1,614 | 935 | 0.98× | Two-stage | Win |
+| CitmCatalog Small (minified) | 1,228 | 968 | 702 | 1.27× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,655 | 1,609 | 1,222 | 1.03× | Fused | Win |
+| Discord Small (minified) | 1,988 | 1,409 | 1,084 | 1.41× | Fused | Win |
+| Discord Small (prettified) | 2,139 | 1,717 | 1,449 | 1.25× | Fused | Win |
+| Github Events Small (minified) | 1,472 | 1,178 | 947 | 1.25× | Fused | Win |
+| Google Maps Response Small (minified) | 1,366 | 1,155 | 701 | 1.18× | Fused | Win |
+| Github Events Small (prettified) | 1,609 | 1,440 | 1,175 | 1.12× | Fused | Win |
+| Google Maps Response Small (prettified) | 2,292 | 2,161 | 1,368 | 1.06× | Fused | Win |
+| Instruments Small (minified) | 2,486 | 1,599 | 1,013 | 1.55× | Fused | Win |
+| Instruments Small (prettified) | 2,916 | 2,534 | 1,627 | 1.15× | Fused | Win |
+| Marine IK Reverse Small (minified) | 603 | 546 | 171 | 1.10× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,649 | 1,984 | 651 | 0.83× | Two-stage | Win |
+| Marine IK Small (minified) | 703 | 599 | 364 | 1.17× | Fused | Win |
+| Marine IK Small (prettified) | 1,872 | 2,134 | 1,356 | 0.88× | Two-stage | Win |
+| Random Small (minified) | 1,361 | 1,007 | 701 | 1.35× | Fused | Win |
+| Random Small (prettified) | 1,724 | 1,508 | 1,075 | 1.14× | Fused | Win |
+| Twitter Small (minified) | 2,416 | 1,634 | 1,569 | 1.48× | Fused | Win |
+| Twitter Small (prettified) | 2,387 | 2,037 | 2,032 | 1.17× | Fused | Win |
 
 **Linux / Clang 24.0 (i9-14900KF, AVX2)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,212 | 643 | 290 | 3.44× | Fused | Win |
-| Double (POD) | 1,390 | 782 | 370 | 1.78× | Fused | Win |
-| Int64 (POD) | 3,445 | 1,763 | 802 | 1.95× | Fused | Win |
-| String (POD) | 2,870 | 1,820 | 1,972 | 1.58× | Fused | Win |
-| Uint64 (POD) | 3,593 | 1,676 | 734 | 2.14× | Fused | Win |
-| Apache Builds (minified) | 2,795 | 2,296 | 1,683 | 1.22× | Fused | Win |
-| Canada (minified) | 1,139 | 1,013 | 959 | 1.12× | Fused | Win |
-| Apache Builds (prettified) | 2,505 | 2,868 | 2,132 | 0.87× | Two-stage | Win |
-| Canada (prettified) | 2,037 | 2,169 | 2,124 | 0.94× | Two-stage | Win |
-| CitmCatalog (minified) | 2,800 | 1,945 | 1,295 | 1.44× | Fused | Win |
-| CitmCatalog (prettified) | 3,251 | 4,009 | 2,714 | 0.81× | Two-stage | Win |
-| Discord (minified) | 3,174 | 2,418 | 1,120 | 1.31× | Fused | Win |
-| Discord (prettified) | 2,130 | 3,384 | 1,629 | 0.63× | Two-stage | Win |
-| Github Events (minified) | 2,194 | 2,083 | 1,142 | 1.05× | Fused | Win |
-| Google Maps Response (minified) | 2,826 | 2,008 | 1,120 | 1.41× | Fused | Win |
-| Github Events (prettified) | 1,947 | 2,511 | 1,367 | 0.78× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,070 | 3,709 | 2,281 | 0.83× | Two-stage | Win |
-| Instruments (minified) | 2,856 | 2,147 | 790 | 1.33× | Fused | Win |
-| Instruments (prettified) | 2,348 | 3,129 | 1,313 | 0.75× | Two-stage | Win |
-| Marine IK Reverse (minified) | 938 | 796 | 636 | 1.18× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,640 | 2,727 | 2,323 | 0.97× | Two-stage | Win |
-| Marine IK (minified) | 962 | 813 | 639 | 1.18× | Fused | Win |
-| Marine IK (prettified) | 2,710 | 2,772 | 2,306 | 0.98× | Two-stage | Win |
-| Random (minified) | 1,794 | 1,494 | 1,028 | 1.20× | Fused | Win |
-| Random (prettified) | 1,791 | 2,260 | 1,559 | 0.79× | Two-stage | Win |
-| Twitter (minified) | 2,395 | 2,324 | 1,044 | 1.03× | Fused | Win |
-| Twitter (prettified) | 1,816 | 2,736 | 1,381 | 0.66× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,940 | 2,481 | 1,635 | 1.19× | Fused | Win |
-| Canada Small (minified) | 1,038 | 938 | 879 | 1.11× | Fused | Win |
-| Apache Builds Small (prettified) | 2,368 | 3,038 | 2,059 | 0.78× | Two-stage | Win |
-| Canada Small (prettified) | 1,965 | 2,166 | 2,098 | 0.91× | Two-stage | Win |
-| CitmCatalog Small (minified) | 2,036 | 1,620 | 1,119 | 1.26× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,009 | 2,717 | 1,950 | 0.74× | Two-stage | Win |
-| Discord Small (minified) | 2,669 | 2,163 | 879 | 1.23× | Fused | Win |
-| Discord Small (prettified) | 1,935 | 2,840 | 1,201 | 0.68× | Two-stage | Win |
-| Github Events Small (minified) | 2,510 | 2,194 | 1,578 | 1.14× | Fused | Win |
-| Google Maps Response Small (minified) | 2,634 | 1,872 | 1,142 | 1.41× | Fused | Win |
-| Github Events Small (prettified) | 2,176 | 2,718 | 1,999 | 0.80× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,825 | 3,538 | 2,318 | 0.80× | Two-stage | Win |
-| Instruments Small (minified) | 2,679 | 1,975 | 691 | 1.36× | Fused | Win |
-| Instruments Small (prettified) | 2,170 | 3,036 | 1,148 | 0.71× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 938 | 795 | 566 | 1.18× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,338 | 2,747 | 2,079 | 0.85× | Two-stage | Win |
-| Marine IK Small (minified) | 1,031 | 869 | 561 | 1.19× | Fused | Win |
-| Marine IK Small (prettified) | 2,448 | 2,968 | 2,060 | 0.82× | Two-stage | Win |
-| Random Small (minified) | 2,147 | 1,879 | 1,006 | 1.14× | Fused | Win |
-| Random Small (prettified) | 1,961 | 2,803 | 1,504 | 0.70× | Two-stage | Win |
-| Twitter Small (minified) | 2,641 | 2,353 | 1,047 | 1.12× | Fused | Win |
-| Twitter Small (prettified) | 1,904 | 2,983 | 1,352 | 0.64× | Two-stage | Win |
+| Bool (POD) | 2,152 | n/a | 510 | n/a | n/a | Win |
+| Double (POD) | 1,369 | n/a | 428 | n/a | n/a | Win |
+| Int64 (POD) | 1,774 | n/a | 375 | n/a | n/a | Win |
+| String (POD) | 1,960 | n/a | 1,235 | n/a | n/a | Win |
+| Uint64 (POD) | 2,080 | n/a | 375 | n/a | n/a | Win |
+| Apache Builds (minified) | 3,122 | 2,037 | 1,698 | 1.53× | Fused | Win |
+| Canada (minified) | 1,086 | 984 | 955 | 1.10× | Fused | Win |
+| Apache Builds (prettified) | 3,337 | 2,323 | 2,158 | 1.44× | Fused | Win |
+| Canada (prettified) | 2,211 | 2,193 | 2,139 | 1.01× | Fused | Win |
+| CitmCatalog (minified) | 2,807 | 1,958 | 1,262 | 1.43× | Fused | Win |
+| CitmCatalog (prettified) | 4,346 | 3,984 | 2,656 | 1.09× | Fused | Win |
+| Discord (minified) | 3,618 | 2,276 | 1,113 | 1.59× | Fused | Win |
+| Discord (prettified) | 4,161 | 3,172 | 1,612 | 1.31× | Fused | Win |
+| Github Events (minified) | 2,542 | 2,245 | 1,123 | 1.13× | Fused | Win |
+| Google Maps Response (minified) | 2,908 | 1,882 | 1,132 | 1.55× | Fused | Win |
+| Github Events (prettified) | 2,918 | 2,291 | 1,347 | 1.27× | Fused | Win |
+| Google Maps Response (prettified) | 3,994 | 3,132 | 2,300 | 1.28× | Fused | Win |
+| Instruments (minified) | 2,796 | 2,135 | 738 | 1.31× | Fused | Win |
+| Instruments (prettified) | 4,148 | 3,319 | 1,217 | 1.25× | Fused | Win |
+| Marine IK Reverse (minified) | 894 | 771 | 658 | 1.16× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,636 | 2,755 | 2,369 | 0.96× | Two-stage | Win |
+| Marine IK (minified) | 910 | 793 | 653 | 1.15× | Fused | Win |
+| Marine IK (prettified) | 2,696 | 2,807 | 2,358 | 0.96× | Two-stage | Win |
+| Random (minified) | 2,576 | 1,565 | 1,028 | 1.65× | Fused | Win |
+| Random (prettified) | 3,254 | 2,214 | 1,583 | 1.47× | Fused | Win |
+| Twitter (minified) | 2,576 | 2,050 | 1,045 | 1.26× | Fused | Win |
+| Twitter (prettified) | 3,243 | 2,464 | 1,382 | 1.32× | Fused | Win |
+| Apache Builds Small (minified) | 3,523 | 2,339 | 1,563 | 1.51× | Fused | Win |
+| Canada Small (minified) | 973 | 934 | 891 | 1.04× | Fused | Win |
+| Apache Builds Small (prettified) | 3,594 | 2,696 | 1,908 | 1.33× | Fused | Win |
+| Canada Small (prettified) | 2,122 | 2,101 | 2,085 | 1.01× | Fused | Win |
+| CitmCatalog Small (minified) | 2,219 | 1,588 | 1,085 | 1.40× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,904 | 2,650 | 1,897 | 1.10× | Fused | Win |
+| Discord Small (minified) | 3,030 | 2,087 | 901 | 1.45× | Fused | Win |
+| Discord Small (prettified) | 3,482 | 2,815 | 1,213 | 1.24× | Fused | Win |
+| Github Events Small (minified) | 2,952 | 2,154 | 1,567 | 1.37× | Fused | Win |
+| Google Maps Response Small (minified) | 2,729 | 1,751 | 1,155 | 1.56× | Fused | Win |
+| Github Events Small (prettified) | 3,135 | 2,523 | 1,963 | 1.24× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,926 | 3,074 | 2,327 | 1.28× | Fused | Win |
+| Instruments Small (minified) | 2,678 | 1,969 | 676 | 1.36× | Fused | Win |
+| Instruments Small (prettified) | 3,806 | 3,113 | 1,142 | 1.22× | Fused | Win |
+| Marine IK Reverse Small (minified) | 915 | 770 | 562 | 1.19× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,389 | 2,774 | 2,064 | 0.86× | Two-stage | Win |
+| Marine IK Small (minified) | 990 | 843 | 558 | 1.17× | Fused | Win |
+| Marine IK Small (prettified) | 2,588 | 2,974 | 2,026 | 0.87× | Two-stage | Win |
+| Random Small (minified) | 2,549 | 1,687 | 989 | 1.51× | Fused | Win |
+| Random Small (prettified) | 3,368 | 2,517 | 1,503 | 1.34× | Fused | Win |
+| Twitter Small (minified) | 2,915 | 2,399 | 1,065 | 1.22× | Fused | Win |
+| Twitter Small (prettified) | 3,652 | 2,889 | 1,376 | 1.26× | Fused | Win |
 
 **Linux / GCC 16.2 (i9-14900KF, AVX2)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,602 | 620 | 224 | 4.20× | Fused | Win |
-| Double (POD) | 1,402 | 760 | 306 | 1.84× | Fused | Win |
-| Int64 (POD) | 3,784 | 1,763 | 749 | 2.15× | Fused | Win |
-| String (POD) | 2,839 | 1,738 | 1,690 | 1.63× | Fused | Win |
-| Uint64 (POD) | 3,884 | 1,703 | 736 | 2.28× | Fused | Win |
-| Apache Builds (minified) | 2,552 | 2,067 | 1,925 | 1.23× | Fused | Win |
-| Canada (minified) | 1,113 | 921 | 928 | 1.21× | Fused | Win |
-| Apache Builds (prettified) | 2,384 | 2,626 | 2,436 | 0.91× | Two-stage | Win |
-| Canada (prettified) | 2,218 | 2,160 | 2,044 | 1.03× | Fused | Win |
-| CitmCatalog (minified) | 2,940 | 2,145 | 1,765 | 1.37× | Fused | Win |
-| CitmCatalog (prettified) | 3,856 | 4,222 | 3,597 | 0.91× | Two-stage | Win |
-| Discord (minified) | 3,231 | 2,408 | 1,618 | 1.34× | Fused | Win |
-| Discord (prettified) | 2,773 | 3,278 | 2,326 | 0.85× | Two-stage | Win |
-| Github Events (minified) | 2,269 | 2,043 | 1,627 | 1.11× | Fused | Win |
-| Google Maps Response (minified) | 2,839 | 1,964 | 1,171 | 1.45× | Fused | Win |
-| Github Events (prettified) | 2,265 | 2,371 | 1,940 | 0.96× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,498 | 3,542 | 2,358 | 0.99× | Two-stage | Win |
-| Instruments (minified) | 3,814 | 2,429 | 1,545 | 1.57× | Fused | Win |
-| Instruments (prettified) | 3,204 | 3,755 | 2,490 | 0.85× | Two-stage | Win |
-| Marine IK Reverse (minified) | 922 | 788 | 578 | 1.17× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,638 | 2,777 | 2,080 | 0.95× | Two-stage | Win |
-| Marine IK (minified) | 943 | 803 | 583 | 1.17× | Fused | Win |
-| Marine IK (prettified) | 2,708 | 2,801 | 2,141 | 0.97× | Two-stage | Win |
-| Random (minified) | 1,628 | 1,460 | 1,283 | 1.12× | Fused | Win |
-| Random (prettified) | 1,899 | 2,152 | 1,959 | 0.88× | Two-stage | Win |
-| Twitter (minified) | 2,607 | 2,171 | 1,335 | 1.20× | Fused | Win |
-| Twitter (prettified) | 2,316 | 2,732 | 1,763 | 0.85× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,856 | 2,367 | 1,956 | 1.21× | Fused | Win |
-| Canada Small (minified) | 1,141 | 948 | 750 | 1.20× | Fused | Win |
-| Apache Builds Small (prettified) | 2,612 | 2,867 | 2,467 | 0.91× | Two-stage | Win |
-| Canada Small (prettified) | 2,203 | 2,238 | 1,777 | 0.98× | Two-stage | Win |
-| CitmCatalog Small (minified) | 2,101 | 1,655 | 1,397 | 1.27× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,409 | 2,822 | 2,432 | 0.85× | Two-stage | Win |
-| Discord Small (minified) | 2,636 | 2,015 | 1,517 | 1.31× | Fused | Win |
-| Discord Small (prettified) | 2,285 | 2,640 | 2,078 | 0.87× | Two-stage | Win |
-| Github Events Small (minified) | 2,542 | 2,094 | 1,815 | 1.21× | Fused | Win |
-| Google Maps Response Small (minified) | 2,608 | 1,823 | 1,183 | 1.43× | Fused | Win |
-| Github Events Small (prettified) | 2,398 | 2,576 | 2,243 | 0.93× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 3,274 | 3,404 | 2,392 | 0.96× | Two-stage | Win |
-| Instruments Small (minified) | 3,556 | 2,289 | 1,414 | 1.55× | Fused | Win |
-| Instruments Small (prettified) | 3,007 | 3,486 | 2,296 | 0.86× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 1,041 | 882 | 547 | 1.18× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,457 | 2,933 | 1,981 | 0.84× | Two-stage | Win |
-| Marine IK Small (minified) | 1,133 | 925 | 538 | 1.22× | Fused | Win |
-| Marine IK Small (prettified) | 2,622 | 3,136 | 1,971 | 0.84× | Two-stage | Win |
-| Random Small (minified) | 1,893 | 1,773 | 1,275 | 1.07× | Fused | Win |
-| Random Small (prettified) | 2,242 | 2,628 | 1,923 | 0.85× | Two-stage | Win |
-| Twitter Small (minified) | 3,132 | 2,499 | 1,444 | 1.25× | Fused | Win |
-| Twitter Small (prettified) | 2,663 | 3,142 | 1,844 | 0.85× | Two-stage | Win |
+| Bool (POD) | 2,643 | n/a | 477 | n/a | n/a | Win |
+| Double (POD) | 1,401 | n/a | 426 | n/a | n/a | Win |
+| Int64 (POD) | 2,220 | n/a | 408 | n/a | n/a | Win |
+| String (POD) | 2,017 | n/a | 1,116 | n/a | n/a | Win |
+| Uint64 (POD) | 2,218 | n/a | 385 | n/a | n/a | Win |
+| Apache Builds (minified) | 3,121 | 1,962 | 1,987 | 1.59× | Fused | Win |
+| Canada (minified) | 1,118 | 943 | 896 | 1.19× | Fused | Win |
+| Apache Builds (prettified) | 3,332 | 2,347 | 2,518 | 1.42× | Fused | Win |
+| Canada (prettified) | 2,325 | 2,189 | 2,000 | 1.06× | Fused | Win |
+| CitmCatalog (minified) | 3,178 | 2,261 | 1,763 | 1.41× | Fused | Win |
+| CitmCatalog (prettified) | 4,630 | 4,217 | 3,569 | 1.10× | Fused | Win |
+| Discord (minified) | 3,722 | 2,316 | 1,641 | 1.61× | Fused | Win |
+| Discord (prettified) | 4,181 | 3,302 | 2,344 | 1.27× | Fused | Win |
+| Github Events (minified) | 2,710 | 1,935 | 1,674 | 1.40× | Fused | Win |
+| Google Maps Response (minified) | 3,030 | 1,834 | 1,287 | 1.65× | Fused | Win |
+| Github Events (prettified) | 3,167 | 2,308 | 2,028 | 1.37× | Fused | Win |
+| Google Maps Response (prettified) | 4,305 | 3,444 | 2,581 | 1.25× | Fused | Win |
+| Instruments (minified) | 3,788 | 2,475 | 1,625 | 1.53× | Fused | Win |
+| Instruments (prettified) | 4,529 | 3,826 | 2,607 | 1.18× | Fused | Win |
+| Marine IK Reverse (minified) | 958 | 800 | 608 | 1.20× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,637 | 2,794 | 2,158 | 0.94× | Two-stage | Win |
+| Marine IK (minified) | 946 | 799 | 615 | 1.18× | Fused | Win |
+| Marine IK (prettified) | 2,818 | 2,851 | 2,238 | 0.99× | Two-stage | Win |
+| Random (minified) | 2,470 | 1,527 | 1,342 | 1.62× | Fused | Win |
+| Random (prettified) | 3,175 | 2,179 | 2,006 | 1.46× | Fused | Win |
+| Twitter (minified) | 3,440 | 2,048 | 1,340 | 1.68× | Fused | Win |
+| Twitter (prettified) | 3,546 | 2,491 | 1,763 | 1.42× | Fused | Win |
+| Apache Builds Small (minified) | 3,449 | 2,363 | 2,115 | 1.46× | Fused | Win |
+| Canada Small (minified) | 1,133 | 929 | 750 | 1.22× | Fused | Win |
+| Apache Builds Small (prettified) | 3,479 | 2,771 | 2,618 | 1.26× | Fused | Win |
+| Canada Small (prettified) | 2,329 | 2,225 | 1,798 | 1.05× | Fused | Win |
+| CitmCatalog Small (minified) | 2,337 | 1,698 | 1,407 | 1.38× | Fused | Win |
+| CitmCatalog Small (prettified) | 3,050 | 2,786 | 2,443 | 1.09× | Fused | Win |
+| Discord Small (minified) | 3,191 | 2,059 | 1,543 | 1.55× | Fused | Win |
+| Discord Small (prettified) | 3,388 | 2,667 | 2,143 | 1.27× | Fused | Win |
+| Github Events Small (minified) | 2,853 | 2,085 | 1,804 | 1.37× | Fused | Win |
+| Google Maps Response Small (minified) | 2,751 | 1,756 | 1,300 | 1.57× | Fused | Win |
+| Github Events Small (prettified) | 3,127 | 2,423 | 2,274 | 1.29× | Fused | Win |
+| Google Maps Response Small (prettified) | 4,141 | 3,232 | 2,609 | 1.28× | Fused | Win |
+| Instruments Small (minified) | 3,477 | 2,267 | 1,482 | 1.53× | Fused | Win |
+| Instruments Small (prettified) | 4,061 | 3,483 | 2,385 | 1.17× | Fused | Win |
+| Marine IK Reverse Small (minified) | 970 | 848 | 542 | 1.14× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,574 | 2,997 | 2,012 | 0.86× | Two-stage | Win |
+| Marine IK Small (minified) | 1,153 | 915 | 544 | 1.26× | Fused | Win |
+| Marine IK Small (prettified) | 2,836 | 3,227 | 2,025 | 0.88× | Two-stage | Win |
+| Random Small (minified) | 2,790 | 1,835 | 1,311 | 1.52× | Fused | Win |
+| Random Small (prettified) | 3,405 | 2,636 | 1,994 | 1.29× | Fused | Win |
+| Twitter Small (minified) | 3,687 | 2,479 | 1,437 | 1.49× | Fused | Win |
+| Twitter Small (prettified) | 3,651 | 3,139 | 1,857 | 1.16× | Fused | Win |
 
 **macOS / GCC 16.2 (Apple M2 Pro, NEON)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,638 | 280 | 163 | 5.86× | Fused | Win |
-| Double (POD) | 1,126 | 423 | 143 | 2.66× | Fused | Win |
-| Int64 (POD) | 3,283 | 888 | 471 | 3.70× | Fused | Win |
-| String (POD) | 2,398 | 987 | 1,007 | 2.43× | Fused | Win |
-| Uint64 (POD) | 2,462 | 754 | 419 | 3.27× | Fused | Win |
-| Apache Builds (minified) | 2,137 | 1,241 | 875 | 1.72× | Fused | Win |
-| Canada (minified) | 927 | 690 | 611 | 1.34× | Fused | Win |
-| Apache Builds (prettified) | 1,811 | 1,665 | 1,116 | 1.09× | Fused | Win |
-| Canada (prettified) | 1,452 | 1,412 | 1,300 | 1.03× | Fused | Win |
-| CitmCatalog (minified) | 2,295 | 1,448 | 1,301 | 1.58× | Fused | Win |
-| CitmCatalog (prettified) | 3,241 | 2,774 | 2,276 | 1.17× | Fused | Win |
-| Discord (minified) | 2,346 | 1,621 | 1,084 | 1.45× | Fused | Win |
-| Discord (prettified) | 2,532 | 1,855 | 1,456 | 1.37× | Fused | Win |
-| Github Events (minified) | 2,114 | 1,456 | 1,109 | 1.45× | Fused | Win |
-| Google Maps Response (minified) | 2,080 | 1,314 | 693 | 1.58× | Fused | Win |
-| Github Events (prettified) | 2,065 | 1,843 | 1,296 | 1.12× | Fused | Win |
-| Google Maps Response (prettified) | 2,748 | 2,369 | 1,357 | 1.16× | Fused | Win |
-| Instruments (minified) | 2,844 | 1,789 | 1,215 | 1.59× | Fused | Win |
-| Instruments (prettified) | 3,213 | 2,599 | 1,839 | 1.24× | Fused | Win |
-| Marine IK Reverse (minified) | 756 | 591 | 518 | 1.28× | Fused | Win |
-| Marine IK Reverse (prettified) | 1,782 | 1,800 | 1,656 | 0.99× | Tie | Win |
-| Marine IK (minified) | 712 | 583 | 465 | 1.22× | Fused | Win |
-| Marine IK (prettified) | 2,115 | 1,925 | 1,566 | 1.10× | Fused | Win |
-| Random (minified) | 1,416 | 1,301 | 812 | 1.09× | Fused | Win |
-| Random (prettified) | 1,761 | 1,691 | 1,190 | 1.04× | Fused | Win |
-| Twitter (minified) | 2,518 | 1,754 | 953 | 1.44× | Fused | Win |
-| Twitter (prettified) | 2,070 | 1,932 | 1,185 (n/c) | 1.07× | Fused | Win |
-| Apache Builds Small (minified) | 2,043 | 1,818 | 1,085 | 1.12× | Fused | Win |
-| Canada Small (minified) | 815 | 726 | 481 | 1.12× | Fused | Win |
-| Apache Builds Small (prettified) | 1,878 | 2,097 | 1,176 | 0.90× | Two-stage | Win |
-| Canada Small (prettified) | 1,593 | 1,584 | 1,251 | 1.01× | Tie | Win |
-| CitmCatalog Small (minified) | 1,735 | 1,090 | 1,018 | 1.59× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,280 | 2,138 | 1,421 (n/c) | 1.07× | Fused | Win |
-| Discord Small (minified) | 2,217 | 1,596 | 1,074 | 1.39× | Fused | Win |
-| Discord Small (prettified) | 1,919 | 1,754 | 1,208 | 1.09× | Fused | Win |
-| Github Events Small (minified) | 1,936 | 1,448 | 1,432 | 1.34× | Fused | Win |
-| Google Maps Response Small (minified) | 2,101 | 1,505 | 860 | 1.40× | Fused | Win |
-| Github Events Small (prettified) | 1,862 | 1,868 | 1,548 | 1.00× | Tie | Win |
-| Google Maps Response Small (prettified) | 2,235 | 2,540 | 1,556 | 0.88× | Two-stage | Win |
-| Instruments Small (minified) | 3,166 | 1,748 | 1,075 | 1.81× | Fused | Win |
-| Instruments Small (prettified) | 2,644 | 2,433 | 1,903 | 1.09× | Fused | Win |
-| Marine IK Reverse Small (minified) | 686 | 573 | 407 | 1.20× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,836 | 1,950 | 1,396 | 0.94× | Two-stage | Win |
-| Marine IK Small (minified) | 826 | 595 (n/c) | 390 | 1.39× | Fused | Win |
-| Marine IK Small (prettified) | 1,879 | 2,186 | 1,141 | 0.86× | Two-stage | Win |
-| Random Small (minified) | 1,403 | 1,343 | 854 | 1.05× | Fused | Win |
-| Random Small (prettified) | 1,741 | 1,715 | 1,251 | 1.02× | Fused | Win |
-| Twitter Small (minified) | 2,551 | 2,166 | 1,057 | 1.18× | Fused | Win |
-| Twitter Small (prettified) | 2,566 | 2,359 | 1,500 | 1.09× | Fused | Win |
+| Bool (POD) | 1,985 | n/a | 440 | n/a | n/a | Win |
+| Double (POD) | 1,146 | n/a | 324 | n/a | n/a | Win |
+| Int64 (POD) | 1,652 | n/a | 346 | n/a | n/a | Win |
+| String (POD) | 1,925 | n/a | 731 | n/a | n/a | Win |
+| Uint64 (POD) | 1,767 | n/a | 311 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,900 | 1,633 | 972 | 1.16× | Fused | Win |
+| Canada (minified) | 942 | 737 | 682 | 1.28× | Fused | Win |
+| Apache Builds (prettified) | 2,051 | 1,862 | 1,223 | 1.10× | Fused | Win |
+| Canada (prettified) | 1,729 | 1,597 | 1,468 | 1.08× | Fused | Win |
+| CitmCatalog (minified) | 2,591 | 1,616 | 1,286 | 1.60× | Fused | Win |
+| CitmCatalog (prettified) | 3,587 | 3,055 | 2,444 | 1.17× | Fused | Win |
+| Discord (minified) | 2,468 | 1,688 | 1,210 | 1.46× | Fused | Win |
+| Discord (prettified) | 2,550 | 2,235 | 1,680 | 1.14× | Fused | Win |
+| Github Events (minified) | 2,356 | 1,961 | 1,253 | 1.20× | Fused | Win |
+| Google Maps Response (minified) | 2,075 | 1,456 | 820 | 1.42× | Fused | Win |
+| Github Events (prettified) | 2,416 | 2,128 | 1,488 | 1.14× | Fused | Win |
+| Google Maps Response (prettified) | 2,890 | 2,523 | 1,539 | 1.15× | Fused | Win |
+| Instruments (minified) | 3,148 | 1,842 | 1,313 | 1.71× | Fused | Win |
+| Instruments (prettified) | 3,255 | 2,670 | 1,982 | 1.22× | Fused | Win |
+| Marine IK Reverse (minified) | 786 | 609 | 527 | 1.29× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,202 | 2,096 | 1,797 | 1.05× | Fused | Win |
+| Marine IK (minified) | 777 | 598 | 488 | 1.30× | Fused | Win |
+| Marine IK (prettified) | 2,220 | 2,036 | 1,666 | 1.09× | Fused | Win |
+| Random (minified) | 1,834 | 1,378 | 874 | 1.33× | Fused | Win |
+| Random (prettified) | 2,207 | 1,868 | 1,292 | 1.18× | Fused | Win |
+| Twitter (minified) | 2,914 | 2,129 | 1,188 | 1.37× | Fused | Win |
+| Twitter (prettified) | 2,704 | 2,591 | 1,523 | 1.04× | Fused | Win |
+| Apache Builds Small (minified) | 1,856 | 1,845 | 1,165 | 1.01× | Tie | Win |
+| Canada Small (minified) | 901 | 724 | 544 | 1.24× | Fused | Win |
+| Apache Builds Small (prettified) | 2,164 | 2,126 | 1,458 | 1.02× | Tie | Win |
+| Canada Small (prettified) | 1,802 | 1,641 | 1,245 | 1.10× | Fused | Win |
+| CitmCatalog Small (minified) | 1,888 | 1,338 | 1,075 | 1.41× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,505 | 2,156 | 1,770 | 1.16× | Fused | Win |
+| Discord Small (minified) | 2,403 | 1,814 | 1,166 | 1.32× | Fused | Win |
+| Discord Small (prettified) | 2,528 | 2,264 | 1,518 | 1.12× | Fused | Win |
+| Github Events Small (minified) | 2,061 | 1,725 | 1,497 | 1.19× | Fused | Win |
+| Google Maps Response Small (minified) | 2,027 | 1,427 | 856 | 1.42× | Fused | Win |
+| Github Events Small (prettified) | 2,317 | 2,061 | 1,792 | 1.12× | Fused | Win |
+| Google Maps Response Small (prettified) | 2,824 | 2,475 | 1,646 | 1.14× | Fused | Win |
+| Instruments Small (minified) | 3,139 | 1,867 | 1,264 | 1.68× | Fused | Win |
+| Instruments Small (prettified) | 3,263 | 2,662 | 1,958 | 1.23× | Fused | Win |
+| Marine IK Reverse Small (minified) | 819 | 641 | 445 | 1.28× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,045 | 2,216 | 1,563 | 0.92× | Two-stage | Win |
+| Marine IK Small (minified) | 895 | 697 | 428 | 1.28× | Fused | Win |
+| Marine IK Small (prettified) | 2,369 | 2,314 | 1,480 | 1.02× | Fused | Win |
+| Random Small (minified) | 1,858 | 1,414 | 920 | 1.31× | Fused | Win |
+| Random Small (prettified) | 2,252 | 1,365 | 1,355 | 1.65× | Fused | Win |
+| Twitter Small (minified) | 2,857 | 2,182 | 1,236 | 1.31× | Fused | Win |
+| Twitter Small (prettified) | 2,638 | 2,571 | 1,550 | 1.03× | Fused | Win |
 
 **macOS / Clang 23.1 (Apple M2 Pro, NEON)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,250 | 298 | 146 | 4.19× | Fused | Win |
-| Double (POD) | 902 | 335 | 207 | 2.70× | Fused | Win |
-| Int64 (POD) | 2,560 | 827 | 438 | 3.09× | Fused | Win |
-| String (POD) | 2,145 | 890 | 1,064 | 2.41× | Fused | Win |
-| Uint64 (POD) | 2,427 | 842 | 445 | 2.88× | Fused | Win |
-| Apache Builds (minified) | 2,314 | 1,500 | 1,099 | 1.54× | Fused | Win |
-| Canada (minified) | 779 | 709 | 611 | 1.10× | Fused | Win |
-| Apache Builds (prettified) | 2,044 | 1,844 | 1,397 | 1.11× | Fused | Win |
-| Canada (prettified) | 1,596 | 1,401 | 1,174 | 1.14× | Fused | Win |
-| CitmCatalog (minified) | 2,446 | 1,592 | 861 | 1.54× | Fused | Win |
-| CitmCatalog (prettified) | 2,909 | 2,798 | 1,685 | 1.04× | Fused | Win |
-| Discord (minified) | 2,865 | 1,417 | 729 | 2.02× | Fused | Win |
-| Discord (prettified) | 2,459 | 1,911 | 985 | 1.29× | Fused | Win |
-| Github Events (minified) | 2,107 | 1,773 | 891 | 1.19× | Fused | Win |
-| Google Maps Response (minified) | 2,180 | 1,233 | 849 | 1.77× | Fused | Win |
-| Github Events (prettified) | 1,911 | 2,065 | 974 | 0.93× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,291 | 1,960 | 1,627 | 1.17× | Fused | Win |
-| Instruments (minified) | 2,542 | 1,643 | 708 | 1.55× | Fused | Win |
-| Instruments (prettified) | 2,590 | 2,471 | 1,055 | 1.05× | Fused | Win |
-| Marine IK Reverse (minified) | 718 | 600 | 412 | 1.20× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,301 | 2,005 | 1,377 (n/c) | 1.15× | Fused | Win |
-| Marine IK (minified) | 812 | 644 | 381 | 1.26× | Fused | Win |
-| Marine IK (prettified) | 2,191 | 2,053 | 1,429 | 1.07× | Fused | Win |
-| Random (minified) | 1,546 | 1,229 | 646 | 1.26× | Fused | Win |
-| Random (prettified) | 2,053 | 1,790 | 1,143 | 1.15× | Fused | Win |
-| Twitter (minified) | 2,647 | 2,152 | 874 | 1.23× | Fused | Win |
-| Twitter (prettified) | 2,156 | 2,563 | 892 | 0.84× | Two-stage | Win |
-| Apache Builds Small (minified) | 1,691 | 1,363 | 1,176 | 1.24× | Fused | Win |
-| Canada Small (minified) | 717 | 649 | 455 | 1.10× | Fused | Win |
-| Apache Builds Small (prettified) | 2,060 | 1,976 | 1,461 | 1.04× | Fused | Win |
-| Canada Small (prettified) | 1,280 | 1,327 | 1,006 | 0.96× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,856 | 1,242 | 770 | 1.49× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,094 | 1,970 | 1,437 | 1.06× | Fused | Win |
-| Discord Small (minified) | 2,504 | 1,706 | 686 | 1.47× | Fused | Win |
-| Discord Small (prettified) | 2,508 | 2,159 | 995 | 1.16× | Fused | Win |
-| Github Events Small (minified) | 2,207 | 1,781 | 1,307 | 1.24× | Fused | Win |
-| Google Maps Response Small (minified) | 2,208 | 1,391 | 733 | 1.59× | Fused | Win |
-| Github Events Small (prettified) | 2,094 | 1,982 | 1,306 | 1.06× | Fused | Win |
-| Google Maps Response Small (prettified) | 2,959 | 2,405 | 1,454 | 1.23× | Fused | Win |
-| Instruments Small (minified) | 2,500 (n/c) | 1,607 | 498 | 1.56× | Fused | Win |
-| Instruments Small (prettified) | 3,117 | 2,780 | 1,048 | 1.12× | Fused | Win |
-| Marine IK Reverse Small (minified) | 661 | 561 | 359 | 1.18× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,234 | 1,924 | 1,249 | 1.16× | Fused | Win |
-| Marine IK Small (minified) | 888 | 541 | 344 | 1.64× | Fused | Win |
-| Marine IK Small (prettified) | 2,231 | 2,149 | 1,275 | 1.04× | Fused | Win |
-| Random Small (minified) | 1,896 | 1,355 | 716 | 1.40× | Fused | Win |
-| Random Small (prettified) | 2,017 | 1,575 | 1,070 | 1.28× | Fused | Win |
-| Twitter Small (minified) | 2,934 | 2,117 | 872 | 1.39× | Fused | Win |
-| Twitter Small (prettified) | 2,020 | 2,355 | 1,117 | 0.86× | Two-stage | Win |
+| Bool (POD) | 1,304 | n/a | 295 | n/a | n/a | Win |
+| Double (POD) | 1,053 | n/a | 302 | n/a | n/a | Win |
+| Int64 (POD) | 1,273 | n/a | 303 | n/a | n/a | Win |
+| String (POD) | 1,175 | n/a | 678 | n/a | n/a | Win |
+| Uint64 (POD) | 1,354 | n/a | 244 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,917 | 1,415 | 860 | 1.35× | Fused | Win |
+| Canada (minified) | 726 | 658 | 492 | 1.10× | Fused | Win |
+| Apache Builds (prettified) | 1,685 | 1,436 | 1,096 | 1.17× | Fused | Win |
+| Canada (prettified) | 1,418 | 1,263 | 1,064 | 1.12× | Fused | Win |
+| CitmCatalog (minified) | 2,242 | 1,295 | 708 | 1.73× | Fused | Win |
+| CitmCatalog (prettified) | 3,021 | 2,183 | 1,502 | 1.38× | Fused | Win |
+| Discord (minified) | 2,335 | 1,535 | 663 | 1.52× | Fused | Win |
+| Discord (prettified) | 2,145 | 1,875 | 922 | 1.14× | Fused | Win |
+| Github Events (minified) | 1,780 | 1,480 | 730 | 1.20× | Fused | Win |
+| Google Maps Response (minified) | 1,478 | 1,063 | 640 | 1.39× | Fused | Win |
+| Github Events (prettified) | 1,977 | 1,724 | 973 | 1.15× | Fused | Win |
+| Google Maps Response (prettified) | 2,191 | 1,979 | 1,413 | 1.11× | Fused | Win |
+| Instruments (minified) | 2,520 | 1,485 | 707 | 1.70× | Fused | Win |
+| Instruments (prettified) | 2,765 | 2,605 | 1,021 | 1.06× | Fused | Win |
+| Marine IK Reverse (minified) | 654 | 533 | 362 | 1.23× | Fused | Win |
+| Marine IK Reverse (prettified) | 1,794 | 1,714 | 1,401 | 1.05× | Fused | Win |
+| Marine IK (minified) | 686 (n/c) | 667 | 390 | 1.03× | Fused | Win |
+| Marine IK (prettified) | 1,943 | 1,975 | 1,404 | 0.98× | Tie | Win |
+| Random (minified) | 1,717 | 1,132 | 673 | 1.52× | Fused | Win |
+| Random (prettified) | 1,966 | 1,541 | 1,028 | 1.28× | Fused | Win |
+| Twitter (minified) | 2,182 | 1,835 | 685 | 1.19× | Fused | Win |
+| Twitter (prettified) | 2,463 | 2,318 | 1,109 | 1.06× | Fused | Win |
+| Apache Builds Small (minified) | 1,472 | 1,414 | 993 | 1.04× | Tie | Win |
+| Canada Small (minified) | 732 | 605 | 467 | 1.21× | Fused | Win |
+| Apache Builds Small (prettified) | 2,047 | 1,839 | 1,385 | 1.11× | Fused | Win |
+| Canada Small (prettified) | 1,390 | 1,497 | 1,182 | 0.93× | Two-stage | Win |
+| CitmCatalog Small (minified) | 1,920 | 1,415 | 877 | 1.36× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,490 | 2,224 | 1,517 | 1.12× | Fused | Win |
+| Discord Small (minified) | 2,566 | 1,851 | 676 | 1.39× | Fused | Win |
+| Discord Small (prettified) | 2,457 | 2,218 | 916 | 1.11× | Fused | Win |
+| Github Events Small (minified) | 1,772 | 1,698 | 1,122 | 1.04× | Fused | Win |
+| Google Maps Response Small (minified) | 2,011 | 1,282 | 789 | 1.57× | Fused | Win |
+| Github Events Small (prettified) | 2,144 | 1,936 | 1,462 | 1.11× | Fused | Win |
+| Google Maps Response Small (prettified) | 2,497 | 2,119 | 1,704 | 1.18× | Fused | Win |
+| Instruments Small (minified) | 2,990 | 1,778 | 595 | 1.68× | Fused | Win |
+| Instruments Small (prettified) | 3,073 | 2,661 | 1,049 | 1.16× | Fused | Win |
+| Marine IK Reverse Small (minified) | 795 | 674 | 350 | 1.18× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,161 | 2,217 | 1,250 | 0.97× | Two-stage | Win |
+| Marine IK Small (minified) | 737 | 670 | 311 | 1.10× | Fused | Win |
+| Marine IK Small (prettified) | 1,881 | 1,811 | 1,190 | 1.04× | Fused | Win |
+| Random Small (minified) | 1,314 | 1,113 | 659 | 1.18× | Fused | Win |
+| Random Small (prettified) | 1,875 | 1,587 | 915 | 1.18× | Fused | Win |
+| Twitter Small (minified) | 2,343 | 1,979 | 737 | 1.18× | Fused | Win |
+| Twitter Small (prettified) | 2,842 | 2,177 | 1,071 | 1.31× | Fused | Win |
 
 ### 2.4 What the results show
 
-Which Jsonifier path is faster depends on two things: whether the document is indented and whether the machine is x86. On the three x86 builds the fused path wins all 15 POD-type tests and 63 of the 66 minified documents, full-size and Small, the other three going to the tape (two under MSVC, one on Linux/Clang), while the tape wins 31 of the 33 full-size prettified documents and all 33 Small prettified ones. The two prettified exceptions are Marine IK under MSVC and Canada on Linux/GCC, which the fused path wins. On the M2 Pro the fused path wins all POD input, 42 of the 44 minified documents (2 ties) and 33 of the 44 prettified documents (5 to the tape, 6 ties). §2.8 repeats the comparison on AVX-512.
+Which Jsonifier path is faster now depends mostly on the document, not on indentation or the machine. On the three x86 builds the fused path wins all 66 minified documents, full-size and Small, and 52 of the 66 prettified ones, with 2 ties; the tape's 12 wins are the four prettified Marine IK documents (Marine IK and Marine IK Reverse, full-size and Small) on each Linux build, and prettified Marine IK Reverse, Marine IK Small, Marine IK Reverse Small and Canada Small under MSVC. On the M2 Pro the fused path wins all 44 minified documents and 39 of the 44 prettified ones (2 to the tape, 3 ties). §2.8 repeats the comparison on AVX-512.
 
-**POD-type tests: the fused path wins all 25, freshly allocated and reused.** It runs them 1.19× (String, Windows/MSVC) to 5.00× (Bool, macOS/GCC) faster than the two-stage path, and 1.32× (String, Windows/MSVC) to 5.86× (Bool, macOS/GCC) faster with objects reused. These documents are the case §2 argues from: nothing to skip, every value materialized, so the tape is pure overhead.
+**POD-type tests: outside the comparison.** The sweep does not register the two-stage path on the five POD-type tests, so they have no fused-against-tape verdict. Against simdjson On Demand the fused path wins all 25 in both runs. These documents are the case §2 argues from: nothing to skip, every value materialized, so the tape would be pure overhead.
 
-**Minified documents: the fused path's, except for three, two of them under MSVC.** Freshly allocated, the fused path wins 105 of the 110 minified documents, ties 2 and loses 3 to the tape. Two of the losses are under MSVC: Canada (544 against 562 MB/s, 0.97×) and Apache Builds Small (1,119 against 1,159, 0.97×). The third is Github Events on Linux/Clang (1,600 against 1,789, 0.89×), and the ties are Apache Builds Small on macOS/GCC (1,390 against 1,368) and Canada Small on macOS/Clang (585 against 588). Its margins run from 6% (Apache Builds under MSVC, 816 against 770 MB/s) to 2.12× (Discord on macOS/Clang, 2,180 against 1,026 MB/s) on the full-size documents and from under 1% (Canada Small under MSVC, 505 against 503) to 1.96× (Instruments Small on macOS/Clang, 2,712 against 1,381 MB/s) on the Small ones. With objects reused it wins 109 and loses 1, minified Canada under MSVC (628 against 653 MB/s). Why the tape wins these has not been profiled. This is the workload the fused key literals of §3 were built for: machine-generated JSON in declared order.
+**Minified documents: all the fused path's.** Freshly allocated, the fused path wins all 110 minified documents. Its margins run from 4% (Canada under MSVC, 654 against 627 MB/s) to 1.61× (Google Maps Response on macOS/Clang, 1,672 against 1,036 MB/s) on the full-size documents and from 2% (Apache Builds Small on macOS/Clang, 1,317 against 1,291) to 1.66× (Google Maps Response Small on macOS/Clang) on the Small ones. With objects reused it wins 108 and ties 2, minified Apache Builds Small on both M2 Pro builds. This is the workload the fused key literals of §3 were built for: machine-generated JSON in declared order.
 
-**Prettified documents on x86: the two-stage path wins 64 of 66.** It wins all 22 on Linux/Clang, 21 of 22 on Linux/GCC, where the fused path wins prettified Canada (1,913 MB/s against 1,879), and 21 of 22 under MSVC, where the fused path wins prettified Marine IK (1,955 against 1,933 MB/s). The tape's margins run from 1% (Google Maps Response on Linux/GCC, 3,319 against 3,282 MB/s) to 46% (Discord on Linux/Clang, 2,543 against 1,739) on the full-size documents and from 3% (Canada Small on Linux/GCC) to 47% (Twitter Small on Linux/Clang) on the Small ones. The fused path's depth-predicted indentation (§3) keeps the number-heavy documents close, but it does not win most prettified documents on x86. Stage 1 classifies every byte, whitespace included, in vector blocks at a cost that does not depend on layout, while the fused path still does a small amount of branchy work per line: the newline test, the depth multiplication, the span check and the branch on its result. On a heavily indented document that per-line cost appears to outweigh the second pass over the input that the tape costs. We have not isolated this, and state it as a hypothesis. With objects reused the tape wins 65 of the 66 prettified x86 documents; the fused path takes prettified Canada on Linux/GCC (2,218 against 2,160 MB/s).
+**Prettified documents on x86: the fused path wins 52 of 66, the tape keeps the Marine IK family.** The fused path wins all nine full-size documents outside the Marine IK family on both Linux builds and eight under MSVC, where prettified Canada and Marine IK are ties; on the Small copies it wins the same nine on each Linux build and eight under MSVC. Its margins reach 1.33× (Github Events on Linux/GCC, 2,361 against 1,781 MB/s) on the full-size documents and 1.29× (Apache Builds Small on Linux/Clang) on the Small ones. The tape's 12 wins are all Marine IK documents except prettified Canada Small under MSVC, and they are narrow: from under 1% (Marine IK on Linux/GCC, 2,583 against 2,573 MB/s) to 4% (Marine IK Reverse on Linux/GCC) on the full-size documents and from 3% (Canada Small under MSVC) to 15% (Marine IK Reverse Small under MSVC) on the Small ones. Marine IK is almost entirely floating-point arrays, so its lines are short and numerous, which is where the fused path's per-line work (the newline test, the depth multiplication, the span check and the branch on its result) weighs most against stage 1's layout-independent vector classification. We have not isolated this, and state it as a hypothesis. With objects reused the split is the same: the fused path wins 53, ties 1 (Canada under MSVC) and the tape wins the same 12.
 
-**Prettified documents on the M2 Pro: mostly the fused path's.** Of the 44 prettified documents, the fused path wins 33, the tape wins 5 and 6 are ties. Of the 22 full-size documents the fused path wins 18, the tape takes Twitter on macOS/Clang (0.90×), and Apache Builds and Canada on macOS/GCC and Github Events on macOS/Clang are ties. On the Small copies the tape wins Apache Builds Small, Marine IK Reverse Small and Marine IK Small on macOS/GCC (0.85×, 0.89× and 0.95×) and Twitter Small on macOS/Clang (0.83×); Twitter Small on macOS/GCC and Marine IK Reverse Small and Random Small on macOS/Clang are ties. By compiler, the fused path wins 16 of 22 on macOS/GCC (3 to the tape, 3 ties) and 17 of 22 on macOS/Clang (2 to the tape, 3 ties). Reused, the fused path wins 33, the tape 8 and 3 are ties: 15, 4 and 3 on macOS/GCC and 18, 4 and none on macOS/Clang. NEON escapes much of the prettified penalty seen on x86, and we do not have an explanation for why. One contributing factor may be that stage 1 is comparatively more expensive there, since NEON has no `movemask`, but we have not isolated it.
+**Prettified documents on the M2 Pro: the fused path's.** Of the 44 prettified documents, the fused path wins 39, the tape wins 2 and 3 are ties. The tape takes Marine IK Reverse Small on macOS/GCC (0.94×) and Apache Builds Small on macOS/Clang (0.97×); the ties are Twitter Small on macOS/GCC and Marine IK Reverse and Github Events Small on macOS/Clang. The fused path's margins reach 1.21× (Instruments on macOS/GCC) and 1.41× (Google Maps Response on macOS/Clang) on the full-size documents. Reused, the fused path wins 39, the tape 3 (Marine IK Reverse Small on macOS/GCC, Canada Small and Marine IK Reverse Small on macOS/Clang) and 2 are ties.
 
-**Three documents beat both Jsonifier paths, freshly allocated.** Against simdjson On Demand the faster Jsonifier path wins every test in both runs except three freshly allocated prettified ones: Twitter Small under MSVC (simdjson 1,658 MB/s against the tape's 1,634 and the fused path's 1,525, 0.99×), Canada on macOS/GCC (1,147 against the tape's 1,101, 0.96×) and Github Events Small on macOS/GCC (1,360 against the fused path's 1,328, 0.98×); reused, Jsonifier wins all three. The fused path alone also loses freshly allocated prettified Canada and Canada Small on Linux/Clang (1,771 against 1,801 and 1,632 against 1,740 MB/s) and prettified Apache Builds on Linux/GCC (1,791 against 1,807); the tape wins all three, at 1,863, 1,782 and 1,833 MB/s. With objects reused the fused path loses six prettified documents: Twitter Small under MSVC (1,779 against 1,848, 0.96×), Canada and Canada Small on Linux/Clang, and Apache Builds, Random and CitmCatalog Small on Linux/GCC (2,409 against 2,432 for the last), and the tape wins all six. We have not profiled what sets these documents apart.
+**No document beats the fused path.** Against simdjson On Demand the fused path alone wins all 245 tests in both runs, so taking the faster Jsonifier path changes no verdict.
 
-**MSVC slows all three by about the same median.** All libraries run slower under MSVC than under Linux/Clang on the same i9-14900KF. Across the 10 full-size minified documents in declared key order, the fused path reaches a median 58% of its Linux/Clang throughput, the two-stage path 62% and simdjson 57%. The spread between documents is narrowest for the two-stage path (from 48% on Github Events to 76% on Marine IK), wider for the fused path (from 48% on Apache Builds to 82% on Instruments) and widest for simdjson, which keeps 47% of its Linux/Clang throughput on Canada and more than all of it (110%) on Instruments. We have not profiled why.
+**MSVC slows all three by about the same median.** All libraries run slower under MSVC than under Linux/Clang on the same i9-14900KF. Across the 10 full-size minified documents in declared key order, the fused path reaches a median 65% of its Linux/Clang throughput, the two-stage path 68% and simdjson 66%. The spread between documents is narrowest for the two-stage path (from 55% on Github Events to 83% on Marine IK), wider for the fused path (from 51% on Apache Builds to 88% on Instruments) and widest for simdjson, which keeps 50% of its Linux/Clang throughput on Canada and more than all of it (127%) on Instruments. We have not profiled why.
 
-**Against simdjson, Jsonifier wins 242 of 245 tests with whichever path is faster, and loses the other three.** The losses are prettified Twitter Small under MSVC and prettified Canada and Github Events Small on macOS/GCC. The fused path alone wins 239 and loses 6: those three and prettified Canada and Canada Small on Linux/Clang and Apache Builds on Linux/GCC.
+**Against simdjson, Jsonifier wins all 245 tests with whichever path is faster, and with the fused path alone.**
 
-**Reverse key order.** Requesting every key in reverse order is meant to force simdjson's On Demand API into the rescanning behavior described in §3, and under MSVC it still shows: simdjson parses minified Marine IK Reverse at 181 MB/s, against 302 MB/s for the same document in declared order, so the faster Jsonifier path is 3.33× faster than simdjson freshly allocated (3.63× reused). The prettified form shows the same gap, at 648 MB/s against 1,113, and the faster Jsonifier path is 3.03× faster (3.19× reused). The Small copies show it too, at 144 MB/s minified and 554 MB/s prettified under MSVC. On the other builds simdjson parses the reversed document within about 20% of the declared one, sometimes faster, and the faster Jsonifier path is 1.18× to 1.60× faster than simdjson on the full-size reversed document, freshly allocated, and 1.09× to 1.74× reused. Why the rescan cost shows up mostly under MSVC has not been profiled; §2.8 shows it again, wider, on the AVX-512 MSVC build.
+**Reverse key order.** Requesting every key in reverse order is meant to force simdjson's On Demand API into the rescanning behavior described in §3, and under MSVC it still shows: simdjson parses minified Marine IK Reverse at 199 MB/s, against 367 MB/s for the same document in declared order, so the faster Jsonifier path is 3.40× faster than simdjson freshly allocated (3.65× reused). The prettified form shows the same gap, at 687 MB/s against 1,355, and the faster Jsonifier path is 3.06× faster (3.14× reused). The Small copies show it too, at 162 MB/s minified and 613 MB/s prettified under MSVC. On the other builds simdjson parses the full-size reversed document within about 15% of the declared one, sometimes faster, and the faster Jsonifier path is 1.17× to 1.65× faster than simdjson on it, freshly allocated, and 1.16× to 1.80× reused. Why the rescan cost shows up mostly under MSVC has not been profiled; §2.8 shows it again, wider, on the AVX-512 MSVC build.
 
-The routing implication is sharper than §2's rule of thumb: on x86, prettified input belongs to the two-stage path, and under MSVC so do two minified documents; on the M2 Pro, minified input belongs to the fused path, and so do 33 of the 44 prettified documents. Routing each test to its faster path would raise the record against simdjson from 239 wins and 6 losses to 242 wins and 3 losses. The router does not yet take the architecture, the compiler or the indentation into account.
+The routing implication supports §2's rule of thumb: on every build, minified input belongs to the fused path, and so does prettified input except the float-heavy Marine IK family on x86, where the tape is ahead by at most 15%. Routing each test to its faster path would not change the record against simdjson, since the fused path alone already wins all 245. The router does not take the document's shape into account.
 
 ### 2.5 Stage 1 + reflection: two-stage Jsonifier against simdjson's reflection reader
 
@@ -696,99 +694,99 @@ simdjson 5 adds a C++26 static-reflection reader (`document.get<T>()`): stage 1 
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 1,446 | 1,408 | 1.03× | Win |
-| Canada (minified) | 800 | 829 | 0.97× | **Loss** |
-| Apache Builds (prettified) | 1,833 | 1,877 | 0.98× | **Loss** |
-| Canada (prettified) | 1,879 | 1,859 | 1.01× | Win |
-| CitmCatalog (minified) | 1,812 | 1,447 | 1.25× | Win |
-| CitmCatalog (prettified) | 3,622 | 3,016 | 1.20× | Win |
-| Discord (minified) | 1,827 | 1,572 | 1.16× | Win |
-| Discord (prettified) | 2,542 | 2,240 | 1.13× | Win |
-| Github Events (minified) | 1,533 | 1,565 | 0.98× | **Loss** |
-| Google Maps Response (minified) | 1,772 | 1,498 | 1.18× | Win |
-| Github Events (prettified) | 1,858 | 1,883 | 0.99× | **Loss** |
-| Google Maps Response (prettified) | 3,319 | 2,932 | 1.13× | Win |
-| Instruments (minified) | 2,160 | 1,665 | 1.30× | Win |
-| Instruments (prettified) | 3,368 | 2,686 | 1.25× | Win |
-| Marine IK Reverse (minified) | 715 | 620 | 1.15× | Win |
-| Marine IK Reverse (prettified) | 2,542 | 2,246 | 1.13× | Win |
-| Marine IK (minified) | 720 | 620 | 1.16× | Win |
-| Marine IK (prettified) | 2,558 | 2,252 | 1.14× | Win |
-| Random (minified) | 1,090 | 966 | 1.13× | Win |
-| Random (prettified) | 1,629 | 1,471 | 1.11× | Win |
-| Twitter (minified) | 1,707 | 1,587 | 1.08× | Win |
-| Twitter (prettified) | 2,203 | 2,089 | 1.05× | Win |
-| Apache Builds Small (minified) | 2,054 | 1,752 | 1.17× | Win |
-| Canada Small (minified) | 799 | 770 | 1.04× | Win |
-| Apache Builds Small (prettified) | 2,500 | 2,196 | 1.14× | Win |
-| Canada Small (prettified) | 1,905 | 1,838 | 1.04× | Win |
-| CitmCatalog Small (minified) | 1,452 | 1,200 | 1.21× | Win |
-| CitmCatalog Small (prettified) | 2,384 | 2,074 | 1.15× | Win |
-| Discord Small (minified) | 1,667 | 1,505 | 1.11× | Win |
-| Discord Small (prettified) | 2,173 | 2,010 | 1.08× | Win |
-| Github Events Small (minified) | 1,750 | 1,821 | 0.96× | **Loss** |
-| Google Maps Response Small (minified) | 1,630 | 1,433 | 1.14× | Win |
-| Github Events Small (prettified) | 2,133 | 2,250 | 0.95× | **Loss** |
-| Google Maps Response Small (prettified) | 3,111 | 2,821 | 1.10× | Win |
-| Instruments Small (minified) | 2,113 | 1,645 | 1.28× | Win |
-| Instruments Small (prettified) | 3,345 | 2,660 | 1.26× | Win |
-| Marine IK Reverse Small (minified) | 741 | 621 | 1.19× | Win |
-| Marine IK Reverse Small (prettified) | 2,494 | 2,292 | 1.09× | Win |
-| Marine IK Small (minified) | 773 | 623 | 1.24× | Win |
-| Marine IK Small (prettified) | 2,665 | 2,287 | 1.17× | Win |
-| Random Small (minified) | 1,471 | 1,060 | 1.39× | Win |
-| Random Small (prettified) | 2,211 | 1,604 | 1.38× | Win |
-| Twitter Small (minified) | 2,255 | 1,998 | 1.13× | Win |
-| Twitter Small (prettified) | 2,853 | 2,489 | 1.15× | Win |
+| Apache Builds (minified) | 1,351 | 1,414 | 0.96× | **Loss** |
+| Canada (minified) | 811 | 844 | 0.96× | **Loss** |
+| Apache Builds (prettified) | 1,666 | 1,807 | 0.92× | **Loss** |
+| Canada (prettified) | 1,892 | 1,903 | 0.99× | **Loss** |
+| CitmCatalog (minified) | 1,891 | 1,579 | 1.20× | Win |
+| CitmCatalog (prettified) | 3,637 | 3,087 | 1.18× | Win |
+| Discord (minified) | 1,814 | 1,604 | 1.13× | Win |
+| Discord (prettified) | 2,603 | 2,274 | 1.14× | Win |
+| Github Events (minified) | 1,463 | 1,537 | 0.95× | **Loss** |
+| Google Maps Response (minified) | 1,674 | 1,568 | 1.07× | Win |
+| Github Events (prettified) | 1,781 | 1,993 | 0.89× | **Loss** |
+| Google Maps Response (prettified) | 3,203 | 3,132 | 1.02× | Win |
+| Instruments (minified) | 2,186 | 1,768 | 1.24× | Win |
+| Instruments (prettified) | 3,423 | 2,823 | 1.21× | Win |
+| Marine IK Reverse (minified) | 730 | 696 | 1.05× | Win |
+| Marine IK Reverse (prettified) | 2,550 | 2,419 | 1.05× | Win |
+| Marine IK (minified) | 719 | 667 | 1.08× | Win |
+| Marine IK (prettified) | 2,583 | 2,404 | 1.07× | Win |
+| Random (minified) | 1,136 | 1,183 | 0.96× | **Loss** |
+| Random (prettified) | 1,675 | 1,756 | 0.95× | **Loss** |
+| Twitter (minified) | 1,637 | 1,600 | 1.02× | Win |
+| Twitter (prettified) | 2,037 | 2,066 | 0.99× | **Loss** |
+| Apache Builds Small (minified) | 2,020 | 1,801 | 1.12× | Win |
+| Canada Small (minified) | 774 | 748 | 1.03× | Win |
+| Apache Builds Small (prettified) | 2,375 | 2,246 | 1.06× | Win |
+| Canada Small (prettified) | 1,895 | 1,777 | 1.07× | Win |
+| CitmCatalog Small (minified) | 1,451 | 1,216 | 1.19× | Win |
+| CitmCatalog Small (prettified) | 2,356 | 2,100 | 1.12× | Win |
+| Discord Small (minified) | 1,661 | 1,544 | 1.08× | Win |
+| Discord Small (prettified) | 2,131 | 2,060 | 1.03× | Win |
+| Github Events Small (minified) | 1,682 | 1,729 | 0.97× | **Loss** |
+| Google Maps Response Small (minified) | 1,593 | 1,510 | 1.05× | Win |
+| Github Events Small (prettified) | 1,999 | 2,191 | 0.91× | **Loss** |
+| Google Maps Response Small (prettified) | 2,994 | 3,035 | 0.99× | **Loss** |
+| Instruments Small (minified) | 2,101 | 1,746 | 1.20× | Win |
+| Instruments Small (prettified) | 3,192 | 2,808 | 1.14× | Win |
+| Marine IK Reverse Small (minified) | 709 | 649 | 1.09× | Win |
+| Marine IK Reverse Small (prettified) | 2,553 | 2,361 | 1.08× | Win |
+| Marine IK Small (minified) | 779 | 645 | 1.21× | Win |
+| Marine IK Small (prettified) | 2,752 | 2,355 | 1.17× | Win |
+| Random Small (minified) | 1,509 | 1,293 | 1.17× | Win |
+| Random Small (prettified) | 2,181 | 1,976 | 1.10× | Win |
+| Twitter Small (minified) | 2,257 | 1,961 | 1.15× | Win |
+| Twitter Small (prettified) | 2,772 | 2,516 | 1.10× | Win |
 
 **macOS / GCC 16.2 (Apple M2 Pro, NEON)**
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 844 | 751 | 1.12× | Win |
-| Canada (minified) | 503 | 575 | 0.88× | **Loss** |
-| Apache Builds (prettified) | 1,160 | 1,061 | 1.09× | Win |
-| Canada (prettified) | 1,101 | 1,395 | 0.79× | **Loss** |
-| CitmCatalog (minified) | 1,335 | 1,129 | 1.18× | Win |
-| CitmCatalog (prettified) | 2,422 | 2,042 | 1.19× | Win |
-| Discord (minified) | 1,026 | 1,029 | 1.00× | Tie |
-| Discord (prettified) | 1,614 | 1,373 | 1.18× | Win |
-| Github Events (minified) | 1,332 | 1,121 | 1.19× | Win |
-| Google Maps Response (minified) | 1,167 | 1,018 | 1.15× | Win |
-| Github Events (prettified) | 1,450 | 1,230 | 1.18× | Win |
-| Google Maps Response (prettified) | 2,141 | 1,899 | 1.13× | Win |
-| Instruments (minified) | 1,610 | 1,262 | 1.28× | Win |
-| Instruments (prettified) | 2,455 | 1,919 | 1.28× | Win |
-| Marine IK Reverse (minified) | 530 | 523 | 1.01× | Win |
-| Marine IK Reverse (prettified) | 1,664 | 1,475 | 1.13× | Win |
-| Marine IK (minified) | 475 | 487 | 0.98× | **Loss** |
-| Marine IK (prettified) | 1,760 | 1,566 | 1.12× | Win |
-| Random (minified) | 893 | 742 | 1.20× | Win |
-| Random (prettified) | 1,135 | 1,111 | 1.02× | Win |
-| Twitter (minified) | 1,548 | 1,090 | 1.42× | Win |
-| Twitter (prettified) | 1,520 | 1,397 | 1.09× | Win |
-| Apache Builds Small (minified) | 1,368 | 1,057 | 1.29× | Win |
-| Canada Small (minified) | 590 | 518 | 1.14× | Win |
-| Apache Builds Small (prettified) | 1,681 (n/c) | 1,132 | 1.48× | Win |
-| Canada Small (prettified) | 1,301 | 1,254 | 1.04× | Win |
-| CitmCatalog Small (minified) | 965 | 824 | 1.17× | Win |
-| CitmCatalog Small (prettified) | 1,655 | 1,296 | 1.28× | Win |
-| Discord Small (minified) | 1,199 | 983 | 1.22× | Win |
-| Discord Small (prettified) | 1,221 | 1,301 | 0.94× | **Loss** |
-| Github Events Small (minified) | 944 | 906 | 1.04× | Win |
-| Google Maps Response Small (minified) | 1,115 | 1,025 | 1.09× | Win |
-| Github Events Small (prettified) | 1,193 | 1,310 | 0.91× | **Loss** |
-| Google Maps Response Small (prettified) | 2,209 | 1,602 | 1.38× | Win |
-| Instruments Small (minified) | 1,708 | 1,048 | 1.63× | Win |
-| Instruments Small (prettified) | 1,844 | 1,643 | 1.12× | Win |
-| Marine IK Reverse Small (minified) | 470 | 482 | 0.97× | **Loss** |
-| Marine IK Reverse Small (prettified) | 1,642 | 1,514 | 1.08× | Win |
-| Marine IK Small (minified) | 476 | 448 | 1.06× | Win |
-| Marine IK Small (prettified) | 1,715 | 1,622 | 1.06× | Win |
-| Random Small (minified) | 1,046 | 810 | 1.29× | Win |
-| Random Small (prettified) | 1,284 | 1,185 | 1.08× | Win |
-| Twitter Small (minified) | 1,775 | 1,150 | 1.54× | Win |
-| Twitter Small (prettified) | 2,150 | 1,476 | 1.46× | Win |
+| Apache Builds (minified) | 1,054 | 921 | 1.14× | Win |
+| Canada (minified) | 625 | 639 | 0.98× | **Loss** |
+| Apache Builds (prettified) | 1,253 | 1,177 | 1.06× | Win |
+| Canada (prettified) | 1,372 | 1,395 | 0.98× | **Loss** |
+| CitmCatalog (minified) | 1,399 | 1,155 | 1.21× | Win |
+| CitmCatalog (prettified) | 2,689 | 2,245 | 1.20× | Win |
+| Discord (minified) | 1,349 | 1,156 | 1.17× | Win |
+| Discord (prettified) | 1,834 | 1,600 | 1.15× | Win |
+| Github Events (minified) | 1,449 | 1,251 | 1.16× | Win |
+| Google Maps Response (minified) | 1,320 | 1,169 | 1.13× | Win |
+| Github Events (prettified) | 1,654 | 1,475 | 1.12× | Win |
+| Google Maps Response (prettified) | 2,328 | 2,102 | 1.11× | Win |
+| Instruments (minified) | 1,667 | 1,365 | 1.22× | Win |
+| Instruments (prettified) | 2,436 | 2,056 | 1.18× | Win |
+| Marine IK Reverse (minified) | 546 | 583 | 0.94× | **Loss** |
+| Marine IK Reverse (prettified) | 1,905 | 1,948 | 0.98× | **Loss** |
+| Marine IK (minified) | 534 | 557 | 0.96× | **Loss** |
+| Marine IK (prettified) | 1,853 | 1,876 | 0.99× | **Loss** |
+| Random (minified) | 962 | 808 | 1.19× | Win |
+| Random (prettified) | 1,362 | 1,196 | 1.14× | Win |
+| Twitter (minified) | 1,674 | 1,351 | 1.24× | Win |
+| Twitter (prettified) | 2,028 | 1,722 | 1.18× | Win |
+| Apache Builds Small (minified) | 1,435 | 1,102 | 1.30× | Win |
+| Canada Small (minified) | 612 | 587 | 1.04× | Win |
+| Apache Builds Small (prettified) | 1,673 | 1,366 | 1.22× | Win |
+| Canada Small (prettified) | 1,390 | 1,339 | 1.04× | Win |
+| CitmCatalog Small (minified) | 1,026 | 877 | 1.17× | Win |
+| CitmCatalog Small (prettified) | 1,691 | 1,481 | 1.14× | Win |
+| Discord Small (minified) | 1,373 | 1,080 | 1.27× | Win |
+| Discord Small (prettified) | 1,713 | 1,426 | 1.20× | Win |
+| Github Events Small (minified) | 1,275 | 1,152 | 1.11× | Win |
+| Google Maps Response Small (minified) | 1,228 | 1,048 | 1.17× | Win |
+| Github Events Small (prettified) | 1,471 | 1,343 | 1.10× | Win |
+| Google Maps Response Small (prettified) | 2,187 | 1,956 | 1.12× | Win |
+| Instruments Small (minified) | 1,691 | 1,334 | 1.27× | Win |
+| Instruments Small (prettified) | 2,484 | 2,078 | 1.20× | Win |
+| Marine IK Reverse Small (minified) | 534 | 528 | 1.01× | Win |
+| Marine IK Reverse Small (prettified) | 1,873 | 1,785 | 1.05× | Win |
+| Marine IK Small (minified) | 559 | 529 | 1.06× | Win |
+| Marine IK Small (prettified) | 1,948 | 1,795 | 1.09× | Win |
+| Random Small (minified) | 1,117 | 878 | 1.27× | Win |
+| Random Small (prettified) | 1,612 | 1,313 | 1.23× | Win |
+| Twitter Small (minified) | 1,838 | 1,401 | 1.31× | Win |
+| Twitter Small (prettified) | 2,211 | 1,754 | 1.26× | Win |
 
 #### Reused objects
 
@@ -796,538 +794,538 @@ simdjson 5 adds a C++26 static-reflection reader (`document.get<T>()`): stage 1 
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 2,067 | 1,827 | 1.13× | Win |
-| Canada (minified) | 921 | 971 | 0.95× | **Loss** |
-| Apache Builds (prettified) | 2,626 | 2,333 | 1.13× | Win |
-| Canada (prettified) | 2,160 | 2,145 | 1.01× | Win |
-| CitmCatalog (minified) | 2,145 | 1,715 | 1.25× | Win |
-| CitmCatalog (prettified) | 4,222 | 3,493 | 1.21× | Win |
-| Discord (minified) | 2,408 | 1,798 | 1.34× | Win |
-| Discord (prettified) | 3,278 | 2,558 | 1.28× | Win |
-| Github Events (minified) | 2,043 | 1,898 | 1.08× | Win |
-| Google Maps Response (minified) | 1,964 | 1,607 | 1.22× | Win |
-| Github Events (prettified) | 2,371 | 2,235 | 1.06× | Win |
-| Google Maps Response (prettified) | 3,542 | 3,165 | 1.12× | Win |
-| Instruments (minified) | 2,429 | 1,708 | 1.42× | Win |
-| Instruments (prettified) | 3,755 | 2,766 | 1.36× | Win |
-| Marine IK Reverse (minified) | 788 | 686 | 1.15× | Win |
-| Marine IK Reverse (prettified) | 2,777 | 2,431 | 1.14× | Win |
-| Marine IK (minified) | 803 | 691 | 1.16× | Win |
-| Marine IK (prettified) | 2,801 | 2,483 | 1.13× | Win |
-| Random (minified) | 1,460 | 1,195 | 1.22× | Win |
-| Random (prettified) | 2,152 | 1,813 | 1.19× | Win |
-| Twitter (minified) | 2,171 | 1,868 | 1.16× | Win |
-| Twitter (prettified) | 2,732 | 2,414 | 1.13× | Win |
-| Apache Builds Small (minified) | 2,367 | 1,939 | 1.22× | Win |
-| Canada Small (minified) | 948 | 895 | 1.06× | Win |
-| Apache Builds Small (prettified) | 2,867 | 2,429 | 1.18× | Win |
-| Canada Small (prettified) | 2,238 | 2,070 | 1.08× | Win |
-| CitmCatalog Small (minified) | 1,655 | 1,306 | 1.27× | Win |
-| CitmCatalog Small (prettified) | 2,822 | 2,273 | 1.24× | Win |
-| Discord Small (minified) | 2,015 | 1,736 | 1.16× | Win |
-| Discord Small (prettified) | 2,640 | 2,431 | 1.09× | Win |
-| Github Events Small (minified) | 2,094 | 2,013 | 1.04× | Win |
-| Google Maps Response Small (minified) | 1,823 | 1,581 | 1.15× | Win |
-| Github Events Small (prettified) | 2,576 | 2,490 | 1.03× | Win |
-| Google Maps Response Small (prettified) | 3,404 | 3,102 | 1.10× | Win |
-| Instruments Small (minified) | 2,289 | 1,697 | 1.35× | Win |
-| Instruments Small (prettified) | 3,486 | 2,749 | 1.27× | Win |
-| Marine IK Reverse Small (minified) | 882 | 711 | 1.24× | Win |
-| Marine IK Reverse Small (prettified) | 2,933 | 2,537 | 1.16× | Win |
-| Marine IK Small (minified) | 925 | 696 | 1.33× | Win |
-| Marine IK Small (prettified) | 3,136 | 2,548 | 1.23× | Win |
-| Random Small (minified) | 1,773 | 1,159 | 1.53× | Win |
-| Random Small (prettified) | 2,628 | 1,729 | 1.52× | Win |
-| Twitter Small (minified) | 2,499 | 2,137 | 1.17× | Win |
-| Twitter Small (prettified) | 3,142 | 2,698 | 1.16× | Win |
+| Apache Builds (minified) | 1,962 | 1,809 | 1.08× | Win |
+| Canada (minified) | 943 | 992 | 0.95× | **Loss** |
+| Apache Builds (prettified) | 2,347 | 2,299 | 1.02× | Win |
+| Canada (prettified) | 2,189 | 2,223 | 0.98× | **Loss** |
+| CitmCatalog (minified) | 2,261 | 1,801 | 1.26× | Win |
+| CitmCatalog (prettified) | 4,217 | 3,626 | 1.16× | Win |
+| Discord (minified) | 2,316 | 1,830 | 1.27× | Win |
+| Discord (prettified) | 3,302 | 2,603 | 1.27× | Win |
+| Github Events (minified) | 1,935 | 1,917 | 1.01× | Win |
+| Google Maps Response (minified) | 1,834 | 1,659 | 1.11× | Win |
+| Github Events (prettified) | 2,308 | 2,315 | 1.00× | **Loss** |
+| Google Maps Response (prettified) | 3,444 | 3,317 | 1.04× | Win |
+| Instruments (minified) | 2,475 | 1,810 | 1.37× | Win |
+| Instruments (prettified) | 3,826 | 2,870 | 1.33× | Win |
+| Marine IK Reverse (minified) | 800 | 763 | 1.05× | Win |
+| Marine IK Reverse (prettified) | 2,794 | 2,641 | 1.06× | Win |
+| Marine IK (minified) | 799 | 752 | 1.06× | Win |
+| Marine IK (prettified) | 2,851 | 2,677 | 1.06× | Win |
+| Random (minified) | 1,527 | 1,550 | 0.99× | **Loss** |
+| Random (prettified) | 2,179 | 2,275 | 0.96× | **Loss** |
+| Twitter (minified) | 2,048 | 1,870 | 1.10× | Win |
+| Twitter (prettified) | 2,491 | 2,406 | 1.04× | Win |
+| Apache Builds Small (minified) | 2,363 | 1,983 | 1.19× | Win |
+| Canada Small (minified) | 929 | 854 | 1.09× | Win |
+| Apache Builds Small (prettified) | 2,771 | 2,497 | 1.11× | Win |
+| Canada Small (prettified) | 2,225 | 2,003 | 1.11× | Win |
+| CitmCatalog Small (minified) | 1,698 | 1,362 | 1.25× | Win |
+| CitmCatalog Small (prettified) | 2,786 | 2,344 | 1.19× | Win |
+| Discord Small (minified) | 2,059 | 1,813 | 1.14× | Win |
+| Discord Small (prettified) | 2,667 | 2,436 | 1.09× | Win |
+| Github Events Small (minified) | 2,085 | 1,988 | 1.05× | Win |
+| Google Maps Response Small (minified) | 1,756 | 1,677 | 1.05× | Win |
+| Github Events Small (prettified) | 2,423 | 2,433 | 1.00× | Tie |
+| Google Maps Response Small (prettified) | 3,232 | 3,256 | 0.99× | **Loss** |
+| Instruments Small (minified) | 2,267 | 1,813 | 1.25× | Win |
+| Instruments Small (prettified) | 3,483 | 2,945 | 1.18× | Win |
+| Marine IK Reverse Small (minified) | 848 | 736 | 1.15× | Win |
+| Marine IK Reverse Small (prettified) | 2,997 | 2,633 | 1.14× | Win |
+| Marine IK Small (minified) | 915 | 739 | 1.24× | Win |
+| Marine IK Small (prettified) | 3,227 | 2,663 | 1.21× | Win |
+| Random Small (minified) | 1,835 | 1,460 | 1.26× | Win |
+| Random Small (prettified) | 2,636 | 2,226 | 1.18× | Win |
+| Twitter Small (minified) | 2,479 | 2,130 | 1.16× | Win |
+| Twitter Small (prettified) | 3,139 | 2,709 | 1.16× | Win |
 
 **macOS / GCC 16.2 (Apple M2 Pro, NEON)**
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 1,241 | 970 | 1.28× | Win |
-| Canada (minified) | 690 | 644 | 1.07× | Win |
-| Apache Builds (prettified) | 1,665 | 1,336 | 1.25× | Win |
-| Canada (prettified) | 1,412 | 1,418 | 1.00× | Tie |
-| CitmCatalog (minified) | 1,448 | 1,275 | 1.14× | Win |
-| CitmCatalog (prettified) | 2,774 | 2,150 | 1.29× | Win |
-| Discord (minified) | 1,621 | 1,049 | 1.54× | Win |
-| Discord (prettified) | 1,855 | 1,518 | 1.22× | Win |
-| Github Events (minified) | 1,456 | 1,298 | 1.12× | Win |
-| Google Maps Response (minified) | 1,314 | 1,103 | 1.19× | Win |
-| Github Events (prettified) | 1,843 | 1,506 | 1.22× | Win |
-| Google Maps Response (prettified) | 2,369 | 1,888 | 1.26× | Win |
-| Instruments (minified) | 1,789 | 1,312 | 1.36× | Win |
-| Instruments (prettified) | 2,599 | 1,982 | 1.31× | Win |
-| Marine IK Reverse (minified) | 591 | 586 | 1.01× | Win |
-| Marine IK Reverse (prettified) | 1,800 | 1,817 | 0.99× | Tie |
-| Marine IK (minified) | 583 | 545 | 1.07× | Win |
-| Marine IK (prettified) | 1,925 | 1,745 | 1.10× | Win |
-| Random (minified) | 1,301 | 901 | 1.44× | Win |
-| Random (prettified) | 1,691 | 1,319 | 1.28× | Win |
-| Twitter (minified) | 1,754 | 1,156 | 1.52× | Win |
-| Twitter (prettified) | 1,932 | 1,528 | 1.26× | Win |
-| Apache Builds Small (minified) | 1,818 | 1,275 | 1.43× | Win |
-| Canada Small (minified) | 726 | 708 | 1.03× | Win |
-| Apache Builds Small (prettified) | 2,097 | 1,428 | 1.47× | Win |
-| Canada Small (prettified) | 1,584 | 1,447 | 1.10× | Win |
-| CitmCatalog Small (minified) | 1,090 | 1,015 | 1.07× | Win |
-| CitmCatalog Small (prettified) | 2,138 | 1,499 | 1.43× | Win |
-| Discord Small (minified) | 1,596 | 1,213 | 1.32× | Win |
-| Discord Small (prettified) | 1,754 | 1,512 | 1.16× | Win |
-| Github Events Small (minified) | 1,448 | 1,258 | 1.15× | Win |
-| Google Maps Response Small (minified) | 1,505 | 1,046 | 1.44× | Win |
-| Github Events Small (prettified) | 1,868 | 1,342 | 1.39× | Win |
-| Google Maps Response Small (prettified) | 2,540 | 1,753 | 1.45× | Win |
-| Instruments Small (minified) | 1,748 | 1,257 | 1.39× | Win |
-| Instruments Small (prettified) | 2,433 | 1,596 | 1.52× | Win |
-| Marine IK Reverse Small (minified) | 573 | 607 | 0.94× | **Loss** |
-| Marine IK Reverse Small (prettified) | 1,950 | 1,878 | 1.04× | Win |
-| Marine IK Small (minified) | 595 (n/c) | 565 | 1.05× | Win |
-| Marine IK Small (prettified) | 2,186 | 2,039 | 1.07× | Win |
-| Random Small (minified) | 1,343 | 947 | 1.42× | Win |
-| Random Small (prettified) | 1,715 | 1,385 | 1.24× | Win |
-| Twitter Small (minified) | 2,166 | 1,432 | 1.51× | Win |
-| Twitter Small (prettified) | 2,359 | 1,750 | 1.35× | Win |
+| Apache Builds (minified) | 1,633 | 1,148 | 1.42× | Win |
+| Canada (minified) | 737 | 762 | 0.97× | **Loss** |
+| Apache Builds (prettified) | 1,862 | 1,458 | 1.28× | Win |
+| Canada (prettified) | 1,597 | 1,631 | 0.98× | **Loss** |
+| CitmCatalog (minified) | 1,616 | 1,294 | 1.25× | Win |
+| CitmCatalog (prettified) | 3,055 | 2,455 | 1.24× | Win |
+| Discord (minified) | 1,688 | 1,305 | 1.29× | Win |
+| Discord (prettified) | 2,235 | 1,791 | 1.25× | Win |
+| Github Events (minified) | 1,961 | 1,486 | 1.32× | Win |
+| Google Maps Response (minified) | 1,456 | 1,279 | 1.14× | Win |
+| Github Events (prettified) | 2,128 | 1,745 | 1.22× | Win |
+| Google Maps Response (prettified) | 2,523 | 2,264 | 1.11× | Win |
+| Instruments (minified) | 1,842 | 1,419 | 1.30× | Win |
+| Instruments (prettified) | 2,670 | 2,139 | 1.25× | Win |
+| Marine IK Reverse (minified) | 609 | 657 | 0.93× | **Loss** |
+| Marine IK Reverse (prettified) | 2,096 | 2,147 | 0.98× | **Loss** |
+| Marine IK (minified) | 598 | 629 | 0.95× | **Loss** |
+| Marine IK (prettified) | 2,036 | 2,063 | 0.99× | **Loss** |
+| Random (minified) | 1,378 | 982 | 1.40× | Win |
+| Random (prettified) | 1,868 | 1,431 | 1.30× | Win |
+| Twitter (minified) | 2,129 | 1,495 | 1.42× | Win |
+| Twitter (prettified) | 2,591 | 1,905 | 1.36× | Win |
+| Apache Builds Small (minified) | 1,845 | 1,397 | 1.32× | Win |
+| Canada Small (minified) | 724 | 663 | 1.09× | Win |
+| Apache Builds Small (prettified) | 2,126 | 1,707 | 1.25× | Win |
+| Canada Small (prettified) | 1,641 | 1,541 | 1.06× | Win |
+| CitmCatalog Small (minified) | 1,338 | 1,103 | 1.21× | Win |
+| CitmCatalog Small (prettified) | 2,156 | 1,760 | 1.23× | Win |
+| Discord Small (minified) | 1,814 | 1,322 | 1.37× | Win |
+| Discord Small (prettified) | 2,264 | 1,717 | 1.32× | Win |
+| Github Events Small (minified) | 1,725 | 1,335 | 1.29× | Win |
+| Google Maps Response Small (minified) | 1,427 | 1,198 | 1.19× | Win |
+| Github Events Small (prettified) | 2,061 | 1,674 | 1.23× | Win |
+| Google Maps Response Small (prettified) | 2,475 | 2,159 | 1.15× | Win |
+| Instruments Small (minified) | 1,867 | 1,411 | 1.32× | Win |
+| Instruments Small (prettified) | 2,662 | 2,190 | 1.22× | Win |
+| Marine IK Reverse Small (minified) | 641 | 640 | 1.00× | Tie |
+| Marine IK Reverse Small (prettified) | 2,216 | 2,122 | 1.04× | Win |
+| Marine IK Small (minified) | 697 | 650 | 1.07× | Win |
+| Marine IK Small (prettified) | 2,314 | 2,073 | 1.12× | Win |
+| Random Small (minified) | 1,414 | 1,032 | 1.37× | Win |
+| Random Small (prettified) | 1,365 | 1,548 | 0.88× | **Loss** |
+| Twitter Small (minified) | 2,182 | 1,582 | 1.38× | Win |
+| Twitter Small (prettified) | 2,571 | 1,953 | 1.32× | Win |
 
-In the freshly allocated run, two-stage Jsonifier wins 75 of these 88 tests, ties 1 and loses 12, by up to 21%. Six of the losses are on Linux/GCC: prettified Apache Builds, minified Canada, minified and prettified Github Events, and minified and prettified Github Events Small (0.98×, 0.97×, 0.98×, 0.99×, 0.96× and 0.95×). The other six are on macOS/GCC: minified and prettified Canada, minified Marine IK, prettified Discord Small and Github Events Small, and minified Marine IK Reverse Small (0.88×, 0.79×, 0.98×, 0.94×, 0.91× and 0.97×). The tie is minified Discord on macOS/GCC (1.00×). With the fused path instead, Jsonifier beats the reflection reader on 76, ties 2 and loses 10. With objects reused, two-stage Jsonifier wins 84, ties 2 and loses 2: minified Canada on Linux/GCC (921 against 971 MB/s) and minified Marine IK Reverse Small on macOS/GCC (573 against 607); the ties are prettified Canada and Marine IK Reverse on macOS/GCC. The fused path beats the reflection reader on 80, ties 2 and loses 6. We have not profiled these losses. Verdicts are Welch's t-tests, not ratio thresholds, so a row near 1.00× can go either way: freshly allocated prettified Github Events on Linux/GCC (1,858 against 1,883 MB/s, 0.99×) is a loss, while reused prettified Marine IK Reverse on macOS/GCC (1,800 against 1,817) is a tie.
+In the freshly allocated run, two-stage Jsonifier wins 70 of these 88 tests and loses 18, by up to 11% (prettified Github Events on Linux/GCC, 1,781 against 1,993 MB/s). Twelve of the losses are on Linux/GCC: both forms of Apache Builds, Canada, Github Events and Random, prettified Twitter, both forms of Github Events Small and prettified Google Maps Response Small. The other six are on macOS/GCC: both forms of Canada, Marine IK and Marine IK Reverse (0.94× to 0.99×). With the fused path instead, Jsonifier beats the reflection reader on 86 and loses 2. With objects reused, two-stage Jsonifier wins 73, ties 2 and loses 13, six on Linux/GCC and seven on macOS/GCC, by up to 12% (prettified Random Small on macOS/GCC, 1,365 against 1,548 MB/s); the ties are prettified Github Events Small on Linux/GCC and minified Marine IK Reverse Small on macOS/GCC. The fused path beats the reflection reader on 85, ties 1 and loses 2. We have not profiled these losses. Verdicts are Welch's t-tests, not ratio thresholds, so a row near 1.00× can go either way: reused prettified Github Events on Linux/GCC (2,308 against 2,315 MB/s, 1.00×) is a loss, while reused prettified Github Events Small on the same build (2,423 against 2,433) is a tie.
 
 ### 2.6 Partial reading: where the tape earns its keep
 
-The harness has one test built for the workload the tape exists for. "Twitter Partial" parses the Twitter document, and its Small copy, into a type that holds three fields per status (`text`, `user.screen_name` and `retweet_count`) and skips everything else. The harness reads the keys without assuming their order, and simdjson On Demand reads the same three fields. The harness requires stage 1 and stage 2 for this test, so both Jsonifier rows run the two-stage path; the table uses the "jsonifier (two-stage)" row. The two rows agree within 4% on 34 of the 40 results; the widest gap is freshly allocated minified Twitter Small on macOS/Clang, where the two-stage row runs at 3,558 MB/s against the "jsonifier" row's 2,984. Results that did not converge are marked n/c.
+The harness has one test built for the workload the tape exists for. "Twitter Partial" parses the Twitter document, and its Small copy, into a type that holds three fields per status (`text`, `user.screen_name` and `retweet_count`) and skips everything else. The harness reads the keys without assuming their order, and simdjson On Demand reads the same three fields. The harness requires stage 1 and stage 2 for this test, so both Jsonifier rows run the two-stage path; the table uses the "jsonifier (two-stage)" row. The two rows agree within 4% on 33 of the 40 results; the widest gap is freshly allocated minified Twitter Small on macOS/Clang, where the two-stage row runs at 2,981 MB/s against the "jsonifier" row's 3,500. Results that did not converge are marked n/c.
 
 #### Freshly allocated objects
 
 | Platform / Compiler | Document | Jsonifier stage 1 + 2 (MB/s) | simdjson On Demand (MB/s) | Jsonifier ÷ simdjson | Verdict |
 |---|---|---|---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (minified) | 6,633 | 4,199 | 1.58× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (prettified) | 7,517 | 5,143 | 1.46× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (minified) | 4,622 | 3,755 | 1.23× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (prettified) | 5,352 | 4,603 | 1.16× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (minified) | 8,176 | 6,884 | 1.19× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (prettified) | 9,369 | 8,279 | 1.13× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,658 | 5,553 | 1.02× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,333 | 6,543 | 0.97× | Loss |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (minified) | 7,944 | 6,791 | 1.17× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (prettified) | 9,057 | 8,177 | 1.11× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,473 | 5,442 | 1.01× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,667 | 6,532 | 1.02× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (minified) | 4,828 | 3,879 | 1.24× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (prettified) | 5,000 | 4,237 | 1.18× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (minified) | 3,645 | 3,485 | 1.05× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 3,948 | 4,093 | 0.96× | Tie |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (minified) | 4,998 | 3,321 | 1.51× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (prettified) | 4,850 | 4,226 | 1.15× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (minified) | 3,558 | 3,420 | 1.04× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,119 | 3,988 | 1.03× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (minified) | 7,049 | 4,184 | 1.68× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (prettified) | 8,081 | 5,254 | 1.54× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,311 | 3,958 | 1.34× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,141 | 4,921 | 1.25× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (minified) | 8,135 | 6,954 | 1.17× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (prettified) | 9,325 | 8,287 | 1.13× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,628 | 5,587 | 1.01× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,480 | 6,786 | 0.95× | Loss |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (minified) | 8,498 | 7,061 | 1.20× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (prettified) | 9,451 | 8,292 | 1.14× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,928 | 5,599 | 1.06× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,816 | 6,717 | 1.01× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (minified) | 5,055 | 3,855 | 1.31× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (prettified) | 5,300 | 4,443 | 1.19× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (minified) | 4,087 | 3,733 | 1.09× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,498 | 4,343 | 1.04× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (minified) | 4,564 | 2,909 | 1.57× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (prettified) | 4,036 | 3,933 | 1.03× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (minified) | 2,981 | 3,334 | 0.89× | Loss |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,120 | 4,060 | 1.01× | Win |
 
 #### Reused objects
 
 | Platform / Compiler | Document | Jsonifier stage 1 + 2 (MB/s) | simdjson On Demand (MB/s) | Jsonifier ÷ simdjson | Verdict |
 |---|---|---|---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (minified) | 6,843 | 4,350 | 1.57× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (prettified) | 7,665 | 5,284 | 1.45× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,195 | 4,135 | 1.26× | Win |
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (prettified) | 5,897 | 5,087 | 1.16× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (minified) | 8,188 | 7,008 | 1.17× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (prettified) | 9,340 | 8,307 | 1.12× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,690 | 5,578 | 1.02× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,458 | 6,709 | 0.96× | Loss |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (minified) | 8,135 | 6,956 | 1.17× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (prettified) | 9,151 | 8,262 | 1.11× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,754 | 5,611 | 1.03× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,827 | 6,826 | 1.00× | Tie |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (minified) | 5,059 | 3,824 | 1.32× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (prettified) | 5,676 | 4,026 | 1.41× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (minified) | 4,120 | 3,565 | 1.16× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,431 | 3,636 | 1.22× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (minified) | 4,167 | 3,968 | 1.05× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (prettified) | 5,280 | 4,074 | 1.30× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (minified) | 3,884 | 3,633 | 1.07× | Win |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,261 | 4,177 | 1.02× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (minified) | 7,116 | 4,435 | 1.60× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter (prettified) | 8,335 | 5,400 | 1.54× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,756 | 4,339 | 1.33× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,583 | 5,311 | 1.24× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (minified) | 8,277 | 7,091 | 1.17× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter (prettified) | 9,622 | 8,434 | 1.14× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (minified) | 5,877 | 5,778 | 1.02× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | Twitter Small (prettified) | 6,627 | 6,933 | 0.96× | Loss |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (minified) | 8,606 | 7,170 | 1.20× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter (prettified) | 9,722 | 8,483 | 1.15× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (minified) | 6,122 | 5,757 | 1.06× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | Twitter Small (prettified) | 7,107 | 7,017 | 1.01× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (minified) | 5,143 | 3,926 | 1.31× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter (prettified) | 5,416 | 4,607 | 1.18× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (minified) | 4,282 | 3,933 | 1.09× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,678 | 4,496 | 1.04× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (minified) | 4,009 | 3,035 | 1.32× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter (prettified) | 4,197 | 3,558 | 1.18× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (minified) | 3,891 | 2,991 | 1.30× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | Twitter Small (prettified) | 4,320 | 3,458 | 1.25× | Win |
 
-Jsonifier wins 36 of the 40 results, ties 2 and loses 2, and wins by up to 1.58× (minified Twitter under MSVC, freshly allocated). Freshly allocated it wins 18, ties 1 and loses 1: the tie is prettified Twitter Small on macOS/GCC (0.96×), and the loss is prettified Twitter Small on Linux/Clang (0.97×). The reused run also has 18 wins, 1 tie and 1 loss: the tie is prettified Twitter Small on Linux/GCC (1.00×), and the loss is prettified Twitter Small on Linux/Clang (0.96×). Every full-size result is a win, by 1.11× to 1.58× on the three x86 builds and 1.05× to 1.51× on the M2 Pro. Throughput is counted over the whole document, so these figures run well above the full-parse ones: unrequested bytes are skipped through the tape instead of being walked. On the full-size document this is the one test in the sweep where the index is unambiguously the right tool, and it is the reason the two-stage machinery stays in Jsonifier even though full-document parsing does not route through it.
+Jsonifier wins 37 of the 40 results and loses 3, and wins by up to 1.68× (minified Twitter under MSVC, freshly allocated). Freshly allocated it wins 18 and loses 2: prettified Twitter Small on Linux/Clang (0.95×) and minified Twitter Small on macOS/Clang (0.89×). Reused it wins 19 and loses 1, prettified Twitter Small on Linux/Clang (0.96×). Every full-size result is a win, by 1.13× to 1.68× on the three x86 builds and 1.03× to 1.57× on the M2 Pro. Throughput is counted over the whole document, so these figures run well above the full-parse ones: unrequested bytes are skipped through the tape instead of being walked. On the full-size document this is the one test in the sweep where the index is unambiguously the right tool, and it is the reason the two-stage machinery stays in Jsonifier even though full-document parsing does not route through it.
 
 ### 2.7 Validation
 
-The sweep's "Validate" test checks a 617 KiB document for well-formedness without materializing anything, against Glaze's validator; simdjson is not registered for it, and it runs freshly allocated only. Jsonifier wins on four of the five builds, by 1.25× to 1.37×, and loses on macOS/GCC:
+The sweep's "Validate" test checks a 617 KiB document for well-formedness without materializing anything, against Glaze's validator; simdjson is not registered for it, and it runs freshly allocated only. Jsonifier wins on all five builds, by 1.09× to 1.27×:
 
 | Platform / Compiler | Jsonifier (MB/s) | Glaze (MB/s) | Jsonifier ÷ Glaze | Verdict |
 |---|---|---|---|---|
-| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 3,000 | 2,398 | 1.25× | Win |
-| Linux / Clang 24.0 (i9-14900KF, AVX2) | 3,579 | 2,616 | 1.37× | Win |
-| Linux / GCC 16.2 (i9-14900KF, AVX2) | 2,983 | 2,173 | 1.37× | Win |
-| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 1,798 | 1,942 | 0.93× | Loss |
-| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 2,259 | 1,796 | 1.26× | Win |
+| Windows / MSVC 19.52 (i9-14900KF, AVX2) | 2,961 | 2,559 | 1.16× | Win |
+| Linux / Clang 24.0 (i9-14900KF, AVX2) | 3,224 | 2,615 | 1.23× | Win |
+| Linux / GCC 16.2 (i9-14900KF, AVX2) | 2,658 | 2,194 | 1.21× | Win |
+| macOS / GCC 16.2 (Apple M2 Pro, NEON) | 2,228 | 2,040 | 1.09× | Win |
+| macOS / Clang 23.1 (Apple M2 Pro, NEON) | 1,931 | 1,524 | 1.27× | Win |
 
-The narrowest win is under MSVC, 1.25× (3,000 against 2,398 MB/s), and the loss on macOS/GCC is 0.93× (1,798 against 1,942 MB/s).
+The narrowest win is on macOS/GCC, 1.09× (2,228 against 2,040 MB/s), and the widest on macOS/Clang, 1.27× (1,931 against 1,524 MB/s).
 
 ### 2.8 AVX-512 builds
 
-Every result above comes from AVX2 and NEON builds. The same tests also ran on three AVX-512 builds, Linux / Clang 24.0, Linux / GCC 16.2 and Windows / MSVC 19.51, on cloud-hosted CI runners with an AMD EPYC 9V45 (Zen 5) processor, from the Json-Performance branch `benchmarking-avx512-main` at the same commits as §2.1, on November 17, 2026. Jsonifier and both of its paths run their AVX-512 kernels, and simdjson runs its `icelake` kernel. Sampling, convergence limits (RSE under 5%, mean shift under 2.5%) and verdicts are as in §2.1. The Linux / GCC build also runs the reflection reader of §2.5. The runners are shared virtual machines, and the CPU, operating-system images and MSVC version differ from the AVX2 builds, so a result here cannot be set against the matching AVX2 result to isolate the instruction set; every comparison below is within one build.
+Every result above comes from AVX2 and NEON builds. The same tests also ran on three AVX-512 builds, Linux / Clang 24.0, Linux / GCC 16.2 and Windows / MSVC 19.52, on cloud-hosted CI runners with an AMD EPYC 9V45 (Zen 5) processor, from the Json-Performance branch `benchmarking-avx512-main` at the same commits as §2.1, on November 23, 2026. Jsonifier and both of its paths run their AVX-512 kernels, and simdjson runs its `icelake` kernel. Sampling, convergence limits (RSE under 5%, mean shift under 2.5%) and verdicts are as in §2.1. The Linux / GCC build also runs the reflection reader of §2.5. The runners are shared virtual machines, and the CPU and operating-system images differ from the AVX2 builds, so a result here cannot be set against the matching AVX2 result to isolate the instruction set; every comparison below is within one build.
 
-- **The routing split holds.** Freshly allocated, the fused path wins 79 of the 147 tests, 2 are ties and the tape wins 66; reused, 78, 1 and 68. Freshly allocated, the fused path wins all 15 POD-type tests (1.36× for String under MSVC to 5.34× for Bool on Linux / GCC) and 64 of the 66 minified documents. The tape takes minified Github Events on Linux / Clang (0.97×) and Apache Builds Small on Linux / GCC (0.99×). The tape wins 64 of the 66 prettified documents, and the other two are ties, prettified Canada under MSVC and on Linux / Clang. Its margins reach 1.57× (Instruments on Linux / Clang, 3,370 against 2,146 MB/s) and 1.67× on the Small copy.
-- **Against simdjson, the faster Jsonifier path wins 146 of 147 freshly allocated and 144 of 147 reused.** All of its non-wins are on Linux / GCC: prettified Random (0.98×) is the one loss freshly allocated; reused, prettified Random (0.98×) is a loss and prettified Apache Builds and minified Random are ties. The fused path alone wins 139, ties 2 and loses 6 freshly allocated, and wins 137, ties 3 and loses 7 reused; all of the freshly allocated non-wins are prettified documents, four of the six losses on Linux / GCC.
-- **Stage 1 + reflection on Linux / GCC.** Against simdjson's reflection reader, two-stage Jsonifier wins 29 of the 44 corpus tests freshly allocated, ties 4 (prettified Discord, prettified Random Small and both forms of Twitter Small) and loses 11, by up to 16% (minified Github Events, 0.84×). Reused it wins 37 and loses 7, by up to 11% (minified Random, 0.89×). With the fused path instead, Jsonifier beats the reflection reader on 29 freshly allocated and 31 reused.
-- **Reverse key order costs simdjson most under MSVC.** On this build simdjson parses minified Marine IK Reverse at 126 MB/s against 220 MB/s in declared order, and the faster Jsonifier path is 5.51× faster freshly allocated (6.00× reused); on the prettified form it is 4.44× faster (4.75× reused). On both Linux builds simdjson reads the full-size reversed document within 4% of the declared one, and the faster Jsonifier path is 1.36× (Linux / Clang) and 1.54× (Linux / GCC) faster on the minified form, and 1.29× and 1.31× on the prettified form.
-- **Partial reading.** Freshly allocated, Jsonifier wins all four Twitter Partial results under MSVC (2.56× to 2.59× full-size, 1.73× to 1.83× Small) and both full-size results on Linux / Clang (1.27× and 1.33×); on Linux / GCC it wins prettified Twitter (1.14×) and ties minified Twitter (1.00×), and it loses both Small copies on both Linux builds (0.86× to 0.96×), for 7 wins, 1 tie and 4 losses. Reused it wins every full-size result (2.48× to 2.57× under MSVC, 1.27× to 1.41× on Linux / Clang, 1.06× to 1.13× on Linux / GCC), both Small copies under MSVC and prettified Twitter Small on Linux / Clang (1.03×), for 9 wins and 3 losses.
-- **Validation.** Jsonifier wins on all three builds, by 1.23× under MSVC, 1.59× on Linux / Clang and 1.29× on Linux / GCC.
+- **The routing split holds.** Freshly allocated, across the 132 corpus tests the fused path wins 109, 6 are ties and the tape wins 17; reused, 108, 6 and 18. Freshly allocated, the fused path wins 64 of the 66 minified documents; minified Canada under MSVC is a tie and the tape takes Apache Builds Small under MSVC (0.98×). On prettified input the fused path wins 45 of 66, with 5 ties, by up to 1.18× (Github Events on Linux / GCC) on the full-size documents and 1.49× (Marine IK Reverse Small under MSVC) on the Small ones. The tape's 16 prettified wins sit in the Marine IK family and the number-heavy Canada and CitmCatalog documents, plus Instruments Small on Linux / GCC.
+- **Against simdjson, the faster Jsonifier path wins 145 of 147 freshly allocated and 144 of 147 reused.** All of its non-wins are under MSVC except one: freshly allocated, prettified Twitter Small (0.98×) is the one loss and prettified Apache Builds a tie; reused, prettified Apache Builds (0.95×) and Apache Builds Small (0.97×) are losses and prettified Canada on Linux / Clang is a tie. The fused path alone has the same record in both runs.
+- **Stage 1 + reflection on Linux / GCC.** Against simdjson's reflection reader, two-stage Jsonifier wins 30 of the 44 corpus tests freshly allocated, ties 1 (prettified Twitter Small) and loses 13, by up to 15% (minified Github Events Small, 0.85×). Reused it wins 33 and loses 11, by up to 9% (prettified Github Events Small, 0.91×). With the fused path instead, Jsonifier beats the reflection reader on 41 freshly allocated and all 44 reused.
+- **Reverse key order costs simdjson most under MSVC.** On this build simdjson parses minified Marine IK Reverse at 125 MB/s (n/c) against 217 MB/s in declared order, and the faster Jsonifier path is 5.10× faster freshly allocated (5.77× reused); on the prettified form it is 4.55× faster (4.53× reused). On both Linux builds simdjson reads the full-size reversed document within 4% of the declared one, and the faster Jsonifier path is 1.39× (Linux / Clang) and 1.51× (Linux / GCC) faster on the minified form, and 1.25× and 1.28× on the prettified form.
+- **Partial reading.** Freshly allocated, Jsonifier wins all four Twitter Partial results under MSVC (2.04× to 2.43× full-size, 1.61× to 2.52× Small) and all four on Linux / Clang (1.25× to 1.35× full-size, 1.06× to 1.10× Small); on Linux / GCC it wins both full-size results (1.02× and 1.05×) and loses both Small copies (0.90×), for 10 wins and 2 losses. Reused it wins every result except prettified Twitter Small on Linux / GCC (0.96×): 2.06× to 2.25× full-size under MSVC, 1.28× to 1.37× on Linux / Clang and 1.04× to 1.05× on Linux / GCC, for 11 wins and 1 loss.
+- **Validation.** Jsonifier wins on all three builds, by 1.27× under MSVC, 1.56× on Linux / Clang and 1.27× on Linux / GCC.
 
 #### Freshly allocated objects
 
 | Platform / Compiler | Fused faster | Tie | Two-stage faster | Tests converged |
 |---|---|---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | 27 | 1 | 21 | 46 of 49 |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 26 | 1 | 22 | 49 of 49 |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 26 | 0 | 23 | 48 of 49 |
-| **Aggregate** | **79** | **2** | **66** | **143 of 147** |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | 34 | 6 | 4 | 42 of 44 |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 37 | 0 | 7 | 44 of 44 |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 38 | 0 | 6 | 43 of 44 |
+| **Aggregate** | **109** | **6** | **17** | **129 of 132** |
 
 | Platform / Compiler | Best Jsonifier path (W / T / L) | Fused path alone (W / T / L) |
 |---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 48 / 0 / 1 |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 47 / 1 / 1 |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 48 / 0 / 1 | 44 / 1 / 4 |
-| **Aggregate** | **146 / 0 / 1** | **139 / 2 / 6** |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | 47 / 1 / 1 | 47 / 1 / 1 |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 49 / 0 / 0 |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 49 / 0 / 0 |
+| **Aggregate** | **145 / 1 / 1** | **145 / 1 / 1** |
 
-**Windows / MSVC 19.51 (EPYC 9V45, AVX-512)**
+**Windows / MSVC 19.52 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 436 | 157 | 68 | 2.77× | Fused | Win |
-| Double (POD) | 849 | 338 | 134 | 2.51× | Fused | Win |
-| Int64 (POD) | 1,494 | 391 | 296 | 3.82× | Fused | Win |
-| String (POD) | 864 | 635 | 518 | 1.36× | Fused | Win |
-| Uint64 (POD) | 1,347 | 548 | 301 | 2.46× | Fused | Win |
-| Apache Builds (minified) | 823 | 791 | 692 | 1.04× | Fused | Win |
-| Canada (minified) | 592 | 554 | 194 (n/c) | 1.07× | Fused | Win |
-| Apache Builds (prettified) | 962 | 1,019 | 867 | 0.94× | Two-stage | Win |
-| Canada (prettified) | 1,269 | 1,253 | 440 (n/c) | 1.01× | Tie | Win |
-| CitmCatalog (minified) | 1,325 | 1,139 | 573 | 1.16× | Fused | Win |
-| CitmCatalog (prettified) | 2,151 | 2,425 | 1,234 | 0.89× | Two-stage | Win |
-| Discord (minified) | 1,211 | 950 | 700 | 1.27× | Fused | Win |
-| Discord (prettified) | 1,316 | 1,386 | 1,012 | 0.95× | Two-stage | Win |
-| Github Events (minified) | 1,007 | 970 | 610 | 1.04× | Fused | Win |
-| Google Maps Response (minified) | 1,282 | 1,084 | 533 | 1.18× | Fused | Win |
-| Github Events (prettified) | 1,051 | 1,178 | 745 | 0.89× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,180 | 2,222 | 1,062 | 0.98× | Two-stage | Win |
-| Instruments (minified) | 1,516 | 1,124 | 737 | 1.35× | Fused | Win |
-| Instruments (prettified) | 1,653 | 1,829 | 1,129 | 0.90× | Two-stage | Win |
-| Marine IK Reverse (minified) | 695 | 584 | 126 | 1.19× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,013 | 2,147 | 484 | 0.94× | Two-stage | Win |
-| Marine IK (minified) | 679 | 597 | 220 | 1.14× | Fused | Win |
-| Marine IK (prettified) | 2,105 | 2,192 | 804 (n/c) | 0.96× | Two-stage | Win |
-| Random (minified) | 709 | 633 | 501 | 1.12× | Fused | Win |
-| Random (prettified) | 923 | 954 | 707 | 0.97× | Two-stage | Win |
-| Twitter (minified) | 1,275 | 1,113 | 875 | 1.15× | Fused | Win |
-| Twitter (prettified) | 1,280 | 1,499 | 1,163 | 0.85× | Two-stage | Win |
-| Apache Builds Small (minified) | 964 | 921 | 640 | 1.05× | Fused | Win |
-| Canada Small (minified) | 529 | 488 | 161 | 1.08× | Fused | Win |
-| Apache Builds Small (prettified) | 1,059 | 1,175 | 828 | 0.90× | Two-stage | Win |
-| Canada Small (prettified) | 1,108 | 1,195 | 394 | 0.93× | Two-stage | Win |
-| CitmCatalog Small (minified) | 777 | 680 | 422 | 1.14× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,103 | 1,204 | 745 | 0.92× | Two-stage | Win |
-| Discord Small (minified) | 963 | 793 | 645 | 1.21× | Fused | Win |
-| Discord Small (prettified) | 1,065 | 1,094 | 853 | 0.97× | Two-stage | Win |
-| Github Events Small (minified) | 910 | 828 | 540 | 1.10× | Fused | Win |
-| Google Maps Response Small (minified) | 1,142 | 950 | 491 | 1.20× | Fused | Win |
-| Github Events Small (prettified) | 910 | 1,063 | 680 | 0.86× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 1,889 | 1,921 | 1,020 | 0.98× | Two-stage | Win |
-| Instruments Small (minified) | 1,415 | 1,028 | 674 | 1.38× | Fused | Win |
-| Instruments Small (prettified) | 1,546 | 1,722 | 1,093 | 0.90× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 438 | 428 | 97 | 1.02× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,280 | 1,589 | 354 | 0.81× | Two-stage | Win |
-| Marine IK Small (minified) | 484 | 451 | 177 | 1.07× | Fused | Win |
-| Marine IK Small (prettified) | 1,488 | 1,698 | 661 | 0.88× | Two-stage | Win |
-| Random Small (minified) | 740 | 667 | 474 | 1.11× | Fused | Win |
-| Random Small (prettified) | 1,002 | 1,059 | 725 | 0.95× | Two-stage | Win |
-| Twitter Small (minified) | 1,562 | 1,285 | 1,190 | 1.22× | Fused | Win |
-| Twitter Small (prettified) | 1,401 | 1,670 | 1,550 | 0.84× | Two-stage | Win |
+| Bool (POD) | 521 | n/a | 155 | n/a | n/a | Win |
+| Double (POD) | 844 | n/a | 279 | n/a | n/a | Win |
+| Int64 (POD) | 876 | n/a | 277 | n/a | n/a | Win |
+| String (POD) | 584 | n/a | 389 | n/a | n/a | Win |
+| Uint64 (POD) | 796 | n/a | 259 | n/a | n/a | Win |
+| Apache Builds (minified) | 825 | 734 | 734 | 1.12× | Fused | Win |
+| Canada (minified) | 570 | 558 | 204 | 1.02× | Tie | Win |
+| Apache Builds (prettified) | 982 | 962 | 967 | 1.02× | Tie | Tie |
+| Canada (prettified) | 1,234 | 1,253 | 449 | 0.98× | Tie | Win |
+| CitmCatalog (minified) | 1,411 | 1,171 | 607 | 1.20× | Fused | Win |
+| CitmCatalog (prettified) | 2,433 | 2,411 | 1,379 | 1.01× | Fused | Win |
+| Discord (minified) | 1,290 | 973 | 801 | 1.33× | Fused | Win |
+| Discord (prettified) | 1,652 | 1,451 | 1,161 | 1.14× | Fused | Win |
+| Github Events (minified) | 1,074 | 998 | 673 | 1.08× | Fused | Win |
+| Google Maps Response (minified) | 1,207 | 1,122 | 616 | 1.08× | Fused | Win |
+| Github Events (prettified) | 1,220 | 1,196 | 796 | 1.02× | Fused | Win |
+| Google Maps Response (prettified) | 2,151 | 2,038 | 1,303 | 1.06× | Fused | Win |
+| Instruments (minified) | 1,476 | 1,160 | 790 | 1.27× | Fused | Win |
+| Instruments (prettified) | 2,050 | 1,795 | 1,343 | 1.14× | Fused | Win |
+| Marine IK Reverse (minified) | 638 | 590 | 125 (n/c) | 1.08× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,040 | 2,171 (n/c) | 477 | 0.94× | Two-stage | Win |
+| Marine IK (minified) | 666 | 616 | 217 | 1.08× | Fused | Win |
+| Marine IK (prettified) | 2,229 | 2,150 | 861 | 1.04× | Fused | Win |
+| Random (minified) | 844 | 701 | 530 | 1.20× | Fused | Win |
+| Random (prettified) | 1,140 | 1,101 | 764 | 1.04× | Fused | Win |
+| Twitter (minified) | 1,375 | 1,091 | 991 | 1.26× | Fused | Win |
+| Twitter (prettified) | 1,544 | 1,454 | 1,300 | 1.06× | Fused | Win |
+| Apache Builds Small (minified) | 922 | 945 | 731 | 0.98× | Two-stage | Win |
+| Canada Small (minified) | 553 | 492 | 171 | 1.12× | Fused | Win |
+| Apache Builds Small (prettified) | 1,176 | 1,173 | 926 | 1.00× | Tie | Win |
+| Canada Small (prettified) | 1,232 | 1,238 | 439 | 1.00× | Two-stage | Win |
+| CitmCatalog Small (minified) | 742 | 697 | 454 | 1.06× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,205 | 1,206 | 784 | 1.00× | Tie | Win |
+| Discord Small (minified) | 1,140 | 956 | 677 | 1.19× | Fused | Win |
+| Discord Small (prettified) | 1,314 | 1,276 | 933 | 1.03× | Fused | Win |
+| Github Events Small (minified) | 968 | 861 | 603 | 1.12× | Fused | Win |
+| Google Maps Response Small (minified) | 1,077 | 974 | 608 | 1.11× | Fused | Win |
+| Github Events Small (prettified) | 1,070 | 1,081 | 793 | 0.99× | Tie | Win |
+| Google Maps Response Small (prettified) | 1,971 | 1,930 | 1,198 | 1.02× | Fused | Win |
+| Instruments Small (minified) | 1,506 | 1,083 | 841 | 1.39× | Fused | Win |
+| Instruments Small (prettified) | 1,951 | 1,778 | 1,391 | 1.10× | Fused | Win |
+| Marine IK Reverse Small (minified) | 431 | 423 | 103 | 1.02× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,398 | 936 | 399 | 1.49× | Fused | Win |
+| Marine IK Small (minified) | 491 | 439 | 197 | 1.12× | Fused | Win |
+| Marine IK Small (prettified) | 1,466 | 1,582 | 745 | 0.93× | Two-stage | Win |
+| Random Small (minified) | 894 | 804 | 515 | 1.11× | Fused | Win |
+| Random Small (prettified) | 1,248 | 1,181 | 783 | 1.06× | Fused | Win |
+| Twitter Small (minified) | 1,688 | 1,301 | 1,371 | 1.30× | Fused | Win |
+| Twitter Small (prettified) | 1,706 | 1,656 | 1,737 | 1.03× | Fused | Loss |
 
 **Linux / Clang 24.0 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,770 | 493 | 251 | 3.59× | Fused | Win |
-| Double (POD) | 1,245 | 442 | 292 | 2.82× | Fused | Win |
-| Int64 (POD) | 2,720 | 834 | 644 | 3.26× | Fused | Win |
-| String (POD) | 1,731 | 1,019 | 1,201 | 1.70× | Fused | Win |
-| Uint64 (POD) | 2,824 | 839 | 606 | 3.37× | Fused | Win |
-| Apache Builds (minified) | 1,561 | 1,433 | 1,036 | 1.09× | Fused | Win |
-| Canada (minified) | 781 | 719 | 688 | 1.09× | Fused | Win |
-| Apache Builds (prettified) | 1,679 | 1,793 | 1,356 | 0.94× | Two-stage | Win |
-| Canada (prettified) | 1,562 | 1,563 | 1,550 | 1.00× | Tie | Win |
-| CitmCatalog (minified) | 1,993 | 1,744 | 1,051 | 1.14× | Fused | Win |
-| CitmCatalog (prettified) | 2,949 | 3,585 | 2,235 | 0.82× | Two-stage | Win |
-| Discord (minified) | 2,073 | 1,695 | 787 | 1.22× | Fused | Win |
-| Discord (prettified) | 1,938 | 2,336 | 1,184 | 0.83× | Two-stage | Win |
-| Github Events (minified) | 1,598 | 1,647 | 989 | 0.97× | Two-stage | Win |
-| Google Maps Response (minified) | 2,286 | 1,752 | 899 | 1.31× | Fused | Win |
-| Github Events (prettified) | 1,449 | 2,001 | 1,185 | 0.72× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,995 | 3,329 | 1,845 | 0.90× | Two-stage | Win |
-| Instruments (minified) | 2,664 | 2,265 | 662 | 1.18× | Fused | Win |
-| Instruments (prettified) | 2,146 | 3,370 | 1,126 | 0.64× | Two-stage | Win |
-| Marine IK Reverse (minified) | 781 | 715 | 573 | 1.09× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,376 | 2,626 | 2,042 | 0.90× | Two-stage | Win |
-| Marine IK (minified) | 783 | 744 | 577 | 1.05× | Fused | Win |
-| Marine IK (prettified) | 2,406 | 2,445 | 2,082 | 0.98× | Two-stage | Win |
-| Random (minified) | 1,161 | 1,116 | 796 | 1.04× | Fused | Win |
-| Random (prettified) | 1,410 | 1,699 | 1,180 | 0.83× | Two-stage | Win |
-| Twitter (minified) | 1,726 | 1,686 | 872 | 1.02× | Fused | Win |
-| Twitter (prettified) | 1,648 | 2,118 | 1,129 | 0.78× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,404 | 2,342 | 1,453 | 1.03× | Fused | Win |
-| Canada Small (minified) | 905 | 842 | 696 | 1.08× | Fused | Win |
-| Apache Builds Small (prettified) | 2,276 | 2,835 | 1,878 | 0.80× | Two-stage | Win |
-| Canada Small (prettified) | 1,788 | 1,848 | 1,674 | 0.97× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,722 | 1,556 | 1,015 | 1.11× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,887 | 2,557 | 1,771 | 0.74× | Two-stage | Win |
-| Discord Small (minified) | 1,808 | 1,554 | 771 | 1.16× | Fused | Win |
-| Discord Small (prettified) | 1,637 | 2,119 | 1,093 | 0.77× | Two-stage | Win |
-| Github Events Small (minified) | 2,248 | 1,966 | 1,361 | 1.14× | Fused | Win |
-| Google Maps Response Small (minified) | 2,297 | 1,806 | 937 | 1.27× | Fused | Win |
-| Github Events Small (prettified) | 1,511 | 2,402 | 1,726 | 0.63× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,897 | 3,401 | 1,928 | 0.85× | Two-stage | Win |
-| Instruments Small (minified) | 2,635 | 2,196 | 624 | 1.20× | Fused | Win |
-| Instruments Small (prettified) | 1,970 | 3,293 | 1,038 | 0.60× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 821 | 718 | 521 | 1.14× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,009 | 2,472 | 1,816 | 0.81× | Two-stage | Win |
-| Marine IK Small (minified) | 863 | 802 | 509 | 1.08× | Fused | Win |
-| Marine IK Small (prettified) | 2,198 | 2,767 | 1,821 | 0.79× | Two-stage | Win |
-| Random Small (minified) | 1,679 | 1,511 | 864 | 1.11× | Fused | Win |
-| Random Small (prettified) | 1,759 | 2,214 | 1,318 | 0.79× | Two-stage | Win |
-| Twitter Small (minified) | 2,070 | 2,024 | 969 | 1.02× | Fused | Win |
-| Twitter Small (prettified) | 1,824 | 2,508 | 1,196 | 0.73× | Two-stage | Win |
+| Bool (POD) | 1,742 | n/a | 356 | n/a | n/a | Win |
+| Double (POD) | 1,174 | n/a | 398 | n/a | n/a | Win |
+| Int64 (POD) | 1,283 | n/a | 323 | n/a | n/a | Win |
+| String (POD) | 1,251 | n/a | 725 | n/a | n/a | Win |
+| Uint64 (POD) | 1,408 | n/a | 281 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,548 | 1,360 | 1,010 | 1.14× | Fused | Win |
+| Canada (minified) | 750 | 664 | 677 | 1.13× | Fused | Win |
+| Apache Builds (prettified) | 1,814 | 1,604 | 1,286 | 1.13× | Fused | Win |
+| Canada (prettified) | 1,508 | 1,553 | 1,459 | 0.97× | Two-stage | Win |
+| CitmCatalog (minified) | 1,962 | 1,661 | 980 | 1.18× | Fused | Win |
+| CitmCatalog (prettified) | 3,287 | 3,421 | 2,101 | 0.96× | Two-stage | Win |
+| Discord (minified) | 2,041 | 1,668 | 723 | 1.22× | Fused | Win |
+| Discord (prettified) | 2,574 | 2,354 | 1,035 | 1.09× | Fused | Win |
+| Github Events (minified) | 1,649 | 1,393 | 872 | 1.18× | Fused | Win |
+| Google Maps Response (minified) | 2,045 | 1,670 | 916 | 1.22× | Fused | Win |
+| Github Events (prettified) | 1,914 | 1,724 | 1,092 | 1.11× | Fused | Win |
+| Google Maps Response (prettified) | 3,159 | 2,926 | 1,822 | 1.08× | Fused | Win |
+| Instruments (minified) | 2,483 | 2,174 | 583 | 1.14× | Fused | Win |
+| Instruments (prettified) | 3,305 | 3,267 | 975 | 1.01× | Fused | Win |
+| Marine IK Reverse (minified) | 781 | 695 | 560 | 1.12× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,421 | 2,307 | 1,929 | 1.05× | Fused | Win |
+| Marine IK (minified) | 771 | 694 | 543 | 1.11× | Fused | Win |
+| Marine IK (prettified) | 2,413 | 2,450 | 1,935 | 0.98× | Two-stage | Win |
+| Random (minified) | 1,329 | 1,111 | 715 | 1.20× | Fused | Win |
+| Random (prettified) | 1,830 | 1,606 | 1,077 | 1.14× | Fused | Win |
+| Twitter (minified) | 1,681 | 1,524 | 810 | 1.10× | Fused | Win |
+| Twitter (prettified) | 2,106 | 1,908 | 1,092 | 1.10× | Fused | Win |
+| Apache Builds Small (minified) | 2,533 | 2,139 | 1,315 | 1.18× | Fused | Win |
+| Canada Small (minified) | 831 | 730 | 684 | 1.14× | Fused | Win |
+| Apache Builds Small (prettified) | 2,738 | 2,463 | 1,640 | 1.11× | Fused | Win |
+| Canada Small (prettified) | 1,663 | 1,717 | 1,569 | 0.97× | Two-stage | Win |
+| CitmCatalog Small (minified) | 1,610 | 1,340 | 910 | 1.20× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,158 | 2,329 | 1,588 | 0.93× | Two-stage | Win |
+| Discord Small (minified) | 1,617 | 1,544 | 696 | 1.05× | Fused | Win |
+| Discord Small (prettified) | 2,204 | 2,017 | 927 | 1.09× | Fused | Win |
+| Github Events Small (minified) | 1,989 | 1,660 | 1,216 | 1.20× | Fused | Win |
+| Google Maps Response Small (minified) | 1,968 | 1,584 | 917 | 1.24× | Fused | Win |
+| Github Events Small (prettified) | 2,258 | 2,105 | 1,584 | 1.07× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,032 | 2,846 | 1,824 | 1.07× | Fused | Win |
+| Instruments Small (minified) | 2,269 | 1,956 | 545 | 1.16× | Fused | Win |
+| Instruments Small (prettified) | 3,090 | 3,013 | 901 | 1.03× | Fused | Win |
+| Marine IK Reverse Small (minified) | 771 | 660 | 464 | 1.17× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,099 | 2,381 | 1,712 | 0.88× | Two-stage | Win |
+| Marine IK Small (minified) | 839 | 750 | 485 | 1.12× | Fused | Win |
+| Marine IK Small (prettified) | 2,211 | 2,463 | 1,728 | 0.90× | Two-stage | Win |
+| Random Small (minified) | 1,929 | 1,568 | 789 | 1.23× | Fused | Win |
+| Random Small (prettified) | 2,375 | 2,178 | 1,197 | 1.09× | Fused | Win |
+| Twitter Small (minified) | 2,215 | 1,857 | 919 | 1.19× | Fused | Win |
+| Twitter Small (prettified) | 2,636 | 2,327 | 1,205 | 1.13× | Fused | Win |
 
 **Linux / GCC 16.2 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,416 | 452 | 211 | 5.34× | Fused | Win |
-| Double (POD) | 1,414 | 457 | 210 | 3.09× | Fused | Win |
-| Int64 (POD) | 3,031 | 821 | 421 | 3.69× | Fused | Win |
-| String (POD) | 1,607 | 905 | 1,131 | 1.78× | Fused | Win |
-| Uint64 (POD) | 2,804 | 795 | 415 | 3.53× | Fused | Win |
-| Apache Builds (minified) | 1,535 | 1,336 | 1,317 | 1.15× | Fused | Win |
-| Canada (minified) | 852 | 774 | 698 | 1.10× | Fused | Win |
-| Apache Builds (prettified) | 1,690 | 1,708 | 1,678 | 0.99× | Two-stage | Win |
-| Canada (prettified) | 1,681 | 1,710 | 1,573 | 0.98× | Two-stage | Win |
-| CitmCatalog (minified) | 2,072 | 1,799 | 1,543 | 1.15× | Fused | Win |
-| CitmCatalog (prettified) | 3,199 | 3,619 | 3,111 | 0.88× | Two-stage | Win |
-| Discord (minified) | 1,974 | 1,752 | 1,437 | 1.13× | Fused | Win |
-| Discord (prettified) | 2,068 | 2,371 | 2,018 | 0.87× | Two-stage | Win |
-| Github Events (minified) | 1,666 | 1,635 | 1,302 | 1.02× | Fused | Win |
-| Google Maps Response (minified) | 1,997 | 1,607 | 1,146 | 1.24× | Fused | Win |
-| Github Events (prettified) | 1,755 | 2,037 | 1,557 | 0.86× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,048 | 3,058 | 2,338 | 1.00× | Two-stage | Win |
-| Instruments (minified) | 3,003 | 2,392 | 1,065 | 1.26× | Fused | Win |
-| Instruments (prettified) | 2,815 | 3,649 | 1,749 | 0.77× | Two-stage | Win |
-| Marine IK Reverse (minified) | 869 (n/c) | 747 | 565 | 1.16× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,500 | 2,668 | 2,037 | 0.94× | Two-stage | Win |
-| Marine IK (minified) | 840 | 741 | 553 | 1.13× | Fused | Win |
-| Marine IK (prettified) | 2,536 | 2,593 | 1,970 | 0.98× | Two-stage | Win |
-| Random (minified) | 1,105 | 1,028 | 1,064 | 1.07× | Fused | Win |
-| Random (prettified) | 1,535 | 1,678 | 1,714 | 0.91× | Two-stage | Loss |
-| Twitter (minified) | 1,956 | 1,768 | 987 | 1.11× | Fused | Win |
-| Twitter (prettified) | 1,733 | 2,124 | 1,261 | 0.82× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,048 | 2,076 | 1,700 | 0.99× | Two-stage | Win |
-| Canada Small (minified) | 906 | 831 | 739 | 1.09× | Fused | Win |
-| Apache Builds Small (prettified) | 2,190 | 2,608 | 2,202 | 0.84× | Two-stage | Win |
-| Canada Small (prettified) | 1,789 | 1,873 | 1,618 | 0.96× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,645 | 1,542 | 1,250 | 1.07× | Fused | Win |
-| CitmCatalog Small (prettified) | 1,909 | 2,521 | 2,301 | 0.76× | Two-stage | Win |
-| Discord Small (minified) | 1,731 | 1,509 | 1,282 | 1.15× | Fused | Win |
-| Discord Small (prettified) | 1,758 | 2,000 | 1,723 | 0.88× | Two-stage | Win |
-| Github Events Small (minified) | 1,840 | 1,589 | 1,409 | 1.16× | Fused | Win |
-| Google Maps Response Small (minified) | 2,061 | 1,563 | 1,201 | 1.32× | Fused | Win |
-| Github Events Small (prettified) | 1,591 | 2,097 | 1,631 | 0.76× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,912 | 3,004 | 2,385 | 0.97× | Two-stage | Win |
-| Instruments Small (minified) | 3,258 | 2,422 | 993 | 1.34× | Fused | Win |
-| Instruments Small (prettified) | 2,695 | 3,690 | 1,607 | 0.73× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 874 | 770 | 566 | 1.13× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,318 | 2,629 | 1,990 | 0.88× | Two-stage | Win |
-| Marine IK Small (minified) | 970 | 829 | 545 | 1.17× | Fused | Win |
-| Marine IK Small (prettified) | 2,478 | 2,903 | 1,964 | 0.85× | Two-stage | Win |
-| Random Small (minified) | 1,496 | 1,377 | 1,221 | 1.09× | Fused | Win |
-| Random Small (prettified) | 1,930 | 2,206 | 1,913 | 0.87× | Two-stage | Win |
-| Twitter Small (minified) | 2,296 | 1,976 | 1,177 | 1.16× | Fused | Win |
-| Twitter Small (prettified) | 2,055 | 2,494 | 1,436 | 0.82× | Two-stage | Win |
+| Bool (POD) | 2,342 | n/a | 538 | n/a | n/a | Win |
+| Double (POD) | 1,426 | n/a | 418 | n/a | n/a | Win |
+| Int64 (POD) | 1,775 | n/a | 340 | n/a | n/a | Win |
+| String (POD) | 1,430 | n/a | 744 | n/a | n/a | Win |
+| Uint64 (POD) | 1,658 | n/a | 325 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,627 | 1,440 | 1,372 | 1.13× | Fused | Win |
+| Canada (minified) | 883 | 798 | 735 | 1.11× | Fused | Win |
+| Apache Builds (prettified) | 1,903 | 1,762 | 1,744 | 1.08× | Fused | Win |
+| Canada (prettified) | 1,814 | 1,771 | 1,644 | 1.02× | Fused | Win |
+| CitmCatalog (minified) | 2,154 | 1,890 | 1,626 | 1.14× | Fused | Win |
+| CitmCatalog (prettified) | 3,633 | 3,570 | 3,334 | 1.02× | Fused | Win |
+| Discord (minified) | 2,251 | 1,834 | 1,510 | 1.23× | Fused | Win |
+| Discord (prettified) | 2,760 | 2,662 | 2,144 | 1.04× | Fused | Win |
+| Github Events (minified) | 1,969 | 1,630 | 1,290 | 1.21× | Fused | Win |
+| Google Maps Response (minified) | 1,874 | 1,599 | 1,282 | 1.17× | Fused | Win |
+| Github Events (prettified) | 2,231 | 1,887 | 1,521 | 1.18× | Fused | Win |
+| Google Maps Response (prettified) | 3,210 | 2,927 | 2,524 | 1.10× | Fused | Win |
+| Instruments (minified) | 2,942 | 2,508 | 1,292 | 1.17× | Fused | Win |
+| Instruments (prettified) | 3,876 | 3,810 | 2,104 | 1.02× | Fused | Win |
+| Marine IK Reverse (minified) | 872 | 774 | 577 | 1.13× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,581 | 2,650 (n/c) | 2,076 | 0.97× | Two-stage | Win |
+| Marine IK (minified) | 878 | 775 | 591 | 1.13× | Fused | Win |
+| Marine IK (prettified) | 2,718 | 2,731 | 2,109 | 1.00× | Two-stage | Win |
+| Random (minified) | 1,348 | 1,183 | 1,127 | 1.14× | Fused | Win |
+| Random (prettified) | 1,904 | 1,771 | 1,711 | 1.08× | Fused | Win |
+| Twitter (minified) | 2,181 | 1,706 | 1,074 | 1.28× | Fused | Win |
+| Twitter (prettified) | 2,334 | 2,179 | 1,376 | 1.07× | Fused | Win |
+| Apache Builds Small (minified) | 2,377 | 2,081 | 1,852 | 1.14× | Fused | Win |
+| Canada Small (minified) | 978 | 861 | 744 | 1.14× | Fused | Win |
+| Apache Builds Small (prettified) | 2,669 | 2,553 | 2,143 | 1.05× | Fused | Win |
+| Canada Small (prettified) | 2,046 | 1,966 | 1,734 | 1.04× | Fused | Win |
+| CitmCatalog Small (minified) | 1,889 | 1,631 | 1,394 | 1.16× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,595 | 2,697 | 2,374 | 0.96× | Two-stage | Win |
+| Discord Small (minified) | 2,081 | 1,713 | 1,399 | 1.22× | Fused | Win |
+| Discord Small (prettified) | 2,301 | 2,270 | 1,839 | 1.01× | Fused | Win |
+| Github Events Small (minified) | 2,023 | 1,590 | 1,294 | 1.27× | Fused | Win |
+| Google Maps Response Small (minified) | 1,855 | 1,620 | 1,286 | 1.14× | Fused | Win |
+| Github Events Small (prettified) | 2,226 | 2,115 | 1,649 | 1.05× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,220 | 2,960 | 2,613 | 1.09× | Fused | Win |
+| Instruments Small (minified) | 3,375 | 2,417 | 1,093 | 1.40× | Fused | Win |
+| Instruments Small (prettified) | 3,505 | 3,570 | 1,692 | 0.98× | Two-stage | Win |
+| Marine IK Reverse Small (minified) | 908 | 746 | 505 | 1.22× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,428 | 2,673 | 1,884 | 0.91× | Two-stage | Win |
+| Marine IK Small (minified) | 914 | 780 | 514 | 1.17× | Fused | Win |
+| Marine IK Small (prettified) | 2,582 | 2,645 | 1,845 | 0.98× | Two-stage | Win |
+| Random Small (minified) | 1,917 | 1,637 | 1,293 | 1.17× | Fused | Win |
+| Random Small (prettified) | 2,507 | 2,267 | 1,875 | 1.11× | Fused | Win |
+| Twitter Small (minified) | 2,866 | 1,974 | 1,190 | 1.45× | Fused | Win |
+| Twitter Small (prettified) | 2,796 | 2,403 | 1,431 | 1.16× | Fused | Win |
 
 #### Reused objects
 
 | Platform / Compiler | Fused faster | Tie | Two-stage faster | Tests converged |
 |---|---|---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | 27 | 0 | 22 | 47 of 49 |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 25 | 1 | 23 | 48 of 49 |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 26 | 0 | 23 | 49 of 49 |
-| **Aggregate** | **78** | **1** | **68** | **144 of 147** |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | 33 | 6 | 5 | 42 of 44 |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 36 | 0 | 8 | 44 of 44 |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 39 | 0 | 5 | 43 of 44 |
+| **Aggregate** | **108** | **6** | **18** | **129 of 132** |
 
 | Platform / Compiler | Best Jsonifier path (W / T / L) | Fused path alone (W / T / L) |
 |---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 48 / 0 / 1 |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 48 / 0 / 1 |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 46 / 2 / 1 | 41 / 3 / 5 |
-| **Aggregate** | **144 / 2 / 1** | **137 / 3 / 7** |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | 47 / 0 / 2 | 47 / 0 / 2 |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 48 / 1 / 0 | 48 / 1 / 0 |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 49 / 0 / 0 | 49 / 0 / 0 |
+| **Aggregate** | **144 / 1 / 2** | **144 / 1 / 2** |
 
-**Windows / MSVC 19.51 (EPYC 9V45, AVX-512)**
+**Windows / MSVC 19.52 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 536 | 165 | 67 | 3.25× | Fused | Win |
-| Double (POD) | 1,180 | 379 | 145 | 3.11× | Fused | Win |
-| Int64 (POD) | 1,898 | 623 | 325 | 3.05× | Fused | Win |
-| String (POD) | 1,359 | 826 | 667 | 1.64× | Fused | Win |
-| Uint64 (POD) | 1,718 | 592 | 314 | 2.90× | Fused | Win |
-| Apache Builds (minified) | 1,262 | 1,161 | 978 | 1.09× | Fused | Win |
-| Canada (minified) | 709 | 649 | 208 | 1.09× | Fused | Win |
-| Apache Builds (prettified) | 1,379 | 1,450 | 1,259 | 0.95× | Two-stage | Win |
-| Canada (prettified) | 1,405 | 1,499 | 471 | 0.94× | Two-stage | Win |
-| CitmCatalog (minified) | 1,514 | 1,264 | 541 | 1.20× | Fused | Win |
-| CitmCatalog (prettified) | 2,329 | 2,621 | 1,142 | 0.89× | Two-stage | Win |
-| Discord (minified) | 1,711 | 1,252 | 891 | 1.37× | Fused | Win |
-| Discord (prettified) | 1,675 | 1,779 | 1,239 | 0.94× | Two-stage | Win |
-| Github Events (minified) | 1,492 | 1,368 | 746 | 1.09× | Fused | Win |
-| Google Maps Response (minified) | 1,423 | 1,213 | 581 | 1.17× | Fused | Win |
-| Github Events (prettified) | 1,426 | 1,616 | 893 | 0.88× | Two-stage | Win |
-| Google Maps Response (prettified) | 2,444 | 2,472 | 1,205 | 0.99× | Two-stage | Win |
-| Instruments (minified) | 1,805 | 1,303 | 780 | 1.39× | Fused | Win |
-| Instruments (prettified) | 1,832 | 2,054 | 1,235 | 0.89× | Two-stage | Win |
-| Marine IK Reverse (minified) | 761 | 645 (n/c) | 127 | 1.18× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,261 | 2,332 | 491 | 0.97× | Two-stage | Win |
-| Marine IK (minified) | 749 | 678 | 228 (n/c) | 1.10× | Fused | Win |
-| Marine IK (prettified) | 2,327 | 2,433 | 838 | 0.96× | Two-stage | Win |
-| Random (minified) | 886 | 804 | 605 | 1.10× | Fused | Win |
-| Random (prettified) | 1,123 | 1,188 | 866 | 0.95× | Two-stage | Win |
-| Twitter (minified) | 1,797 | 1,502 | 1,102 | 1.20× | Fused | Win |
-| Twitter (prettified) | 1,625 | 1,921 | 1,407 | 0.85× | Two-stage | Win |
-| Apache Builds Small (minified) | 1,301 | 1,218 | 1,088 | 1.07× | Fused | Win |
-| Canada Small (minified) | 681 | 589 | 173 | 1.16× | Fused | Win |
-| Apache Builds Small (prettified) | 1,372 | 1,522 | 1,348 | 0.90× | Two-stage | Win |
-| Canada Small (prettified) | 1,360 | 1,392 | 422 | 0.98× | Two-stage | Win |
-| CitmCatalog Small (minified) | 593 | 841 | 462 | 0.71× | Two-stage | Win |
-| CitmCatalog Small (prettified) | 1,344 | 1,531 | 800 | 0.88× | Two-stage | Win |
-| Discord Small (minified) | 1,508 | 1,109 | 870 | 1.36× | Fused | Win |
-| Discord Small (prettified) | 1,419 | 1,472 | 1,204 | 0.96× | Two-stage | Win |
-| Github Events Small (minified) | 1,219 | 1,092 | 712 | 1.12× | Fused | Win |
-| Google Maps Response Small (minified) | 1,349 | 1,055 | 561 | 1.28× | Fused | Win |
-| Github Events Small (prettified) | 1,192 | 1,416 | 884 | 0.84× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 2,150 | 2,123 | 1,125 | 1.01× | Fused | Win |
-| Instruments Small (minified) | 1,558 | 1,108 | 658 | 1.41× | Fused | Win |
-| Instruments Small (prettified) | 1,611 | 1,817 | 1,076 | 0.89× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 564 | 545 | 104 | 1.03× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 1,586 | 1,991 | 385 | 0.80× | Two-stage | Win |
-| Marine IK Small (minified) | 661 | 566 | 197 | 1.17× | Fused | Win |
-| Marine IK Small (prettified) | 1,802 | 2,129 | 735 | 0.85× | Two-stage | Win |
-| Random Small (minified) | 878 | 808 | 573 | 1.09× | Fused | Win |
-| Random Small (prettified) | 1,170 | 1,276 | 865 | 0.92× | Two-stage | Win |
-| Twitter Small (minified) | 1,846 | 1,498 | 1,317 | 1.23× | Fused | Win |
-| Twitter Small (prettified) | 1,576 | 1,884 | 1,632 | 0.84× | Two-stage | Win |
+| Bool (POD) | 595 | n/a | 159 | n/a | n/a | Win |
+| Double (POD) | 1,142 | n/a | 328 | n/a | n/a | Win |
+| Int64 (POD) | 1,470 | n/a | 317 | n/a | n/a | Win |
+| String (POD) | 929 | n/a | 503 | n/a | n/a | Win |
+| Uint64 (POD) | 1,335 | n/a | 297 | n/a | n/a | Win |
+| Apache Builds (minified) | 1,213 | 1,095 | 1,153 | 1.11× | Fused | Win |
+| Canada (minified) | 750 (n/c) | 642 | 210 | 1.17× | Fused | Win |
+| Apache Builds (prettified) | 1,408 | 1,363 | 1,484 | 1.03× | Fused | Loss |
+| Canada (prettified) | 1,470 | 1,451 | 500 | 1.01× | Tie | Win |
+| CitmCatalog (minified) | 1,578 | 1,294 | 611 | 1.22× | Fused | Win |
+| CitmCatalog (prettified) | 2,852 | 2,727 | 1,321 | 1.05× | Fused | Win |
+| Discord (minified) | 1,844 | 1,309 | 1,056 | 1.41× | Fused | Win |
+| Discord (prettified) | 2,276 | 1,730 | 1,513 | 1.32× | Fused | Win |
+| Github Events (minified) | 1,638 | 1,345 | 851 | 1.22× | Fused | Win |
+| Google Maps Response (minified) | 748 | 1,242 | 675 | 0.60× | Two-stage | Win |
+| Github Events (prettified) | 1,744 | 1,597 | 1,004 | 1.09× | Fused | Win |
+| Google Maps Response (prettified) | 2,404 | 2,266 | 1,409 | 1.06× | Fused | Win |
+| Instruments (minified) | 1,756 | 1,160 | 918 | 1.51× | Fused | Win |
+| Instruments (prettified) | 2,267 | 1,983 | 1,519 | 1.14× | Fused | Win |
+| Marine IK Reverse (minified) | 735 | 670 | 127 | 1.10× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,329 | 2,346 | 518 | 0.99× | Tie | Win |
+| Marine IK (minified) | 745 | 720 | 224 | 1.03× | Fused | Win |
+| Marine IK (prettified) | 2,370 | 2,396 | 898 (n/c) | 0.99× | Tie | Win |
+| Random (minified) | 1,124 | 933 | 609 | 1.20× | Fused | Win |
+| Random (prettified) | 1,615 | 1,419 | 972 | 1.14× | Fused | Win |
+| Twitter (minified) | 2,005 | 1,424 | 1,269 | 1.41× | Fused | Win |
+| Twitter (prettified) | 2,064 | 1,990 | 1,566 | 1.04× | Fused | Win |
+| Apache Builds Small (minified) | 1,264 | 1,262 | 1,238 | 1.00× | Tie | Win |
+| Canada Small (minified) | 690 | 609 | 191 | 1.13× | Fused | Win |
+| Apache Builds Small (prettified) | 1,459 | 1,515 | 1,564 | 0.96× | Two-stage | Loss |
+| Canada Small (prettified) | 1,461 | 1,486 | 464 | 0.98× | Tie | Win |
+| CitmCatalog Small (minified) | 1,022 | 892 | 517 | 1.15× | Fused | Win |
+| CitmCatalog Small (prettified) | 1,413 | 1,524 | 923 | 0.93× | Two-stage | Win |
+| Discord Small (minified) | 1,784 | 1,316 | 1,036 | 1.36× | Fused | Win |
+| Discord Small (prettified) | 1,957 | 1,756 | 1,437 | 1.11× | Fused | Win |
+| Github Events Small (minified) | 1,278 | 1,100 | 768 | 1.16× | Fused | Win |
+| Google Maps Response Small (minified) | 1,265 | 1,118 | 691 | 1.13× | Fused | Win |
+| Github Events Small (prettified) | 1,376 | 1,387 | 931 | 0.99× | Tie | Win |
+| Google Maps Response Small (prettified) | 2,240 | 2,129 | 1,414 | 1.05× | Fused | Win |
+| Instruments Small (minified) | 1,550 | 1,162 | 874 | 1.33× | Fused | Win |
+| Instruments Small (prettified) | 2,100 | 1,900 | 1,433 | 1.11× | Fused | Win |
+| Marine IK Reverse Small (minified) | 574 | 536 | 109 | 1.07× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 1,686 | 1,886 | 423 | 0.89× | Two-stage | Win |
+| Marine IK Small (minified) | 677 | 584 | 205 | 1.16× | Fused | Win |
+| Marine IK Small (prettified) | 1,893 | 2,160 | 803 | 0.88× | Two-stage | Win |
+| Random Small (minified) | 1,102 | 958 | 617 | 1.15× | Fused | Win |
+| Random Small (prettified) | 1,574 | 1,427 | 880 | 1.10× | Fused | Win |
+| Twitter Small (minified) | 2,117 | 1,561 | 1,431 | 1.36× | Fused | Win |
+| Twitter Small (prettified) | 1,999 | 1,925 | 1,865 | 1.04× | Fused | Win |
 
 **Linux / Clang 24.0 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 1,768 | 479 | 246 | 3.69× | Fused | Win |
-| Double (POD) | 1,319 | 463 | 288 | 2.85× | Fused | Win |
-| Int64 (POD) | 2,756 | 849 | 662 | 3.25× | Fused | Win |
-| String (POD) | 2,531 | 1,261 | 1,561 | 2.01× | Fused | Win |
-| Uint64 (POD) | 3,036 | 853 | 619 | 3.56× | Fused | Win |
-| Apache Builds (minified) | 2,316 | 1,962 | 1,343 | 1.18× | Fused | Win |
-| Canada (minified) | 966 | 849 | 833 | 1.14× | Fused | Win |
-| Apache Builds (prettified) | 2,262 | 2,494 | 1,722 | 0.91× | Two-stage | Win |
-| Canada (prettified) | 1,837 | 1,880 | 1,802 | 0.98× | Two-stage | Win |
-| CitmCatalog (minified) | 2,443 | 2,039 | 1,174 | 1.20× | Fused | Win |
-| CitmCatalog (prettified) | 3,282 | 4,172 | 2,562 | 0.79× | Two-stage | Win |
-| Discord (minified) | 2,741 | 2,140 | 904 | 1.28× | Fused | Win |
-| Discord (prettified) | 2,334 | 3,019 | 1,350 | 0.77× | Two-stage | Win |
-| Github Events (minified) | 2,142 | 2,194 | 1,064 | 0.98× | Two-stage | Win |
-| Google Maps Response (minified) | 2,573 | 1,868 | 944 | 1.38× | Fused | Win |
-| Github Events (prettified) | 1,852 | 2,654 | 1,263 | 0.70× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,106 | 3,577 | 1,914 | 0.87× | Two-stage | Win |
-| Instruments (minified) | 3,070 | 2,530 | 676 | 1.21× | Fused | Win |
-| Instruments (prettified) | 2,256 | 3,748 | 1,139 | 0.60× | Two-stage | Win |
-| Marine IK Reverse (minified) | 868 | 813 | 646 | 1.07× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,603 | 2,741 | 2,180 | 0.95× | Two-stage | Win |
-| Marine IK (minified) | 873 | 814 (n/c) | 628 | 1.07× | Fused | Win |
-| Marine IK (prettified) | 2,619 | 2,928 | 2,351 | 0.89× | Two-stage | Win |
-| Random (minified) | 1,614 | 1,478 | 939 | 1.09× | Fused | Win |
-| Random (prettified) | 1,802 | 2,198 | 1,536 | 0.82× | Two-stage | Win |
-| Twitter (minified) | 2,100 | 2,074 | 958 | 1.01× | Tie | Win |
-| Twitter (prettified) | 1,873 | 2,785 | 1,284 | 0.67× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,740 | 2,708 | 1,686 | 1.01× | Fused | Win |
-| Canada Small (minified) | 1,061 | 967 | 783 | 1.10× | Fused | Win |
-| Apache Builds Small (prettified) | 2,400 | 3,390 | 2,095 | 0.71× | Two-stage | Win |
-| Canada Small (prettified) | 2,006 | 2,247 | 1,928 | 0.89× | Two-stage | Win |
-| CitmCatalog Small (minified) | 2,172 | 1,798 | 1,161 | 1.21× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,103 | 2,928 | 1,984 | 0.72× | Two-stage | Win |
-| Discord Small (minified) | 2,423 | 2,065 | 854 | 1.17× | Fused | Win |
-| Discord Small (prettified) | 2,052 | 2,860 | 1,137 | 0.72× | Two-stage | Win |
-| Github Events Small (minified) | 2,998 | 2,525 | 1,601 | 1.19× | Fused | Win |
-| Google Maps Response Small (minified) | 2,516 | 1,946 | 997 | 1.29× | Fused | Win |
-| Github Events Small (prettified) | 1,969 | 3,095 | 2,005 | 0.64× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 3,369 | 3,820 | 1,986 | 0.88× | Two-stage | Win |
-| Instruments Small (minified) | 2,901 | 2,386 | 638 | 1.22× | Fused | Win |
-| Instruments Small (prettified) | 2,075 | 3,789 | 1,063 | 0.55× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 963 | 895 | 544 | 1.08× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,354 | 3,053 | 1,994 | 0.77× | Two-stage | Win |
-| Marine IK Small (minified) | 1,059 | 950 | 549 | 1.11× | Fused | Win |
-| Marine IK Small (prettified) | 2,560 | 3,236 | 2,021 | 0.79× | Two-stage | Win |
-| Random Small (minified) | 2,026 | 1,829 | 982 | 1.11× | Fused | Win |
-| Random Small (prettified) | 2,051 | 2,610 | 1,483 | 0.79× | Two-stage | Win |
-| Twitter Small (minified) | 2,225 | 2,160 | 1,009 | 1.03× | Fused | Win |
-| Twitter Small (prettified) | 1,884 | 2,725 | 1,291 | 0.69× | Two-stage | Win |
+| Bool (POD) | 1,729 | n/a | 387 | n/a | n/a | Win |
+| Double (POD) | 1,278 | n/a | 406 | n/a | n/a | Win |
+| Int64 (POD) | 1,386 | n/a | 326 | n/a | n/a | Win |
+| String (POD) | 1,767 | n/a | 845 | n/a | n/a | Win |
+| Uint64 (POD) | 1,569 | n/a | 291 | n/a | n/a | Win |
+| Apache Builds (minified) | 2,302 | 1,887 | 1,289 | 1.22× | Fused | Win |
+| Canada (minified) | 898 | 829 | 803 | 1.08× | Fused | Win |
+| Apache Builds (prettified) | 2,557 | 2,134 | 1,620 | 1.20× | Fused | Win |
+| Canada (prettified) | 1,767 | 1,792 | 1,777 | 0.99× | Two-stage | Tie |
+| CitmCatalog (minified) | 2,465 | 2,019 | 1,104 | 1.22× | Fused | Win |
+| CitmCatalog (prettified) | 3,852 | 3,929 | 2,294 | 0.98× | Two-stage | Win |
+| Discord (minified) | 2,743 | 2,144 | 845 | 1.28× | Fused | Win |
+| Discord (prettified) | 3,315 | 2,896 | 1,185 | 1.14× | Fused | Win |
+| Github Events (minified) | 2,242 | 1,827 | 1,001 | 1.23× | Fused | Win |
+| Google Maps Response (minified) | 2,246 | 1,861 | 929 | 1.21× | Fused | Win |
+| Github Events (prettified) | 2,664 | 2,233 | 1,225 | 1.19× | Fused | Win |
+| Google Maps Response (prettified) | 3,471 | 3,211 | 1,885 | 1.08× | Fused | Win |
+| Instruments (minified) | 2,816 | 2,455 | 605 | 1.15× | Fused | Win |
+| Instruments (prettified) | 3,709 | 3,586 | 1,000 | 1.03× | Fused | Win |
+| Marine IK Reverse (minified) | 871 | 791 | 616 | 1.10× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,559 | 2,590 | 2,164 | 0.99× | Two-stage | Win |
+| Marine IK (minified) | 843 | 783 | 618 | 1.08× | Fused | Win |
+| Marine IK (prettified) | 2,606 | 2,657 | 2,176 | 0.98× | Two-stage | Win |
+| Random (minified) | 1,886 | 1,520 | 898 | 1.24× | Fused | Win |
+| Random (prettified) | 2,534 | 2,187 | 1,352 | 1.16× | Fused | Win |
+| Twitter (minified) | 2,113 | 1,869 | 902 | 1.13× | Fused | Win |
+| Twitter (prettified) | 2,627 | 2,319 | 1,194 | 1.13× | Fused | Win |
+| Apache Builds Small (minified) | 2,920 | 2,524 | 1,525 | 1.16× | Fused | Win |
+| Canada Small (minified) | 963 | 856 | 739 | 1.13× | Fused | Win |
+| Apache Builds Small (prettified) | 3,059 | 2,809 | 1,936 | 1.09× | Fused | Win |
+| Canada Small (prettified) | 1,910 | 2,012 | 1,735 | 0.95× | Two-stage | Win |
+| CitmCatalog Small (minified) | 2,107 | 1,701 | 1,035 | 1.24× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,518 | 2,735 | 1,772 | 0.92× | Two-stage | Win |
+| Discord Small (minified) | 2,115 | 1,940 | 773 | 1.09× | Fused | Win |
+| Discord Small (prettified) | 2,932 | 2,536 | 1,028 | 1.16× | Fused | Win |
+| Github Events Small (minified) | 2,532 | 2,206 | 1,494 | 1.15× | Fused | Win |
+| Google Maps Response Small (minified) | 2,219 | 1,747 | 968 | 1.27× | Fused | Win |
+| Github Events Small (prettified) | 2,944 | 2,731 | 1,856 | 1.08× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,356 | 3,132 | 1,909 | 1.07× | Fused | Win |
+| Instruments Small (minified) | 2,547 | 2,076 | 559 | 1.23× | Fused | Win |
+| Instruments Small (prettified) | 3,300 | 3,162 | 941 | 1.04× | Fused | Win |
+| Marine IK Reverse Small (minified) | 963 | 816 | 505 | 1.18× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,460 | 2,814 | 1,806 | 0.87× | Two-stage | Win |
+| Marine IK Small (minified) | 1,022 | 875 | 511 | 1.17× | Fused | Win |
+| Marine IK Small (prettified) | 2,522 | 2,929 | 1,798 | 0.86× | Two-stage | Win |
+| Random Small (minified) | 2,425 | 1,826 | 881 | 1.33× | Fused | Win |
+| Random Small (prettified) | 2,869 | 2,619 | 1,371 | 1.10× | Fused | Win |
+| Twitter Small (minified) | 2,503 | 1,990 | 955 | 1.26× | Fused | Win |
+| Twitter Small (prettified) | 2,935 | 2,591 | 1,246 | 1.13× | Fused | Win |
 
 **Linux / GCC 16.2 (EPYC 9V45, AVX-512)**
 
 | Test | Fused (MB/s) | Two-stage (MB/s) | simdjson (MB/s) | Fused ÷ two-stage | Faster Jsonifier path | Best Jsonifier path vs simdjson |
 |---|---|---|---|---|---|---|
-| Bool (POD) | 2,361 | 456 | 211 | 5.18× | Fused | Win |
-| Double (POD) | 1,527 | 452 | 219 | 3.38× | Fused | Win |
-| Int64 (POD) | 3,187 | 809 | 578 | 3.94× | Fused | Win |
-| String (POD) | 2,171 | 1,087 | 1,366 | 2.00× | Fused | Win |
-| Uint64 (POD) | 3,001 | 824 | 555 | 3.64× | Fused | Win |
-| Apache Builds (minified) | 2,070 | 1,735 | 1,725 | 1.19× | Fused | Win |
-| Canada (minified) | 995 | 879 | 812 | 1.13× | Fused | Win |
-| Apache Builds (prettified) | 2,174 | 2,210 | 2,209 | 0.98× | Two-stage | Tie |
-| Canada (prettified) | 1,911 | 1,960 | 1,851 | 0.97× | Two-stage | Win |
-| CitmCatalog (minified) | 2,486 | 2,137 | 1,864 | 1.16× | Fused | Win |
-| CitmCatalog (prettified) | 3,637 | 4,166 | 3,706 | 0.87× | Two-stage | Win |
-| Discord (minified) | 2,481 | 2,060 | 1,676 | 1.20× | Fused | Win |
-| Discord (prettified) | 2,367 | 2,836 | 2,366 | 0.83× | Two-stage | Win |
-| Github Events (minified) | 2,071 | 2,052 | 1,441 | 1.01× | Fused | Win |
-| Google Maps Response (minified) | 2,141 | 1,689 | 1,247 | 1.27× | Fused | Win |
-| Github Events (prettified) | 2,009 | 2,542 | 1,731 | 0.79× | Two-stage | Win |
-| Google Maps Response (prettified) | 3,143 | 3,075 | 2,438 | 1.02× | Fused | Win |
-| Instruments (minified) | 3,502 | 2,682 | 1,169 | 1.31× | Fused | Win |
-| Instruments (prettified) | 2,867 | 4,014 | 1,900 | 0.71× | Two-stage | Win |
-| Marine IK Reverse (minified) | 931 | 842 | 625 | 1.11× | Fused | Win |
-| Marine IK Reverse (prettified) | 2,730 | 2,847 | 2,174 | 0.96× | Two-stage | Win |
-| Marine IK (minified) | 940 | 812 | 606 | 1.16× | Fused | Win |
-| Marine IK (prettified) | 2,771 | 2,802 | 2,146 | 0.99× | Two-stage | Win |
-| Random (minified) | 1,412 | 1,305 | 1,405 | 1.08× | Fused | Tie |
-| Random (prettified) | 1,885 | 2,101 | 2,135 | 0.90× | Two-stage | Loss |
-| Twitter (minified) | 2,271 | 2,143 | 1,099 | 1.06× | Fused | Win |
-| Twitter (prettified) | 1,970 | 2,677 | 1,412 | 0.74× | Two-stage | Win |
-| Apache Builds Small (minified) | 2,231 | 2,246 | 1,977 | 0.99× | Two-stage | Win |
-| Canada Small (minified) | 1,098 | 1,036 | 759 | 1.06× | Fused | Win |
-| Apache Builds Small (prettified) | 2,419 | 2,783 | 2,422 | 0.87× | Two-stage | Win |
-| Canada Small (prettified) | 2,005 | 2,190 | 1,737 | 0.92× | Two-stage | Win |
-| CitmCatalog Small (minified) | 1,873 | 1,738 | 1,508 | 1.08× | Fused | Win |
-| CitmCatalog Small (prettified) | 2,117 | 2,874 | 2,576 | 0.74× | Two-stage | Win |
-| Discord Small (minified) | 2,009 | 1,803 | 1,634 | 1.11× | Fused | Win |
-| Discord Small (prettified) | 2,020 | 2,338 | 1,958 | 0.86× | Two-stage | Win |
-| Github Events Small (minified) | 2,240 | 2,293 | 1,457 | 0.98× | Two-stage | Win |
-| Google Maps Response Small (minified) | 2,090 | 1,710 | 1,273 | 1.22× | Fused | Win |
-| Github Events Small (prettified) | 1,948 | 2,757 | 1,873 | 0.71× | Two-stage | Win |
-| Google Maps Response Small (prettified) | 3,139 | 3,228 | 2,488 | 0.97× | Two-stage | Win |
-| Instruments Small (minified) | 3,778 | 2,639 | 1,027 | 1.43× | Fused | Win |
-| Instruments Small (prettified) | 2,708 | 4,102 | 1,697 | 0.66× | Two-stage | Win |
-| Marine IK Reverse Small (minified) | 1,012 | 900 | 586 | 1.12× | Fused | Win |
-| Marine IK Reverse Small (prettified) | 2,687 | 3,134 | 2,090 | 0.86× | Two-stage | Win |
-| Marine IK Small (minified) | 1,175 | 984 | 571 | 1.19× | Fused | Win |
-| Marine IK Small (prettified) | 2,851 | 3,373 | 2,074 | 0.85× | Two-stage | Win |
-| Random Small (minified) | 1,683 | 1,556 | 1,591 | 1.08× | Fused | Win |
-| Random Small (prettified) | 2,172 | 2,496 | 2,455 | 0.87× | Two-stage | Win |
-| Twitter Small (minified) | 2,532 | 2,253 | 1,195 | 1.12× | Fused | Win |
-| Twitter Small (prettified) | 2,221 | 2,699 | 1,514 | 0.82× | Two-stage | Win |
+| Bool (POD) | 2,328 | n/a | 541 | n/a | n/a | Win |
+| Double (POD) | 1,571 | n/a | 398 | n/a | n/a | Win |
+| Int64 (POD) | 1,995 | n/a | 361 | n/a | n/a | Win |
+| String (POD) | 1,923 | n/a | 867 | n/a | n/a | Win |
+| Uint64 (POD) | 1,833 | n/a | 335 | n/a | n/a | Win |
+| Apache Builds (minified) | 2,262 | 1,900 | 1,788 | 1.19× | Fused | Win |
+| Canada (minified) | 1,043 | 923 | 859 | 1.13× | Fused | Win |
+| Apache Builds (prettified) | 2,518 | 2,282 | 2,292 | 1.10× | Fused | Win |
+| Canada (prettified) | 2,077 | 2,040 | 1,903 | 1.02× | Fused | Win |
+| CitmCatalog (minified) | 2,557 | 2,216 | 1,867 | 1.15× | Fused | Win |
+| CitmCatalog (prettified) | 4,080 | 4,384 | 3,889 | 0.93× | Two-stage | Win |
+| Discord (minified) | 2,905 | 2,246 | 1,731 | 1.29× | Fused | Win |
+| Discord (prettified) | 3,351 | 3,268 | 2,567 | 1.03× | Fused | Win |
+| Github Events (minified) | 2,619 | 2,063 | 1,512 | 1.27× | Fused | Win |
+| Google Maps Response (minified) | 2,060 | 1,694 | 1,349 | 1.22× | Fused | Win |
+| Github Events (prettified) | 2,820 | 2,356 | 1,796 | 1.20× | Fused | Win |
+| Google Maps Response (prettified) | 3,385 | 3,085 | 2,631 | 1.10× | Fused | Win |
+| Instruments (minified) | 3,474 | 2,783 | 1,370 | 1.25× | Fused | Win |
+| Instruments (prettified) | 4,265 | 4,188 | 2,218 | 1.02× | Fused | Win |
+| Marine IK Reverse (minified) | 980 | 861 | 640 | 1.14× | Fused | Win |
+| Marine IK Reverse (prettified) | 2,860 | 2,944 | 2,254 | 0.97× | Two-stage | Win |
+| Marine IK (minified) | 983 | 822 (n/c) | 651 | 1.20× | Fused | Win |
+| Marine IK (prettified) | 2,986 | 2,932 | 2,280 | 1.02× | Fused | Win |
+| Random (minified) | 1,847 | 1,507 | 1,470 | 1.23× | Fused | Win |
+| Random (prettified) | 2,474 | 2,255 | 2,209 | 1.10× | Fused | Win |
+| Twitter (minified) | 2,726 | 2,039 | 1,159 | 1.34× | Fused | Win |
+| Twitter (prettified) | 2,861 | 2,484 | 1,533 | 1.15× | Fused | Win |
+| Apache Builds Small (minified) | 2,698 | 2,355 | 2,232 | 1.15× | Fused | Win |
+| Canada Small (minified) | 1,193 | 1,024 | 838 | 1.17× | Fused | Win |
+| Apache Builds Small (prettified) | 3,072 | 2,742 | 2,577 | 1.12× | Fused | Win |
+| Canada Small (prettified) | 2,400 | 2,305 | 1,908 | 1.04× | Fused | Win |
+| CitmCatalog Small (minified) | 2,257 | 1,907 | 1,572 | 1.18× | Fused | Win |
+| CitmCatalog Small (prettified) | 2,971 | 3,150 | 2,751 | 0.94× | Two-stage | Win |
+| Discord Small (minified) | 2,726 | 2,053 | 1,666 | 1.33× | Fused | Win |
+| Discord Small (prettified) | 2,908 | 2,731 | 2,117 | 1.06× | Fused | Win |
+| Github Events Small (minified) | 2,626 | 2,192 | 1,530 | 1.20× | Fused | Win |
+| Google Maps Response Small (minified) | 2,059 | 1,655 | 1,413 | 1.24× | Fused | Win |
+| Github Events Small (prettified) | 3,023 | 2,578 | 1,885 | 1.17× | Fused | Win |
+| Google Maps Response Small (prettified) | 3,409 | 3,221 | 2,757 | 1.06× | Fused | Win |
+| Instruments Small (minified) | 3,859 | 2,622 | 1,166 | 1.47× | Fused | Win |
+| Instruments Small (prettified) | 4,006 | 3,736 | 1,906 | 1.07× | Fused | Win |
+| Marine IK Reverse Small (minified) | 1,032 | 881 | 551 | 1.17× | Fused | Win |
+| Marine IK Reverse Small (prettified) | 2,844 | 2,968 | 2,077 | 0.96× | Two-stage | Win |
+| Marine IK Small (minified) | 1,119 | 916 | 552 | 1.22× | Fused | Win |
+| Marine IK Small (prettified) | 2,931 | 3,074 | 2,017 | 0.95× | Two-stage | Win |
+| Random Small (minified) | 2,343 | 1,915 | 1,582 | 1.22× | Fused | Win |
+| Random Small (prettified) | 2,888 | 2,634 | 2,240 | 1.10× | Fused | Win |
+| Twitter Small (minified) | 3,197 | 2,247 | 1,157 | 1.42× | Fused | Win |
+| Twitter Small (prettified) | 3,019 | 2,556 | 1,511 | 1.18× | Fused | Win |
 
 #### Freshly allocated objects: stage 1 + reflection
 
@@ -1335,50 +1333,50 @@ Every result above comes from AVX2 and NEON builds. The same tests also ran on t
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 1,336 | 1,431 | 0.93× | **Loss** |
-| Canada (minified) | 774 | 688 | 1.13× | Win |
-| Apache Builds (prettified) | 1,708 | 1,822 | 0.94× | **Loss** |
-| Canada (prettified) | 1,710 | 1,568 | 1.09× | Win |
-| CitmCatalog (minified) | 1,799 | 1,513 | 1.19× | Win |
-| CitmCatalog (prettified) | 3,619 | 3,056 | 1.18× | Win |
-| Discord (minified) | 1,752 | 1,652 | 1.06× | Win |
-| Discord (prettified) | 2,371 | 2,364 | 1.00× | Tie |
-| Github Events (minified) | 1,635 | 1,952 | 0.84× | **Loss** |
-| Google Maps Response (minified) | 1,607 | 1,441 | 1.12× | Win |
-| Github Events (prettified) | 2,037 | 2,225 | 0.92× | **Loss** |
-| Google Maps Response (prettified) | 3,058 | 2,834 | 1.08× | Win |
-| Instruments (minified) | 2,392 | 1,576 | 1.52× | Win |
-| Instruments (prettified) | 3,649 | 2,537 | 1.44× | Win |
-| Marine IK Reverse (minified) | 747 | 621 | 1.20× | Win |
-| Marine IK Reverse (prettified) | 2,668 | 2,194 | 1.22× | Win |
-| Marine IK (minified) | 741 | 615 | 1.20× | Win |
-| Marine IK (prettified) | 2,593 | 2,190 (n/c) | 1.18× | Win |
-| Random (minified) | 1,028 | 1,136 | 0.90× | **Loss** |
-| Random (prettified) | 1,678 | 1,704 | 0.99× | **Loss** |
-| Twitter (minified) | 1,768 | 1,643 | 1.08× | Win |
-| Twitter (prettified) | 2,124 | 2,066 | 1.03× | Win |
-| Apache Builds Small (minified) | 2,076 | 2,070 | 1.00× | Win |
-| Canada Small (minified) | 831 | 688 | 1.21× | Win |
-| Apache Builds Small (prettified) | 2,608 | 2,458 | 1.06× | Win |
-| Canada Small (prettified) | 1,873 | 1,649 | 1.14× | Win |
-| CitmCatalog Small (minified) | 1,542 | 1,199 | 1.29× | Win |
-| CitmCatalog Small (prettified) | 2,521 | 2,235 | 1.13× | Win |
-| Discord Small (minified) | 1,509 | 1,677 | 0.90× | **Loss** |
-| Discord Small (prettified) | 2,000 | 2,019 | 0.99× | **Loss** |
-| Github Events Small (minified) | 1,589 | 1,770 | 0.90× | **Loss** |
-| Google Maps Response Small (minified) | 1,563 | 1,406 | 1.11× | Win |
-| Github Events Small (prettified) | 2,097 | 2,310 | 0.91× | **Loss** |
-| Google Maps Response Small (prettified) | 3,004 | 2,787 | 1.08× | Win |
-| Instruments Small (minified) | 2,422 | 1,488 | 1.63× | Win |
-| Instruments Small (prettified) | 3,690 | 2,334 | 1.58× | Win |
-| Marine IK Reverse Small (minified) | 770 | 665 | 1.16× | Win |
-| Marine IK Reverse Small (prettified) | 2,629 | 2,314 | 1.14× | Win |
-| Marine IK Small (minified) | 829 | 668 | 1.24× | Win |
-| Marine IK Small (prettified) | 2,903 | 2,367 | 1.23× | Win |
-| Random Small (minified) | 1,377 | 1,474 | 0.93× | **Loss** |
-| Random Small (prettified) | 2,206 | 2,207 | 1.00× | Tie |
-| Twitter Small (minified) | 1,976 | 1,973 | 1.00× | Tie |
-| Twitter Small (prettified) | 2,494 | 2,488 | 1.00× | Tie |
+| Apache Builds (minified) | 1,440 | 1,515 | 0.95× | **Loss** |
+| Canada (minified) | 798 | 737 | 1.08× | Win |
+| Apache Builds (prettified) | 1,762 | 1,936 | 0.91× | **Loss** |
+| Canada (prettified) | 1,771 | 1,626 | 1.09× | Win |
+| CitmCatalog (minified) | 1,890 | 1,631 | 1.16× | Win |
+| CitmCatalog (prettified) | 3,570 | 3,328 | 1.07× | Win |
+| Discord (minified) | 1,834 | 1,787 | 1.03× | Win |
+| Discord (prettified) | 2,662 | 2,485 | 1.07× | Win |
+| Github Events (minified) | 1,630 | 1,823 | 0.89× | **Loss** |
+| Google Maps Response (minified) | 1,599 | 1,563 | 1.02× | Win |
+| Github Events (prettified) | 1,887 | 2,199 | 0.86× | **Loss** |
+| Google Maps Response (prettified) | 2,927 | 3,020 | 0.97× | **Loss** |
+| Instruments (minified) | 2,508 | 1,749 | 1.43× | Win |
+| Instruments (prettified) | 3,810 | 2,730 | 1.40× | Win |
+| Marine IK Reverse (minified) | 774 | 696 | 1.11× | Win |
+| Marine IK Reverse (prettified) | 2,650 (n/c) | 2,467 | 1.07× | Win |
+| Marine IK (minified) | 775 | 704 | 1.10× | Win |
+| Marine IK (prettified) | 2,731 | 2,484 | 1.10× | Win |
+| Random (minified) | 1,183 | 1,209 | 0.98× | **Loss** |
+| Random (prettified) | 1,771 | 1,828 | 0.97× | **Loss** |
+| Twitter (minified) | 1,706 | 1,742 | 0.98× | **Loss** |
+| Twitter (prettified) | 2,179 | 2,267 | 0.96× | **Loss** |
+| Apache Builds Small (minified) | 2,081 | 2,073 | 1.00× | Win |
+| Canada Small (minified) | 861 | 723 | 1.19× | Win |
+| Apache Builds Small (prettified) | 2,553 | 2,475 | 1.03× | Win |
+| Canada Small (prettified) | 1,966 | 1,701 | 1.16× | Win |
+| CitmCatalog Small (minified) | 1,631 | 1,267 | 1.29× | Win |
+| CitmCatalog Small (prettified) | 2,697 | 2,374 | 1.14× | Win |
+| Discord Small (minified) | 1,713 | 1,724 | 0.99× | **Loss** |
+| Discord Small (prettified) | 2,270 | 2,281 | 1.00× | **Loss** |
+| Github Events Small (minified) | 1,590 | 1,870 | 0.85× | **Loss** |
+| Google Maps Response Small (minified) | 1,620 | 1,509 | 1.07× | Win |
+| Github Events Small (prettified) | 2,115 | 2,462 | 0.86× | **Loss** |
+| Google Maps Response Small (prettified) | 2,960 | 2,951 | 1.00× | Win |
+| Instruments Small (minified) | 2,417 | 1,580 | 1.53× | Win |
+| Instruments Small (prettified) | 3,570 | 2,599 | 1.37× | Win |
+| Marine IK Reverse Small (minified) | 746 | 674 | 1.11× | Win |
+| Marine IK Reverse Small (prettified) | 2,673 | 2,454 | 1.09× | Win |
+| Marine IK Small (minified) | 780 | 670 | 1.16× | Win |
+| Marine IK Small (prettified) | 2,645 | 2,339 | 1.13× | Win |
+| Random Small (minified) | 1,637 | 1,463 | 1.12× | Win |
+| Random Small (prettified) | 2,267 | 2,106 | 1.08× | Win |
+| Twitter Small (minified) | 1,974 | 1,922 | 1.03× | Win |
+| Twitter Small (prettified) | 2,403 | 2,408 | 1.00× | Tie |
 
 #### Reused objects: stage 1 + reflection
 
@@ -1386,92 +1384,92 @@ Every result above comes from AVX2 and NEON builds. The same tests also ran on t
 
 | Test | Two-stage Jsonifier (MB/s) | simdjson reflection (MB/s) | Two-stage ÷ reflection | Verdict |
 |---|---|---|---|---|
-| Apache Builds (minified) | 1,735 | 1,806 | 0.96× | **Loss** |
-| Canada (minified) | 879 | 782 | 1.12× | Win |
-| Apache Builds (prettified) | 2,210 | 2,312 | 0.96× | **Loss** |
-| Canada (prettified) | 1,960 | 1,785 | 1.10× | Win |
-| CitmCatalog (minified) | 2,137 | 1,745 | 1.22× | Win |
-| CitmCatalog (prettified) | 4,166 | 3,494 | 1.19× | Win |
-| Discord (minified) | 2,060 | 1,897 | 1.09× | Win |
-| Discord (prettified) | 2,836 | 2,696 | 1.05× | Win |
-| Github Events (minified) | 2,052 | 2,019 | 1.02× | Win |
-| Google Maps Response (minified) | 1,689 | 1,483 | 1.14× | Win |
-| Github Events (prettified) | 2,542 | 2,347 | 1.08× | Win |
-| Google Maps Response (prettified) | 3,075 | 2,964 | 1.04× | Win |
-| Instruments (minified) | 2,682 | 1,582 | 1.70× | Win |
-| Instruments (prettified) | 4,014 | 2,489 | 1.61× | Win |
-| Marine IK Reverse (minified) | 842 | 690 | 1.22× | Win |
-| Marine IK Reverse (prettified) | 2,847 | 2,427 | 1.17× | Win |
-| Marine IK (minified) | 812 | 680 | 1.19× | Win |
-| Marine IK (prettified) | 2,802 | 2,400 | 1.17× | Win |
-| Random (minified) | 1,305 | 1,466 | 0.89× | **Loss** |
-| Random (prettified) | 2,101 | 2,263 | 0.93× | **Loss** |
-| Twitter (minified) | 2,143 | 1,966 | 1.09× | Win |
-| Twitter (prettified) | 2,677 | 2,424 | 1.10× | Win |
-| Apache Builds Small (minified) | 2,246 | 2,265 | 0.99× | **Loss** |
-| Canada Small (minified) | 1,036 | 763 | 1.36× | Win |
-| Apache Builds Small (prettified) | 2,783 | 2,721 | 1.02× | Win |
-| Canada Small (prettified) | 2,190 | 1,773 | 1.24× | Win |
-| CitmCatalog Small (minified) | 1,738 | 1,355 | 1.28× | Win |
-| CitmCatalog Small (prettified) | 2,874 | 2,468 | 1.16× | Win |
-| Discord Small (minified) | 1,803 | 1,721 | 1.05× | Win |
-| Discord Small (prettified) | 2,338 | 2,494 | 0.94× | **Loss** |
-| Github Events Small (minified) | 2,293 | 2,037 | 1.13× | Win |
-| Google Maps Response Small (minified) | 1,710 | 1,518 | 1.13× | Win |
-| Github Events Small (prettified) | 2,757 | 2,447 | 1.13× | Win |
-| Google Maps Response Small (prettified) | 3,228 | 3,043 | 1.06× | Win |
-| Instruments Small (minified) | 2,639 | 1,537 | 1.72× | Win |
-| Instruments Small (prettified) | 4,102 | 2,284 | 1.80× | Win |
-| Marine IK Reverse Small (minified) | 900 | 702 | 1.28× | Win |
-| Marine IK Reverse Small (prettified) | 3,134 | 2,563 | 1.22× | Win |
-| Marine IK Small (minified) | 984 | 746 | 1.32× | Win |
-| Marine IK Small (prettified) | 3,373 | 2,615 | 1.29× | Win |
-| Random Small (minified) | 1,556 | 1,590 | 0.98× | **Loss** |
-| Random Small (prettified) | 2,496 | 2,393 | 1.04× | Win |
-| Twitter Small (minified) | 2,253 | 2,079 | 1.08× | Win |
-| Twitter Small (prettified) | 2,699 | 2,676 | 1.01× | Win |
+| Apache Builds (minified) | 1,900 | 1,921 | 0.99× | **Loss** |
+| Canada (minified) | 923 | 860 | 1.07× | Win |
+| Apache Builds (prettified) | 2,282 | 2,425 | 0.94× | **Loss** |
+| Canada (prettified) | 2,040 | 1,892 | 1.08× | Win |
+| CitmCatalog (minified) | 2,216 | 1,921 | 1.15× | Win |
+| CitmCatalog (prettified) | 4,384 | 3,851 | 1.14× | Win |
+| Discord (minified) | 2,246 | 2,020 | 1.11× | Win |
+| Discord (prettified) | 3,268 | 2,867 | 1.14× | Win |
+| Github Events (minified) | 2,063 | 2,112 | 0.98× | **Loss** |
+| Google Maps Response (minified) | 1,694 | 1,620 | 1.05× | Win |
+| Github Events (prettified) | 2,356 | 2,472 | 0.95× | **Loss** |
+| Google Maps Response (prettified) | 3,085 | 3,131 | 0.99× | **Loss** |
+| Instruments (minified) | 2,783 | 1,808 | 1.54× | Win |
+| Instruments (prettified) | 4,188 | 2,664 | 1.57× | Win |
+| Marine IK Reverse (minified) | 861 | 774 | 1.11× | Win |
+| Marine IK Reverse (prettified) | 2,944 | 2,732 | 1.08× | Win |
+| Marine IK (minified) | 822 (n/c) | 789 | 1.04× | Win |
+| Marine IK (prettified) | 2,932 | 2,749 | 1.07× | Win |
+| Random (minified) | 1,507 | 1,554 | 0.97× | **Loss** |
+| Random (prettified) | 2,255 | 2,307 | 0.98× | **Loss** |
+| Twitter (minified) | 2,039 | 2,049 | 0.99× | **Loss** |
+| Twitter (prettified) | 2,484 | 2,599 | 0.96× | **Loss** |
+| Apache Builds Small (minified) | 2,355 | 2,167 | 1.09× | Win |
+| Canada Small (minified) | 1,024 | 722 | 1.42× | Win |
+| Apache Builds Small (prettified) | 2,742 | 2,575 | 1.06× | Win |
+| Canada Small (prettified) | 2,305 | 1,808 | 1.27× | Win |
+| CitmCatalog Small (minified) | 1,907 | 1,469 | 1.30× | Win |
+| CitmCatalog Small (prettified) | 3,150 | 2,548 | 1.24× | Win |
+| Discord Small (minified) | 2,053 | 1,949 | 1.05× | Win |
+| Discord Small (prettified) | 2,731 | 2,548 | 1.07× | Win |
+| Github Events Small (minified) | 2,192 | 2,154 | 1.02× | Win |
+| Google Maps Response Small (minified) | 1,655 | 1,634 | 1.01× | Win |
+| Github Events Small (prettified) | 2,578 | 2,834 | 0.91× | **Loss** |
+| Google Maps Response Small (prettified) | 3,221 | 3,104 | 1.04× | Win |
+| Instruments Small (minified) | 2,622 | 1,734 | 1.51× | Win |
+| Instruments Small (prettified) | 3,736 | 2,713 | 1.38× | Win |
+| Marine IK Reverse Small (minified) | 881 | 709 | 1.24× | Win |
+| Marine IK Reverse Small (prettified) | 2,968 | 2,645 | 1.12× | Win |
+| Marine IK Small (minified) | 916 | 728 | 1.26× | Win |
+| Marine IK Small (prettified) | 3,074 | 2,628 | 1.17× | Win |
+| Random Small (minified) | 1,915 | 1,590 | 1.20× | Win |
+| Random Small (prettified) | 2,634 | 2,195 | 1.20× | Win |
+| Twitter Small (minified) | 2,247 | 2,155 | 1.04× | Win |
+| Twitter Small (prettified) | 2,556 | 2,648 | 0.97× | **Loss** |
 
 #### Freshly allocated objects: partial reading and validation
 
 | Platform / Compiler | Document | Jsonifier stage 1 + 2 (MB/s) | simdjson On Demand (MB/s) | Jsonifier ÷ simdjson | Verdict |
 |---|---|---|---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter (minified) | 7,747 | 2,995 | 2.59× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,420 | 3,675 | 2.56× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 5,090 | 2,774 | 1.83× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 5,834 | 3,366 | 1.73× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (minified) | 9,695 | 7,647 | 1.27× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (prettified) | 11,332 | 8,529 | 1.33× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,007 | 6,397 | 0.94× | Loss |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,089 | 7,408 | 0.96× | Loss |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,113 | 8,089 | 1.00× | Tie |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,969 | 8,779 | 1.14× | Win |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,012 | 7,025 | 0.86× | Loss |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,179 | 7,627 | 0.94× | Loss |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,186 | 3,370 | 2.43× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter (prettified) | 8,955 | 4,383 | 2.04× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 5,411 | 3,370 | 1.61× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 6,686 | 2,651 | 2.52× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,884 | 6,594 | 1.35× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,981 | 7,968 | 1.25× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,492 | 6,107 | 1.06× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,741 | 7,028 | 1.10× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,313 | 8,133 | 1.02× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,977 | 9,462 | 1.05× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 5,915 (n/c) | 6,597 | 0.90× | Loss |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,244 | 8,025 | 0.90× | Loss |
 
 **Reused objects.**
 
 | Platform / Compiler | Document | Jsonifier stage 1 + 2 (MB/s) | simdjson On Demand (MB/s) | Jsonifier ÷ simdjson | Verdict |
 |---|---|---|---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter (minified) | 7,936 | 3,089 | 2.57× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,248 | 3,732 | 2.48× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 5,474 | 2,936 | 1.86× | Win |
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 6,211 | 3,486 | 1.78× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (minified) | 10,500 | 7,445 | 1.41× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (prettified) | 11,078 | 8,755 | 1.27× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,366 | 6,503 | 0.98× | Loss |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,703 | 7,496 | 1.03× | Win |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,735 | 8,255 | 1.06× | Win |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (prettified) | 10,039 | 8,865 | 1.13× | Win |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,132 | 7,120 | 0.86× | Loss |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,582 | 7,616 | 1.00× | Loss |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,161 | 3,627 | 2.25× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,374 | 4,561 | 2.06× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,450 | 3,459 | 1.86× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,454 | 4,220 | 1.77× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (minified) | 9,160 | 6,687 | 1.37× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter (prettified) | 10,349 | 8,068 | 1.28× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 7,013 | 6,294 | 1.11× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 8,168 | 7,124 | 1.15× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (minified) | 8,659 | 8,303 | 1.04× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter (prettified) | 9,939 | 9,467 | 1.05× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (minified) | 6,510 | 6,348 | 1.03× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | Twitter Small (prettified) | 7,284 | 7,622 | 0.96× | Loss |
 
 **Validation.**
 
 | Platform / Compiler | Jsonifier (MB/s) | Glaze (MB/s) | Jsonifier ÷ Glaze | Verdict |
 |---|---|---|---|---|
-| Windows / MSVC 19.51 (EPYC 9V45, AVX-512) | 3,079 | 2,504 | 1.23× | Win |
-| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 3,792 | 2,377 | 1.59× | Win |
-| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 3,133 | 2,420 | 1.29× | Win |
+| Windows / MSVC 19.52 (EPYC 9V45, AVX-512) | 3,172 | 2,499 | 1.27× | Win |
+| Linux / Clang 24.0 (EPYC 9V45, AVX-512) | 3,609 | 2,312 | 1.56× | Win |
+| Linux / GCC 16.2 (EPYC 9V45, AVX-512) | 3,004 | 2,366 | 1.27× | Win |
 
 ## 3. The single-pass path: `json_cursor` over raw text
 
@@ -1510,29 +1508,26 @@ When the workload *does* justify a structural index, Jsonifier's stage 1 (`simd_
 simdjson classifies input per 64-byte block, and its generic indexer steps through the buffer 128 bytes per iteration: two 64-byte blocks, software-pipelined one block deep, a geometry it retains even on its widest kernel (the Icelake implementation invokes `index<128>`). Jsonifier generalizes the unit of work to a *step* of `simdBlocksPerStep` 64-byte blocks, with the constant chosen per ISA **and per compiler**:
 
 ```cpp
-#if JSONIFIER_AVX512
+#if JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t simdBlocksPerStep{ 4 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_MSVC
+	inline constexpr uint64_t simdBlocksPerStep{ 2 };
+#elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-#elif JSONIFIER_AVX2
+#elif JSONIFIER_NEON && JSONIFIER_COMPILER_GCC
+	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 	inline constexpr uint64_t simdTapeStep{ 4 };
-	#if JSONIFIER_COMPILER_CLANG
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
-	#else
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
-	#endif
-#elif JSONIFIER_NEON
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 #else
-	inline constexpr uint64_t simdTapeStep{ 8 };
-	inline constexpr uint64_t simdBlocksPerStep{ 8 };
+	inline constexpr uint64_t simdBlocksPerStep{ 4 };
+	inline constexpr uint64_t simdTapeStep{ 2 };
 #endif
 ```
 
-`simd/simd_config.hpp` defines `simdBlocksPerStep` and `simdTapeStep` directly in a per-ISA `#if` chain, and only the AVX2 cell branches on the compiler: 4 blocks per step on Clang and 8 on GCC and MSVC, with a tape step of 4 on all three. AVX, SVE2 and the scalar fallback share the final branch. The AVX-512 cell defines no `simdTapeStep`, since its compress drain has no stepped scalar writer.
+`simd/simd_config.hpp` defines `simdBlocksPerStep` and `simdTapeStep` directly in one `#if` chain keyed on ISA and compiler together. On AVX-512 the step is 8 blocks under Clang, 4 under GCC and 2 under MSVC; NEON under GCC takes 4 blocks with a tape step of 4; every other target, AVX2 and NEON under Clang and MSVC included, shares the final branch at 4 blocks and a tape step of 2. The AVX-512 cells define no `simdTapeStep`, since their compress drain has no stepped scalar writer.
 
 These values were selected by parameter sweeps across the CI targets. That Clang and GCC want *different* geometry on the identical ISA reflects how each compiler schedules the unrolled block bodies. It is only expressible because the entire pipeline is specialized at compile time. A runtime-dispatched kernel gets one shape per ISA; a Cathedral-Architecture kernel gets one shape per (ISA × compiler) cell.
 
-Processing up to 8 blocks (512 bytes) per step before draining amortizes the loop-carried state updates and gives the out-of-order core a deep window of independent block computations, a 2-4x wider scan window than simdjson's fixed 128-byte step.
+Processing 2 to 8 blocks (128 to 512 bytes) per step before draining amortizes the loop-carried state updates and gives the out-of-order core a window of independent block computations up to 4x wider than simdjson's fixed 128-byte step, and never narrower. Past the last full step the reader halves the batch (8, 4, 2, then 1 block) rather than dropping to a block-at-a-time loop.
 
 ### 4.2 The classification core: `rope_detector` and the collectors
 
@@ -1548,7 +1543,7 @@ JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t b
 }
 ```
 
-The escape logic is the classic odd-length-backslash-run computation with the standard fast exit: a block containing zero backslashes skips the arithmetic and just consumes the carried `nextIsEscaped` bit, the same short-circuit simdjson's `json_escape_scanner` ships by default. Jsonifier extends the principle one level up: the prefix-XOR (`clmul` on x86, a shift-XOR ladder on NEON) that turns the quote mask into an in-string range mask is itself conditional: `next` branches on the quote mask, and a quoteless block bypasses the multiply entirely, inheriting `prevInString` directly via `finishNextNoInString` (the NEON variant names the multiplying branch `finishNextInString`; on AVX it is `finishNext`). Since long stretches of numeric or minified structural data contain no quotes at all, entire regions of such documents never touch the carry-less multiplier.
+The escape logic is the classic odd-length-backslash-run computation with the standard fast exit: a block containing zero backslashes skips the arithmetic and just consumes the carried `nextIsEscaped` bit, the same short-circuit simdjson's `json_escape_scanner` ships by default. Jsonifier extends the principle one level up: the prefix-XOR (`clmul` on x86, a shift-XOR ladder on NEON) that turns the quote mask into an in-string range mask is itself conditional: `next` branches on the quote mask, and a quoteless block bypasses the multiply entirely, inheriting `prevInString` directly via `finishNextNoInString` (the NEON variant names the multiplying branch `finishNext`; on AVX it is `finishNext`). Since long stretches of numeric or minified structural data contain no quotes at all, entire regions of such documents never touch the carry-less multiplier.
 
 Whitespace and operator classification use the same `shuffle`-against-lookup-table trick simdjson pioneered, expressed as `ws_collector` and `op_collector` over the block's register array. On NEON, where `movemask` doesn't exist, the collectors use the `vshrn_n_u16`-based 4-bit-per-lane narrowing (with `tzcnt >> 2` index correction in `postCmpTzcnt`) and, in the tuned NEON `op_collector`, a `vqtbl1q_u8` nibble-shuffle keyed on `(byte + 3) >> 4`; the reverse-bits/RBIT strategy is available as a compile-time switch where it profiles faster.
 
@@ -1716,13 +1711,13 @@ The consequence differs by path. On simdjson's architecture, validation work is 
 | UTF-8 validation | In-register, fused into stage 1, over all input bytes (ASCII fast path per block); verdict at EOF | In-register, fused into string parsing, over string bytes only, carried across the width cascade; verdict per string |
 | Specialization axis | Runtime CPU dispatch through virtual functions (core/DOM API); On Demand mostly fixed at compile time | One ISA tier per build, chosen at configure time; no virtual calls and no runtime dispatch, so everything is compile-time (Cathedral Architecture) |
 
-The last row is the root of every other difference. simdjson's core API can ship one x86 binary that picks its instruction set at run time; Jsonifier deliberately does not. Its founding constraint is that apart from the data, nothing is decided at run time. The schema, the compiler, the parse options and the instruction-set tier are all known at build time, so every routing decision in this paper (tape or no tape, whitespace lane or not, 4 blocks or 8, tape step of 4 or 8) is still resolved before the first byte is read.
+The last row is the root of every other difference. simdjson's core API can ship one x86 binary that picks its instruction set at run time; Jsonifier deliberately does not. Its founding constraint is that apart from the data, nothing is decided at run time. The schema, the compiler, the parse options and the instruction-set tier are all known at build time, so every routing decision in this paper (tape or no tape, whitespace lane or not, 2, 4 or 8 blocks, tape step of 2 or 4) is still resolved before the first byte is read.
 
 The tier is chosen when CMake configures the project, by a detector run on the build machine or from `JSONIFIER_CPU_INSTRUCTIONS` (and capped with `JSONIFIER_SIMD_TIER`), and the whole library is compiled once for it, so every call is a direct, inlinable call with no per-call check. simdjson dispatches its core and DOM API through virtual functions per ISA, while its On Demand front end is mostly fixed at compile time. Jsonifier keeps one tier per build because per-function target attributes do not reach force-inlined callables passed into standard-library templates such as `resize_and_overwrite`, which GCC and Clang then reject. The cost is portability: a binary for mixed hardware is configured for the lowest tier it must support.
 
 ## 8. Conclusion
 
-The two-stage model is a genuinely great algorithm. Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. With both paths in one binary, the fused path wins 165 of 245 freshly allocated tests: all 25 POD-type tests, 105 of 110 minified documents and 33 of 44 prettified documents on the M2 Pro, while the two-stage path wins 64 of 66 prettified documents on x86. The tape, in other words, is not only an index for partial reads: on indented input on x86 it is also the faster way to read the whole book, and the router should learn when. Taking whichever path is faster, Jsonifier beats simdjson On Demand on 242 of 245 tests freshly allocated and all 245 reused, its stage-1 + reflection path beats simdjson's reflection reader on 75 of 88, and on partial reading it wins 36 of 40. On the three AVX-512 builds the faster path beats simdjson On Demand on 146 of 147 tests freshly allocated and 144 of 147 reused, and its stage-1 + reflection path beats simdjson's reflection reader on 29 of 44 freshly allocated and 37 of 44 reused. The benchmarks are the receipts.
+The two-stage model is a genuinely great algorithm. Jsonifier's stage 1 is an unapologetic descendant of Langdale and Lemire's design, and credits it in source. The contribution here is architectural discipline about *when* to run it. A structural tape is an index, and indexes are worth building exactly when you will not read the whole book. Jsonifier builds it for partial reads and structural transforms, skips it for full parses, validates UTF-8 in the registers it was already holding, and lets the compiler specialize every remaining decision down to per-toolchain loop geometry. With both paths in one binary, the fused path wins 201 of the 220 freshly allocated corpus tests: all 110 minified documents and 91 of 110 prettified ones, while the two-stage path's 14 wins sit almost entirely in the float-heavy Marine IK family on x86. The fused path alone beats simdjson On Demand on all 245 tests in both runs, the stage-1 + reflection path beats simdjson's reflection reader on 70 of 88 freshly allocated and 73 of 88 reused, and on partial reading Jsonifier wins 37 of 40. On the three AVX-512 builds the faster path beats simdjson On Demand on 145 of 147 tests freshly allocated and 144 of 147 reused, and its stage-1 + reflection path beats simdjson's reflection reader on 30 of 44 freshly allocated and 33 of 44 reused. The benchmarks are the receipts.
 
 ---
 
@@ -1731,7 +1726,7 @@ The two-stage model is a genuinely great algorithm. Jsonifier's stage 1 is an un
 ## References
 
 1. G. Langdale, D. Lemire. "Parsing Gigabytes of JSON per Second." *The VLDB Journal*, 28(6), 2019.
-2. simdjson. https://github.com/simdjson/simdjson (commit 36c5b3cfc).
+2. simdjson. https://github.com/simdjson/simdjson (commit 344898409).
 3. Nihilai Collective Corp. "Batched Drain, Fused Scan: The Architecture of Jsonifier's Stage 1." Nihilai Collective Corp, 2026.
 4. Jsonifier repository. https://github.com/nihilai-collective/Jsonifier
 5. Json-Performance benchmark suite and sweep data. https://github.com/nihilai-collective/Json-Performance

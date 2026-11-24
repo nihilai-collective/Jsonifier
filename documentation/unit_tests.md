@@ -110,12 +110,15 @@ The parsing, bounds, round trip, string, conformance, and JSONTestSuite suites a
 
 ## Test Fixtures
 
+The fixtures live in the [Jsonifier-Data](https://github.com/nihilai-collective/Jsonifier-Data) repo. CMake fetches it with `FetchContent`, copies its `unit-tests/` folder into `<build>/unit-tests/test-data/`, and restores every name listed in its `aliases.json` there, so the tests see the layout below.
+
 | Location | Contents |
 |---|---|
-| `unit-tests/json/` | 11 real-world corpora, each minified and prettified (Apache Builds, Canada, CitmCatalog, Discord, Github Events, Google Maps Response, Instruments, Marine IK, Random, Twitter, Twitter Partial), plus `Minify Test`, `Prettify Test`, and `Validate Test` |
-| `unit-tests/jsonchecker/` | The classic `jsonchecker` corpus: 27 `pass*.json` and 79 `fail*` files |
-| `unit-tests/JSONTestSuite/test_parsing/` | The JSONTestSuite corpus: 95 `y_*` (must accept), 188 `n_*` (must reject), and 35 `i_*` (implementation-defined, deliberately unused) |
-| `unit-tests/round_trip/` | 27 `roundtripNN.json` documents and the `semanticscholar` schema |
+| `test-data/json/` | 11 real-world corpora, each minified and prettified (Apache Builds, Canada, CitmCatalog, Discord, Github Events, Google Maps Response, Instruments, Marine IK, Random, Twitter, Twitter Partial), plus `Minify Test`, `Prettify Test`, and `Validate Test` |
+| `test-data/jsonchecker/` | The classic `jsonchecker` corpus: 27 `pass*.json` and 79 `fail*` files |
+| `test-data/JSONTestSuite/test_parsing/` | The JSONTestSuite corpus: 95 `y_*` (must accept), 188 `n_*` (must reject), and 35 `i_*` (implementation-defined, deliberately unused) |
+| `test-data/round_trip/` | 27 `roundtripNN.json` documents (the `semanticscholar` schema stays in `unit-tests/round_trip/`) |
+| `test-data/fast_float_corpus/` | The fast_float number corpora |
 
 The C++ structs for each corpus are defined in `apache_builds.hpp`, `canada.hpp`, `citm_catalog.hpp`, `discord.hpp`, `github_events.hpp`, `google_maps_response.hpp`, `instruments.hpp`, `marine_ik.hpp`, `random.hpp`, and `twitter.hpp`. Shared helpers (the pass/fail runners, the file loader, and the configuration labels) live in `common.hpp`.
 
@@ -193,7 +196,7 @@ About 200 tests that check both `jsonifier::validateUtf8` and validation inside 
 
 ### Float Parsing and Serialization (`float.hpp`)
 - **Parsing:** 64 edge cases, including signed zero, every exponent form, `DBL_MAX`, the smallest normal and denormal values, underflow to zero, overflow, the classic `2.2250738585072011e-308` case, round-half-to-even cases just above and below the halfway point near 2^56, 2^63, 2^103, and 2^152, and inputs with 50 or more digits. Runs in all eight configurations.
-- **fast_float corpus:** 295,293 values from the `canada.txt`, `canada_short.txt`, `contrived.txt`, and `mesh.txt` corpora (stored in `unit-tests/fast_float_corpus`). Every value must parse to exactly the same bits as `std::from_chars` (or `strtod` where `from_chars` for doubles is missing). Each value goes through root `parseJson` and through the `general`, `short_fraction`, and `long_integer` number shapes directly, so a shortcut path can never drift from the general one. Each corpus also runs as one large array through both typed `std::vector<double>` parsing and the generic `getArray` path, in compact, spaced, and prettified layouts.
+- **fast_float corpus:** 295,293 values from the `canada.txt`, `canada_short.txt`, `contrived.txt`, and `mesh.txt` corpora (fetched into `test-data/fast_float_corpus`). Every value must parse to exactly the same bits as `std::from_chars` (or `strtod` where `from_chars` for doubles is missing). Each value goes through root `parseJson` and through the `general`, `short_fraction`, and `long_integer` number shapes directly, so a shortcut path can never drift from the general one. Each corpus also runs as one large array through both typed `std::vector<double>` parsing and the generic `getArray` path, in compact, spaced, and prettified layouts.
 - **Array shape selection:** 12 adversarial arrays in all three layouts: empty and single-element arrays, a short first element followed by 17-digit and too-many-digit values, 8-digit fractions at the short-path boundary, exponents inside the short path, and arrays that open with an integer or a long integer before switching to fractions.
 - **Serialization (zmij):** zero and negative zero, simple fractions, where the output switches between fixed and scientific notation, three-digit exponents, the largest, smallest, and denormal doubles, whole numbers written without a trailing point, and checks that values survive a round trip unchanged.
 

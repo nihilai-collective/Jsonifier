@@ -229,7 +229,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes{ (quotesLocal & ~escaped) };
 			rope_block::escaped = escaped;
 			rope_block::quotes	= quotes;
-			return quotes ? finishNextInString() : finishNextNoInString();
+			return finishNext();
 		}
 
 		JSONIFIER_INLINE static uint8x16_t toPartialBitmask(const uint8x16_t match0, const uint8x16_t match1, const uint8x16_t match2, const uint8x16_t match3,
@@ -248,7 +248,7 @@ namespace jsonifier::internal::simd {
 				const uint64_t quotes{ (pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, quoteRegister) & ~escaped) };
 				rope_block::escaped = escaped;
 				rope_block::quotes	= quotes;
-				return quotes ? finishNextInString() : finishNextNoInString();
+				return finishNext();
 			}
 		}
 
@@ -278,14 +278,10 @@ namespace jsonifier::internal::simd {
 			return shifted;
 		}
 
-		JSONIFIER_INLINE void finishNextInString() noexcept {
+		JSONIFIER_INLINE void finishNext() noexcept {
 			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes) ^ prevInString };
 			prevInString		 = static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString = inString;
-		}
-
-		JSONIFIER_INLINE void finishNextNoInString() noexcept {
-			rope_block::inString = prevInString;
 		}
 
 		uint64_t nextIsEscaped{};

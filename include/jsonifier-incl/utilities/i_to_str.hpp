@@ -41,7 +41,7 @@ namespace jsonifier::internal {
 
 	template<typename v_type> struct to_chars;
 
-	// Idea for this specific implementation of our original 4-digit algorithm (https://github.com/nihilai-collective/Jsonifier/blob/9790d83ecdd997b70c31bd8f604d6f3b431997dc/include/jsonifier-incl/utilities/IToStr.hpp#L93-L124), sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+	// Idea for this specific evolved implementation of our original 4-digit algorithm (https://github.com/nihilai-collective/Jsonifier/blob/9790d83ecdd997b70c31bd8f604d6f3b431997dc/include/jsonifier-incl/utilities/IToStr.hpp#L93-L124), sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	struct digit_writer {
 		JSONIFIER_INLINE static void writeFour(write_buffer_ptr buf, const uint32_t value) noexcept {
 			pow2MemcpyWrapper<4ULL>(buf, fourDigitData + value);

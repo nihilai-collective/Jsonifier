@@ -68,6 +68,7 @@ namespace jsonifier::internal {
 		incorrect_structural_index,
 		unclosed_object,
 		unclosed_array,
+		imbalanced_braces,
 		count,
 	};
 
