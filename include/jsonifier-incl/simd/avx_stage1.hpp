@@ -130,7 +130,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes  = (cmp_eq_op::impl(in01, quoteRegister) & ~escaped);
 			rope_block::escaped	   = escaped;
 			rope_block::quotes	   = quotes;
-			return quotes ? finishNext() : finishNextNoInString();
+			return finishNext();
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
@@ -289,7 +289,7 @@ namespace jsonifier::internal::simd {
 		const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, quoteRegister) & ~escaped);
 		rope_block::escaped	   = escaped;
 		rope_block::quotes	   = quotes;
-		return quotes ? finishNext() : finishNextNoInString();
+		return finishNext();
 	}
 
 	struct tape_writer_op {

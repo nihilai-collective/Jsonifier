@@ -17,8 +17,8 @@ namespace jsonifier::internal {
 	using write_buffer_ptr			 = uint8_t* __restrict;
 
 #if JSONIFIER_AVX512 && JSONIFIER_COMPILER_GCC
-	inline constexpr uint64_t smallDocumentBytes{ 0 };
-	inline constexpr uint64_t simdBlocksPerStep{ 4 };
+	inline constexpr uint64_t smallDocumentBytes{ 256 };
+	inline constexpr uint64_t simdBlocksPerStep{ 1 };
 #elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_MSVC
 	inline constexpr uint64_t smallDocumentBytes{ 512 };
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
@@ -26,7 +26,7 @@ namespace jsonifier::internal {
 	inline constexpr uint64_t smallDocumentBytes{ 4096 };
 	inline constexpr uint64_t simdBlocksPerStep{ 1 };
 #elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG
-	inline constexpr uint64_t smallDocumentBytes{ 256 };
+	inline constexpr uint64_t smallDocumentBytes{ 0 };
 	inline constexpr uint64_t simdBlocksPerStep{ 4 };
 #elif JSONIFIER_NEON && JSONIFIER_COMPILER_GCC
 	inline constexpr uint64_t smallDocumentBytes{ 256 };
