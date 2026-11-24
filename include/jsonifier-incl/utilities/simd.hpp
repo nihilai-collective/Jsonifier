@@ -407,7 +407,7 @@ namespace jsonifier::internal {
 		simd_string_reader_members& operator=(const simd_string_reader_members& other) = delete;
 		simd_string_reader_members(const simd_string_reader_members& other)			   = delete;
 
-		template<bool minified> JSONIFIER_INLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
+		template<bool minified> JSONIFIER_NOINLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
 			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {
 				auto newTape   = allocator::allocate(neededCapacity);
@@ -776,7 +776,7 @@ namespace jsonifier::internal {
 			return stepCount;
 		}
 
-		template<bool minified> JSONIFIER_INLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
+		template<bool minified> JSONIFIER_NOINLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
 			const uint64_t neededCapacity = stringLength + 64;
 			if (neededCapacity > capacity) {
 				auto newTape   = allocator::allocate(neededCapacity);
@@ -1030,7 +1030,7 @@ namespace jsonifier::internal {
 			return op | rope_type::quotes | scalarStart;
 		}
 
-		template<bool minified> JSONIFIER_INLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
+		template<bool minified> JSONIFIER_NOINLINE void reset(read_buffer_ptr rootIter, uint64_t stringLength) noexcept {
 #if JSONIFIER_ANY_AVX
 			if (stringLength <= 16) {
 				return resetDispatch<minified, 16, 1>(rootIter, stringLength);
