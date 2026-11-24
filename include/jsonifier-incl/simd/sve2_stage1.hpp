@@ -124,7 +124,11 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes  = (quotesLocal & ~escaped);
 			rope_block::escaped	   = escaped;
 			rope_block::quotes	   = quotes;
+#if JSONIFIER_COMPILER_GCC
+			return quotes ? finishNext() : finishNextNoInString();
+#else
 			return finishNext();
+#endif
 		}
 
 		JSONIFIER_INLINE static uint64_t toBitmask(const jsonifier_simd_int_t masked0, const jsonifier_simd_int_t masked1, const jsonifier_simd_int_t masked2,
