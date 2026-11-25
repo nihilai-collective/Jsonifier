@@ -212,11 +212,18 @@ namespace jsonifier::internal {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
 			if constexpr (!minified) {
-				while (keyEnd > keyStart && *keyEnd != uint_c_v<'"'>) {
-					--keyEnd;
+				if (*keyEnd != uint_c_v<'"'>) [[unlikely]] {
+					keyEnd = findKeyEnd(keyStart, keyEnd);
 				}
 			}
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
+		}
+
+		JSONIFIER_NOINLINE static read_buffer_ptr findKeyEnd(read_buffer_ptr keyStart, read_buffer_ptr keyEnd) noexcept {
+			while (keyEnd > keyStart && *keyEnd != uint_c_v<'"'>) {
+				--keyEnd;
+			}
+			return keyEnd;
 		}
 
 		JSONIFIER_INLINE bool unescapedKeyMatches(read_structural_index_ptr iter, string_view key) const noexcept {

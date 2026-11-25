@@ -84,7 +84,7 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-		JSONIFIER_INLINE static error_codes readField(document_state& state, uint64_t tag, read_structural_index_ptr valuePosition, read_structural_index_ptr after,
+		JSONIFIER_NOINLINE static error_codes readField(document_state& state, uint64_t tag, read_structural_index_ptr valuePosition, read_structural_index_ptr after,
 			generic::package_json_fields& out) noexcept {
 			switch (tag) {
 				case nameTag: {
