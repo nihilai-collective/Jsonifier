@@ -168,10 +168,18 @@ namespace jsonifier::internal {
 				}
 			}
 			while (iter + 4 <= limit) {
-				const int64_t depth0 = openCount + depthDeltaTable[base[iter[0]]];
-				const int64_t depth1 = depth0 + depthDeltaTable[base[iter[1]]];
-				const int64_t depth2 = depth1 + depthDeltaTable[base[iter[2]]];
-				const int64_t depth3 = depth2 + depthDeltaTable[base[iter[3]]];
+				const int64_t delta0 = depthDeltaTable[base[iter[0]]];
+				const int64_t delta1 = depthDeltaTable[base[iter[1]]];
+				const int64_t delta2 = depthDeltaTable[base[iter[2]]];
+				const int64_t delta3 = depthDeltaTable[base[iter[3]]];
+				if ((delta0 | delta1 | delta2 | delta3) == 0) {
+					iter += 4;
+					continue;
+				}
+				const int64_t depth0 = openCount + delta0;
+				const int64_t depth1 = depth0 + delta1;
+				const int64_t depth2 = depth1 + delta2;
+				const int64_t depth3 = depth2 + delta3;
 				if ((depth0 == 0) || (depth1 == 0) || (depth2 == 0) || (depth3 == 0)) [[unlikely]] {
 					return iter + (depth0 == 0 ? 1 : depth1 == 0 ? 2 : depth2 == 0 ? 3 : 4);
 				}
