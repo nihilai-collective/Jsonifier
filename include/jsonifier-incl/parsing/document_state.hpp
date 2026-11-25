@@ -146,7 +146,8 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, read_structural_index_ptr iter, read_structural_index_ptr limit) noexcept {
+		JSONIFIER_INLINE static unrestrict_t<read_structural_index_ptr> skipValue(read_buffer_ptr base, [[maybe_unused]] read_buffer_ptr end, read_structural_index_ptr iter,
+			read_structural_index_ptr limit) noexcept {
 			if (!isOpener(base[*iter])) [[likely]] {
 				return iter + 1;
 			}
@@ -167,6 +168,27 @@ namespace jsonifier::internal {
 					break;
 				}
 			}
+#if JSONIFIER_AVX2 || JSONIFIER_AVX512
+			const __m256i caseFold = _mm256_set1_epi32(0x20);
+			const __m256i openers  = _mm256_set1_epi32(uint_c_v<'{'>);
+			const __m256i closers  = _mm256_set1_epi32(uint_c_v<'}'>);
+			const __m256i byteMask = _mm256_set1_epi32(0xff);
+			while (iter + 8 <= limit && base + iter[7] + 4 <= end) {
+				const __m256i offsets = _mm256_loadu_si256(std::bit_cast<const __m256i*>(iter));
+				const __m256i folded  = _mm256_or_si256(_mm256_and_si256(_mm256_i32gather_epi32(std::bit_cast<const int*>(base), offsets, 1), byteMask), caseFold);
+				uint32_t openBits	  = static_cast<uint32_t>(_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(folded, openers))));
+				uint32_t bracketBits  = openBits | static_cast<uint32_t>(_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(folded, closers))));
+				while (bracketBits) {
+					const uint32_t lane = static_cast<uint32_t>(simd::countrZeroUnsafe(bracketBits));
+					openCount += ((openBits >> lane) & 1) ? 1 : -1;
+					if (openCount == 0) {
+						return iter + lane + 1;
+					}
+					bracketBits &= bracketBits - 1;
+				}
+				iter += 8;
+			}
+#endif
 			while (iter + 4 <= limit) {
 				const int64_t depth0 = openCount + depthDeltaTable[base[iter[0]]];
 				const int64_t depth1 = depth0 + depthDeltaTable[base[iter[1]]];
@@ -205,7 +227,7 @@ namespace jsonifier::internal {
 					}
 				}
 			}
-			return skipValue(root, iter, tapeEnd);
+			return skipValue(root, end, iter, tapeEnd);
 		}
 
 		template<bool minified> JSONIFIER_INLINE string_view rawKey(read_structural_index_ptr iter) const noexcept {
