@@ -212,7 +212,7 @@ namespace jsonifier::internal {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
 			if constexpr (!minified) {
-#if JSONIFIER_COMPILER_CLANG && !defined(_MSC_VER)
+#if JSONIFIER_COMPILER_CLANG && JSONIFIER_NEON && !defined(_MSC_VER)
 				if (*keyEnd != uint_c_v<'"'>) [[unlikely]] {
 					keyEnd = findKeyEnd(keyStart, keyEnd);
 				}

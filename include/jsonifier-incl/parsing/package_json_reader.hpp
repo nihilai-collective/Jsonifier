@@ -84,7 +84,7 @@ namespace jsonifier::internal {
 		}
 
 	  protected:
-#if JSONIFIER_COMPILER_CLANG && !defined(_MSC_VER)
+#if JSONIFIER_COMPILER_CLANG && JSONIFIER_NEON && !defined(_MSC_VER)
 		JSONIFIER_NOINLINE
 #else
 		JSONIFIER_INLINE
