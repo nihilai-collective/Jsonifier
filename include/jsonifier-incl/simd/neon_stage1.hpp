@@ -27,8 +27,8 @@ namespace jsonifier::internal::simd {
 
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-	#if JSONIFIER_CLMUL && JSONIFIER_COMPILER_CLANG
-			return vgetq_lane_u64(vreinterpretq_u64_p128(vmull_p64(~0ULL, bitmask)), 0);
+	#if JSONIFIER_CLMUL
+			return impl(bitmask, ones());
 	#else
 			bitmask ^= bitmask << 1;
 			bitmask ^= bitmask << 2;
@@ -39,6 +39,24 @@ namespace jsonifier::internal::simd {
 			return bitmask;
 	#endif
 		}
+
+	#if JSONIFIER_CLMUL
+		using ones_type = uint64x1_t;
+
+		JSONIFIER_INLINE static ones_type ones() noexcept {
+			return vcreate_u64(~0ULL);
+		}
+
+		JSONIFIER_INLINE static uint64_t impl(const uint64_t bitmask, const ones_type allOnes) noexcept {
+		#if JSONIFIER_COMPILER_GCC && !defined(__ARM_FEATURE_AES)
+			uint64x2_t product;
+			__asm__(".arch_extension aes\n\tpmull %0.1q, %1.1d, %2.1d" : "=w"(product) : "w"(allOnes), "w"(vcreate_u64(bitmask)));
+			return vgetq_lane_u64(product, 0);
+		#else
+			return vgetq_lane_u64(vreinterpretq_u64_p128(vmull_p64(vget_lane_p64(vreinterpret_p64_u64(allOnes), 0), bitmask)), 0);
+		#endif
+		}
+	#endif
 	};
 
 	struct unescaped_collector {
@@ -213,7 +231,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<typename rope_block> struct rope_detector : rope_block {
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
+		template<typename... prefix_xor_args>
+		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const prefix_xor_args... prefixXorArgs) noexcept {
 			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 			const uint8x16_t d0{ in01.template get<0>() };
 			const uint8x16_t d1{ in01.template get<1>() };
@@ -229,7 +248,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes{ (quotesLocal & ~escaped) };
 			rope_block::escaped = escaped;
 			rope_block::quotes	= quotes;
-			return finishNext();
+			return finishNext(prefixXorArgs...);
 		}
 
 		JSONIFIER_INLINE static uint8x16_t toPartialBitmask(const uint8x16_t match0, const uint8x16_t match1, const uint8x16_t match2, const uint8x16_t match3,
@@ -278,8 +297,8 @@ namespace jsonifier::internal::simd {
 			return shifted;
 		}
 
-		JSONIFIER_INLINE void finishNext() noexcept {
-			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes) ^ prevInString };
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNext(const prefix_xor_args... prefixXorArgs) noexcept {
+			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes, prefixXorArgs...) ^ prevInString };
 			prevInString		 = static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString = inString;
 		}

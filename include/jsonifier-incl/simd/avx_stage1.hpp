@@ -30,9 +30,7 @@ namespace jsonifier::internal::simd {
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
 	#if JSONIFIER_CLMUL
-			const __m128i allOnes{ _mm_set1_epi8(static_cast<char>(-1)) };
-			const __m128i result{ _mm_clmulepi64_si128(_mm_set_epi64x(0, static_cast<int64_t>(bitmask)), allOnes, 0) };
-			return static_cast<uint64_t>(_mm_cvtsi128_si64(result));
+			return impl(bitmask, ones());
 	#else
 			bitmask ^= bitmask << 1;
 			bitmask ^= bitmask << 2;
@@ -43,6 +41,19 @@ namespace jsonifier::internal::simd {
 			return bitmask;
 	#endif
 		}
+
+	#if JSONIFIER_CLMUL
+		using ones_type = __m128i;
+
+		JSONIFIER_INLINE static ones_type ones() noexcept {
+			return _mm_set1_epi8(static_cast<char>(-1));
+		}
+
+		JSONIFIER_INLINE static uint64_t impl(const uint64_t bitmask, const ones_type allOnes) noexcept {
+			const __m128i result{ _mm_clmulepi64_si128(_mm_set_epi64x(0, static_cast<int64_t>(bitmask)), allOnes, 0) };
+			return static_cast<uint64_t>(_mm_cvtsi128_si64(result));
+		}
+	#endif
 	};
 
 	struct cmp_eq_op {
@@ -110,12 +121,17 @@ namespace jsonifier::internal::simd {
 		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
 			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;
 
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
+		template<typename... prefix_xor_args>
+		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const prefix_xor_args... prefixXorArgs) noexcept {
 			const uint64_t escaped{ nextEscapeAndTerminalCode(cmp_eq_op::impl(in01, bsRegister)) };
-			const uint64_t quotes{ (cmp_eq_op::impl(in01, quoteRegister) & ~escaped) };
+			uint64_t rawQuotes{ cmp_eq_op::impl(in01, quoteRegister) };
+	#if JSONIFIER_COMPILER_GCC
+			__asm__("" : "+r"(rawQuotes));
+	#endif
+			const uint64_t quotes{ rawQuotes & ~escaped };
 			rope_block::escaped = escaped;
 			rope_block::quotes	= quotes;
-			return finishNext();
+			return finishNext(prefixXorArgs...);
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
@@ -144,8 +160,8 @@ namespace jsonifier::internal::simd {
 			return shifted;
 		}
 
-		JSONIFIER_INLINE void finishNext() noexcept {
-			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes) ^ prevInString };
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNext(const prefix_xor_args... prefixXorArgs) noexcept {
+			const uint64_t inString{ prefix_xor_op::impl(rope_block::quotes, prefixXorArgs...) ^ prevInString };
 			prevInString		 = static_cast<uint64_t>(static_cast<int64_t>(inString) >> 63);
 			rope_block::inString = inString;
 		}

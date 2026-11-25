@@ -8,6 +8,7 @@
 
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
+#include <jsonifier-incl/simd/compress_tables.hpp>
 
 namespace jsonifier::internal::simd {
 
@@ -32,6 +33,18 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		vst1q_u8(static_cast<uint8_t*>(storageLocation), value);
+	}
+
+	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeUHalves(simd_int_type_new value, void* __restrict storageLocation) noexcept {
+		storeU(value, storageLocation);
+	}
+
+	template<simd_int_128_types simd_int_type_new>
+	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCompressStore(simd_int_type_new value, const uint64_t keep, void* __restrict storageLocation) noexcept {
+		const uint8x16_t shuffle{ vcombine_u8(vcreate_u8(compressTablesLow[keep & 0xFF]), vcreate_u8(compressTablesHigh[(keep >> 8) & 0xFF])) };
+		const uint8x16_t packed{ vqtbl1q_u8(vqtbl1q_u8(value, shuffle), vld1q_u8(compressTablesMerge + ((keep & 0xFF) << 4))) };
+		vst1q_u8(static_cast<uint8_t*>(storageLocation), packed);
+		return popcount(keep & 0xFFFFULL);
 	}
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {

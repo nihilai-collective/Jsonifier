@@ -155,21 +155,19 @@ namespace minifier_tests {
 			bool success = parser.minifyJson(std::string{ "   \n\t  " }, buffer);
 			return !success && !parser.getErrors().empty() && buffer == "stale";
 		});
-		rt_ut::unit_test<"buffer_minify_unclosed_array_diagnostic", true>::assert_eq(std::string{ "success=0 errors=1 buffer=" }, [&] {
+		rt_ut::unit_test<"buffer_minify_unclosed_array_passes_through", true>::assert_eq(std::string{ "[1,2" }, [&] {
 			std::string buffer{ "stale" };
-			bool success = parser.minifyJson(std::string{ "[" }, buffer);
-			return "success=" + std::to_string(success) + " errors=" + std::to_string(!parser.getErrors().empty()) + " buffer=" + buffer;
+			return parser.minifyJson(std::string{ "[ 1 , 2 " }, buffer) ? buffer : std::string{ "FAILED" };
 		});
 
-		rt_ut::unit_test<"buffer_minify_unclosed_array_returns_false_and_reports_error", true>::assert_eq(true, [&] {
+		rt_ut::unit_test<"buffer_minify_unclosed_object_passes_through", true>::assert_eq(std::string{ R"({"a":1)" }, [&] {
 			std::string buffer{ "stale" };
-			bool success = parser.minifyJson(std::string{ "[" }, buffer);
-			return !success && !parser.getErrors().empty() && buffer.empty();
+			return parser.minifyJson(std::string{ R"({ "a" : 1 )" }, buffer) ? buffer : std::string{ "FAILED" };
 		});
 
-		rt_ut::unit_test<"buffer_minify_unclosed_object_returns_false_and_reports_error", true>::assert_eq(true, [&] {
+		rt_ut::unit_test<"buffer_minify_unclosed_string_returns_false_and_reports_error", true>::assert_eq(true, [&] {
 			std::string buffer{ "stale" };
-			bool success = parser.minifyJson(std::string{ "{" }, buffer);
+			bool success = parser.minifyJson(std::string{ R"({ "a : 1 })" }, buffer);
 			return !success && !parser.getErrors().empty() && buffer.empty();
 		});
 

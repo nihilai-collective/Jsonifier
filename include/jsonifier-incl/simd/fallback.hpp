@@ -9,6 +9,7 @@
 #include <jsonifier-incl/simd/simd_x.hpp>
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
+#include <jsonifier-incl/simd/compress_tables.hpp>
 
 namespace jsonifier::internal::simd {
 
@@ -37,6 +38,21 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeU(simd_int_type_new value, void* storageLocation) noexcept {
 		pow2MemcpyWrapper<16>(storageLocation, &value.values);
+	}
+
+	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeUHalves(simd_int_type_new value, void* __restrict storageLocation) noexcept {
+		storeU(value, storageLocation);
+	}
+
+	template<simd_int_128_types simd_int_type_new>
+	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCompressStore(simd_int_type_new value, const uint64_t keep, void* __restrict storageLocation) noexcept {
+		uint8_t* out{ static_cast<uint8_t*>(storageLocation) };
+		uint64_t count{};
+		for (uint64_t x{ 0 }; x < 16; ++x) {
+			out[count] = value.values.xUint8[x];
+			count += (keep >> x) & 1;
+		}
+		return count;
 	}
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void store(simd_int_type_new value, void* storageLocation) noexcept {

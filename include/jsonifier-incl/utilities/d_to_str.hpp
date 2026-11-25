@@ -82,17 +82,15 @@ namespace jsonifier::internal {
 
 #if !JSONIFIER_USE_INT128
 	JSONIFIER_INLINE constexpr uint128_t umul128Portable(uint64_t x, uint64_t y) noexcept {
-		uint64_t a{ x >> 32 };
-		uint64_t b{ static_cast<uint32_t>(x) };
-		uint64_t c{ y >> 32 };
-		uint64_t d{ static_cast<uint32_t>(y) };
-
-		uint64_t ac{ a * c };
-		uint64_t bc{ b * c };
-		uint64_t ad{ a * d };
-		uint64_t bd{ b * d };
-
-		uint64_t cs{ (bd >> 32) + static_cast<uint32_t>(ad) + static_cast<uint32_t>(bc) };
+		const uint64_t a{ x >> 32 };
+		const uint64_t b{ static_cast<uint32_t>(x) };
+		const uint64_t c{ y >> 32 };
+		const uint64_t d{ static_cast<uint32_t>(y) };
+		const uint64_t ac{ a * c };
+		const uint64_t bc{ b * c };
+		const uint64_t ad{ a * d };
+		const uint64_t bd{ b * d };
+		const uint64_t cs{ (bd >> 32) + static_cast<uint32_t>(ad) + static_cast<uint32_t>(bc) };
 		return { ac + (ad >> 32) + (bc >> 32) + (cs >> 32), (cs << 32) + static_cast<uint32_t>(bd) };
 	}
 #endif
@@ -110,7 +108,7 @@ namespace jsonifier::internal {
 		if !consteval {
 	#if JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_X64
 			uint64_t hi{ 0 };
-			uint64_t lo{ _umul128(x, y, &hi) };
+			const uint64_t lo{ _umul128(x, y, &hi) };
 			return { hi, lo };
 	#elif JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_ARM64
 			return { __umulh(x, y), x * y };
@@ -125,12 +123,12 @@ namespace jsonifier::internal {
 
 	JSONIFIER_INLINE uint128 umul192Hi128(uint64_t xHi, uint64_t xLo, uint64_t y) noexcept {
 #if JSONIFIER_USE_INT128
-		uint128_t p{ umul128(xHi, y) };
-		uint64_t lo{ static_cast<uint64_t>(p) + static_cast<uint64_t>(umul128(xLo, y) >> 64) };
+		const uint128_t p{ umul128(xHi, y) };
+		const uint64_t lo{ static_cast<uint64_t>(p) + static_cast<uint64_t>(umul128(xLo, y) >> 64) };
 		return { static_cast<uint64_t>(p >> 64) + (lo < static_cast<uint64_t>(p) ? 1ULL : 0ULL), lo };
 #else
-		uint128 p{ umul128(xHi, y) };
-		uint64_t lo{ p.lo + umul128(xLo, y).hi };
+		const uint128 p{ umul128(xHi, y) };
+		const uint64_t lo{ p.lo + umul128(xLo, y).hi };
 		return { p.hi + (lo < p.lo ? 1ULL : 0ULL), lo };
 #endif
 	}
@@ -139,7 +137,7 @@ namespace jsonifier::internal {
 #if JSONIFIER_USE_INT128
 		return static_cast<uint64_t>((uint128_t(x) * y + c) >> 64);
 #else
-		auto p{ umul128(x, y) };
+		const auto p{ umul128(x, y) };
 		return p.hi + (p.lo + c < p.lo ? 1ULL : 0ULL);
 #endif
 	}

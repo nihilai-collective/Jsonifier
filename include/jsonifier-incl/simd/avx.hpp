@@ -8,6 +8,7 @@
 
 #include <jsonifier-incl/simd/simd_config.hpp>
 #include <jsonifier-incl/simd/bit_ops.hpp>
+#include <jsonifier-incl/simd/compress_tables.hpp>
 
 namespace jsonifier::internal::simd {
 
@@ -48,6 +49,19 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm_storeu_si128(static_cast<__m128i*>(storageLocation), value);
+	}
+
+	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeUHalves(simd_int_type_new value, void* __restrict storageLocation) noexcept {
+		storeU(value, storageLocation);
+	}
+
+	template<simd_int_128_types simd_int_type_new>
+	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCompressStore(simd_int_type_new value, const uint64_t keep, void* __restrict storageLocation) noexcept {
+		const __m128i shuffle{ _mm_castpd_si128(_mm_loadh_pd(_mm_castsi128_pd(_mm_loadl_epi64(std::bit_cast<const __m128i*>(compressTablesLow + (keep & 0xFF)))),
+			std::bit_cast<const double*>(compressTablesHigh + ((keep >> 8) & 0xFF)))) };
+		const __m128i merge{ _mm_load_si128(std::bit_cast<const __m128i*>(compressTablesMerge + ((keep & 0xFF) << 4))) };
+		_mm_storeu_si128(static_cast<__m128i*>(storageLocation), _mm_shuffle_epi8(_mm_shuffle_epi8(value, shuffle), merge));
+		return popcount(keep & 0xFFFFULL);
 	}
 
 	template<simd_int_128_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
@@ -156,6 +170,30 @@ namespace jsonifier::internal::simd {
 		_mm256_storeu_si256(static_cast<__m256i*>(storageLocation), value);
 	}
 
+	template<simd_int_256_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeUHalves(simd_int_type_new value, void* __restrict storageLocation) noexcept {
+		__m128i quarter0{ _mm256_castsi256_si128(value) };
+		__m128i quarter1{ _mm256_extracti128_si256(value, 1) };
+		#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+		__asm__("" : "+x"(quarter0), "+x"(quarter1));
+		#endif
+		_mm_storeu_si128(static_cast<__m128i*>(storageLocation), quarter0);
+		_mm_storeu_si128(static_cast<__m128i*>(storageLocation) + 1, quarter1);
+	}
+
+	template<simd_int_256_types simd_int_type_new>
+	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCompressStore(simd_int_type_new value, const uint64_t keep, void* __restrict storageLocation) noexcept {
+		const __m128i lowShuffle{ _mm_castpd_si128(_mm_loadh_pd(_mm_castsi128_pd(_mm_loadl_epi64(std::bit_cast<const __m128i*>(compressTablesLow + (keep & 0xFF)))),
+			std::bit_cast<const double*>(compressTablesHigh + ((keep >> 8) & 0xFF)))) };
+		const __m128i highShuffle{ _mm_castpd_si128(_mm_loadh_pd(_mm_castsi128_pd(_mm_loadl_epi64(std::bit_cast<const __m128i*>(compressTablesLow + ((keep >> 16) & 0xFF)))),
+			std::bit_cast<const double*>(compressTablesHigh + ((keep >> 24) & 0xFF)))) };
+		const __m128i lowMerge{ _mm_load_si128(std::bit_cast<const __m128i*>(compressTablesMerge + ((keep & 0xFF) << 4))) };
+		const __m128i highMerge{ _mm_load_si128(std::bit_cast<const __m128i*>(compressTablesMerge + (((keep >> 16) & 0xFF) << 4))) };
+		const __m256i packed{ _mm256_shuffle_epi8(_mm256_shuffle_epi8(value, _mm256_set_m128i(highShuffle, lowShuffle)), _mm256_set_m128i(highMerge, lowMerge)) };
+		_mm_storeu_si128(static_cast<__m128i*>(storageLocation), _mm256_castsi256_si128(packed));
+		_mm_storeu_si128(std::bit_cast<__m128i*>(static_cast<uint8_t*>(storageLocation) + popcount(keep & 0xFFFFULL)), _mm256_extracti128_si256(packed, 1));
+		return popcount(keep & 0xFFFFFFFFULL);
+	}
+
 	template<simd_int_256_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm256_store_si256(static_cast<__m256i*>(storageLocation), value);
 	}
@@ -254,6 +292,16 @@ namespace jsonifier::internal::simd {
 
 	template<simd_int_512_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeU(simd_int_type_new value, void* __restrict storageLocation) noexcept {
 		_mm512_storeu_si512(static_cast<__m512i*>(storageLocation), value);
+	}
+
+	template<simd_int_512_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void storeUHalves(simd_int_type_new value, void* __restrict storageLocation) noexcept {
+		storeU(value, storageLocation);
+	}
+
+	template<simd_int_512_types simd_int_type_new>
+	[[maybe_unused]] JSONIFIER_INLINE uint64_t opCompressStore(simd_int_type_new value, const uint64_t keep, void* __restrict storageLocation) noexcept {
+		_mm512_storeu_si512(storageLocation, _mm512_maskz_compress_epi8(keep, value));
+		return popcount(keep);
 	}
 
 	template<simd_int_512_types simd_int_type_new> [[maybe_unused]] JSONIFIER_INLINE void store(simd_int_type_new value, void* __restrict storageLocation) noexcept {
