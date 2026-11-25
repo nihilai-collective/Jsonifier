@@ -212,9 +212,15 @@ namespace jsonifier::internal {
 			read_buffer_ptr keyStart = root + *iter + 1;
 			read_buffer_ptr keyEnd	 = root + *(iter + 1) - 1;
 			if constexpr (!minified) {
+#if JSONIFIER_COMPILER_CLANG && !defined(_MSC_VER)
 				if (*keyEnd != uint_c_v<'"'>) [[unlikely]] {
 					keyEnd = findKeyEnd(keyStart, keyEnd);
 				}
+#else
+				while (keyEnd > keyStart && *keyEnd != uint_c_v<'"'>) {
+					--keyEnd;
+				}
+#endif
 			}
 			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
