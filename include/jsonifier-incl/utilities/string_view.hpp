@@ -94,19 +94,19 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstNotOf(arg_types&&... args) const noexcept {
-			return internal::string_search::findFirstNotOf(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstNotOf(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastNotOf(arg_types&&... args) const noexcept {
-			return internal::string_search::findLastNotOf(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::findLastNotOf(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findFirstOf(arg_types&&... args) const noexcept {
-			return internal::string_search::findFirstOf(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::findFirstOf(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type findLastOf(arg_types&&... args) const noexcept {
-			return internal::string_search::findLastOf(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::findLastOf(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		JSONIFIER_INLINE constexpr string_view substr(const size_type offsetNew = 0, size_type countNew = npos) const {
@@ -119,11 +119,11 @@ namespace jsonifier {
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type rfind(arg_types&&... args) const noexcept {
-			return internal::string_search::rfind(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::rfind(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		template<typename... arg_types> JSONIFIER_INLINE constexpr size_type find(arg_types&&... args) const noexcept {
-			return internal::string_search::find(data(), size(), std::forward<arg_types>(args)...);
+			return internal::string_search::find(data(), size(), internal::forward<arg_types>(args)...);
 		}
 
 		template<uint64_t size> JSONIFIER_INLINE constexpr explicit operator string_base<size>() const noexcept {

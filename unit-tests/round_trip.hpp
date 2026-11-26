@@ -50,15 +50,15 @@ namespace round_trip_tests {
 		std::string newString{};
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
-		for (auto& value: parser.getErrors()) {
+		if (auto& value = parser.getError(); value.hasError()) {
 			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}
 		parser.serializeJson(valueNew, newString);
-		for (auto& value: parser.getErrors()) {
+		if (auto& value = parser.getError(); value.hasError()) {
 			std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 		}
 		rt_ut::unit_test<testName, true>::run([&]() {
-			return parser.getErrors().size() == 0;
+			return !parser.hasError();
 		});
 		return;
 	}

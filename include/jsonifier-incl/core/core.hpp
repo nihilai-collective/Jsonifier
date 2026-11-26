@@ -100,7 +100,7 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	inline constexpr uint64_t maxParseInlineMemberCount{ 8 };
-#elif (JSONIFIER_COMPILER_GCC || (JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_MAC))
+#elif JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_MAC
 	inline constexpr uint64_t maxParseInlineMemberCount{ 64 };
 #else
 	inline constexpr uint64_t maxParseInlineMemberCount{ 32 };

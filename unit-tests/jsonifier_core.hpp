@@ -53,8 +53,8 @@ namespace core_tests {
 
 			parserB = jsonifier::internal::move(parserA);
 
-			rt_ut::unit_test<"core, move-assign-overwrites-errors", true>::assert_eq(0ull, [&]() {
-				return parserB.getErrors().size();
+			rt_ut::unit_test<"core, move-assign-overwrites-errors", true>::assert_eq(false, [&]() {
+				return parserB.hasError();
 			});
 		}
 
@@ -80,7 +80,7 @@ namespace core_tests {
 			parser.parseJson(data, badInput);
 
 			rt_ut::unit_test<"core, records-parse-errors", true>::assert_eq(true, [&]() {
-				return !parser.getErrors().empty();
+				return parser.hasError();
 			});
 		}
 
@@ -95,7 +95,7 @@ namespace core_tests {
 			abc_in_order_partial_test_struct dataB{};
 
 			rt_ut::unit_test<"core, move-construct-keeps-errors", true>::assert_eq(true, [&]() {
-				return !parserB.getErrors().empty() && parserB.parseJson(dataB, testInput) && dataB.test_string == "rebound" && dataB.test_int == 3;
+				return parserB.hasError() && parserB.parseJson(dataB, testInput) && dataB.test_string == "rebound" && dataB.test_int == 3;
 			});
 		}
 

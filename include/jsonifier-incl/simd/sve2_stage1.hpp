@@ -110,8 +110,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<typename rope_block> struct rope_detector : rope_block {
-		template<typename... prefix_xor_args>
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const prefix_xor_args... prefixXorArgs) noexcept {
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister,
+			const prefix_xor_args... prefixXorArgs) noexcept {
 			const auto pg{ svptrue_b8() };
 			const auto bitMask{ sve2BitMask() };
 			const jsonifier_simd_int_t d0{ in01.template get<0>() };

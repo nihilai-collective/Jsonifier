@@ -111,8 +111,8 @@ namespace string_validation_tests {
 	template<typename value_type_out, typename value_type_in, const auto& pass_tests, const auto& pass_values, bool partial, bool knownOrder, bool nullTerminated>
 	struct generic_pass_tests_runner {
 		template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
-			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) } + ", Generic, " +
-				testTypeNullTerminated<nullTerminated> };
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) } +
+				", Generic, " + testTypeNullTerminated<nullTerminated> };
 			const std::string input{ pass_tests[index].data(), pass_tests[index].size() };
 			value_type_in data{};
 			rt_ut::unit_test<testName, true>::assert_eq(pass_values[index], [&]() {
@@ -127,8 +127,8 @@ namespace string_validation_tests {
 
 	template<typename value_type_in, const auto& fail_tests, bool partial, bool knownOrder, bool nullTerminated> struct generic_fail_tests_runner {
 		template<uint64_t index> static void impl(jsonifier::jsonifier_core<>& parser) {
-			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) } + ", Generic, " +
-				testTypeNullTerminated<nullTerminated> };
+			static constexpr rt_ut::string_literal testName{ rt_ut::string_literal{ rt_ut::create_string_literal<fail_tests[index].size()>(fail_tests[index].data()) } +
+				", Generic, " + testTypeNullTerminated<nullTerminated> };
 			const std::string input{ fail_tests[index].data(), fail_tests[index].size() };
 			rt_ut::unit_test<testName, true>::assert_ne(true, [&]() {
 				return conformance_tests::genericStatus<nullTerminated>(input, parser) == jsonifier::internal::parse_statuses::success;

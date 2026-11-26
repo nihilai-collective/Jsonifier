@@ -33,7 +33,7 @@ namespace jsonifier::internal {
 				using simd_type			= typename type_list_element::type::type;
 				using integer_type		= typename type_list_element::integer_type;
 				static constexpr uint64_t vectorSize{ type_list_element::bytesProcessed };
-				const simd_type searchValue{ simd::gatherValue<simd_type>(static_cast<uint8_t>(value)) };
+				const simd_type searchValue{ simd::gatherValue<simd_type, static_cast<uint8_t>(value)>() };
 				integer_type mask;
 				simd_type chunk;
 				while (lengthNew >= vectorSize) {
@@ -55,7 +55,7 @@ namespace jsonifier::internal {
 				using simd_type			= typename type_list_element::type::type;
 				using integer_type		= typename type_list_element::integer_type;
 				static constexpr uint64_t vectorSize{ type_list_element::bytesProcessed };
-				const simd_type searchValue{ simd::gatherValue<simd_type>(static_cast<uint8_t>(value)) };
+				const simd_type searchValue{ simd::gatherValue<simd_type, static_cast<uint8_t>(value)>() };
 				integer_type mask;
 				simd_type chunk;
 				while (lengthNew >= vectorSize) {
@@ -75,7 +75,7 @@ namespace jsonifier::internal {
 				using simd_type			= typename type_list_element::type::type;
 				using integer_type		= typename type_list_element::integer_type;
 				static constexpr uint64_t vectorSize{ type_list_element::bytesProcessed };
-				const simd_type searchValue{ simd::gatherValue<simd_type>(static_cast<uint8_t>(value)) };
+				const simd_type searchValue{ simd::gatherValue<simd_type, static_cast<uint8_t>(value)>() };
 				integer_type mask;
 				simd_type chunk;
 				while (lengthNew >= vectorSize) {

@@ -40,12 +40,12 @@ namespace jsonifier::internal {
 			auto endIter{ getEndIter(in) };
 			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 			parse_context<optionsVal, unrestrict_t<write_structural_index_ptr>, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer,
-				&derivedRef.errors, rootIter, endIter, derivedRef.section.end() };
+				&derivedRef.lastError, rootIter, endIter, derivedRef.section.end() };
 			auto newSize{ static_cast<uint64_t>(endIter - rootIter) / 2 };
 			if (derivedRef.stringBuffer.size() < newSize) {
 				derivedRef.stringBuffer.resize(newSize);
 			}
-			derivedRef.errors.clear();
+			derivedRef.lastError.clear();
 			const write_structural_index_ptr iter{ derivedRef.section.begin() };
 			if (!cursor::anyInput(iter, context)) {
 				return false;
@@ -58,7 +58,7 @@ namespace jsonifier::internal {
 				return false;
 			}
 			static_cast<void>(cursor::checkIfDone(iterNew, context));
-			return derivedRef.errors.size() == 0;
+			return !derivedRef.lastError.hasError();
 		}
 
 	  protected:

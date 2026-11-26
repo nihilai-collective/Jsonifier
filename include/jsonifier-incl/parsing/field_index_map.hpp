@@ -204,13 +204,10 @@ namespace jsonifier::internal {
 #if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 			const __uint128_t product{ static_cast<__uint128_t>(value) * static_cast<__uint128_t>(multiplier) };
 			return static_cast<uint64_t>(product) ^ static_cast<uint64_t>(product >> 64);
-#elif JSONIFIER_COMPILER_MSVC
+#else
 			uint64_t highPart;
 			const uint64_t lowPart{ _umul128(value, multiplier, &highPart) };
 			return lowPart ^ highPart;
-#else
-			const uint64_t lowPart{ value * multiplier };
-			return lowPart ^ ((value >> 32) * (multiplier >> 32));
 #endif
 		}
 

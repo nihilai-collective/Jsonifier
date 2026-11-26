@@ -34,7 +34,8 @@ namespace int_validation_tests {
 		pass_test_runner<int64_t, int64_t, inputValues, outputValues, false, false, nullTerminated, generic_number_pass_tests_runner,
 			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
 		std::cout << "Generic Int Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
-		fail_test_runner<int64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+		fail_test_runner<int64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner,
+			jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
 	}
 
 	inline void runTests() {
@@ -49,6 +50,80 @@ namespace int_validation_tests {
 		genericIntTestsImpl<false>();
 		genericIntTestsImpl<true>();
 		std::cout << "Int validation tests complete." << std::endl;
+	}
+}
+
+namespace narrowing_tests {
+
+	template<typename value_type> struct narrow_cases;
+
+	template<> struct narrow_cases<uint8_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "254", "255" } };
+		static constexpr jsonifier::internal::array<uint8_t, 3> passOutputs{ { 0, 254, 255 } };
+		static constexpr jsonifier::internal::array<std::string_view, 4> failInputs{ { "256", "300", "1000", "2.56e2" } };
+		static constexpr jsonifier::internal::array<std::string_view, 4> arrayFailInputs{ { "[256]", "[300]", "[1000]", "[2.56e2]" } };
+	};
+
+	template<> struct narrow_cases<int8_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "127", "-128" } };
+		static constexpr jsonifier::internal::array<int8_t, 3> passOutputs{ { 0, 127, -128 } };
+		static constexpr jsonifier::internal::array<std::string_view, 4> failInputs{ { "128", "-129", "200", "1.28e2" } };
+		static constexpr jsonifier::internal::array<std::string_view, 4> arrayFailInputs{ { "[128]", "[-129]", "[200]", "[1.28e2]" } };
+	};
+
+	template<> struct narrow_cases<uint16_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "65534", "65535" } };
+		static constexpr jsonifier::internal::array<uint16_t, 3> passOutputs{ { 0, 65534, 65535 } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> failInputs{ { "65536", "70000", "6.5536e4" } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> arrayFailInputs{ { "[65536]", "[70000]", "[6.5536e4]" } };
+	};
+
+	template<> struct narrow_cases<int16_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "32767", "-32768" } };
+		static constexpr jsonifier::internal::array<int16_t, 3> passOutputs{ { 0, 32767, -32768 } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> failInputs{ { "32768", "-32769", "3.2768e4" } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> arrayFailInputs{ { "[32768]", "[-32769]", "[3.2768e4]" } };
+	};
+
+	template<> struct narrow_cases<uint32_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "4294967294", "4294967295" } };
+		static constexpr jsonifier::internal::array<uint32_t, 3> passOutputs{ { 0u, 4294967294u, 4294967295u } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> failInputs{ { "4294967296", "10000000000", "4.294967296e9" } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> arrayFailInputs{ { "[4294967296]", "[10000000000]", "[4.294967296e9]" } };
+	};
+
+	template<> struct narrow_cases<int32_t> {
+		static constexpr jsonifier::internal::array<std::string_view, 3> passInputs{ { "0", "2147483647", "-2147483648" } };
+		static constexpr jsonifier::internal::array<int32_t, 3> passOutputs{ { 0, 2147483647, -2147483647 - 1 } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> failInputs{ { "2147483648", "-2147483649", "2.147483648e9" } };
+		static constexpr jsonifier::internal::array<std::string_view, 3> arrayFailInputs{ { "[2147483648]", "[-2147483649]", "[2.147483648e9]" } };
+	};
+
+	template<typename value_type, bool partial, bool knownOrder> inline void narrowTestsImpl() {
+		using cases = narrow_cases<value_type>;
+		pass_test_runner<value_type, value_type, cases::passInputs, cases::passOutputs, partial, knownOrder, false, pass_tests_runner,
+			jsonifier::internal::make_integer_sequence<cases::passInputs.size()>>::impl();
+		fail_test_runner<value_type, cases::failInputs, partial, knownOrder, false, fail_tests_runner, jsonifier::internal::make_integer_sequence<cases::failInputs.size()>>::impl();
+		fail_test_runner<std::vector<value_type>, cases::arrayFailInputs, partial, knownOrder, false, fail_tests_runner,
+			jsonifier::internal::make_integer_sequence<cases::arrayFailInputs.size()>>::impl();
+	}
+
+	template<bool partial, bool knownOrder> inline void narrowTypesImpl() {
+		std::cout << "Integer Narrowing Tests, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << ": " << std::endl;
+		narrowTestsImpl<uint8_t, partial, knownOrder>();
+		narrowTestsImpl<int8_t, partial, knownOrder>();
+		narrowTestsImpl<uint16_t, partial, knownOrder>();
+		narrowTestsImpl<int16_t, partial, knownOrder>();
+		narrowTestsImpl<uint32_t, partial, knownOrder>();
+		narrowTestsImpl<int32_t, partial, knownOrder>();
+	}
+
+	inline void runTests() {
+		narrowTypesImpl<false, false>();
+		narrowTypesImpl<false, true>();
+		narrowTypesImpl<true, false>();
+		narrowTypesImpl<true, true>();
+		std::cout << "Integer narrowing tests complete." << std::endl;
 	}
 }
 
@@ -77,7 +152,8 @@ namespace uint_validation_tests {
 		pass_test_runner<uint64_t, uint64_t, inputValues, outputValues, false, false, nullTerminated, generic_number_pass_tests_runner,
 			jsonifier::internal::make_integer_sequence<inputValues.size()>>::impl();
 		std::cout << "Generic Uint Fail Tests, " << testTypeNullTerminated<nullTerminated> << ": " << std::endl;
-		fail_test_runner<uint64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner, jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
+		fail_test_runner<uint64_t, failValues, false, false, nullTerminated, generic_number_fail_tests_runner,
+			jsonifier::internal::make_integer_sequence<failValues.size()>>::impl();
 	}
 
 	inline void runTests() {

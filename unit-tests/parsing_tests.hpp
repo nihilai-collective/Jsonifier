@@ -38,10 +38,8 @@ namespace parsing_tests {
 			parser.validateJson(dataToParse);
 		}
 		rt_ut::unit_test<testName, true>::run([&]() {
-			if (auto& errors = parser.getErrors(); errors.size() > 0) {
-				for (auto& error_value: errors) {
-					std::cout << "Jsonifier Error: " << error_value.reportError() << std::endl;
-				}
+			if (auto& errorValue = parser.getError(); errorValue.hasError()) {
+				std::cout << "Jsonifier Error: " << errorValue.reportError() << std::endl;
 				return false;
 			} else {
 				return true;
@@ -61,10 +59,8 @@ namespace parsing_tests {
 			dataToParse);
 		parser.template serializeJson<jsonifier::serialize_options{ .prettify = prettified }>(jsonifier_value, serializedJson);
 		rt_ut::unit_test<testNameRtUt, true>::run([&]() {
-			if (auto& errors = parser.getErrors(); errors.size() > 0) {
-				for (auto& error_value: errors) {
-					std::cout << "Jsonifier Error: " << error_value.reportError() << std::endl;
-				}
+			if (auto& errorValue = parser.getError(); errorValue.hasError()) {
+				std::cout << "Jsonifier Error: " << errorValue.reportError() << std::endl;
 				return false;
 			} else {
 				return true;

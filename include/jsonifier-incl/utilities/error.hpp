@@ -200,9 +200,9 @@ namespace jsonifier::internal {
 
 		template<typename error_class> error(std::source_location sourceLocationNew, status_classes statusClassNew, read_buffer_ptr rootIterNew, read_buffer_ptr errorPosNew,
 			read_buffer_ptr endIterNew, error_class typeNew) noexcept
-			: sourceLocation{ sourceLocationNew }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew }, errorType{ static_cast<uint64_t>(typeNew) },
-			  status_class{ statusClassNew } {
-			formatReport();
+			: fileName{ sourceLocationNew.file_name() }, rootIter{ rootIterNew }, errorPos{ errorPosNew }, endIter{ endIterNew },
+			  fileColumn{ static_cast<uint64_t>(sourceLocationNew.column()) }, errorType{ static_cast<uint64_t>(typeNew) },
+			  fileLine{ static_cast<uint64_t>(sourceLocationNew.line()) }, status_class{ statusClassNew } {
 		}
 
 		template<status_classes status_class, typename error_class> inline static error constructError(error_class typeNew, read_buffer_ptr rootIter, read_buffer_ptr errorPos,
@@ -216,13 +216,13 @@ namespace jsonifier::internal {
 		}
 
 		inline bool operator==(const error& rhs) const noexcept {
-			return status_class == rhs.status_class && errorType == rhs.errorType && errorIndex == rhs.errorIndex && line == rhs.line && localIndex == rhs.localIndex;
+			return status_class == rhs.status_class && errorType == rhs.errorType && rootIter == rhs.rootIter && errorPos == rhs.errorPos && endIter == rhs.endIter;
 		}
 
-		inline void formatReport() noexcept {
-			line	   = 0;
-			localIndex = 0;
-			errorIndex = 0;
+		inline string formatReport() const noexcept {
+			uint64_t line	   = 0;
+			uint64_t localIndex = 0;
+			uint64_t errorIndex = 0;
 			string context{};
 			if (errorPos && endIter && rootIter && errorPos >= rootIter && errorPos <= endIter) {
 				errorIndex = static_cast<uint64_t>(errorPos - rootIter);
@@ -264,13 +264,13 @@ namespace jsonifier::internal {
 				collectValues(stream, context);
 			}
 			stream += "\nIn file: ";
-			stream += sourceLocation.file_name();
+			stream += fileName;
 			stream += ", at line/column: ";
-			appendUnsigned(stream, static_cast<uint64_t>(sourceLocation.line()));
+			appendUnsigned(stream, fileLine);
 			stream += ":";
-			appendUnsigned(stream, static_cast<uint64_t>(sourceLocation.column()));
+			appendUnsigned(stream, fileColumn);
 			stream += "\n";
-			reportString = stream;
+			return stream;
 		}
 
 		inline static void collectValues(string& stream, const string& inputValues) noexcept {
@@ -286,24 +286,30 @@ namespace jsonifier::internal {
 			return static_cast<error_class>(errorType);
 		}
 
-		inline string_view reportError() const noexcept {
-			return static_cast<string_view>(reportString);
+		inline string reportError() const noexcept {
+			return formatReport();
 		}
 
-		std::source_location sourceLocation{};
+		inline bool hasError() const noexcept {
+			return status_class != status_classes::unset;
+		}
+
+		inline void clear() noexcept {
+			status_class = status_classes::unset;
+		}
+
+		std::string_view fileName{};
 		read_buffer_ptr rootIter{};
 		read_buffer_ptr errorPos{};
 		read_buffer_ptr endIter{};
-		string reportString{};
-		uint64_t localIndex{};
-		uint64_t errorIndex{};
+		uint64_t fileColumn{};
 		uint64_t errorType{};
-		uint64_t line{};
+		uint64_t fileLine{};
 		status_classes status_class{};
 	};
 
 	template<internal::ostream_types ostream_type> inline ostream_type& operator<<(ostream_type& os, const error& errorNew) noexcept {
-		string_view value{ errorNew.reportError() };
+		string value{ errorNew.reportError() };
 		os.write(value.data(), static_cast<int64_t>(value.size()));
 		return os;
 	}

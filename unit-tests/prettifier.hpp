@@ -151,7 +151,7 @@ namespace prettifier_tests {
 		rt_ut::unit_test<"buffer_prettify_empty_input_returns_false_and_reports_error", true>::assert_eq(true, [&] {
 			std::string buffer{ "stale" };
 			bool success = parser.prettifyJson(std::string{ "" }, buffer);
-			return !success && !parser.getErrors().empty();
+			return !success && parser.hasError();
 		});
 
 		rt_ut::unit_test<"buffer_prettify_empty_input_leaves_buffer_untouched", true>::assert_eq(std::string{ "stale" }, [&] {
@@ -163,20 +163,20 @@ namespace prettifier_tests {
 		rt_ut::unit_test<"buffer_prettify_unclosed_array_returns_false_and_reports_error", true>::assert_eq(true, [&] {
 			std::string buffer{ "stale" };
 			bool success = parser.prettifyJson(std::string{ "[" }, buffer);
-			return !success && !parser.getErrors().empty() && buffer.empty();
+			return !success && parser.hasError() && buffer.empty();
 		});
 
 		rt_ut::unit_test<"buffer_prettify_unclosed_object_returns_false_and_reports_error", true>::assert_eq(true, [&] {
 			std::string buffer{ "stale" };
 			bool success = parser.prettifyJson(std::string{ "{" }, buffer);
-			return !success && !parser.getErrors().empty() && buffer.empty();
+			return !success && parser.hasError() && buffer.empty();
 		});
 
 		rt_ut::unit_test<"buffer_prettify_errors_cleared_after_subsequent_success", true>::assert_eq(true, [&] {
 			std::string buffer{};
 			bool failed	   = !parser.prettifyJson(std::string{ "[" }, buffer);
 			bool succeeded = parser.prettifyJson(std::string{ R"({"a":1})" }, buffer);
-			return failed && succeeded && parser.getErrors().empty() && buffer == "{\n   \"a\": 1\n}";
+			return failed && succeeded && !parser.hasError() && buffer == "{\n   \"a\": 1\n}";
 		});
 
 		std::cout << "JSON Prettifier validation tests complete." << std::endl;

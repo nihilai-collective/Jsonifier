@@ -271,7 +271,7 @@ namespace jsonifier::internal {
 	}
 
 	struct exp_shift_table {
-		static constexpr int32_t extraShift{ 6 };
+		static constexpr int32_t extraShift{ 9 };
 
 		consteval exp_shift_table() noexcept {
 			for (int32_t rawExp{ 0 }; rawExp < static_cast<int32_t>(sizeof(data)); ++rawExp) {
@@ -716,10 +716,10 @@ namespace jsonifier::internal {
 	}
 
 	struct to_decimal_result {
+		int64_t lastDigit;
 		int64_t sig;
-		int32_t lastDigit{ 0 };
-		int32_t exp;
-		bool hasLastDigit{ false };
+		int64_t exp;
+		bool hasLastDigit;
 	};
 
 	template<typename float_type, typename uint_type> JSONIFIER_INLINE to_decimal_result toDecimal(uint_type binSig, int64_t rawExp, bool regular) noexcept {
@@ -747,7 +747,7 @@ namespace jsonifier::internal {
 			if (digit < lo) {
 				digit = lo;
 			}
-			return { integral, digit, decExp, (roundUp || roundDown) == false };
+			return { digit, integral, decExp, (static_cast<uint32_t>(roundUp) + static_cast<uint32_t>(roundDown)) == 0U };
 		}
 
 		static constexpr uint64_t log102Sig{ 78'913ULL };
@@ -776,7 +776,7 @@ namespace jsonifier::internal {
 			if (fractional == (1ULL << (extraShift32 - 2))) [[unlikely]] {
 				digit = 2;
 			}
-			return { integral, digit, decExp, (roundUp || roundDown) == false };
+			return { digit, integral, decExp, (static_cast<uint32_t>(roundUp) + static_cast<uint32_t>(roundDown)) == 0U };
 		} else {
 			uint128 pow10{ staticData.pow10Significands[-decExp - 1] };
 			uint128 p{ umul192Hi128(pow10.hi, pow10.lo, static_cast<uint64_t>(binSig) << shift) };
@@ -793,7 +793,7 @@ namespace jsonifier::internal {
 			if (fractional == (1ULL << 62)) [[unlikely]] {
 				digit = 2;
 			}
-			return { integral, digit, decExp, (roundUp || roundDown) == false };
+			return { digit, integral, decExp, (static_cast<uint32_t>(roundUp) + static_cast<uint32_t>(roundDown)) == 0U };
 		}
 	}
 
@@ -814,13 +814,31 @@ namespace jsonifier::internal {
 			binSig |= traits::implicitBit;
 		}
 		auto dec{ toDecimal<double>(binSig ^ traits::implicitBit, binExp, binSig != 0ULL) };
-		auto lastDigit{ -static_cast<int32_t>(dec.hasLastDigit) & dec.lastDigit };
-		return { dec.sig * 10LL + static_cast<int64_t>(lastDigit), dec.exp, negative };
+		auto lastDigit{ -static_cast<int64_t>(dec.hasLastDigit) & dec.lastDigit };
+		return { dec.sig * 10LL + lastDigit, static_cast<int32_t>(dec.exp), negative };
 	}
 
 	template<float_types value_type> struct to_chars<value_type> {
+		using traits = float_traits<value_type>;
+
+		JSONIFIER_INLINE static uint64_t threshold(const data* d) noexcept {
+			return traits::numBits == 64 ? d->threshold : 10000000ULL;
+		}
+
+		JSONIFIER_NOINLINE static unrestrict_t<write_buffer_ptr> writeSubnormal(write_buffer_ptr buffer, const data* d, typename traits::sig_type binSig) noexcept {
+			const to_decimal_result dec{ toDecimal<value_type>(binSig, 1LL, true) };
+			int64_t decSig{ dec.sig * 10LL + (-static_cast<int64_t>(dec.hasLastDigit) & dec.lastDigit) };
+			int32_t decExp{ static_cast<int32_t>(dec.exp) };
+			while (decSig < static_cast<int64_t>(threshold(d))) {
+				decSig *= 10LL;
+				--decExp;
+			}
+			int64_t q{ static_cast<int64_t>(div10(static_cast<uint64_t>(decSig))) };
+			int32_t lastDigit{ static_cast<int32_t>(decSig - q * 10LL) };
+			return writeDecimal(buffer, d, q, lastDigit, decExp, lastDigit != 0);
+		}
+
 		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> impl(write_buffer_ptr buffer, value_type value) noexcept {
-			using traits = float_traits<value_type>;
 			auto bits{ traits::toBits(value) };
 			auto binExp{ traits::getExp(bits) };
 			auto binSig{ traits::getSig(bits) };
@@ -830,9 +848,7 @@ namespace jsonifier::internal {
 
 			const auto* d{ &staticData };
 			JSONIFIER_ASM(("" : "+r"(d)));
-			uint64_t threshold{ traits::numBits == 64 ? d->threshold : 10000000ULL };
 
-			to_decimal_result dec;
 			bool isNormal{ static_cast<uint32_t>(binExp - 1LL) < static_cast<uint32_t>(traits::expMask - 1) };
 			if (!isNormal) [[unlikely]] {
 				if (binExp != 0) {
@@ -843,36 +859,30 @@ namespace jsonifier::internal {
 					pow2MemcpyWrapper<4>(buffer, "0.0");
 					return buffer + 3;
 				}
-				dec = toDecimal<value_type>(binSig, 1LL, true);
-				int64_t decSig{ dec.sig * 10LL + static_cast<int64_t>(-static_cast<int32_t>(dec.hasLastDigit) & dec.lastDigit) };
-				int32_t decExp{ dec.exp };
-				while (decSig < static_cast<int64_t>(threshold)) {
-					decSig *= 10LL;
-					--decExp;
-				}
-				int64_t q{ static_cast<int64_t>(div10(static_cast<uint64_t>(decSig))) };
-				int32_t lastDigit{ static_cast<int32_t>(decSig - q * 10LL) };
-				dec = { q, lastDigit, decExp, lastDigit != 0 };
-			} else {
-				dec = toDecimal<value_type>(binSig | traits::implicitBit, binExp, binSig != 0ULL);
+				return writeSubnormal(buffer, d, binSig);
 			}
-			bool hasLastDigit{ dec.hasLastDigit };
-			bool hasExtraDigit{ dec.sig >= static_cast<int64_t>(threshold) };
-			int32_t decExp{ dec.exp + traits::max_digits10 - 2 + (hasExtraDigit ? 1 : 0) };
+			const to_decimal_result dec{ toDecimal<value_type>(binSig | traits::implicitBit, binExp, binSig != 0ULL) };
+			return writeDecimal(buffer, d, dec.sig, static_cast<int32_t>(dec.lastDigit), static_cast<int32_t>(dec.exp), dec.hasLastDigit);
+		}
+
+		JSONIFIER_INLINE static unrestrict_t<write_buffer_ptr> writeDecimal(write_buffer_ptr buffer, const data* d, int64_t decSig, int32_t decLastDigit, int32_t rawDecExp,
+			bool hasLastDigit) noexcept {
+			bool hasExtraDigit{ decSig >= static_cast<int64_t>(threshold(d)) };
+			int32_t decExp{ rawDecExp + traits::max_digits10 - 2 + (hasExtraDigit ? 1 : 0) };
 			if constexpr (traits::numBits == 32) {
-				if (dec.sig < static_cast<int64_t>(1e6)) [[unlikely]] {
-					dec.sig		 = 10LL * dec.sig + static_cast<int64_t>(-static_cast<int32_t>(hasLastDigit) & dec.lastDigit);
+				if (decSig < static_cast<int64_t>(1e6)) [[unlikely]] {
+					decSig		 = 10LL * decSig + static_cast<int64_t>(-static_cast<int32_t>(hasLastDigit) & decLastDigit);
 					hasLastDigit = false;
 					--decExp;
 				}
 			}
 
 			write_buffer_ptr start{ buffer };
-			auto dig{ toDigits<traits::numBits>(static_cast<uint64_t>(dec.sig)) };
+			auto dig{ toDigits<traits::numBits>(static_cast<uint64_t>(decSig)) };
 			static constexpr int32_t bcdSize{ traits::numBits == 64 ? 16 : 8 };
 			if (decExp >= traits::minFixedDecExp && decExp <= traits::maxFixedDecExp) {
 				pow2MemcpyWrapper<8>(start, &zeros);
-				uint8_t lastDigitChar{ static_cast<uint8_t>(static_cast<int32_t>('0') + (-static_cast<int32_t>(hasLastDigit) & dec.lastDigit)) };
+				uint8_t lastDigitChar{ static_cast<uint8_t>(static_cast<int32_t>('0') + (-static_cast<int32_t>(hasLastDigit) & decLastDigit)) };
 				int32_t numDigits{ hasLastDigit ? bcdSize : dig.numDigits - 1 };
 
 				const auto* fixedLayouts{ &d->fixedLayouts };
@@ -905,11 +915,11 @@ namespace jsonifier::internal {
 			}
 			if constexpr (traits::numBits == 32 && exp_float_shuffle_table::enable) {
 				uint64_t expData{ d->expStrings.data[static_cast<uint64_t>(decExp + exp_string_table::offset)] };
-				return writeExpFloatSimd(buffer, dig, dec.lastDigit, hasLastDigit, hasExtraDigit, expData);
+				return writeExpFloatSimd(buffer, dig, decLastDigit, hasLastDigit, hasExtraDigit, expData);
 			} else {
 				buffer += (hasExtraDigit ? 1 : 0);
 				pow2MemcpyWrapper<bcdSize>(buffer, &dig.digits);
-				buffer[bcdSize] = static_cast<uint8_t>(static_cast<int32_t>('0') + dec.lastDigit);
+				buffer[bcdSize] = static_cast<uint8_t>(static_cast<int32_t>('0') + decLastDigit);
 				buffer += select(hasLastDigit ? 1ULL : 0ULL, bcdSize + 1, dig.numDigits);
 				start[0] = start[1];
 				start[1] = '.';

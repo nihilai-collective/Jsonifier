@@ -66,7 +66,8 @@ namespace add_tape_values_tests {
 				bitsArr[0] = (1ull << 1) | (1ull << 2);
 				bitsArr[1] = (1ull << 0) | (1ull << 5) | (1ull << 30) | (1ull << 63);
 				auto tape  = runAddTapeValues(bitsArr, 500);
-				return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 && tape[5] == 500 + 64 + 63;
+				return tape.size() == 6 && tape[0] == 501 && tape[1] == 502 && tape[2] == 500 + 64 && tape[3] == 500 + 64 + 5 && tape[4] == 500 + 64 + 30 &&
+					tape[5] == 500 + 64 + 63;
 			}
 		});
 

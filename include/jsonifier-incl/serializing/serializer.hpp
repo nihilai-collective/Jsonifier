@@ -40,7 +40,7 @@ namespace jsonifier::internal {
 		serialize_writer_ro& operator=(const serialize_writer_ro&) noexcept = delete;
 		serialize_writer_ro(const serialize_writer_ro&) noexcept			= delete;
 
-		JSONIFIER_INLINE uint64_t operator()(char* ptrNew, uint64_t) noexcept {
+		JSONIFIER_INLINE_EXCEPT_GCC uint64_t operator()(char* ptrNew, uint64_t) noexcept {
 			const write_buffer_ptr start{ std::bit_cast<write_buffer_ptr>(ptrNew) };
 			return static_cast<uint64_t>(serialize<options>::impl(object, start, 0) - start);
 		}

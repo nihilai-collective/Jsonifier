@@ -272,7 +272,7 @@ template<> struct jsonifier::core<DummyDataVec> {
 };
 
 template<typename parser_type> void printErrors(parser_type& parser) {
-	for (auto& error: parser.getErrors()) {
+	if (auto& error = parser.getError(); error.hasError()) {
 		std::cout << error.reportError() << std::endl;
 	}
 }

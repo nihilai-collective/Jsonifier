@@ -94,35 +94,3 @@ namespace jsonifier {
 		return newValue;
 	}
 }
-
-namespace jsonifier::internal {
-
-	template<typename value_type_new, typename iterator> JSONIFIER_INLINE bool parseNumber(value_type_new& value, iterator&& iter, iterator&& end) noexcept {
-		using value_type = value_type_new;
-
-		if constexpr (integer_types<value_type>) {
-			if constexpr (uint_types<value_type>) {
-				if constexpr (uint64_types<value_type>) {
-					return integer_parser<value_type>::parseInt(value, iter, end);
-				} else {
-					uint64_t i;
-					return integer_parser<uint64_t>::parseInt(i, iter, end) ? (value = static_cast<value_type>(i), true) : false;
-				}
-			} else {
-				if constexpr (int64_types<value_type>) {
-					return integer_parser<value_type>::parseInt(value, iter, end);
-				} else {
-					int64_t i;
-					return integer_parser<int64_t>::parseInt(i, iter, end) ? (value = static_cast<value_type>(i), true) : false;
-				}
-			}
-		} else {
-			if constexpr (std::is_volatile_v<remove_reference_t<decltype(value)>>) {
-				double temp;
-				return float_parser<double>::parseFloat(temp, iter, end) ? (value = static_cast<value_type>(temp), true) : false;
-			} else {
-				return float_parser<value_type>::parseFloat(value, iter, end);
-			}
-		}
-	}
-}

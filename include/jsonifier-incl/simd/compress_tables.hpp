@@ -25,8 +25,8 @@ namespace jsonifier::internal::simd {
 		return returnValues;
 	}
 
-	consteval array<uint8_t[16ULL], 256ULL > genMergeLanes() noexcept {
-		array<uint8_t[16ULL], 256ULL > returnValues{};
+	consteval array<uint8_t[16ULL], 256ULL> genMergeLanes() noexcept {
+		array<uint8_t[16ULL], 256ULL> returnValues{};
 		for (uint64_t mask{ 0 }; mask < 256; ++mask) {
 			uint64_t lowCount{};
 			for (uint64_t bit{ 0 }; bit < 8; ++bit) {

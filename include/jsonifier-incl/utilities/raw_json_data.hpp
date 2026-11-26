@@ -149,7 +149,7 @@ namespace jsonifier {
 
 		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
 			internal::parse_context<parse_options{}, internal::unrestrict_t<internal::read_buffer_ptr>, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(),
-				&context.getErrors(), std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()),
+				&context.getError(), std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()),
 				std::bit_cast<internal::read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
 			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
@@ -282,21 +282,21 @@ namespace jsonifier {
 				switch (jsonDataNew[0]) {
 					case '{': {
 						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<object_type>(), iter, 0, context));
-						if (context.getErrors().size() != 0) {
+						if (context.hasError()) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '[': {
 						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<array_type>(), iter, 0, context));
-						if (context.getErrors().size() != 0) {
+						if (context.hasError()) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '"': {
 						static_cast<void>(internal::parse<optionsNew>::impl(value.template emplace<string_type>(), iter, 0, context));
-						if (context.getErrors().size() != 0) {
+						if (context.hasError()) {
 							value.emplace<null_type>();
 						}
 						return;

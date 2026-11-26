@@ -264,10 +264,10 @@ namespace raw_json_data_tests {
 			return a == b;
 		});
 
-		rt_ut::unit_test<"raw_json_data_no_errors_on_valid_input", true>::assert_eq(static_cast<uint64_t>(0), [&] {
+		rt_ut::unit_test<"raw_json_data_no_errors_on_valid_input", true>::assert_eq(false, [&] {
 			jsonifier::raw_json_data data{};
 			parser.parseJson(data, std::string{ R"({"a":1,"b":[1,2,3],"c":"str"})" });
-			return parser.getErrors().size();
+			return parser.hasError();
 		});
 
 		rt_ut::unit_test<"raw_json_data_nested_object_in_array", true>::assert_eq(static_cast<uint64_t>(7), [&] {

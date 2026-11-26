@@ -27,7 +27,7 @@ namespace jsonifier::internal::simd {
 
 	struct prefix_xor_op {
 		JSONIFIER_INLINE static uint64_t impl(uint64_t bitmask) noexcept {
-	#if JSONIFIER_CLMUL
+	#if JSONIFIER_CLMUL && JSONIFIER_COMPILER_CLANG
 			return impl(bitmask, ones());
 	#else
 			bitmask ^= bitmask << 1;
@@ -231,8 +231,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<typename rope_block> struct rope_detector : rope_block {
-		template<typename... prefix_xor_args>
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const prefix_xor_args... prefixXorArgs) noexcept {
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister,
+			const prefix_xor_args... prefixXorArgs) noexcept {
 			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 			const uint8x16_t d0{ in01.template get<0>() };
 			const uint8x16_t d1{ in01.template get<1>() };
@@ -248,7 +248,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes{ (quotesLocal & ~escaped) };
 			rope_block::escaped = escaped;
 			rope_block::quotes	= quotes;
-			return finishNext(prefixXorArgs...);
+			return finishNextGated(prefixXorArgs...);
 		}
 
 		JSONIFIER_INLINE static uint8x16_t toPartialBitmask(const uint8x16_t match0, const uint8x16_t match1, const uint8x16_t match2, const uint8x16_t match3,
@@ -267,7 +267,7 @@ namespace jsonifier::internal::simd {
 				const uint64_t quotes{ (pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, quoteRegister) & ~escaped) };
 				rope_block::escaped = escaped;
 				rope_block::quotes	= quotes;
-				return finishNext();
+				return finishNextGated();
 			}
 		}
 
@@ -295,6 +295,14 @@ namespace jsonifier::internal::simd {
 			const uint64_t shifted{ (nonquoteScalar << 1) | prevScalar };
 			prevScalar = nonquoteScalar >> 63;
 			return shifted;
+		}
+
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNextGated(const prefix_xor_args... prefixXorArgs) noexcept {
+			finishNext(prefixXorArgs...);
+		}
+
+		JSONIFIER_INLINE void finishNextNoInString() noexcept {
+			rope_block::inString = prevInString;
 		}
 
 		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNext(const prefix_xor_args... prefixXorArgs) noexcept {

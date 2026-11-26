@@ -58,14 +58,14 @@ namespace jsonifier {
 				stringBuffer = internal::move(other.stringBuffer);
 				genericData	 = internal::move(other.genericData);
 				section		 = internal::move(other.section);
-				errors		 = internal::move(other.errors);
+				lastError	 = other.lastError;
 			}
 			return *this;
 		}
 
 		inline jsonifier_core(jsonifier_core&& other) noexcept
-			: section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) },
-			  genericData{ internal::move(other.genericData) }, errors{ internal::move(other.errors) } {
+			: section{ internal::move(other.section) }, stringBuffer{ internal::move(other.stringBuffer) }, genericData{ internal::move(other.genericData) },
+			  lastError{ other.lastError } {
 		}
 
 		jsonifier_core& operator=(const jsonifier_core& other) = delete;
@@ -76,12 +76,16 @@ namespace jsonifier {
 			return generic::document_stream<jsonifier_core, options>{ *this, std::bit_cast<internal::read_buffer_ptr>(in.data()), in.size(), batchSize };
 		}
 
-		inline const std::vector<internal::error>& getErrors() const noexcept {
-			return errors;
+		inline const internal::error& getError() const noexcept {
+			return lastError;
 		}
 
-		inline std::vector<internal::error>& getErrors() noexcept {
-			return errors;
+		inline internal::error& getError() noexcept {
+			return lastError;
+		}
+
+		inline bool hasError() const noexcept {
+			return lastError.hasError();
 		}
 
 		inline ~jsonifier_core() noexcept = default;
@@ -96,7 +100,7 @@ namespace jsonifier {
 		internal::simd_string_reader<initialBufferSize> section{};
 		string_base<initialBufferSize> stringBuffer{};
 		internal::generic_storage genericData{};
-		std::vector<internal::error> errors{};
+		internal::error lastError{};
 	};
 
 }

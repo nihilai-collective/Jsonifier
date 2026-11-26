@@ -89,33 +89,14 @@ namespace jsonifier::internal {
 
 	template<typename value_type> struct integer_parser;
 
-	template<integer_types value_type> JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-		value_type aHigh{ ab >> 32 };
-		value_type aLow{ ab & 0xFFFFFFFF };
-		value_type bHigh{ cd >> 32 };
-		value_type bLow{ cd & 0xFFFFFFFF };
-		value_type loLo{ aLow * bLow };
-		value_type loHi{ aLow * bHigh };
-		value_type hiLo{ aHigh * bLow };
-		value_type hiHi{ aHigh * bHigh };
-		value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
-		value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
-		hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
-		return lo;
-	}
-
 	template<int_types value_type> JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 		const __int128_t res{ static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue) };
 		value = static_cast<value_type>(res);
 		return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-		value_type values;
-		value = _mul128(value, expValue, &values);
-		return values == 0;
 	#else
 		value_type values;
-		value = mul128Generic(value, expValue, &values);
+		value = _mul128(value, expValue, &values);
 		return values == 0;
 	#endif
 	}
@@ -125,13 +106,9 @@ namespace jsonifier::internal {
 		const __uint128_t res{ static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue) };
 		value = static_cast<value_type>(res);
 		return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-		value_type values;
-		value = _umul128(value, expValue, &values);
-		return values == 0;
 	#else
 		value_type values;
-		value = umul128Generic(value, expValue, &values);
+		value = _umul128(value, expValue, &values);
 		return values == 0;
 	#endif
 	}
@@ -141,14 +118,9 @@ namespace jsonifier::internal {
 		const __int128_t dividend{ static_cast<__int128_t>(value) };
 		value = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
 		return (dividend % static_cast<__int128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-		value_type values;
-		value = _div128(0, value, expValue, &values);
-		return values == 0;
 	#else
 		value_type values;
-		values = value % expValue;
-		value  = value / expValue;
+		value = _div128(0, value, expValue, &values);
 		return values == 0;
 	#endif
 	}
@@ -158,14 +130,9 @@ namespace jsonifier::internal {
 		const __uint128_t dividend{ static_cast<__uint128_t>(value) };
 		value = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
 		return (dividend % static_cast<__uint128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-		value_type values;
-		value = _udiv128(0, value, expValue, &values);
-		return values == 0;
 	#else
 		value_type values;
-		values = value % expValue;
-		value  = value / expValue;
+		value = _udiv128(0, value, expValue, &values);
 		return values == 0;
 	#endif
 	}
@@ -552,7 +519,18 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if constexpr (int_types<value_type>) {
+			if constexpr (sizeof(value_type) < sizeof(uint64_t)) {
+				using wide_type = std::conditional_t<int_types<value_type>, int64_t, uint64_t>;
+				wide_type wide{};
+				const auto resultPtr = integer_parser<wide_type>::parseInt(wide, iter, end);
+				if (resultPtr && wide >= static_cast<wide_type>(std::numeric_limits<value_type>::min()) && wide <= static_cast<wide_type>(std::numeric_limits<value_type>::max()))
+					[[likely]] {
+					value = static_cast<value_type>(wide);
+					return resultPtr;
+				}
+				value = 0;
+				return nullptr;
+			} else if constexpr (int_types<value_type>) {
 				if (iter < end) [[likely]] {
 					if (*iter == uint_c_v<'-'>) {
 						++iter;
@@ -1473,46 +1451,42 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (iter < end) [[likely]] {
-				if (*iter == uint_c_v<'-'>) {
-					++iter;
-					read_buffer_ptr resultPtr{ parseInteger<true>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
-					if (resultPtr) [[likely]] {
-						iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
-						return iter;
-					} else {
-						value = 0;
-						return nullptr;
-					}
-				} else {
-					read_buffer_ptr resultPtr{ parseInteger<false>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
-					if (resultPtr) [[likely]] {
-						iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
-						return iter;
-					} else {
-						value = 0;
-						return nullptr;
-					}
+			if constexpr (sizeof(value_type) < sizeof(int64_t)) {
+				int64_t wide{};
+				const auto resultPtr = integer_parser<int64_t>::parseInt(wide, iter, end);
+				if (resultPtr && wide >= static_cast<int64_t>(std::numeric_limits<value_type>::min()) && wide <= static_cast<int64_t>(std::numeric_limits<value_type>::max())) [[likely]] {
+					value = static_cast<value_type>(wide);
+					return resultPtr;
 				}
-			} else {
 				value = 0;
 				return nullptr;
+			} else {
+				if (iter < end) [[likely]] {
+					if (*iter == uint_c_v<'-'>) {
+						++iter;
+						read_buffer_ptr resultPtr{ parseInteger<true>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
+						if (resultPtr) [[likely]] {
+							iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
+							return iter;
+						} else {
+							value = 0;
+							return nullptr;
+						}
+					} else {
+						read_buffer_ptr resultPtr{ parseInteger<false>(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
+						if (resultPtr) [[likely]] {
+							iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
+							return iter;
+						} else {
+							value = 0;
+							return nullptr;
+						}
+					}
+				} else {
+					value = 0;
+					return nullptr;
+				}
 			}
-		}
-
-		JSONIFIER_INLINE static value_type mul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-			value_type aHigh{ ab >> 32 };
-			value_type aLow{ ab & 0xFFFFFFFF };
-			value_type bHigh{ cd >> 32 };
-			value_type bLow{ cd & 0xFFFFFFFF };
-			value_type loLo{ aLow * bLow };
-			value_type loHi{ aLow * bHigh };
-			value_type hiLo{ aHigh * bLow };
-			value_type hiHi{ aHigh * bHigh };
-			value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
-			value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
-			hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
-			return lo;
 		}
 
 		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
@@ -1520,13 +1494,9 @@ namespace jsonifier::internal {
 			const __int128_t res{ static_cast<__int128_t>(value) * static_cast<__int128_t>(expValue) };
 			value = static_cast<value_type>(res);
 			return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _mul128(value, expValue, &values);
-			return values == 0;
 	#else
 			value_type values;
-			value = mul128Generic(value, expValue, &values);
+			value = _mul128(value, expValue, &values);
 			return values == 0;
 	#endif
 		}
@@ -1536,14 +1506,9 @@ namespace jsonifier::internal {
 			const __int128_t dividend{ static_cast<__int128_t>(value) };
 			value = static_cast<value_type>(dividend / static_cast<__int128_t>(expValue));
 			return (dividend % static_cast<__int128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _div128(0, value, expValue, &values);
-			return values == 0;
 	#else
 			value_type values;
-			values = value % expValue;
-			value  = value / expValue;
+			value = _div128(0, value, expValue, &values);
 			return values == 0;
 	#endif
 		}
@@ -1643,18 +1608,29 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> parseInt(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
-			if (iter < end) [[likely]] {
-				read_buffer_ptr resultPtr{ parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
-				if (resultPtr) [[likely]] {
-					iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
-					return iter;
+			if constexpr (sizeof(value_type) < sizeof(uint64_t)) {
+				uint64_t wide{};
+				const auto resultPtr = integer_parser<uint64_t>::parseInt(wide, iter, end);
+				if (resultPtr && wide <= static_cast<uint64_t>(std::numeric_limits<value_type>::max())) [[likely]] {
+					value = static_cast<value_type>(wide);
+					return resultPtr;
+				}
+				value = 0;
+				return nullptr;
+			} else {
+				if (iter < end) [[likely]] {
+					read_buffer_ptr resultPtr{ parseInteger(value, std::bit_cast<read_buffer_ptr>(iter), std::bit_cast<read_buffer_ptr>(end)) };
+					if (resultPtr) [[likely]] {
+						iter += resultPtr - std::bit_cast<read_buffer_ptr>(iter);
+						return iter;
+					} else {
+						value = 0;
+						return nullptr;
+					}
 				} else {
 					value = 0;
 					return nullptr;
 				}
-			} else {
-				value = 0;
-				return nullptr;
 			}
 		}
 
@@ -1680,33 +1656,14 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static value_type umul128Generic(value_type ab, value_type cd, value_type& hi) noexcept {
-			value_type aHigh{ ab >> 32 };
-			value_type aLow{ ab & 0xFFFFFFFF };
-			value_type bHigh{ cd >> 32 };
-			value_type bLow{ cd & 0xFFFFFFFF };
-			value_type loLo{ aLow * bLow };
-			value_type loHi{ aLow * bHigh };
-			value_type hiLo{ aHigh * bLow };
-			value_type hiHi{ aHigh * bHigh };
-			value_type cross{ (loLo >> 32) + (loHi & 0xFFFFFFFF) + (hiLo & 0xFFFFFFFF) };
-			value_type lo{ (cross << 32) | (loLo & 0xFFFFFFFF) };
-			hi = hiHi + (loHi >> 32) + (hiLo >> 32) + (cross >> 32);
-			return lo;
-		}
-
 		JSONIFIER_INLINE static bool multiply(value_type& value, value_type expValue) noexcept {
 	#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 			const __uint128_t res{ static_cast<__uint128_t>(value) * static_cast<__uint128_t>(expValue) };
 			value = static_cast<value_type>(res);
 			return res <= std::numeric_limits<value_type>::max();
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _umul128(value, expValue, &values);
-			return values == 0;
 	#else
 			value_type values;
-			value = umul128Generic(value, expValue, &values);
+			value = _umul128(value, expValue, &values);
 			return values == 0;
 	#endif
 		}
@@ -1716,14 +1673,9 @@ namespace jsonifier::internal {
 			const __uint128_t dividend{ static_cast<__uint128_t>(value) };
 			value = static_cast<value_type>(dividend / static_cast<__uint128_t>(expValue));
 			return (dividend % static_cast<__uint128_t>(expValue)) == 0;
-	#elif JSONIFIER_COMPILER_MSVC
-			value_type values;
-			value = _udiv128(0, value, expValue, &values);
-			return values == 0;
 	#else
 			value_type values;
-			values = value % expValue;
-			value  = value / expValue;
+			value = _udiv128(0, value, expValue, &values);
 			return values == 0;
 	#endif
 		}

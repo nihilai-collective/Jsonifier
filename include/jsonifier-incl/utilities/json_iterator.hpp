@@ -31,12 +31,12 @@ namespace jsonifier::internal {
 		using iterator_type			 = read_buffer_ptr;
 		using template_iterator_type = unrestrict_t<read_buffer_ptr>;
 
-		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
-			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew } {
+		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, error* errorNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
+			: stringBuffer{ stringBufferNew }, lastError{ errorNew }, rootIter{ rootIterNew }, endIter{ endIterNew } {
 		}
 
 		template<parse_statuses parse_status> [[nodiscard]] bool reject(read_buffer_ptr errorPos) noexcept {
-			errors->emplace_back(error::constructError<status_classes::parsing, parse_status>(rootIter, errorPos, endIter));
+			*lastError = error::constructError<status_classes::parsing, parse_status>(rootIter, errorPos, endIter);
 			return false;
 		}
 
@@ -44,8 +44,8 @@ namespace jsonifier::internal {
 			return *stringBuffer;
 		}
 
-		JSONIFIER_INLINE std::vector<error>& getErrors() noexcept {
-			return *errors;
+		JSONIFIER_INLINE error& getError() noexcept {
+			return *lastError;
 		}
 
 		base_t<std::type_identity_t<decltype(( void )sizeof(char[!![]() consteval {
@@ -58,7 +58,7 @@ namespace jsonifier::internal {
 			}())>>()])>>
 			wsChar{};
 		string_buffer_type* stringBuffer{};
-		std::vector<error>* errors{};
+		error* lastError{};
 		read_buffer_ptr rootIter{};
 		read_buffer_ptr endIter{};
 		uint64_t indentSize{};
@@ -68,13 +68,13 @@ namespace jsonifier::internal {
 		using iterator_type			 = write_structural_index_ptr;
 		using template_iterator_type = unrestrict_t<write_structural_index_ptr>;
 
-		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr stringRootNew, read_buffer_ptr stringEndNew,
+		JSONIFIER_INLINE parse_context(string_buffer_type* stringBufferNew, error* errorNew, read_buffer_ptr stringRootNew, read_buffer_ptr stringEndNew,
 			write_structural_index_ptr endIterNew) noexcept
-			: endIter{ endIterNew }, stringBuffer{ stringBufferNew }, errors{ errorsNew }, stringRoot{ stringRootNew }, stringEnd{ stringEndNew } {
+			: endIter{ endIterNew }, stringBuffer{ stringBufferNew }, lastError{ errorNew }, stringRoot{ stringRootNew }, stringEnd{ stringEndNew } {
 		}
 
 		template<parse_statuses parse_status> [[nodiscard]] bool reject(read_buffer_ptr errorPos) noexcept {
-			errors->emplace_back(error::constructError<status_classes::parsing, parse_status>(stringRoot, errorPos, stringEnd));
+			*lastError = error::constructError<status_classes::parsing, parse_status>(stringRoot, errorPos, stringEnd);
 			return false;
 		}
 
@@ -82,13 +82,13 @@ namespace jsonifier::internal {
 			return *stringBuffer;
 		}
 
-		JSONIFIER_INLINE std::vector<error>& getErrors() noexcept {
-			return *errors;
+		JSONIFIER_INLINE error& getError() noexcept {
+			return *lastError;
 		}
 
 		write_structural_index_ptr endIter{};
 		string_buffer_type* stringBuffer{};
-		std::vector<error>* errors{};
+		error* lastError{};
 		read_buffer_ptr stringRoot{};
 		read_buffer_ptr stringEnd{};
 	};
@@ -121,11 +121,11 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static unrestrict_t<read_buffer_ptr> impl(unrestrict_t<read_buffer_ptr> iter, read_buffer_ptr end) noexcept {
-			const jsonifier_simd_int_t bsRegister{ simd::gatherValue<jsonifier_simd_int_t>('\\') };
-			const jsonifier_simd_int_t quoteRegister{ simd::gatherValue<jsonifier_simd_int_t>('"') };
-			const jsonifier_simd_int_t spaceMask{ simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x20)) };
-			const jsonifier_simd_int_t openRegister{ simd::gatherValue<jsonifier_simd_int_t>('{') };
-			const jsonifier_simd_int_t closeRegister{ simd::gatherValue<jsonifier_simd_int_t>('}') };
+			const jsonifier_simd_int_t bsRegister{ simd::gatherValue<jsonifier_simd_int_t, '\\'>() };
+			const jsonifier_simd_int_t quoteRegister{ simd::gatherValue<jsonifier_simd_int_t, '"'>() };
+			const jsonifier_simd_int_t spaceMask{ simd::gatherValue<jsonifier_simd_int_t, 0x20>() };
+			const jsonifier_simd_int_t openRegister{ simd::gatherValue<jsonifier_simd_int_t, '{'>() };
+			const jsonifier_simd_int_t closeRegister{ simd::gatherValue<jsonifier_simd_int_t, '}'>() };
 			simd::rope_detector<rope_block> rope{};
 			uint64_t depth{};
 			while (static_cast<uint64_t>(end - iter) >= simdBytesPerBlock) {
@@ -137,7 +137,7 @@ namespace jsonifier::internal {
 			}
 			if (const uint64_t remaining = static_cast<uint64_t>(end - iter); remaining != 0) {
 				alignas(simdBytesPerRegister) uint8_t tail[simdBytesPerBlock];
-				tail_block_builder::impl(tail, iter, remaining, simdBytesPerBlock);
+				tail_block_builder::template impl<simdBytesPerBlock>(tail, iter, remaining);
 				if (const uint64_t offset = closerOffset(rope, loadBlock(tail), depth, bsRegister, quoteRegister, spaceMask, openRegister, closeRegister); offset < remaining) {
 					return iter + offset + 1;
 				}
@@ -483,42 +483,11 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static bool iterateNumber(number_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
 			using value_type = number_type;
 			if constexpr (integer_types<value_type>) {
-				if constexpr (uint_types<value_type>) {
-					if constexpr (uint64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
-							iter = iterNew;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						uint64_t i;
-						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, iter, context.endIter); iterNew) {
-							iter  = iterNew;
-							value = static_cast<value_type>(i);
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					}
+				if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
+					iter = iterNew;
+					return true;
 				} else {
-					if constexpr (int64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
-							iter = iterNew;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						int64_t i;
-						if (auto iterNew = integer_parser<int64_t>::parseInt(i, iter, context.endIter); iterNew) {
-							iter  = iterNew;
-							value = static_cast<value_type>(i);
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					}
+					return reject<parse_statuses::invalid_number_value>(iter, context);
 				}
 			} else {
 				if constexpr (std::is_volatile_v<remove_reference_t<decltype(value)>>) {
@@ -1168,42 +1137,11 @@ namespace jsonifier::internal {
 				skipWhitespaceScalar(iter, context);
 			}
 			if constexpr (integer_types<value_type>) {
-				if constexpr (uint_types<value_type>) {
-					if constexpr (uint64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
-							iter = iterNew;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						uint64_t i;
-						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, iter, context.endIter); iterNew) {
-							iter  = iterNew;
-							value = static_cast<value_type>(i);
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					}
+				if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
+					iter = iterNew;
+					return true;
 				} else {
-					if constexpr (int64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, context.endIter); iterNew) {
-							iter = iterNew;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						int64_t i;
-						if (auto iterNew = integer_parser<int64_t>::parseInt(i, iter, context.endIter); iterNew) {
-							iter  = iterNew;
-							value = static_cast<value_type>(i);
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					}
+					return reject<parse_statuses::invalid_number_value>(iter, context);
 				}
 			} else {
 				if constexpr (std::is_volatile_v<remove_reference_t<decltype(value)>>) {
@@ -1466,54 +1404,14 @@ namespace jsonifier::internal {
 			read_buffer_ptr valueStart{ valuePtr(iter, context) };
 			read_buffer_ptr valueEnd{ (iter + 1) < context.endIter ? context.stringRoot + *(iter + 1) : context.stringEnd };
 			if constexpr (integer_types<value_type>) {
-				if constexpr (uint_types<value_type>) {
-					if constexpr (uint64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
-							if (!checkPostPrimitive(iterNew, iter, context)) [[unlikely]] {
-								return false;
-							}
-							++iter;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						uint64_t i;
-						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, valueStart, valueEnd); iterNew) {
-							if (!checkPostPrimitive(iterNew, iter, context)) [[unlikely]] {
-								return false;
-							}
-							value = static_cast<value_type>(i);
-							++iter;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
+				if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
+					if (!checkPostPrimitive(iterNew, iter, context)) [[unlikely]] {
+						return false;
 					}
+					++iter;
+					return true;
 				} else {
-					if constexpr (int64_types<value_type>) {
-						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
-							if (!checkPostPrimitive(iterNew, iter, context)) [[unlikely]] {
-								return false;
-							}
-							++iter;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					} else {
-						int64_t i;
-						if (auto iterNew = integer_parser<int64_t>::parseInt(i, valueStart, valueEnd); iterNew) {
-							if (!checkPostPrimitive(iterNew, iter, context)) [[unlikely]] {
-								return false;
-							}
-							value = static_cast<value_type>(i);
-							++iter;
-							return true;
-						} else {
-							return reject<parse_statuses::invalid_number_value>(iter, context);
-						}
-					}
+					return reject<parse_statuses::invalid_number_value>(iter, context);
 				}
 			} else {
 				if constexpr (std::is_volatile_v<remove_reference_t<decltype(value)>>) {

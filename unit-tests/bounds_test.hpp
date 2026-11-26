@@ -93,8 +93,8 @@ namespace bounds_tests {
 				test_data_type jsonifierValue;
 				parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(
 					jsonifierValue, s);
-				if (parser.getErrors().size()) {
-					std::cout << "FULL PARSE FAILURE: " << parser.getErrors()[0].reportError() << std::endl;
+				if (parser.hasError()) {
+					std::cout << "FULL PARSE FAILURE: " << parser.getError().reportError() << std::endl;
 					return false;
 				}
 				random_die randomDie{};
@@ -103,7 +103,7 @@ namespace bounds_tests {
 				while (!s.empty()) {
 					parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified }>(
 						jsonifierValueLocal, s);
-					if (!parser.getErrors().size()) {
+					if (!parser.hasError()) {
 						std::cout << "BOUNDS TEST FAILURE, test: " << testNameRtUt.operator std::string() << ", repro seed: " << randomDie.getSeed() << std::endl;
 						return false;
 					}

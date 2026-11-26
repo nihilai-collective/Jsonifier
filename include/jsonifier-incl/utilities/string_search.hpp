@@ -471,7 +471,7 @@ namespace jsonifier::internal {
 	};
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::find(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<0>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<0>::impl(internal::forward<arg_types>(args)...) };
 		const uint64_t position{ needle.position };
 		if (needle.sizeVal == 0) {
 			return position <= length ? position : searchNpos;
@@ -488,7 +488,7 @@ namespace jsonifier::internal {
 	}
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::rfind(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<searchNpos>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<searchNpos>::impl(internal::forward<arg_types>(args)...) };
 		if (needle.sizeVal > length) {
 			return searchNpos;
 		}
@@ -505,22 +505,22 @@ namespace jsonifier::internal {
 	}
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::findFirstOf(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<0>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<0>::impl(internal::forward<arg_types>(args)...) };
 		return string_search_dispatch::forward<byte_matcher, byte_set_matcher>(text, length, needle);
 	}
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::findFirstNotOf(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<0>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<0>::impl(internal::forward<arg_types>(args)...) };
 		return string_search_dispatch::forward<inverted_matcher<byte_matcher>, inverted_matcher<byte_set_matcher>>(text, length, needle);
 	}
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::findLastOf(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<searchNpos>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<searchNpos>::impl(internal::forward<arg_types>(args)...) };
 		return string_search_dispatch::reverse<byte_matcher, byte_set_matcher>(text, length, needle);
 	}
 
 	template<typename... arg_types> JSONIFIER_INLINE constexpr uint64_t string_search::findLastNotOf(const char* text, uint64_t length, arg_types&&... args) noexcept {
-		const search_needle needle{ search_needle_builder<searchNpos>::impl(std::forward<arg_types>(args)...) };
+		const search_needle needle{ search_needle_builder<searchNpos>::impl(internal::forward<arg_types>(args)...) };
 		return string_search_dispatch::reverse<inverted_matcher<byte_matcher>, inverted_matcher<byte_set_matcher>>(text, length, needle);
 	}
 

@@ -83,15 +83,13 @@ namespace conformance_tests {
 	inline void runConformanceTest(const std::string& dataToParse, jsonifier::jsonifier_core<>& parser) {
 		static constexpr rt_ut::string_literal testName{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> + testTypeNullTerminated<nullTerminated> };
 		[[maybe_unused]] test_type valueNew{};
-		parser.getErrors().clear();
+		parser.getError().clear();
 		parser.parseJson<jsonifier::parse_options{ .nullTerminated = nullTerminated, .partialRead = partial, .knownOrder = knownOrder }>(valueNew, dataToParse);
 		rt_ut::unit_test<testName, true>::template assert_eq<parse_status>([&]() {
-			auto& errors = parser.getErrors();
-			for (auto& value: errors) {
-				std::cout << "Error: " << value.reportError() << std::endl;
-			}
-			if (errors.size() > 0) {
-				return errors[0].operator jsonifier::internal::parse_statuses();
+			auto& errorValue = parser.getError();
+			if (errorValue.hasError()) {
+				std::cout << "Error: " << errorValue.reportError() << std::endl;
+				return errorValue.operator jsonifier::internal::parse_statuses();
 			} else {
 				return jsonifier::internal::parse_statuses::success;
 			}
@@ -242,7 +240,7 @@ namespace conformance_tests {
 				jsonTests["fail73.json"].fileContents, parser);
 			runConformanceTest<"fail74.json", partial, knownOrder, nullTerminated, std::vector<int32_t>, jsonifier::internal::parse_statuses::invalid_number_value>(
 				jsonTests["fail74.json"].fileContents, parser);
-			runConformanceTest<"fail75.json", partial, knownOrder, nullTerminated, bool, jsonifier::internal::parse_statuses::invalid_bool_value>(
+			runConformanceTest<"fail75.json", partial, knownOrder, nullTerminated, bool, jsonifier::internal::parse_statuses::unexpected_end_of_input>(
 				jsonTests["fail75.json"].fileContents, parser);
 			runConformanceTest<"fail76.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 				jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["fail76.json"].fileContents, parser);

@@ -170,7 +170,7 @@ struct pass_tests_runner {
 		value_type_in data{};
 		rt_ut::unit_test<rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) }, true>::assert_eq(pass_values[index], [&]() {
 			parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder }>(data, pass_tests[index]);
-			for (auto& value: parser.getErrors()) {
+			if (auto& value = parser.getError(); value.hasError()) {
 				std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 			}
 			return static_cast<value_type_out>(data);

@@ -25,8 +25,8 @@ namespace generic_parser_tests {
 		const std::string input{ minified ? R"({"pad":")" + pad + R"(","k":"a\"b\\","n":-12345,"t":true})"
 										  : "{ \"pad\" : \"" + pad + "\",\n  \"k\" : \"a\\\"b\\\\\" ,\n  \"n\" : -12345 ,\n  \"t\" : true }\n" };
 		auto document{ parser.iterate<jsonifier::parse_options{ .minified = minified }>(input) };
-		return extracted<std::string_view>(document["pad"]) == pad && extracted<std::string_view>(document["k"]) == "a\"b\\" &&
-			extracted<int64_t>(document["n"]) == -12345 && extracted<bool>(document["t"]);
+		return extracted<std::string_view>(document["pad"]) == pad && extracted<std::string_view>(document["k"]) == "a\"b\\" && extracted<int64_t>(document["n"]) == -12345 &&
+			extracted<bool>(document["t"]);
 	}
 
 	template<bool minified> inline bool tailArrayParses(jsonifier::jsonifier_core<>& parser, uint64_t padLength) {

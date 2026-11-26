@@ -98,56 +98,56 @@
 	#endif
 #endif
 
-#if defined(__LZCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_LZCNT_PRE
+#if defined(__LZCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_HAS_LZCNT
 	#define JSONIFIER_LZCNT 1
 #else
 	#define JSONIFIER_LZCNT 0
 #endif
 
-#if defined(__POPCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX__)) || JSONIFIER_POPCNT_PRE
+#if defined(__POPCNT__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX__)) || JSONIFIER_HAS_POPCNT
 	#define JSONIFIER_POPCNT 1
 #else
 	#define JSONIFIER_POPCNT 0
 #endif
 
-#if defined(__BMI__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_BMI_PRE
+#if defined(__BMI__) || (JSONIFIER_COMPILER_MSVC && defined(__AVX2__)) || JSONIFIER_HAS_BMI1
 	#define JSONIFIER_BMI 1
 #else
 	#define JSONIFIER_BMI 0
 #endif
 
 #if defined(__PCLMUL__) || defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || (JSONIFIER_COMPILER_MSVC && (defined(__AVX2__) || JSONIFIER_ARCH_ARM64)) || \
-	JSONIFIER_CLMUL_PRE
+	JSONIFIER_HAS_CLMUL
 	#define JSONIFIER_CLMUL 1
 #else
 	#define JSONIFIER_CLMUL 0
 #endif
 
-#if defined(__AVX__) || JSONIFIER_AVX_PRE
+#if defined(__AVX__) || JSONIFIER_HAS_AVX
 	#define JSONIFIER_AVX 1
 #else
 	#define JSONIFIER_AVX 0
 #endif
 
-#if defined(__AVX2__) || JSONIFIER_AVX2_PRE
+#if defined(__AVX2__) || JSONIFIER_HAS_AVX2
 	#define JSONIFIER_AVX2 1
 #else
 	#define JSONIFIER_AVX2 0
 #endif
 
-#if (defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)) || JSONIFIER_AVX512_PRE
+#if (defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)) || JSONIFIER_HAS_AVX512
 	#define JSONIFIER_AVX512 1
 #else
 	#define JSONIFIER_AVX512 0
 #endif
 
-#if defined(__ARM_FEATURE_SVE2) || JSONIFIER_SVE2_PRE
+#if defined(__ARM_FEATURE_SVE2) || JSONIFIER_HAS_SVE2
 	#define JSONIFIER_SVE2 1
 #else
 	#define JSONIFIER_SVE2 0
 #endif
 
-#if ((defined(__ARM_NEON) || JSONIFIER_ARCH_ARM64 || JSONIFIER_NEON_PRE) && !JSONIFIER_SVE2)
+#if ((defined(__ARM_NEON) || JSONIFIER_ARCH_ARM64 || JSONIFIER_HAS_NEON) && !JSONIFIER_SVE2)
 	#define JSONIFIER_NEON 1
 #else
 	#define JSONIFIER_NEON 0

@@ -30,8 +30,8 @@ namespace jsonifier::internal {
 	using namespace simd;
 
 	consteval array<uint8_t, simdBytesPerRegister> genByte1HighTable() noexcept {
-		constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts,
-			tooShort | overLong2, tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
+		constexpr array<uint8_t, 16ULL> raw{ { tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, tooLong, twoConts, twoConts, twoConts, twoConts, tooShort | overLong2,
+			tooShort, tooShort | overLong3 | surrogate, tooShort | tooLarge | tooLarge1000 | overLong4 } };
 		array<uint8_t, simdBytesPerRegister> returnValue{};
 		for (uint64_t x{ 0 }; x < simdBytesPerRegister; ++x) {
 			returnValue[x] = raw[x % raw.size()];
@@ -118,18 +118,17 @@ namespace jsonifier::internal {
 		utf8_checker(const utf8_checker&)			 = delete;
 
 		JSONIFIER_INLINE jsonifier_simd_int_t checkMultibyteLengths(jsonifier_simd_int_t input, jsonifier_simd_int_t prev, jsonifier_simd_int_t sc) noexcept {
-			return opXor(opAnd(mustBe23Continuation(opPrev<14>(input, prev), opPrev<13>(input, prev)), gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x80u))), sc);
+			return opXor(opAnd(mustBe23Continuation(opPrev<14>(input, prev), opPrev<13>(input, prev)), gatherValue<jsonifier_simd_int_t, 0x80u>()), sc);
 		}
 
 		JSONIFIER_INLINE jsonifier_simd_int_t checkSpecialCases(jsonifier_simd_int_t input, jsonifier_simd_int_t p1) noexcept {
-			const jsonifier_simd_int_t loNibbleMask{ gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x0Fu)) };
+			const jsonifier_simd_int_t loNibbleMask{ gatherValue<jsonifier_simd_int_t, 0x0Fu>() };
 			return opAnd(opAnd(opShuffle(lookupH, opAnd(opSrLi<4>(p1), loNibbleMask)), opShuffle(lookupL, opAnd(p1, loNibbleMask))),
 				opShuffle(lookup2, opAnd(opSrLi<4>(input), loNibbleMask)));
 		}
 
 		JSONIFIER_INLINE jsonifier_simd_int_t mustBe23Continuation(jsonifier_simd_int_t p2, jsonifier_simd_int_t p3) noexcept {
-			return opOr(opSubs(p2, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xE0u - 0x80u))),
-				opSubs(p3, gatherValue<jsonifier_simd_int_t>(static_cast<char>(0xF0u - 0x80u))));
+			return opOr(opSubs(p2, gatherValue<jsonifier_simd_int_t, 0xE0u - 0x80u>()), opSubs(p3, gatherValue<jsonifier_simd_int_t, 0xF0u - 0x80u>()));
 		}
 
 		JSONIFIER_INLINE void checkChunk(jsonifier_simd_int_t input, jsonifier_simd_int_t prev) noexcept {
@@ -237,7 +236,7 @@ namespace jsonifier::internal {
 			tmp[bytesProcessed - 3] = state.prevBytes[0];
 			tmp[bytesProcessed - 2] = state.prevBytes[1];
 			tmp[bytesProcessed - 1] = state.prevBytes[2];
-			incompleteRegister		= state.prevIncomplete ? simd::gatherValue<simd_type>(static_cast<char>(0x80u)) : simd_type{};
+			incompleteRegister		= state.prevIncomplete ? simd::gatherValue<simd_type, 0x80u>() : simd_type{};
 			prevInput				= simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp));
 			touched					= true;
 		}
@@ -315,19 +314,19 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static simd_type continuationMask01() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0xE0u - 0x80u));
+			return simd::gatherValue<simd_type, 0xE0u - 0x80u>();
 		}
 
 		JSONIFIER_INLINE static simd_type continuationMask02() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0xF0u - 0x80u));
+			return simd::gatherValue<simd_type, 0xF0u - 0x80u>();
 		}
 
 		JSONIFIER_INLINE static simd_type maskNibble01() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0x80u));
+			return simd::gatherValue<simd_type, 0x80u>();
 		}
 
 		JSONIFIER_INLINE static simd_type loNibbleMask() noexcept {
-			return simd::gatherValue<simd_type>(static_cast<char>(0x0Fu));
+			return simd::gatherValue<simd_type, 0x0Fu>();
 		}
 
 		JSONIFIER_INLINE bool hardErrors() noexcept {

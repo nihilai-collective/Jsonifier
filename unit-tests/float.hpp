@@ -54,7 +54,7 @@ namespace float_validation_tests {
 		auto serialize = [&](double value) {
 			std::string buffer{};
 			parser.serializeJson(value, buffer);
-			for (auto& err: parser.getErrors()) {
+			if (auto& err = parser.getError(); err.hasError()) {
 				std::cout << "Jsonifier Error: " << err.reportError() << std::endl;
 			}
 			return buffer;
@@ -83,12 +83,12 @@ namespace float_validation_tests {
 		for (uint64_t i = 0; i < outputValues.size(); ++i) {
 			std::string buffer{};
 			parser.serializeJson(outputValues[i], buffer);
-			for (auto& err: parser.getErrors()) {
+			if (auto& err = parser.getError(); err.hasError()) {
 				std::cout << "Jsonifier Error: " << err.reportError() << std::endl;
 			}
 			double reparsed{};
 			parser.parseJson(reparsed, buffer);
-			for (auto& err: parser.getErrors()) {
+			if (auto& err = parser.getError(); err.hasError()) {
 				std::cout << "Jsonifier Error: " << err.reportError() << std::endl;
 			}
 			rt_ut::unit_test<"zmij_roundtrip_fidelity_of_parsed_values", true>::assert_eq(outputValues[i], [&]() {
@@ -130,8 +130,8 @@ namespace float_validation_tests {
 		static bool impl(jsonifier::jsonifier_core<>& parser, const std::string& line) {
 			double parsed{};
 			parser.parseJson(parsed, line);
-			if (!parser.getErrors().empty()) {
-				for (auto& err: parser.getErrors()) {
+			if (parser.hasError()) {
+				if (auto& err = parser.getError(); err.hasError()) {
 					std::cout << "Jsonifier Error: " << err.reportError() << std::endl;
 				}
 				return false;
@@ -174,8 +174,8 @@ namespace float_validation_tests {
 			std::vector<double> typed{};
 			parser.parseJson(typed, text);
 			bool result = true;
-			if (!parser.getErrors().empty()) {
-				for (auto& err: parser.getErrors()) {
+			if (parser.hasError()) {
+				if (auto& err = parser.getError(); err.hasError()) {
 					std::cout << "Jsonifier Error: " << err.reportError() << std::endl;
 				}
 				result = false;

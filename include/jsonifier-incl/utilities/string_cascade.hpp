@@ -41,6 +41,10 @@ namespace jsonifier::internal {
 			return simd::gatherValuesU<simd_type>(src);
 		}
 
+		template<uint8_t value> JSONIFIER_INLINE static simd_type splat() noexcept {
+			return simd::gatherValue<simd_type, value>();
+		}
+
 		JSONIFIER_INLINE static simd_type splat(const uint8_t value) noexcept {
 			return simd::gatherValue<simd_type>(static_cast<char>(value));
 		}
@@ -53,22 +57,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE static uint64_t escapes(const simd_type values) noexcept {
-			return bits(simd::opOr(simd::opCmpEqRaw(values, splat(uint_c_v<'\\'>)), simd::opCmpLtRaw(values, splat(0x20))));
+		JSONIFIER_INLINE static simd_type indices() noexcept {
+			return simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(+tail_block_builder::laneIndices));
 		}
 
-		JSONIFIER_INLINE static uint64_t stops(const simd_type values) noexcept {
-			return escapes(values) | bits(simd::opCmpEqRaw(values, splat(uint_c_v<'"'>)));
+		JSONIFIER_INLINE static uint64_t escapes(const simd_type values, const simd_type slashes, const simd_type spaces) noexcept {
+			return bits(simd::opOr(simd::opCmpEqRaw(values, slashes), simd::opCmpLtRaw(values, spaces)));
 		}
 
-		JSONIFIER_INLINE static uint64_t below(const uint64_t limit) noexcept {
+		JSONIFIER_INLINE static uint64_t stops(const simd_type values, const simd_type quotes, const simd_type slashes, const simd_type spaces) noexcept {
+			return escapes(values, slashes, spaces) | bits(simd::opCmpEqRaw(values, quotes));
+		}
+
+		JSONIFIER_INLINE static constexpr uint64_t below(const uint64_t limit) noexcept {
 			return limit < width ? (uint64_t{ 1 } << limit) - 1 : std::numeric_limits<uint64_t>::max();
 		}
 
-		JSONIFIER_INLINE static simd_type keepThrough(const simd_type values, const uint64_t lastLane) noexcept {
-			const simd_type spaces{ splat(0x20) };
-			const simd_type keep{ simd::opCmpLtRaw(simd::gatherValues<simd_type>(std::bit_cast<const simd_type*>(+tail_block_builder::laneIndices)),
-				splat(static_cast<uint8_t>(lastLane + 1))) };
+		JSONIFIER_INLINE static simd_type keepThrough(const simd_type values, const uint64_t lastLane, const simd_type laneIndices, const simd_type spaces) noexcept {
+			const simd_type keep{ simd::opCmpLtRaw(laneIndices, splat(static_cast<uint8_t>(lastLane + 1))) };
 			return simd::opXor(spaces, simd::opAnd(simd::opXor(values, spaces), keep));
 		}
 	};
@@ -110,32 +116,32 @@ namespace jsonifier::internal {
 			pow2MemcpyWrapper<sizeof(value)>(dst, &value);
 		}
 
-		JSONIFIER_INLINE static uint64_t hasByte(const uint64_t value, const uint8_t target) noexcept {
+		template<uint8_t target> JSONIFIER_INLINE static constexpr uint64_t hasByte(const uint64_t value) noexcept {
 			const uint64_t matched{ value ^ (cascadeSwarLows * target) };
 			return (matched - cascadeSwarLows) & ~matched & cascadeSwarHighs;
 		}
 
-		JSONIFIER_INLINE static uint64_t hasLess(const uint64_t value, const uint8_t bound) noexcept {
+		template<uint8_t bound> JSONIFIER_INLINE static constexpr uint64_t hasLess(const uint64_t value) noexcept {
 			return (value - cascadeSwarLows * bound) & ~value & cascadeSwarHighs;
 		}
 
-		JSONIFIER_INLINE static uint64_t escapes(const uint64_t value) noexcept {
-			return hasByte(value, uint_c_v<'\\'>) | hasLess(value, 0x20);
+		JSONIFIER_INLINE static constexpr uint64_t escapes(const uint64_t value) noexcept {
+			return hasByte<uint_c_v<'\\'>>(value) | hasLess<0x20>(value);
 		}
 
-		JSONIFIER_INLINE static uint64_t stops(const uint64_t value) noexcept {
-			return escapes(value) | hasByte(value, uint_c_v<'"'>);
+		JSONIFIER_INLINE static constexpr uint64_t stops(const uint64_t value) noexcept {
+			return escapes(value) | hasByte<uint_c_v<'"'>>(value);
 		}
 
-		JSONIFIER_INLINE static uint64_t below(const uint64_t limit) noexcept {
+		JSONIFIER_INLINE static constexpr uint64_t below(const uint64_t limit) noexcept {
 			return (uint64_t{ 1 } << (limit * 8)) - 1;
 		}
 
-		JSONIFIER_INLINE static uint64_t through(const uint64_t limit) noexcept {
+		JSONIFIER_INLINE static constexpr uint64_t through(const uint64_t limit) noexcept {
 			return (uint64_t{ 2 } << (limit * 8 + 7)) - 1;
 		}
 
-		JSONIFIER_INLINE static uint64_t first(const uint64_t mask) noexcept {
+		JSONIFIER_INLINE static constexpr uint64_t first(const uint64_t mask) noexcept {
 			return mask != 0 ? static_cast<uint64_t>(std::countr_zero(mask)) >> 3 : cascadeNoStop;
 		}
 	};
@@ -195,20 +201,20 @@ namespace jsonifier::internal {
 	};
 
 	struct cascade_page_safe_loader {
-		JSONIFIER_INLINE static bool direct(const uint8_t* src, const uint8_t* docEnd, const uint64_t width) noexcept {
+		template<uint64_t width> JSONIFIER_INLINE static bool direct(const uint8_t* src, const uint8_t* docEnd) noexcept {
 			const uint64_t available{ static_cast<uint64_t>(docEnd - src) };
-			return available >= width || tail_block_builder::readStaysInPage(src, available, width);
+			return available >= width || tail_block_builder::readStaysInPage<width>(src, available);
 		}
 
 		template<uint64_t width> JSONIFIER_INLINE static simd_register_t<width> vector(const uint8_t* src, const uint8_t* docEnd) noexcept {
-			if (direct(src, docEnd, width)) [[likely]] {
+			if (direct<width>(src, docEnd)) [[likely]] {
 				return cascade_lanes<width>::load(src);
 			}
 			return cascade_guarded_load<width>::copyLoad(src, docEnd);
 		}
 
 		JSONIFIER_INLINE static uint64_t swar(const uint8_t* src, const uint8_t* docEnd) noexcept {
-			if (direct(src, docEnd, cascadeSwarBytes)) [[likely]] {
+			if (direct<cascadeSwarBytes>(src, docEnd)) [[likely]] {
 				uint64_t value;
 				pow2MemcpyWrapper<sizeof(value)>(&value, src);
 				return value;
@@ -218,13 +224,13 @@ namespace jsonifier::internal {
 	};
 
 	template<bool repeat> struct cascade_repeat {
-		JSONIFIER_INLINE static bool impl(const uint8_t* src, const uint8_t* srcEnd) noexcept {
+		JSONIFIER_INLINE static constexpr bool impl(const uint8_t* src, const uint8_t* srcEnd) noexcept {
 			return src < srcEnd;
 		}
 	};
 
 	template<> struct cascade_repeat<false> {
-		JSONIFIER_INLINE static bool impl(const uint8_t*, const uint8_t*) noexcept {
+		JSONIFIER_INLINE static constexpr bool impl(const uint8_t*, const uint8_t*) noexcept {
 			return false;
 		}
 	};
@@ -232,12 +238,15 @@ namespace jsonifier::internal {
 	template<uint64_t width> struct cascade_exact_loop {
 		JSONIFIER_INLINE static bool impl(const uint8_t*& src, const uint8_t* contentEnd, uint8_t*& dst, utf8_validation_state& state) noexcept {
 			using lane = cascade_lanes<width>;
+			const simd_register_t<width> slashes{ lane::template splat<uint_c_v<'\\'>>() };
+			const simd_register_t<width> quotes{ lane::template splat<uint_c_v<'"'>>() };
+			const simd_register_t<width> spaces{ lane::template splat<0x20>() };
 			cascade_validator<width> validator{ state };
 			while (static_cast<uint64_t>(contentEnd - src) >= width) {
 				const simd_register_t<width> values{ lane::load(src) };
 				validator.checkRegister(values);
 				simd::storeU(values, dst);
-				const uint64_t stopMask{ lane::stops(values) };
+				const uint64_t stopMask{ lane::stops(values, quotes, slashes, spaces) };
 				if (stopMask != 0) {
 					const uint64_t offset{ static_cast<uint64_t>(std::countr_zero(stopMask)) };
 					src += offset;
@@ -261,9 +270,10 @@ namespace jsonifier::internal {
 			using lane = cascade_lanes<16>;
 			cascade_validator<16> validator{ state };
 			const simd_register_t<16> values{ loader::template vector<16>(src, docEnd) };
-			validator.checkRegister(lane::keepThrough(values, remaining));
-			valid					= !validator.hardErrors();
-			const uint64_t stopMask{ lane::stops(values) & lane::below(remaining) };
+			const simd_register_t<16> spaces{ lane::template splat<0x20>() };
+			validator.checkRegister(lane::keepThrough(values, remaining, lane::indices(), spaces));
+			valid = !validator.hardErrors();
+			const uint64_t stopMask{ lane::stops(values, lane::template splat<uint_c_v<'"'>>(), lane::template splat<uint_c_v<'\\'>>(), spaces) & lane::below(remaining) };
 			return stopMask != 0 ? static_cast<uint64_t>(std::countr_zero(stopMask)) : cascadeNoStop;
 		}
 
@@ -303,14 +313,18 @@ namespace jsonifier::internal {
 	template<uint64_t width, bool repeat> struct cascade_open_scan {
 		JSONIFIER_INLINE static cascade_status impl(const uint8_t*& src, const uint8_t* docEnd, uint8_t*& dst, utf8_validation_state& state) noexcept {
 			using lane = cascade_lanes<width>;
+			const simd_register_t<width> laneIndices{ lane::indices() };
+			const simd_register_t<width> slashes{ lane::template splat<uint_c_v<'\\'>>() };
+			const simd_register_t<width> quotes{ lane::template splat<uint_c_v<'"'>>() };
+			const simd_register_t<width> spaces{ lane::template splat<0x20>() };
 			cascade_validator<width> validator{ state };
 			do {
 				const simd_register_t<width> values{ cascade_guarded_load<width>::impl(src, docEnd) };
 				simd::storeU(values, dst);
-				const uint64_t stopMask{ lane::stops(values) };
+				const uint64_t stopMask{ lane::stops(values, quotes, slashes, spaces) };
 				if (stopMask != 0) {
 					const uint64_t offset{ static_cast<uint64_t>(std::countr_zero(stopMask)) };
-					validator.checkRegister(lane::keepThrough(values, offset));
+					validator.checkRegister(lane::keepThrough(values, offset, laneIndices, spaces));
 					src += offset;
 					dst += offset;
 					if (validator.hardErrors() || src >= docEnd) [[unlikely]] {
@@ -362,7 +376,8 @@ namespace jsonifier::internal {
 	};
 
 	struct string_cascade {
-		template<typename loader = cascade_bounded_loader> JSONIFIER_INLINE static uint8_t* exactImpl(const uint8_t* src, const uint8_t* contentEnd, const uint8_t* docEnd, uint8_t* dst) noexcept {
+		template<typename loader = cascade_bounded_loader>
+		JSONIFIER_INLINE static uint8_t* exactImpl(const uint8_t* src, const uint8_t* contentEnd, const uint8_t* docEnd, uint8_t* dst) noexcept {
 			utf8_validation_state state{};
 			if (!cascade_exact_loop<cascadeWidestBytes>::impl(src, contentEnd, dst, state)) [[unlikely]] {
 				return nullptr;
@@ -424,8 +439,9 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE static const uint8_t* findClosingQuote(const uint8_t* openQuote, const uint8_t* bound) noexcept {
+			const simd_register_t<16> quoteLanes{ cascade_lanes<16>::splat<uint_c_v<'"'>>() };
 			while (static_cast<uint64_t>(bound - openQuote) > 16) {
-				const uint64_t quotes{ cascade_lanes<16>::bits(simd::opCmpEqRaw(cascade_lanes<16>::load(bound - 16), cascade_lanes<16>::splat(uint_c_v<'"'>))) };
+				const uint64_t quotes{ cascade_lanes<16>::bits(simd::opCmpEqRaw(cascade_lanes<16>::load(bound - 16), quoteLanes)) };
 				if (quotes != 0) {
 					return bound - 16 + (std::bit_width(quotes) - 1);
 				}
@@ -501,21 +517,25 @@ namespace jsonifier::internal {
 	template<uint64_t width> struct cascade_quote_scan {
 		JSONIFIER_INLINE static bool impl(const uint8_t* src, const uint8_t* docEnd, uint64_t& rawLength, bool& nonAscii, bool& hasEscapes) noexcept {
 			using lane = cascade_lanes<width>;
+			const simd_register_t<width> laneIndices{ lane::indices() };
+			const simd_register_t<width> slashLanes{ lane::template splat<uint_c_v<'\\'>>() };
+			const simd_register_t<width> quoteLanes{ lane::template splat<uint_c_v<'"'>>() };
+			const simd_register_t<width> spaces{ lane::template splat<0x20>() };
 			const uint8_t* const start{ src };
 			simd_register_t<width> highs{};
 			uint64_t carryLocal{};
 			while (src < docEnd) {
 				const simd_register_t<width> values{ cascade_guarded_load<width>::impl(src, docEnd) };
-				uint64_t stopMask{ lane::stops(values) & ~carryLocal };
+				const uint64_t quotes{ lane::bits(simd::opCmpEqRaw(values, quoteLanes)) };
+				const uint64_t slashes{ lane::bits(simd::opCmpEqRaw(values, slashLanes)) };
+				uint64_t stopMask{ (quotes | slashes | lane::bits(simd::opCmpLtRaw(values, spaces))) & ~carryLocal };
 				carryLocal = 0;
 				if (stopMask != 0) {
-					const uint64_t quotes{ lane::bits(simd::opCmpEqRaw(values, lane::splat(uint_c_v<'"'>))) };
-					const uint64_t slashes{ lane::bits(simd::opCmpEqRaw(values, lane::splat(uint_c_v<'\\'>))) };
 					do {
 						const uint64_t offset{ static_cast<uint64_t>(std::countr_zero(stopMask)) };
 						const uint64_t bit{ uint64_t{ 1 } << offset };
 						if ((quotes & bit) != 0) {
-							nonAscii  = lane::bits(simd::opOr(highs, lane::keepThrough(values, offset))) != 0;
+							nonAscii  = lane::bits(simd::opOr(highs, lane::keepThrough(values, offset, laneIndices, spaces))) != 0;
 							rawLength = static_cast<uint64_t>(src - start) + offset;
 							return src + offset < docEnd;
 						}
@@ -545,7 +565,7 @@ namespace jsonifier::internal {
 			}
 			const uint64_t remaining{ static_cast<uint64_t>(srcEnd - src) };
 			if (remaining != 0) {
-				validator.checkRegister(lane::keepThrough(cascade_guarded_load<width>::impl(src, docEnd), remaining - 1));
+				validator.checkRegister(lane::keepThrough(cascade_guarded_load<width>::impl(src, docEnd), remaining - 1, lane::indices(), lane::template splat<0x20>()));
 			}
 			validator.flush();
 			return !state.error && !state.prevIncomplete;

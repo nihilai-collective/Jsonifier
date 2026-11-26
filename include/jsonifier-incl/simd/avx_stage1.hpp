@@ -121,8 +121,8 @@ namespace jsonifier::internal::simd {
 		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in01,
 			const simd_register_t<registerBytes> bsRegister, const simd_register_t<registerBytes> quoteRegister) noexcept;
 
-		template<typename... prefix_xor_args>
-		JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister, const prefix_xor_args... prefixXorArgs) noexcept {
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void next(const simd_array_t in01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister,
+			const prefix_xor_args... prefixXorArgs) noexcept {
 			const uint64_t escaped{ nextEscapeAndTerminalCode(cmp_eq_op::impl(in01, bsRegister)) };
 			uint64_t rawQuotes{ cmp_eq_op::impl(in01, quoteRegister) };
 	#if JSONIFIER_COMPILER_GCC
@@ -131,7 +131,7 @@ namespace jsonifier::internal::simd {
 			const uint64_t quotes{ rawQuotes & ~escaped };
 			rope_block::escaped = escaped;
 			rope_block::quotes	= quotes;
-			return finishNext(prefixXorArgs...);
+			return finishNextGated(prefixXorArgs...);
 		}
 
 		JSONIFIER_INLINE uint64_t nextEscapeAndTerminalCode(const uint64_t backslashLocal) noexcept {
@@ -158,6 +158,14 @@ namespace jsonifier::internal::simd {
 			const uint64_t shifted{ (nonquoteScalar << 1) | prevScalar };
 			prevScalar = nonquoteScalar >> 63;
 			return shifted;
+		}
+
+		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNextGated(const prefix_xor_args... prefixXorArgs) noexcept {
+			return rope_block::quotes ? finishNext(prefixXorArgs...) : finishNextNoInString();
+		}
+
+		JSONIFIER_INLINE void finishNextNoInString() noexcept {
+			rope_block::inString = prevInString;
 		}
 
 		template<typename... prefix_xor_args> JSONIFIER_INLINE void finishNext(const prefix_xor_args... prefixXorArgs) noexcept {
@@ -286,7 +294,7 @@ namespace jsonifier::internal::simd {
 		const uint64_t quotes{ (pod_cmp_eq_op<registerBytes, registerCount>::impl(in01, quoteRegister) & ~escaped) };
 		rope_block::escaped = escaped;
 		rope_block::quotes	= quotes;
-		return finishNext();
+		return finishNextGated();
 	}
 
 	struct tape_writer_op {

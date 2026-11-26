@@ -226,7 +226,7 @@ namespace jsonifier::internal {
 
 	template<typename executor_type, uint64_t... indices> struct string_parse_executor<executor_type, integer_sequence<indices...>> {
 		template<typename... arg_types> JSONIFIER_INLINE static bool impl(arg_types&&... args) noexcept {
-			return ((executor_type::template impl<indices>(std::forward<arg_types>(args)...) != nullptr) && ...);
+			return ((executor_type::template impl<indices>(internal::forward<arg_types>(args)...) != nullptr) && ...);
 		}
 	};
 
@@ -282,9 +282,9 @@ namespace jsonifier::internal {
 				static constexpr integer_type laneMask{ static_cast<integer_type>(std::numeric_limits<integer_type>::max() >> (sizeof(integer_type) * 8 - laneBitCount)) };
 
 				const auto stringEndNew{ string1End - bytesProcessed };
-				const simd_type simdValues01{ simd::gatherValue<simd_type>('"') };
-				const simd_type simdValues02{ simd::gatherValue<simd_type>('\\') };
-				const simd_type simdValues03{ simd::gatherValue<simd_type>(static_cast<char>(32)) };
+				const simd_type simdValues01{ simd::gatherValue<simd_type, '"'>() };
+				const simd_type simdValues02{ simd::gatherValue<simd_type, '\\'>() };
+				const simd_type simdValues03{ simd::gatherValue<simd_type, 0x20>() };
 				while (string1Start <= stringEndNew) {
 					const simd_type simdValue{ simd::gatherValuesU<simd_type>(string1Start) };
 					const integer_type escapeMask{ escapeBits<integer_type>(simdValue, simdValues01, simdValues02, simdValues03) };
@@ -330,9 +330,9 @@ namespace jsonifier::internal {
 			using simd_type		  = typename simd_list_local::type::type;
 			static constexpr uint64_t bitsPerByte{ sizeof(integer_type) * 8 / 16 };
 			const simd_type simdValue{ simd::gatherValuesU<simd_type>(string1End - 16) };
-			const simd_type simdValues01{ simd::gatherValue<simd_type>('"') };
-			const simd_type simdValues02{ simd::gatherValue<simd_type>('\\') };
-			const simd_type simdValues03{ simd::gatherValue<simd_type>(static_cast<char>(32)) };
+			const simd_type simdValues01{ simd::gatherValue<simd_type, '"'>() };
+			const simd_type simdValues02{ simd::gatherValue<simd_type, '\\'>() };
+			const simd_type simdValues03{ simd::gatherValue<simd_type, 0x20>() };
 			const integer_type escapeMask{ static_cast<integer_type>(
 				escapeBits<integer_type>(simdValue, simdValues01, simdValues02, simdValues03) >> (bitsPerByte * (16 - remaining))) };
 			if (escapeMask == 0) [[likely]] {
@@ -434,9 +434,9 @@ namespace jsonifier::internal {
 			using simd_type		  = typename simd_list_local::type::type;
 			static constexpr uint64_t bitsPerByte{ sizeof(integer_type) * 8 / 16 };
 			const simd_type simdValue{ loadPageSafe16<simd_type>(&*string1Start) };
-			const simd_type simdValues01{ simd::gatherValue<simd_type>('"') };
-			const simd_type simdValues02{ simd::gatherValue<simd_type>('\\') };
-			const simd_type simdValues03{ simd::gatherValue<simd_type>(static_cast<char>(32)) };
+			const simd_type simdValues01{ simd::gatherValue<simd_type, '"'>() };
+			const simd_type simdValues02{ simd::gatherValue<simd_type, '\\'>() };
+			const simd_type simdValues03{ simd::gatherValue<simd_type, 0x20>() };
 			const integer_type lengthMask{ static_cast<integer_type>((uint64_t{ 1 } << (bitsPerByte * length)) - 1) };
 			const integer_type escapeMask{ static_cast<integer_type>(escapeBits<integer_type>(simdValue, simdValues01, simdValues02, simdValues03) & lengthMask) };
 			if (escapeMask == 0) [[likely]] {
@@ -453,9 +453,9 @@ namespace jsonifier::internal {
 			using integer_type	  = typename simd_list_local::integer_type;
 			using simd_type		  = typename simd_list_local::type::type;
 			static constexpr uint64_t bytesProcessed{ simd_list_local::bytesProcessed };
-			const simd_type simdValues01{ simd::gatherValue<simd_type>('"') };
-			const simd_type simdValues02{ simd::gatherValue<simd_type>('\\') };
-			const simd_type simdValues03{ simd::gatherValue<simd_type>(static_cast<char>(32)) };
+			const simd_type simdValues01{ simd::gatherValue<simd_type, '"'>() };
+			const simd_type simdValues02{ simd::gatherValue<simd_type, '\\'>() };
+			const simd_type simdValues03{ simd::gatherValue<simd_type, 0x20>() };
 			const simd_type head{ simd::gatherValuesU<simd_type>(string1Start) };
 			const simd_type tail{ simd::gatherValuesU<simd_type>(string1Start + (length - bytesProcessed)) };
 			const integer_type escapeMask{ static_cast<integer_type>(

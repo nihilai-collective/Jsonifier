@@ -138,34 +138,17 @@ namespace jsonifier::internal {
 		uint64_t low;
 	};
 
-	JSONIFIER_INLINE constexpr uint64_t emulu(uint32_t x, uint32_t y) noexcept {
-		return x * static_cast<uint64_t>(y);
-	}
-
-	JSONIFIER_INLINE constexpr uint64_t umul128Generic(uint64_t ab, uint64_t cd, uint64_t* hi) noexcept {
-		uint64_t ad{ emulu(static_cast<uint32_t>(ab >> 32), static_cast<uint32_t>(cd)) };
-		uint64_t bd{ emulu(static_cast<uint32_t>(ab), static_cast<uint32_t>(cd)) };
-		uint64_t adbc{ ad + emulu(static_cast<uint32_t>(ab), static_cast<uint32_t>(cd >> 32)) };
-		uint64_t adbcCarry{ static_cast<uint64_t>(adbc < ad) };
-		uint64_t lo{ bd + (adbc << 32) };
-		*hi = emulu(static_cast<uint32_t>(ab >> 32), static_cast<uint32_t>(cd >> 32)) + (adbc >> 32) + (adbcCarry << 32) + static_cast<uint64_t>(lo < bd);
-		return lo;
-	}
-
 	JSONIFIER_INLINE value_128 fullMultiplication(uint64_t a, uint64_t b) noexcept {
 		value_128 answer;
-#if JSONIFIER_PLATFORM_WINDOWS && JSONIFIER_ARCH_ARM64
-
-		answer.high = __umulh(a, b);
-		answer.low	= a * b;
-#elif (JSONIFIER_PLATFORM_WINDOWS && !JSONIFIER_COMPILER_CLANG && !JSONIFIER_ARCH_ARM64)
-		answer.low = _umul128(a, b, &answer.high);
-#elif defined(__SIZEOF_INT128__)
-		__uint128_t r{ (static_cast<__uint128_t>(a)) * b };
+#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
+		const __uint128_t r{ static_cast<__uint128_t>(a) * b };
 		answer.low	= static_cast<uint64_t>(r);
 		answer.high = static_cast<uint64_t>(r >> 64);
+#elif JSONIFIER_ARCH_ARM64
+		answer.high = __umulh(a, b);
+		answer.low	= a * b;
 #else
-		answer.low = umul128Generic(a, b, &answer.high);
+		answer.low = _umul128(a, b, &answer.high);
 #endif
 		return answer;
 	}
@@ -815,8 +798,7 @@ namespace jsonifier::internal {
 	}
 
 	JSONIFIER_INLINE limb scalarMul(limb x, limb y, limb& carryLocal) noexcept {
-#if defined(__SIZEOF_INT128__)
-
+#if JSONIFIER_COMPILER_CLANG || JSONIFIER_COMPILER_GCC
 		__uint128_t z{ __uint128_t(x) * __uint128_t(y) + __uint128_t(carryLocal) };
 		carryLocal = limb(z >> limbBits);
 		return limb(z);
@@ -1492,9 +1474,9 @@ namespace jsonifier::internal {
 	};
 
 	struct parsed_number {
-		read_buffer_ptr lastMatch{};
 		span<uint8_t> fraction{};
 		span<uint8_t> integer{};
+		read_buffer_ptr lastMatch{};
 		uint64_t mantissa{};
 		int64_t exponent{};
 		bool tooManyDigits{};

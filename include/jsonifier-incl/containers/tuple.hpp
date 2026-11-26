@@ -89,49 +89,49 @@ namespace jsonifier::internal {
 	struct eq_op {
 		template<typename value_type_01, eq_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) == std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) == internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct neq_op {
 		template<typename value_type_01, neq_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) != std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) != internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct lt_op {
 		template<typename value_type_01, lt_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) < std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) < internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct lte_op {
 		template<typename value_type_01, lte_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) <= std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) <= internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct gt_op {
 		template<typename value_type_01, gt_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) > std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) > internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct gte_op {
 		template<typename value_type_01, gte_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr bool impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) >= std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) >= internal::forward<value_type_02>(val02);
 		}
 	};
 
 	struct ss_op {
 		template<typename value_type_01, ss_comparable_types<value_type_01> value_type_02>
 		JSONIFIER_INLINE static constexpr auto impl(value_type_01&& val01, value_type_02&& val02) noexcept {
-			return std::forward<value_type_01>(val01) <=> std::forward<value_type_02>(val02);
+			return internal::forward<value_type_01>(val01) <=> internal::forward<value_type_02>(val02);
 		}
 	};
 
@@ -300,7 +300,7 @@ namespace jsonifier::internal {
 	template<uint64_t index, typename tuple_type>
 		requires(specialization_of_types<remove_cvref_t<tuple_type>, tuple>)
 	JSONIFIER_INLINE constexpr decltype(auto) getBecauseOtherLibAuthorsResolve(tuple_type&& t JSONIFIER_LIFETIME_BOUND) noexcept {
-		return std::forward<tuple_type>(t)[tag<index>{}];
+		return internal::forward<tuple_type>(t)[tag<index>{}];
 	}
 
 	struct completion_signal {
@@ -335,12 +335,12 @@ namespace jsonifier::internal {
 
 	template<typename target_type, typename tuple_type> JSONIFIER_INLINE constexpr decltype(auto) get(tuple_type&& tupleVal) noexcept {
 		static constexpr uint64_t index{ index_finder<target_type, tuple_type, make_integer_sequence<remove_cvref_t<tuple_type>::size>>::index };
-		return std::forward<tuple_type>(tupleVal)[tag<index>{}];
+		return internal::forward<tuple_type>(tupleVal)[tag<index>{}];
 	}
 
 	template<typename... types> JSONIFIER_INLINE constexpr auto makeTuple(types&&... args) noexcept {
 		using base = type_list_t<types...>;
-		return tuple<types...>{ base{ { std::forward<types>(args) }... } };
+		return tuple<types...>{ base{ { internal::forward<types>(args) }... } };
 	}
 
 	template<typename... tuple_types> struct join_tuples;
@@ -378,7 +378,7 @@ namespace jsonifier::internal {
 
 		template<uint64_t... indices> struct tuple_cat_impl_internal<integer_sequence<indices...>> {
 			template<typename list_type> JSONIFIER_INLINE static constexpr decltype(auto) impl(list_type&& lists) noexcept {
-				return result_type{ { { getIndividualElement<indices>(std::forward<list_type>(lists)) }... } };
+				return result_type{ { { getIndividualElement<indices>(internal::forward<list_type>(lists)) }... } };
 			}
 		};
 
@@ -433,6 +433,6 @@ namespace std {
 	template<uint64_t index, typename tuple_type>
 		requires(jsonifier::internal::specialization_of_types<remove_cvref_t<tuple_type>, jsonifier::internal::tuple>)
 	JSONIFIER_INLINE constexpr decltype(auto) get(tuple_type&& t) noexcept {
-		return jsonifier::internal::getBecauseOtherLibAuthorsResolve<index>(std::forward<tuple_type>(t));
+		return jsonifier::internal::getBecauseOtherLibAuthorsResolve<index>(jsonifier::internal::forward<tuple_type>(t));
 	}
 }
