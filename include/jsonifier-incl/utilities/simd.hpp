@@ -867,7 +867,7 @@ namespace jsonifier::internal {
 		uint64_t capacity{};
 	};
 
-#if JSONIFIER_COMPILER_CLANG
+#if JSONIFIER_COMPILER_CLANG && !JSONIFIER_AVX512
 	using simd_string_reader = simd_string_reader_members;
 #else
 	using simd_string_reader = simd_string_reader_locals;
