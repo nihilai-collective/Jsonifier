@@ -23,7 +23,7 @@ namespace jsonifier::internal {
 	inline constexpr uint64_t smallDocumentBytes{ 512 };
 	inline constexpr uint64_t simdBlocksPerStep{ 8 };
 #elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG && JSONIFIER_PLATFORM_WINDOWS
-	inline constexpr uint64_t smallDocumentBytes{ 4096 };
+	inline constexpr uint64_t smallDocumentBytes{ 0 };
 	inline constexpr uint64_t simdBlocksPerStep{ 1 };
 #elif JSONIFIER_AVX512 && JSONIFIER_COMPILER_CLANG
 	inline constexpr uint64_t smallDocumentBytes{ 0 };
